@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, doc, getDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
-import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ExternalLink, Menu, X } from 'lucide-react';
+import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ExternalLink, Menu, X, Youtube, MessageCircle, Send } from 'lucide-react';
 
 type DashboardTab = 'home' | 'mock_topic' | 'mock_sectional' | 'mock_full' | 'notes' | 'video' | 'pyq' | 'pattern';
 
@@ -19,6 +19,7 @@ export default function Dashboard() {
   const [pyqs, setPyqs] = useState<any[]>([]);
   const [patterns, setPatterns] = useState<any[]>([]);
   const [carousels, setCarousels] = useState<any[]>([]);
+  const [socialLinks, setSocialLinks] = useState({ youtube: '', telegram: '', whatsapp: '' });
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DashboardTab>('home');
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
@@ -55,6 +56,17 @@ export default function Dashboard() {
         // Fetch Carousels
         const carouselsSnap = await getDocs(query(collection(db, 'carousel'), orderBy('createdAt', 'desc')));
         setCarousels(carouselsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
+        // Fetch Social Links
+        const socialSnap = await getDoc(doc(db, 'settings', 'social_links'));
+        if (socialSnap.exists()) {
+          const data = socialSnap.data();
+          setSocialLinks({
+            youtube: data.youtube || '',
+            telegram: data.telegram || '',
+            whatsapp: data.whatsapp || ''
+          });
+        }
 
         // Fetch Past Results
         const resultsQuery = query(collection(db, 'results'), where('userId', '==', user.uid));
@@ -292,6 +304,48 @@ export default function Dashboard() {
                    )}
                 </div>
               )}
+
+              {/* Social Links Box */}
+              <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+                {socialLinks.youtube && (
+                  <a href={socialLinks.youtube} target="_blank" rel="noopener noreferrer" className="flex items-center p-4 bg-white border border-red-100 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-red-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="w-12 h-12 bg-red-100 text-red-600 rounded-xl flex items-center justify-center mr-4 relative z-10 group-hover:scale-110 transition-transform">
+                      <Youtube className="w-6 h-6" />
+                    </div>
+                    <div className="relative z-10">
+                      <h4 className="font-bold text-slate-800 text-sm">Subscribe YouTube Channel</h4>
+                      <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mt-0.5">For latest updates</p>
+                    </div>
+                  </a>
+                )}
+                
+                {socialLinks.whatsapp && (
+                  <a href={socialLinks.whatsapp} target="_blank" rel="noopener noreferrer" className="flex items-center p-4 bg-white border border-green-100 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-green-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="w-12 h-12 bg-green-100 text-green-600 rounded-xl flex items-center justify-center mr-4 relative z-10 group-hover:scale-110 transition-transform">
+                      <MessageCircle className="w-6 h-6" />
+                    </div>
+                    <div className="relative z-10">
+                      <h4 className="font-bold text-slate-800 text-sm">Join WhatsApp Group</h4>
+                      <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mt-0.5">For Updated Content</p>
+                    </div>
+                  </a>
+                )}
+
+                {socialLinks.telegram && (
+                  <a href={socialLinks.telegram} target="_blank" rel="noopener noreferrer" className="flex items-center p-4 bg-white border border-blue-100 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mr-4 relative z-10 group-hover:scale-110 transition-transform">
+                      <Send className="w-6 h-6" />
+                    </div>
+                    <div className="relative z-10">
+                      <h4 className="font-bold text-slate-800 text-sm">Join Telegram Group</h4>
+                      <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mt-0.5">For PDF, Practice set</p>
+                    </div>
+                  </a>
+                )}
+              </div>
             </div>
           )}
 

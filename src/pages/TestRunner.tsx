@@ -36,6 +36,14 @@ export default function TestRunner() {
         const res = await fetch(`/api/test/${testId}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
+        
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("text/html")) {
+          const text = await res.text();
+          console.error("HTML response in loadTest:", text);
+          throw new Error(`Server returned HTML instead of JSON. The backend might be offline. Status: ${res.status}`);
+        }
+
         if (!res.ok) {
           const errorData = await res.json();
           throw new Error(errorData.error || 'Failed to load test');
@@ -139,6 +147,13 @@ export default function TestRunner() {
         body: JSON.stringify({ testId, answers: payload })
       });
       
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.includes("text/html")) {
+        const text = await res.text();
+        console.error("HTML response in submitTest:", text);
+        throw new Error(`Server returned HTML instead of JSON. The backend might be offline. Status: ${res.status}`);
+      }
+
       const responseData = await res.json();
       
       if (!res.ok) {

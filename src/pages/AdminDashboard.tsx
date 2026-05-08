@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
-import { collection, query, getDocs, orderBy, doc, deleteDoc, where, addDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import { collection, query, getDocs, orderBy, doc, deleteDoc, where, addDoc, serverTimestamp, onSnapshot, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
@@ -49,6 +49,12 @@ function AdminHome() {
   const [carouselFile, setCarouselFile] = useState<File | null>(null);
   const [uploadingCarousel, setUploadingCarousel] = useState(false);
 
+  // Social Links Form
+  const [socialYoutube, setSocialYoutube] = useState('');
+  const [socialTelegram, setSocialTelegram] = useState('');
+  const [socialWhatsapp, setSocialWhatsapp] = useState('');
+  const [savingSocials, setSavingSocials] = useState(false);
+
   const user = useAuth().user;
 
   useEffect(() => {
@@ -63,27 +69,36 @@ function AdminHome() {
     const unsubTests = onSnapshot(qTests, (snap) => {
       setTests(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoading(false);
-    });
+    }, (err) => console.error(err));
 
     const unsubNotes = onSnapshot(qNotes, (snap) => {
       setNotes(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
+    }, (err) => console.error(err));
 
     const unsubVideos = onSnapshot(qVideos, (snap) => {
       setVideos(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
+    }, (err) => console.error(err));
 
     const unsubPyqs = onSnapshot(qPyqs, (snap) => {
       setPyqs(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
+    }, (err) => console.error(err));
 
     const unsubPatterns = onSnapshot(qPatterns, (snap) => {
       setPatterns(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
+    }, (err) => console.error(err));
 
     const unsubCarousels = onSnapshot(qCarousels, (snap) => {
       setCarousels(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
+    }, (err) => console.error(err));
+
+    const unsubSocials = onSnapshot(doc(db, 'settings', 'social_links'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        setSocialYoutube(data.youtube || '');
+        setSocialTelegram(data.telegram || '');
+        setSocialWhatsapp(data.whatsapp || '');
+      }
+    }, (err) => console.error(err));
 
     return () => {
       unsubTests();
@@ -92,6 +107,7 @@ function AdminHome() {
       unsubPyqs();
       unsubPatterns();
       unsubCarousels();
+      unsubSocials();
     };
   }, []);
 
@@ -273,6 +289,27 @@ function AdminHome() {
     }
   };
 
+  const handleSaveSocials = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    setSavingSocials(true);
+    try {
+      await setDoc(doc(db, 'settings', 'social_links'), {
+        youtube: socialYoutube,
+        telegram: socialTelegram,
+        whatsapp: socialWhatsapp,
+        updatedAt: serverTimestamp(),
+        authorId: user.uid
+      });
+      alert('Social links updated successfully!');
+    } catch (err) {
+      console.error(err);
+      alert('Error updating social links. Make sure you have the correct permissions.');
+    } finally {
+      setSavingSocials(false);
+    }
+  };
+
   const handleDeleteContent = async (coll: string, id: string) => {
     if (!confirm('Are you sure you want to delete this permanently?')) return;
     if (!user) return;
@@ -413,6 +450,14 @@ function AdminHome() {
         >
           <Plus className="w-4 h-4" />
           Carousel
+        </button>
+        <button 
+          onClick={() => setActiveTab('social')}
+          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all
+            ${activeTab === 'social' ? 'bg-cyan-600 text-white shadow-md shadow-cyan-100' : 'text-slate-500 hover:text-cyan-600 hover:bg-cyan-50'}`}
+        >
+          <Plus className="w-4 h-4" />
+          Social Links
         </button>
       </div>
 
@@ -869,6 +914,52 @@ function AdminHome() {
           </div>
         </div>
       )}
+
+      {activeTab === 'social' && (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-2">
+            <span className="w-2 h-8 bg-cyan-600 rounded-full"></span>
+            Social Links Management
+          </h2>
+          
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
+            <h3 className="text-lg font-bold text-slate-800 mb-6">Update Links</h3>
+            <form onSubmit={handleSaveSocials} className="space-y-6">
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">YouTube Channel URL</label>
+                <input 
+                  type="url"
+                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
+                  value={socialYoutube} onChange={e => setSocialYoutube(e.target.value)} 
+                  placeholder="https://youtube.com/..."
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Telegram Channel URL</label>
+                <input 
+                  type="url"
+                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
+                  value={socialTelegram} onChange={e => setSocialTelegram(e.target.value)} 
+                  placeholder="https://t.me/..."
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">WhatsApp Group URL</label>
+                <input 
+                  type="url"
+                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
+                  value={socialWhatsapp} onChange={e => setSocialWhatsapp(e.target.value)} 
+                  placeholder="https://chat.whatsapp.com/..."
+                />
+              </div>
+              <button disabled={savingSocials} type="submit" className="w-full md:w-auto bg-cyan-600 disabled:opacity-50 text-white px-8 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-cyan-50 flex items-center justify-center gap-2">
+                <CheckCircle className="w-5 h-5" />
+                {savingSocials ? 'Saving...' : 'Save Links'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -894,7 +985,7 @@ function QuestionManager() {
       qs.sort((a, b) => (a.qNo || 0) - (b.qNo || 0));
       setQuestions(qs);
       setLoading(false);
-    });
+    }, (err) => console.error(err));
     return () => unsub();
   }, [testId]);
 

@@ -74,7 +74,7 @@ async function verifyAdmin(req: express.Request, res: express.Response, next: ex
 const app = express();
 const PORT = parseInt(process.env.PORT as string) || 3000;
 
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
 app.use(cookieParser());
 
 // API Routes
@@ -396,6 +396,11 @@ app.use(cookieParser());
     }
   });
 
+  // Catch-all for API routes to prevent HTML responses
+  app.all("/api/*", (req, res) => {
+    res.status(404).json({ error: `API Route Not Found: ${req.method} ${req.url}` });
+  });
+
 // Vite Integration
 async function startVite() {
   if (process.env.NODE_ENV !== "production") {
@@ -412,6 +417,16 @@ async function startVite() {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
+
+  // Global error handler to prevent HTML stack traces
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error("Unhandled Express Error:", err);
+    if (req.path.startsWith('/api/')) {
+      res.status(500).json({ error: "Internal Server Error", details: err.message });
+    } else {
+      next(err);
+    }
+  });
 
   // Only listen if not deployed on Vercel
   if (!process.env.VERCEL) {
