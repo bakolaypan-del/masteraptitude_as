@@ -305,43 +305,43 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* Social Links Box */}
-              <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Social Links Box - Single Line */}
+              <div className="mt-8 grid grid-cols-3 gap-2 sm:gap-4">
                 {socialLinks.youtube && (
-                  <a href={socialLinks.youtube} target="_blank" rel="noopener noreferrer" className="flex items-center p-4 bg-white border border-red-100 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
-                    <div className="absolute inset-0 bg-gradient-to-r from-red-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <div className="w-12 h-12 bg-red-100 text-red-600 rounded-xl flex items-center justify-center mr-4 relative z-10 group-hover:scale-110 transition-transform">
-                      <Youtube className="w-6 h-6" />
+                  <a href={socialLinks.youtube} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-2 sm:p-4 bg-white border border-red-100 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
+                    <div className="absolute inset-0 bg-gradient-to-b from-red-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="w-8 h-8 sm:w-12 sm:h-12 bg-red-100 text-red-600 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 relative z-10 group-hover:scale-110 transition-transform">
+                      <Youtube className="w-4 h-4 sm:w-6 sm:h-6" />
                     </div>
-                    <div className="relative z-10">
-                      <h4 className="font-bold text-slate-800 text-sm">Subscribe YouTube Channel</h4>
-                      <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mt-0.5">For latest updates</p>
+                    <div className="relative z-10 text-center">
+                      <h4 className="font-bold text-slate-800 text-[9px] sm:text-[13px] leading-tight">YouTube Channel</h4>
+                      <p className="text-[7px] sm:text-[10px] text-slate-500 mt-1 leading-relaxed">Click here to Subscribe YouTube channel for free classes.</p>
                     </div>
                   </a>
                 )}
                 
                 {socialLinks.whatsapp && (
-                  <a href={socialLinks.whatsapp} target="_blank" rel="noopener noreferrer" className="flex items-center p-4 bg-white border border-green-100 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
-                    <div className="absolute inset-0 bg-gradient-to-r from-green-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <div className="w-12 h-12 bg-green-100 text-green-600 rounded-xl flex items-center justify-center mr-4 relative z-10 group-hover:scale-110 transition-transform">
-                      <MessageCircle className="w-6 h-6" />
+                  <a href={socialLinks.whatsapp} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-2 sm:p-4 bg-white border border-green-100 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
+                    <div className="absolute inset-0 bg-gradient-to-b from-green-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="w-8 h-8 sm:w-12 sm:h-12 bg-green-100 text-green-600 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 relative z-10 group-hover:scale-110 transition-transform">
+                      <MessageCircle className="w-4 h-4 sm:w-6 sm:h-6" />
                     </div>
-                    <div className="relative z-10">
-                      <h4 className="font-bold text-slate-800 text-sm">Join WhatsApp Group</h4>
-                      <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mt-0.5">For Updated Content</p>
+                    <div className="relative z-10 text-center">
+                      <h4 className="font-bold text-slate-800 text-[9px] sm:text-[13px] leading-tight">WhatsApp Group</h4>
+                      <p className="text-[7px] sm:text-[10px] text-slate-500 mt-1 leading-relaxed">Click here to join WhatsApp Group for updates content.</p>
                     </div>
                   </a>
                 )}
 
                 {socialLinks.telegram && (
-                  <a href={socialLinks.telegram} target="_blank" rel="noopener noreferrer" className="flex items-center p-4 bg-white border border-blue-100 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mr-4 relative z-10 group-hover:scale-110 transition-transform">
-                      <Send className="w-6 h-6" />
+                  <a href={socialLinks.telegram} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-2 sm:p-4 bg-white border border-blue-100 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
+                    <div className="absolute inset-0 bg-gradient-to-b from-blue-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="w-8 h-8 sm:w-12 sm:h-12 bg-blue-100 text-blue-600 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 relative z-10 group-hover:scale-110 transition-transform">
+                      <Send className="w-4 h-4 sm:w-6 sm:h-6" />
                     </div>
-                    <div className="relative z-10">
-                      <h4 className="font-bold text-slate-800 text-sm">Join Telegram Group</h4>
-                      <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mt-0.5">For PDF, Practice set</p>
+                    <div className="relative z-10 text-center">
+                      <h4 className="font-bold text-slate-800 text-[9px] sm:text-[13px] leading-tight">Telegram Channel</h4>
+                      <p className="text-[7px] sm:text-[10px] text-slate-500 mt-1 leading-relaxed">Click here to join Telegram Channel for update Notes, Practice Set, quizzes</p>
                     </div>
                   </a>
                 )}
