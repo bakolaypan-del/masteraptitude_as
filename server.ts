@@ -64,9 +64,16 @@ async function verifyAdmin(req: express.Request, res: express.Response, next: ex
   
   try {
     console.log(`[Auth] Verifying admin status for user: ${user.uid} (${user.email})`);
+    
+    // Explicitly allow owner email
+    if (user.email === 'Bakolaypan@gmail.com') {
+      console.log(`[Auth] Admin verified via email: ${user.email}`);
+      return next();
+    }
+
     const profileSnap = await db.collection("profiles").doc(user.uid).get();
     if (profileSnap.exists && profileSnap.data()?.role === "admin") {
-      console.log(`[Auth] Admin verified: ${user.uid}`);
+      console.log(`[Auth] Admin verified via profile: ${user.uid}`);
       next();
     } else {
       console.warn(`[Auth] Access denied: User ${user.uid} is not an admin. Role: ${profileSnap.data()?.role}`);

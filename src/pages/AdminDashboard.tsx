@@ -60,7 +60,7 @@ function AdminHome() {
 
   const { user, profile } = useAuth();
 
-  if (!user || profile?.role !== 'admin') {
+  if (!user || (profile?.role !== 'admin' && user.email !== 'Bakolaypan@gmail.com')) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <h2 className="text-2xl font-black text-rose-600 mb-2">Access Denied</h2>
@@ -1169,7 +1169,7 @@ function QuestionManager() {
   const [loading, setLoading] = useState(true);
   const { user, profile } = useAuth();
   
-  if (!user || profile?.role !== 'admin') {
+  if (!user || (profile?.role !== 'admin' && user.email !== 'Bakolaypan@gmail.com')) {
     return null;
   }
 
