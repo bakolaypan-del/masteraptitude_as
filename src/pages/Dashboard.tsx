@@ -130,21 +130,23 @@ export default function Dashboard() {
           </button>
         </div>
         
-        <div className="flex-1 overflow-y-auto py-6 space-y-8">
+        <div className="flex-1 overflow-y-auto py-6 space-y-4 px-3">
           {/* LEARN */}
-          <div>
-            <div className="px-6 mb-3 text-[10px] font-black text-slate-500 tracking-widest uppercase">Learn</div>
-            <div className="flex flex-col gap-1 px-3">
+          <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl py-4 pb-3">
+            <div className="px-4 mb-3 text-[10px] font-black text-indigo-400/80 tracking-widest uppercase flex items-center gap-2">
+              <BookOpen className="w-3 h-3" /> Learn
+            </div>
+            <div className="flex flex-col gap-1 px-2">
               <button 
                 onClick={() => { setActiveTab('video'); setIsSidebarOpen(false); }} 
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all font-bold text-sm ${activeTab === 'video' ? 'bg-[#2d333b] text-white border-l-4 border-cyan-400' : 'text-slate-400 hover:bg-[#22272e] hover:text-slate-200 border-l-4 border-transparent'}`}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all font-bold text-sm ${activeTab === 'video' ? 'bg-indigo-500/30 text-indigo-50 border-l-4 border-indigo-400' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border-l-4 border-transparent'}`}
               >
                 <Play className="w-4 h-4 shrink-0" />
                 Recorded Video
               </button>
               <button 
                 onClick={() => { setActiveTab('notes'); setIsSidebarOpen(false); }} 
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all font-bold text-sm ${activeTab === 'notes' ? 'bg-[#2d333b] text-white border-l-4 border-cyan-400' : 'text-slate-400 hover:bg-[#22272e] hover:text-slate-200 border-l-4 border-transparent'}`}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all font-bold text-sm ${activeTab === 'notes' ? 'bg-indigo-500/30 text-indigo-50 border-l-4 border-indigo-400' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border-l-4 border-transparent'}`}
               >
                 <BookOpen className="w-4 h-4 shrink-0" />
                 Study Notes
@@ -153,33 +155,35 @@ export default function Dashboard() {
           </div>
 
           {/* TESTS */}
-          <div>
-            <div className="px-6 mb-3 text-[10px] font-black text-slate-500 tracking-widest uppercase">Tests</div>
-            <div className="flex flex-col gap-1 px-3">
+          <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl py-4 pb-3">
+            <div className="px-4 mb-3 text-[10px] font-black text-rose-400/80 tracking-widest uppercase flex items-center gap-2">
+              <FileText className="w-3 h-3" /> Tests
+            </div>
+            <div className="flex flex-col gap-1 px-2">
               <button 
                 onClick={() => { setActiveTab('mock_topic'); setIsSidebarOpen(false); }} 
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all font-bold text-sm ${activeTab === 'mock_topic' ? 'bg-[#2d333b] text-white border-l-4 border-cyan-400' : 'text-slate-400 hover:bg-[#22272e] hover:text-slate-200 border-l-4 border-transparent'}`}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all font-bold text-sm ${activeTab === 'mock_topic' ? 'bg-rose-500/30 text-rose-50 border-l-4 border-rose-400' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border-l-4 border-transparent'}`}
               >
                 <FileText className="w-4 h-4 shrink-0" />
                 Topic Wise Mock Test
               </button>
               <button 
                 onClick={() => { setActiveTab('mock_sectional'); setIsSidebarOpen(false); }} 
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all font-bold text-sm ${activeTab === 'mock_sectional' ? 'bg-[#2d333b] text-white border-l-4 border-cyan-400' : 'text-slate-400 hover:bg-[#22272e] hover:text-slate-200 border-l-4 border-transparent'}`}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all font-bold text-sm ${activeTab === 'mock_sectional' ? 'bg-rose-500/30 text-rose-50 border-l-4 border-rose-400' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border-l-4 border-transparent'}`}
               >
                 <FileText className="w-4 h-4 shrink-0" />
                 Sectional Mock Test
               </button>
               <button 
                 onClick={() => { setActiveTab('mock_full'); setIsSidebarOpen(false); }} 
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all font-bold text-sm ${activeTab === 'mock_full' ? 'bg-[#2d333b] text-white border-l-4 border-cyan-400' : 'text-slate-400 hover:bg-[#22272e] hover:text-slate-200 border-l-4 border-transparent'}`}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all font-bold text-sm ${activeTab === 'mock_full' ? 'bg-rose-500/30 text-rose-50 border-l-4 border-rose-400' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border-l-4 border-transparent'}`}
               >
                 <FileText className="w-4 h-4 shrink-0" />
                 Full Mock Test
               </button>
               <button 
                 onClick={() => { setActiveTab('pyq'); setIsSidebarOpen(false); }} 
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all font-bold text-sm ${activeTab === 'pyq' ? 'bg-[#2d333b] text-white border-l-4 border-cyan-400' : 'text-slate-400 hover:bg-[#22272e] hover:text-slate-200 border-l-4 border-transparent'}`}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all font-bold text-sm ${activeTab === 'pyq' ? 'bg-rose-500/30 text-rose-50 border-l-4 border-rose-400' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border-l-4 border-transparent'}`}
               >
                 <Clock className="w-4 h-4 shrink-0" />
                 Previous Year Papers
@@ -188,19 +192,20 @@ export default function Dashboard() {
           </div>
 
           {/* MISCELLANEOUS */}
-          <div>
-            <div className="px-6 mb-3 text-[10px] font-black text-slate-500 tracking-widest uppercase">Miscellaneous</div>
-            <div className="flex flex-col gap-1 px-3">
+          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl py-4 pb-3">
+            <div className="px-4 mb-3 text-[10px] font-black text-emerald-400/80 tracking-widest uppercase flex items-center gap-2">
+              <Trophy className="w-3 h-3" /> Miscellaneous
+            </div>
+            <div className="flex flex-col gap-1 px-2">
               <button 
                 onClick={() => { setActiveTab('pattern'); setIsSidebarOpen(false); }} 
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all font-bold text-sm ${activeTab === 'pattern' ? 'bg-[#2d333b] text-white border-l-4 border-cyan-400' : 'text-slate-400 hover:bg-[#22272e] hover:text-slate-200 border-l-4 border-transparent'}`}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all font-bold text-sm ${activeTab === 'pattern' ? 'bg-emerald-500/30 text-emerald-50 border-l-4 border-emerald-400' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border-l-4 border-transparent'}`}
               >
                 <Trophy className="w-4 h-4 shrink-0" />
                 Exam Pattern
               </button>
             </div>
           </div>
-
         </div>
       </aside>
 
