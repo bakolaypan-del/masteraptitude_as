@@ -245,24 +245,18 @@ export default function Dashboard() {
           {activeTab === 'home' && (
             <div className="animate-in fade-in duration-500">
               {/* Welcome & Motivation Section */}
-              <div className="mb-10 bg-emerald-800 rounded-3xl p-8 sm:p-12 text-white shadow-xl relative overflow-hidden group">
-                <div className="relative z-10">
-                  <h2 className="text-3xl sm:text-4xl font-black mb-4 tracking-tight leading-none text-emerald-50">
-                    Welcome, <span className="text-emerald-300">{profile?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Student'}!</span> 👋
+              <div className="mb-8 bg-emerald-800 rounded-2xl px-6 py-4 text-white shadow-md relative overflow-hidden flex items-center">
+                <div className="relative z-10 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full">
+                  <h2 className="text-lg sm:text-xl font-bold leading-none text-emerald-50 whitespace-nowrap">
+                    Great to see you, <span className="text-emerald-300">{profile?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Student'}!</span> 🚀
                   </h2>
-                  <div className="max-w-xl">
-                    <p className="text-lg sm:text-xl font-medium leading-relaxed italic text-emerald-100">
-                      "The future belongs to those who learn more skills and combine them in creative ways."
-                    </p>
-                    <div className="mt-4 flex items-center gap-3">
-                      <div className="h-1 w-10 bg-emerald-400 rounded-full shadow-lg"></div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-200">Keep up the great work</p>
-                    </div>
-                  </div>
+                  <div className="hidden sm:block w-1.5 h-1.5 rounded-full bg-emerald-400/50"></div>
+                  <p className="text-sm font-medium text-emerald-100/90 truncate">
+                    You're doing amazing! Keep learning and growing today.
+                  </p>
                 </div>
                 {/* Background design elements */}
-                <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-emerald-600/30 rounded-full blur-2xl"></div>
-                <div className="absolute bottom-0 left-10 -mb-10 w-48 h-48 bg-emerald-400/10 rounded-full blur-xl"></div>
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/4 w-32 h-32 bg-emerald-500/20 rounded-full blur-xl pointer-events-none"></div>
               </div>
 
               {/* Image Carousel */}
