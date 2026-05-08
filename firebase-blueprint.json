@@ -1,0 +1,78 @@
+{
+  "entities": {
+    "Profile": {
+      "title": "Profile",
+      "description": "User profile and statistics",
+      "type": "object",
+      "properties": {
+        "phoneNumber": { "type": "string" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "totalTestsTaken": { "type": "number" },
+        "cumulativeScore": { "type": "number" },
+        "globalRank": { "type": "number" },
+        "role": { "type": "string", "enum": ["user", "admin"] }
+      },
+      "required": ["role"]
+    },
+    "Test": {
+      "title": "Test",
+      "description": "A single Mock Test",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "topic": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["title", "topic", "isActive", "createdAt"]
+    },
+    "Question": {
+      "title": "Question",
+      "description": "Question for a Mock Test",
+      "type": "object",
+      "properties": {
+        "testId": { "type": "string" },
+        "topic": { "type": "string" },
+        "qNo": { "type": "number" },
+        "questionText": { "type": "string" },
+        "options": { "type": "array" },
+        "correctAnswer": { "type": "string" }
+      },
+      "required": ["testId", "questionText", "options", "correctAnswer"]
+    },
+    "Result": {
+      "title": "Result",
+      "description": "Result of a test attempt",
+      "type": "object",
+      "properties": {
+        "timestamp": { "type": "number" },
+        "userId": { "type": "string" },
+        "testId": { "type": "string" },
+        "score": { "type": "number" },
+        "correctAnswers": { "type": "number" },
+        "wrongAnswers": { "type": "number" },
+        "status": { "type": "string", "enum": ["completed"] }
+      },
+      "required": ["timestamp", "userId", "testId", "score", "status"]
+    }
+  },
+  "firestore": {
+    "/profiles/{userId}": {
+      "schema": { "$ref": "#/entities/Profile" },
+      "description": "User profiles"
+    },
+    "/tests/{testId}": {
+      "schema": { "$ref": "#/entities/Test" },
+      "description": "Available tests"
+    },
+    "/questions/{questionId}": {
+      "schema": { "$ref": "#/entities/Question" },
+      "description": "Questions for tests"
+    },
+    "/results/{resultId}": {
+      "schema": { "$ref": "#/entities/Result" },
+      "description": "Test results"
+    }
+  }
+}

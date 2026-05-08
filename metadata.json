@@ -1,0 +1,6 @@
+{
+  "name": "Master Aptitude",
+  "description": "A comprehensive mock test platform with Firebase Authentication, real-time timer, anti-cheat mechanisms, and a role-based admin panel for content management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
