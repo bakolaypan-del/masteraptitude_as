@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { collection, query, getDocs, orderBy, doc, deleteDoc, where, addDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
-import { db, auth } from '../lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, auth, storage } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
 import { LogOut, ArrowLeft, Plus, Edit2, Trash2, FileText, BookOpen, Play, CheckCircle, Clock } from 'lucide-react';
 import { signOut } from 'firebase/auth';
@@ -45,7 +46,8 @@ function AdminHome() {
   const [videoSubject, setVideoSubject] = useState('');
 
   // Carousel Form
-  const [carouselLink, setCarouselLink] = useState('');
+  const [carouselFile, setCarouselFile] = useState<File | null>(null);
+  const [uploadingCarousel, setUploadingCarousel] = useState(false);
 
   const user = useAuth().user;
 
@@ -206,21 +208,68 @@ function AdminHome() {
 
   const handleAddCarousel = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!carouselLink || !user) return;
+    if (!carouselFile || !user) return;
     try {
       if (carousels.length >= 3) {
         alert('You can only have up to 3 carousel pictures.');
         return;
       }
+      setUploadingCarousel(true);
+      
+      const compressImage = (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target?.result as string;
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const MAX_WIDTH = 1200;
+              const MAX_HEIGHT = 800;
+              let width = img.width;
+              let height = img.height;
+
+              if (width > height) {
+                if (width > MAX_WIDTH) {
+                  height *= MAX_WIDTH / width;
+                  width = MAX_WIDTH;
+                }
+              } else {
+                if (height > MAX_HEIGHT) {
+                  width *= MAX_HEIGHT / height;
+                  height = MAX_HEIGHT;
+                }
+              }
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              ctx?.drawImage(img, 0, 0, width, height);
+              resolve(canvas.toDataURL('image/jpeg', 0.8));
+            };
+            img.onerror = (err) => reject(err);
+          };
+          reader.onerror = (err) => reject(err);
+        });
+      };
+
+      const link = await compressImage(carouselFile);
+
       await addDoc(collection(db, 'carousel'), {
-        link: carouselLink,
+        link: link,
         createdAt: serverTimestamp(),
         authorId: user.uid
       });
-      setCarouselLink('');
+      setCarouselFile(null);
+      // Reset input type="file" manually
+      const fileInput = document.getElementById('carousel-file-input') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
+
     } catch (err) {
       console.error(err);
-      alert('Error adding carousel picture');
+      alert('Error adding carousel picture. Make sure it is a valid image.');
+    } finally {
+      setUploadingCarousel(false);
     }
   };
 
@@ -774,20 +823,24 @@ function AdminHome() {
           </h2>
           
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
-            <h3 className="text-lg font-bold text-slate-800 mb-6">Upload Carousel Image Link</h3>
+            <h3 className="text-lg font-bold text-slate-800 mb-6">Upload Carousel Image</h3>
             <form onSubmit={handleAddCarousel} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
               <div className="md:col-span-3">
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Image Link (URL)</label>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Image File</label>
                 <input 
-                  type="url" required
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
-                  value={carouselLink} onChange={e => setCarouselLink(e.target.value)} 
-                  placeholder="https://..."
+                  id="carousel-file-input"
+                  type="file" accept="image/*" required
+                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-fuchsia-50 file:text-fuchsia-700 hover:file:bg-fuchsia-100" 
+                  onChange={e => {
+                    if (e.target.files && e.target.files[0]) {
+                      setCarouselFile(e.target.files[0]);
+                    }
+                  }} 
                 />
               </div>
-              <button type="submit" className="bg-fuchsia-600 text-white px-6 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-fuchsia-50 flex items-center justify-center gap-2">
+              <button disabled={uploadingCarousel} type="submit" className="bg-fuchsia-600 disabled:opacity-50 text-white px-6 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-fuchsia-50 flex items-center justify-center gap-2">
                 <Plus className="w-5 h-5" />
-                Add Image
+                {uploadingCarousel ? 'Uploading...' : 'Add Image'}
               </button>
             </form>
           </div>
