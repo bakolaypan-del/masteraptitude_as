@@ -71,14 +71,13 @@ async function verifyAdmin(req: express.Request, res: express.Response, next: ex
   }
 }
 
-async function startServer() {
-  const app = express();
-  const PORT = 3000;
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-  app.use(express.json());
-  app.use(cookieParser());
+app.use(express.json());
+app.use(cookieParser());
 
-  // API Routes
+// API Routes
   
   // Get test and questions (without correct answer)
   app.get("/api/test/:testId", verifyToken, async (req, res) => {
@@ -397,7 +396,8 @@ async function startServer() {
     }
   });
 
-  // Vite Integration
+// Vite Integration
+async function startVite() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -413,9 +413,14 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  // Only listen if not deployed on Vercel
+  if (!process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0" as any, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  }
 }
 
-startServer();
+startVite();
+
+export default app;
