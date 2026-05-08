@@ -74,7 +74,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           if (profileSnap.exists()) {
             const data = profileSnap.data() as UserProfile;
-            if (currentUser.email === 'Bakolaypan@gmail.com' && data.role !== 'admin') {
+            const isOwner = currentUser.email?.toLowerCase() === 'bakolaypan@gmail.com';
+            if (isOwner && data.role !== 'admin') {
               const updatedProfile = { ...data, role: 'admin' as const };
               await setDoc(profileRef, updatedProfile);
               setProfile(updatedProfile);
@@ -83,11 +84,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           } else {
             // Create default profile
+            const isOwner = currentUser.email?.toLowerCase() === 'bakolaypan@gmail.com';
             const newProfile: UserProfile = {
               name: currentUser.displayName || '',
               email: currentUser.email || '',
               phoneNumber: currentUser.phoneNumber || '',
-              role: currentUser.email === 'Bakolaypan@gmail.com' ? 'admin' : 'user',
+              role: isOwner ? 'admin' : 'user',
               totalTestsTaken: 0,
               cumulativeScore: 0,
               globalRank: 0

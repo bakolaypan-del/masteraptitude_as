@@ -4,7 +4,7 @@ import { collection, query, where, getDocs, orderBy, doc, getDoc } from 'firebas
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
-import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ExternalLink, Menu, X, Youtube, MessageCircle, Send } from 'lucide-react';
+import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ArrowLeft, ExternalLink, Menu, X, Youtube, MessageCircle, Send } from 'lucide-react';
 
 type DashboardTab = 'home' | 'mock_topic' | 'mock_sectional' | 'mock_full' | 'notes' | 'video' | 'pyq' | 'pattern';
 
@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DashboardTab>('home');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -239,8 +240,9 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-6 ml-4">
             <div className="hidden sm:flex flex-col text-right">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Logged in as</span>
-              <span className="text-xs font-bold text-slate-800">{profile?.name || user?.email}</span>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Student Profile</span>
+              <span className="text-xs font-bold text-slate-800">{profile?.name || 'Loading...'}</span>
+              <span className="text-[10px] font-medium text-slate-500">{profile?.phoneNumber || ''}</span>
             </div>
             {profile?.role === 'admin' && (
               <Link to="/admin" className="text-[10px] font-black bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-slate-900 transition-all shadow-md shadow-indigo-100 uppercase tracking-widest">
@@ -366,7 +368,7 @@ export default function Dashboard() {
                   {categories.map((cat) => (
                     <button
                       key={cat}
-                      onClick={() => setSelectedCategory(cat)}
+                      onClick={() => { setSelectedCategory(cat); setSelectedTopic(null); }}
                       className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
                         selectedCategory === cat
                           ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-100'
@@ -379,11 +381,55 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {activeTests.filter(t => {
-                const matchesType = (t.testType || 'topic') === activeTab.replace('mock_', '');
-                const matchesCategory = selectedCategory === 'All' || t.category === selectedCategory;
-                return matchesType && matchesCategory;
-              }).length === 0 ? (
+              {selectedCategory === 'Computer' && !selectedTopic ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {[
+                    "Basics of Computers",
+                    "Computer Hardware",
+                    "Computer Software",
+                    "Operating Systems",
+                    "MS Office",
+                    "Internet and Networking",
+                    "Computer Abbreviations and Terminology",
+                    "Computer Security",
+                    "Computer History and Generations"
+                  ].map((topicName) => (
+                    <button 
+                      key={topicName}
+                      onClick={() => setSelectedTopic(topicName)}
+                      className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm hover:shadow-xl hover:border-indigo-400 transition-all flex flex-col items-center text-center group"
+                    >
+                      <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-3xl flex items-center justify-center mb-6 group-hover:bg-indigo-600 group-hover:text-white transition-all transform group-hover:rotate-6">
+                        <BookOpen className="w-8 h-8" />
+                      </div>
+                      <h3 className="font-black text-slate-800 text-lg mb-2 leading-tight uppercase tracking-tight">{topicName}</h3>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        20 Mock Tests <ChevronRight className="w-3 h-3 text-indigo-400" />
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  {selectedTopic && (
+                    <div className="flex items-center gap-4 mb-4">
+                      <button 
+                        onClick={() => setSelectedTopic(null)}
+                        className="flex items-center gap-2 text-indigo-600 font-bold text-sm bg-indigo-50 px-4 py-2 rounded-xl hover:bg-indigo-100 transition-all"
+                      >
+                        <ArrowLeft className="w-4 h-4" />
+                        Back to Topics
+                      </button>
+                      <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">{selectedTopic}</h3>
+                    </div>
+                  )}
+
+                  {activeTests.filter(t => {
+                    const matchesType = (t.testType || 'topic') === activeTab.replace('mock_', '');
+                    const matchesCategory = selectedCategory === 'All' || t.category === selectedCategory;
+                    const matchesTopic = !selectedTopic || t.topic === selectedTopic;
+                    return matchesType && matchesCategory && matchesTopic;
+                  }).length === 0 ? (
                 <div className="bg-white rounded-3xl p-12 border border-slate-200 text-center text-slate-400 shadow-sm flex flex-col items-center">
                   <FileText className="w-12 h-12 mb-4 text-slate-200" />
                   <p className="font-bold text-sm uppercase tracking-widest text-slate-500 mb-2">No {activeTab.replace('mock_', '')} Mock Tests yet.</p>
@@ -394,7 +440,8 @@ export default function Dashboard() {
                   {activeTests.filter(t => {
                     const matchesType = (t.testType || 'topic') === activeTab.replace('mock_', '');
                     const matchesCategory = selectedCategory === 'All' || t.category === selectedCategory;
-                    return matchesType && matchesCategory;
+                    const matchesTopic = !selectedTopic || t.topic === selectedTopic;
+                    return matchesType && matchesCategory && matchesTopic;
                   }).map(test => {
                     const isTaken = pastResults.some(r => r.testId === test.id);
                     return (
@@ -451,8 +498,10 @@ export default function Dashboard() {
                   })}
                 </div>
               )}
-            </div>
+            </>
           )}
+        </div>
+      )}
 
           {activeTab === 'notes' && (
             <div className="space-y-8 animate-in fade-in duration-700">

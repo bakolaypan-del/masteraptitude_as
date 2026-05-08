@@ -11,7 +11,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn() && (
-        request.auth.token.email == 'Bakolaypan@gmail.com' || (
+        (request.auth.token.email != null && request.auth.token.email.lower() == 'bakolaypan@gmail.com') || (
           exists(/databases/$(database)/documents/profiles/$(request.auth.uid)) && 
           get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'admin'
         )
@@ -26,15 +26,22 @@ service cloud.firestore {
       // User can read their own profile, admins can read all
       allow read: if isOwner(userId) || isAdmin();
       
-      // User can create their profile but NOT their role or score
-      allow create: if isOwner(userId) 
-        && request.resource.data.keys().hasAll(['role'])
-        && request.resource.data.role == 'user'
-        && (!('totalTestsTaken' in request.resource.data) || request.resource.data.totalTestsTaken == 0)
-        && (!('cumulativeScore' in request.resource.data) || request.resource.data.cumulativeScore == 0);
+      // User can create their profile. Strict limits for standard users.
+      // Admin can create whatever.
+      allow create: if isOwner(userId) && (
+        isAdmin() || (
+          request.resource.data.role == 'user' &&
+          (!('totalTestsTaken' in request.resource.data) || request.resource.data.totalTestsTaken == 0) &&
+          (!('cumulativeScore' in request.resource.data) || request.resource.data.cumulativeScore == 0)
+        )
+      );
 
-      // User can only update name/email/phone, NOT role or score
-      allow update: if (isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'email', 'phoneNumber'])) || isAdmin();
+      // User can only update name/email/phone.
+      // Admin can update everything.
+      allow update: if isAdmin() || (
+        isOwner(userId) && 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'email', 'phoneNumber'])
+      );
     }
 
     match /tests/{testId} {

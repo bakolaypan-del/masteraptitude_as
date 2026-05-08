@@ -63,21 +63,26 @@ async function verifyAdmin(req: express.Request, res: express.Response, next: ex
   }
   
   try {
-    console.log(`[Auth] Verifying admin status for user: ${user.uid} (${user.email})`);
+    const userEmail = user.email || user.email_from_token || ''; // Handle potential variations in token structure
+    console.log(`[Auth] Verifying admin status for user: ${user.uid} (${userEmail})`);
     
-    // Explicitly allow owner email
-    if (user.email === 'Bakolaypan@gmail.com') {
-      console.log(`[Auth] Admin verified via email: ${user.email}`);
+    // Explicitly allow owner email (case-insensitive)
+    if (userEmail && userEmail.toLowerCase().trim() === 'bakolaypan@gmail.com') {
+      console.log(`[Auth] Admin verified via email: ${userEmail}`);
       return next();
     }
 
     const profileSnap = await db.collection("profiles").doc(user.uid).get();
-    if (profileSnap.exists && profileSnap.data()?.role === "admin") {
+    const profileData = profileSnap.data();
+    if (profileSnap.exists && profileData?.role === "admin") {
       console.log(`[Auth] Admin verified via profile: ${user.uid}`);
       next();
     } else {
-      console.warn(`[Auth] Access denied: User ${user.uid} is not an admin. Role: ${profileSnap.data()?.role}`);
-      return res.status(403).json({ error: "Forbidden: Admins only" });
+      console.warn(`[Auth] Access denied: User ${user.uid} (${userEmail}) is not an admin.`);
+      return res.status(403).json({ 
+        error: "Forbidden: Admins only", 
+        details: `Role: ${profileData?.role || 'none'}, Email: ${userEmail}` 
+      });
     }
   } catch (err: any) {
     console.error(`[Auth] Error verifying admin status for ${user.uid}:`, err);
@@ -265,6 +270,152 @@ app.use(cookieParser());
     }
   });
 
+  // Auth Helpers for students
+  app.post("/api/auth/check-mobile", async (req, res) => {
+    if (!db) return res.status(500).json({ error: "DB offline" });
+    const { mobile } = req.body;
+    if (!mobile) return res.status(400).json({ error: "Mobile number required" });
+    try {
+      const snap = await db.collection("profiles").where("phoneNumber", "==", mobile).get();
+      res.json({ exists: !snap.empty });
+    } catch (error) {
+      res.status(500).json({ error: "Search failed" });
+    }
+  });
+
+  app.post("/api/auth/reset-password", async (req, res) => {
+    if (!db) return res.status(500).json({ error: "DB offline" });
+    const { mobile, newPassword } = req.body;
+    if (!mobile || !newPassword) return res.status(400).json({ error: "Missing data" });
+    try {
+      const snap = await db.collection("profiles").where("phoneNumber", "==", mobile).get();
+      if (snap.empty) return res.status(404).json({ error: "Mobile not found" });
+      
+      const userId = snap.docs[0].id;
+      await admin.auth().updateUser(userId, { password: newPassword });
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Reset failed" });
+    }
+  });
+
+  // Admin: Get all students
+  app.get("/api/admin/students", verifyToken, verifyAdmin, async (req, res) => {
+    if (!db) return res.status(500).json({ error: "DB offline" });
+    try {
+      // Query both 'user' and 'student' roles as they might have been created differently
+      const snap = await db.collection("profiles").where("role", "in", ["user", "student"]).get();
+      const students = snap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      res.json(students);
+    } catch (error) {
+      console.error("[Admin] Failed to fetch students:", error);
+      res.status(500).json({ error: "Failed to fetch students" });
+    }
+  });
+
+  // Admin: Update Student
+  app.put("/api/admin/students/:studentId", verifyToken, verifyAdmin, async (req, res) => {
+    if (!db) return res.status(500).json({ error: "DB offline" });
+    const { studentId } = req.params;
+    const { name, phoneNumber, status, password } = req.body;
+    
+    if (!studentId) return res.status(400).json({ error: "Missing student ID" });
+
+    try {
+      const updateData: any = { 
+        name, 
+        phoneNumber, 
+        status: status || 'active', 
+        updatedAt: Date.now() 
+      };
+      
+      // Update Firestore profile
+      const profileRef = db.collection("profiles").doc(studentId);
+      const profileSnap = await profileRef.get();
+      
+      if (!profileSnap.exists) {
+        // If profile doesn't exist, we might want to create it or at least check Auth
+        console.warn(`[Admin] Profile ${studentId} not found in Firestore during update`);
+      } else {
+        await profileRef.update(updateData);
+      }
+      
+      // Update Firebase Auth if password or mobile changed (mobile is used for pseudo-email)
+      const authUpdates: any = {};
+      if (password && password.trim().length >= 6) {
+        authUpdates.password = password;
+      }
+      if (phoneNumber) {
+        authUpdates.email = `${phoneNumber}@students.myapp.com`;
+        authUpdates.displayName = name;
+      }
+      
+      if (Object.keys(authUpdates).length > 0) {
+        await admin.auth().updateUser(studentId, authUpdates);
+        console.log(`[Admin] Updated Auth records for ${studentId}`);
+      }
+      
+      res.json({ success: true, message: "Student record updated" });
+    } catch (error: any) {
+      console.error(`[Admin] Update failed for ${studentId}:`, error);
+      res.status(500).json({ error: "Failed to update student", details: error.message });
+    }
+  });
+
+  // Admin: Delete Student
+  app.delete("/api/admin/students/:studentId", verifyToken, verifyAdmin, async (req, res) => {
+    if (!db) return res.status(500).json({ error: "DB offline" });
+    const { studentId } = req.params;
+    try {
+      // 1. Delete from Auth
+      await admin.auth().deleteUser(studentId);
+      // 2. Delete from Firestore
+      await db.collection("profiles").doc(studentId).delete();
+      // 3. Optional: Delete results?
+      const resultsSnap = await db.collection("results").where("userId", "==", studentId).get();
+      const batch = db.batch();
+      resultsSnap.docs.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete student" });
+    }
+  });
+
+  // Admin: Dashboard Stats
+  app.get("/api/admin/stats", verifyToken, verifyAdmin, async (req, res) => {
+    if (!db) return res.status(500).json({ error: "DB offline" });
+    try {
+      const allProfiles = await db.collection("profiles").where("role", "in", ["user", "student"]).get();
+      
+      const stats = {
+        total: allProfiles.size,
+        active: 0,
+        blocked: 0,
+        today: 0
+      };
+
+      const todayStart = new Date().setHours(0, 0, 0, 0);
+
+      allProfiles.docs.forEach(doc => {
+        const data = doc.data();
+        if (data.status === 'blocked') stats.blocked++;
+        else stats.active++;
+
+        const regDate = data.registrationDate ? new Date(data.registrationDate).getTime() : 0;
+        if (regDate >= todayStart) stats.today++;
+      });
+
+      res.json(stats);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch stats" });
+    }
+  });
+
   // Admin Routes
   app.post("/api/admin/create-test", verifyToken, verifyAdmin, async (req, res) => {
     if (!db) return res.status(500).json({ error: "DB offline" });
@@ -285,6 +436,44 @@ app.use(cookieParser());
     } catch (error) {
        console.error(error);
        res.status(500).json({ error: "Failed to create test" });
+    }
+  });
+
+  app.post("/api/admin/bulk-create-tests", verifyToken, verifyAdmin, async (req, res) => {
+    if (!db) return res.status(500).json({ error: "DB offline" });
+    const { tests } = req.body;
+    if (!Array.isArray(tests)) return res.status(400).json({ error: "Expected array of tests" });
+
+    try {
+      const batch = db.batch();
+      tests.forEach(test => {
+        const docRef = db!.collection("tests").doc();
+        const testId = docRef.id;
+        batch.set(docRef, {
+          ...test,
+          isActive: true,
+          createdAt: Date.now()
+        });
+
+        // Add 10 placeholder questions for each test
+        for (let i = 1; i <= 10; i++) {
+          const qRef = db!.collection("questions").doc();
+          batch.set(qRef, {
+            testId: testId,
+            questionText: `Sample Question ${i} for ${test.title}`,
+            options: ["Option A", "Option B", "Option C", "Option D"],
+            correctAnswer: "Option A",
+            explanation: "Placeholder explanation",
+            marks: 1,
+            createdAt: Date.now()
+          });
+        }
+      });
+      await batch.commit();
+      res.json({ success: true, count: tests.length });
+    } catch (error) {
+      console.error("[Admin] Bulk create failed:", error);
+      res.status(500).json({ error: "Failed to create tests in bulk" });
     }
   });
 
@@ -340,16 +529,17 @@ app.use(cookieParser());
     }
   });
   
-  app.delete("/api/admin/questions/:questionId", verifyToken, verifyAdmin, async (req, res) => {
+  app.delete("/api/admin/questions/:id", verifyToken, verifyAdmin, async (req, res) => {
     if (!db) return res.status(500).json({ error: "DB offline" });
-    const { questionId } = req.params;
-    console.log(`Server: Request to delete question ${questionId}`);
+    const { id } = req.params;
+    console.log(`[Admin] Request to delete question: ${id} by ${(req as any).user?.email}`);
+    if (!id) return res.status(400).json({ error: "Missing question ID" });
     try {
-      await db.collection("questions").doc(questionId).delete();
-      console.log(`Server: Successfully deleted question ${questionId}`);
+      await db.collection("questions").doc(id).delete();
+      console.log(`[Admin] Successfully deleted question: ${id}`);
       res.json({ success: true });
     } catch (error: any) {
-      console.error(`Server: Error deleting question ${questionId}:`, error);
+      console.error(`[Admin] Error deleting question ${id}:`, error);
       res.status(500).json({ error: "Failed to delete question", message: error.message });
     }
   });
@@ -357,7 +547,8 @@ app.use(cookieParser());
   app.delete("/api/admin/pyqs/:id", verifyToken, verifyAdmin, async (req, res) => {
     if (!db) return res.status(500).json({ error: "DB offline" });
     const { id } = req.params;
-    console.log(`[Admin] Request to delete pyq: ${id}`);
+    console.log(`[Admin] Request to delete pyq: ${id} by ${(req as any).user?.email}`);
+    if (!id) return res.status(400).json({ error: "Missing PYQ ID" });
     try {
       await db.collection("pyqs").doc(id).delete();
       console.log(`[Admin] Successfully deleted pyq: ${id}`);
@@ -371,7 +562,8 @@ app.use(cookieParser());
   app.delete("/api/admin/patterns/:id", verifyToken, verifyAdmin, async (req, res) => {
     if (!db) return res.status(500).json({ error: "DB offline" });
     const { id } = req.params;
-    console.log(`[Admin] Request to delete pattern: ${id}`);
+    console.log(`[Admin] Request to delete pattern: ${id} by ${(req as any).user?.email}`);
+    if (!id) return res.status(400).json({ error: "Missing pattern ID" });
     try {
       await db.collection("patterns").doc(id).delete();
       console.log(`[Admin] Successfully deleted pattern: ${id}`);
@@ -388,13 +580,16 @@ app.use(cookieParser());
       return res.status(500).json({ error: "DB offline" });
     }
     const { id } = req.params;
-    console.log(`[Admin] Request to delete carousel item: ${id}`);
+    console.log(`[Admin] Request to delete carousel item: ${id} by user: ${(req as any).user?.email}`);
     try {
+      if (!id || id === 'undefined') {
+        console.error(`[Admin] Invalid ID provided for carousel delete: ${id}`);
+        return res.status(400).json({ error: "Invalid ID" });
+      }
       const docRef = db.collection("carousel").doc(id);
       const snap = await docRef.get();
       if (!snap.exists) {
-        console.warn(`[Admin] Carousel item ${id} not found in DB`);
-        return res.status(404).json({ error: "Carousel item not found" });
+        console.warn(`[Admin] Carousel item ${id} not found in DB - attempting deletion anyway`);
       }
       await docRef.delete();
       console.log(`[Admin] Successfully deleted carousel item: ${id}`);
@@ -405,59 +600,75 @@ app.use(cookieParser());
     }
   });
 
-  app.delete("/api/admin/notes/:noteId", verifyToken, verifyAdmin, async (req, res) => {
+  app.delete("/api/admin/notes/:id", verifyToken, verifyAdmin, async (req, res) => {
     if (!db) return res.status(500).json({ error: "DB offline" });
-    const { noteId } = req.params;
-    console.log(`Server: Request to delete note ${noteId}`);
+    const { id } = req.params;
+    console.log(`[Admin] Request to delete note: ${id} by ${(req as any).user?.email}`);
+    if (!id) return res.status(400).json({ error: "Missing note ID" });
     try {
-      await db.collection("notes").doc(noteId).delete();
-      console.log(`Server: Successfully deleted note ${noteId}`);
+      await db.collection("notes").doc(id).delete();
+      console.log(`[Admin] Successfully deleted note: ${id}`);
       res.json({ success: true });
     } catch (error: any) {
-      console.error(`Server: Error deleting note ${noteId}:`, error);
+      console.error(`[Admin] Error deleting note ${id}:`, error);
       res.status(500).json({ error: "Failed to delete note", message: error.message });
     }
   });
 
-  app.delete("/api/admin/videos/:videoId", verifyToken, verifyAdmin, async (req, res) => {
+  app.delete("/api/admin/videos/:id", verifyToken, verifyAdmin, async (req, res) => {
     if (!db) return res.status(500).json({ error: "DB offline" });
-    const { videoId } = req.params;
-    console.log(`Server: Request to delete video ${videoId}`);
+    const { id } = req.params;
+    console.log(`[Admin] Request to delete video: ${id} by ${(req as any).user?.email}`);
+    if (!id) return res.status(400).json({ error: "Missing video ID" });
     try {
-      await db.collection("videos").doc(videoId).delete();
-      console.log(`Server: Successfully deleted video ${videoId}`);
+      await db.collection("videos").doc(id).delete();
+      console.log(`[Admin] Successfully deleted video: ${id}`);
       res.json({ success: true });
     } catch (error: any) {
-      console.error(`Server: Error deleting video ${videoId}:`, error);
+      console.error(`[Admin] Error deleting video ${id}:`, error);
       res.status(500).json({ error: "Failed to delete video", message: error.message });
     }
   });
 
-  app.delete("/api/admin/tests/:testId", verifyToken, verifyAdmin, async (req, res) => {
+  app.delete("/api/admin/tests/:id", verifyToken, verifyAdmin, async (req, res) => {
     if (!db) return res.status(500).json({ error: "DB offline" });
-    const { testId } = req.params;
-    console.log(`Server: START delete request for test ${testId}`);
+    const { id } = req.params;
+    console.log(`Server: START delete request for test ${id} by ${(req as any).user?.email}`);
+    
+    if (!id || id === 'undefined') {
+      console.error(`Server: Invalid ID provided for test delete: ${id}`);
+      return res.status(400).json({ error: "Invalid test ID" });
+    }
+
     try {
+      const testRef = db.collection("tests").doc(id);
+      const testSnap = await testRef.get();
+      
+      if (!testSnap.exists) {
+        console.warn(`Server: Test ${id} not found in DB - checking for orphaned questions`);
+        // We continue anyway to clean up questions if they exist
+      }
+
       // Delete all questions associated with this test
-      console.log(`Server: Searching for questions with testId ${testId}`);
-      const questionsSnap = await db.collection("questions").where("testId", "==", testId).get();
+      console.log(`Server: Searching for questions with testId ${id}`);
+      const questionsSnap = await db.collection("questions").where("testId", "==", id).get();
       const batch = db.batch();
-      console.log(`Server: Found ${questionsSnap.size} questions to delete for test ${testId}`);
+      console.log(`Server: Found ${questionsSnap.size} questions to delete for test ${id}`);
       
       questionsSnap.docs.forEach(doc => {
         batch.delete(doc.ref);
       });
       
       // Delete the test itself
-      console.log(`Server: Adding test ${testId} to batch deletion`);
-      batch.delete(db.collection("tests").doc(testId));
+      console.log(`Server: Adding test ${id} to batch deletion`);
+      batch.delete(testRef);
       
-      console.log(`Server: Attempting to commit batch for test ${testId}`);
+      console.log(`Server: Attempting to commit batch for test ${id}`);
       await batch.commit();
-      console.log(`Server: SUCCESS - Deleted test ${testId} and all associated items`);
+      console.log(`Server: SUCCESS - Deleted test ${id} and all associated items`);
       res.json({ success: true });
     } catch (error: any) {
-      console.error(`Server: ERROR deleting test ${testId}:`, error);
+      console.error(`Server: ERROR deleting test ${id}:`, error);
       res.status(500).json({ error: "Failed to delete test", message: error.message });
     }
   });

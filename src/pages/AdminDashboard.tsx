@@ -1,15 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { collection, query, getDocs, orderBy, doc, deleteDoc, where, addDoc, serverTimestamp, onSnapshot, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
-import { LogOut, ArrowLeft, Plus, Pencil, Trash2, FileText, BookOpen, Play, CheckCircle, Clock, X } from 'lucide-react';
+import { LogOut, ArrowLeft, Plus, Pencil, Trash2, FileText, BookOpen, Play, CheckCircle, Clock, X, User as UserIcon, Download, ShieldAlert, ShieldCheck, Key } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 
-type AdminTab = 'mock' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel';
+type AdminTab = 'students' | 'mock' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social';
 
 function AdminHome() {
+  const [students, setStudents] = useState<any[]>([]);
+  const [studentSearch, setStudentSearch] = useState('');
+  const [studentFilter, setStudentFilter] = useState('all'); // all, active, blocked
+  const [stats, setStats] = useState({ total: 0, active: 0, blocked: 0, today: 0 });
+  const [editingStudent, setEditingStudent] = useState<any>(null);
+  const [savingStudent, setSavingStudent] = useState(false);
   const [tests, setTests] = useState<any[]>([]);
   const [notes, setNotes] = useState<any[]>([]);
   const [videos, setVideos] = useState<any[]>([]);
@@ -57,10 +63,78 @@ function AdminHome() {
   const [socialTelegram, setSocialTelegram] = useState('');
   const [socialWhatsapp, setSocialWhatsapp] = useState('');
   const [savingSocials, setSavingSocials] = useState(false);
+  const [isBulkCreating, setIsBulkCreating] = useState(false);
 
   const { user, profile } = useAuth();
+  const passwordInputRef = useRef<HTMLInputElement>(null);
 
-  if (!user || (profile?.role !== 'admin' && user.email !== 'Bakolaypan@gmail.com')) {
+  const handleBulkCreateComputerTests = async () => {
+    if (!confirm('This will create 180 Computer Mock Tests (20 for each of the 9 topics). Continue?') || !user) return;
+    
+    setIsBulkCreating(true);
+    try {
+      const token = await user.getIdToken();
+      const topics = [
+        "Basics of Computers",
+        "Computer Hardware",
+        "Computer Software",
+        "Operating Systems",
+        "MS Office",
+        "Internet and Networking",
+        "Computer Abbreviations and Terminology",
+        "Computer Security",
+        "Computer History and Generations"
+      ];
+
+      const allTests: any[] = [];
+      topics.forEach(topicName => {
+        for (let i = 1; i <= 20; i++) {
+          const testNum = i.toString().padStart(2, '0');
+          allTests.push({
+            title: `${topicName} Mock Test ${testNum}`,
+            topic: topicName,
+            subjectName: "Computer",
+            category: "Computer",
+            testType: "topic",
+            duration: 15,
+            isActive: true
+          });
+        }
+      });
+
+      // Split into chunks of 30 tests (each test adds 10 questions, total 11 docs per test)
+      // Max firestore batch limit is 500. 30 * 11 = 330 docs.
+      const chunkSize = 30;
+      for (let i = 0; i < allTests.length; i += chunkSize) {
+        const chunk = allTests.slice(i, i + chunkSize);
+        const res = await fetch('/api/admin/bulk-create-tests', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ tests: chunk })
+        });
+        if (!res.ok) throw new Error(await res.text());
+        console.log(`Uploaded chunk ${Math.floor(i/chunkSize) + 1}`);
+      }
+
+      alert('Successfully created 180 Computer Mock Tests!');
+    } catch (err: any) {
+      console.error(err);
+      alert('Error bulk creating tests: ' + err.message);
+    } finally {
+      setIsBulkCreating(false);
+    }
+  };
+
+  useEffect(() => {
+    if (editingStudent?.focusPassword && passwordInputRef.current) {
+      passwordInputRef.current.focus();
+    }
+  }, [editingStudent]);
+
+  if (!user || (profile?.role !== 'admin' && user.email?.toLowerCase() !== 'bakolaypan@gmail.com')) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <h2 className="text-2xl font-black text-rose-600 mb-2">Access Denied</h2>
@@ -80,6 +154,11 @@ function AdminHome() {
     const qPyqs = query(collection(db, 'pyqs'), orderBy('createdAt', 'desc'));
     const qPatterns = query(collection(db, 'patterns'), orderBy('createdAt', 'desc'));
     const qCarousels = query(collection(db, 'carousel'), orderBy('createdAt', 'desc'));
+    const qStudents = query(collection(db, 'profiles'), where('role', 'in', ['user', 'student']));
+
+    const unsubStudents = onSnapshot(qStudents, (snap) => {
+      setStudents(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (err) => console.error(err));
 
     const unsubTests = onSnapshot(qTests, (snap) => {
       setTests(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -115,7 +194,23 @@ function AdminHome() {
       }
     }, (err) => console.error(err));
 
+    const fetchStats = async () => {
+      if (!user) return;
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch('/api/admin/stats', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) setStats(await res.json());
+      } catch (err) {
+        console.error('Stats fetch failed:', err);
+      }
+    };
+    fetchStats();
+    const statsInterval = setInterval(fetchStats, 60000); // Update stats every minute
+
     return () => {
+      unsubStudents();
       unsubTests();
       unsubNotes();
       unsubVideos();
@@ -123,6 +218,7 @@ function AdminHome() {
       unsubPatterns();
       unsubCarousels();
       unsubSocials();
+      clearInterval(statsInterval);
     };
   }, []);
 
@@ -226,7 +322,7 @@ function AdminHome() {
     }
     
     // Admin check from email as backup
-    if (profile?.role !== 'admin' && user.email !== 'Bakolaypan@gmail.com') {
+    if (profile?.role !== 'admin' && user.email?.toLowerCase() !== 'bakolaypan@gmail.com') {
       alert("You don't have permission to perform this action.");
       return;
     }
@@ -454,9 +550,16 @@ function AdminHome() {
         console.log(`${coll} delete successfully acknowledged by server`);
         alert('Deleted successfully!');
       } else {
-        const errText = await res.text();
-        console.error(`${coll} delete failed on server (Status ${res.status}):`, errText);
-        alert(`Delete failed: ${errText}`);
+        const bodyText = await res.text();
+        let errorMsg = bodyText;
+        try {
+          const errJson = JSON.parse(bodyText);
+          errorMsg = errJson.message || errJson.error || bodyText;
+        } catch {
+          // Fallback to raw text
+        }
+        console.error(`${coll} delete failed on server (Status ${res.status}):`, errorMsg);
+        alert(`Delete failed: ${errorMsg}`);
       }
     } catch (err) {
       console.error(`${coll} delete execution error:`, err);
@@ -487,6 +590,97 @@ function AdminHome() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const handleUpdateStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !editingStudent) return;
+    setSavingStudent(true);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch(`/api/admin/students/${editingStudent.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: editingStudent.name,
+          phoneNumber: editingStudent.phoneNumber,
+          status: editingStudent.status,
+          password: editingStudent.newPassword // Optional
+        })
+      });
+      if (res.ok) {
+        setEditingStudent(null);
+        alert('Student updated successfully!');
+      } else {
+        alert(await res.text());
+      }
+    } catch (err) {
+      alert('Failed to update student');
+    } finally {
+      setSavingStudent(false);
+    }
+  };
+
+  const handleDeleteStudent = async (studentId: string) => {
+    if (!confirm('Are you sure? This will PERMANENTLY delete student account and auth credentials.') || !user) return;
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch(`/api/admin/students/${studentId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) alert('Student account deleted');
+      else alert('Failed to delete student');
+    } catch (err) {
+      alert('Network error');
+    }
+  };
+
+  const handleBlockStudent = async (student: any) => {
+    const newStatus = student.status === 'blocked' ? 'active' : 'blocked';
+    if (!confirm(`Are you sure you want to ${newStatus === 'blocked' ? 'BLOCK' : 'UNBLOCK'} this student?`) || !user) return;
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch(`/api/admin/students/${student.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: student.name,
+          phoneNumber: student.phoneNumber,
+          status: newStatus
+        })
+      });
+      if (res.ok) alert(`Student ${newStatus === 'blocked' ? 'blocked' : 'unblocked'}`);
+      else alert('Failed to change student status');
+    } catch (err) {
+      alert('Network error');
+    }
+  };
+
+  const handleExportStudents = () => {
+    if (students.length === 0) return;
+    const headers = ['Name', 'Mobile', 'Registration Date', 'Tests Taken', 'Score', 'Status'];
+    const csvContent = students.map(s => [
+      s.name,
+      s.phoneNumber,
+      s.registrationDate ? new Date(s.registrationDate).toLocaleDateString() : 'N/A',
+      s.totalTestsTaken || 0,
+      s.cumulativeScore || 0,
+      s.status || 'active'
+    ].join(',')).join('\n');
+    
+    const blob = new Blob([[headers.join(','), csvContent].join('\n')], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `students_database_${new Date().toLocaleDateString()}.csv`;
+    a.click();
   };
 
   const updateDuration = async (test: any) => {
@@ -523,6 +717,14 @@ function AdminHome() {
     <div className="space-y-8">
       {/* Admin Tab Navigation */}
       <div className="flex bg-white p-1 rounded-2xl border border-slate-200 shadow-sm w-fit flex-wrap gap-1">
+        <button 
+          onClick={() => setActiveTab('students')}
+          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all
+            ${activeTab === 'students' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' : 'text-slate-500 hover:text-indigo-600 hover:bg-indigo-50'}`}
+        >
+          <UserIcon className="w-4 h-4" />
+          Students
+        </button>
         <button 
           onClick={() => setActiveTab('mock')}
           className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all
@@ -673,6 +875,43 @@ function AdminHome() {
               </div>
             </form>
           </div>
+
+          {!editingTestId && (
+            <div className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-[40px] p-10 mb-12 text-white shadow-2xl relative overflow-hidden group">
+              <div className="relative z-10">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20">
+                    <CheckCircle className="w-6 h-6 text-indigo-300" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-black tracking-tight">System Bulk Configurator</h3>
+                    <p className="text-indigo-200/60 text-xs font-bold uppercase tracking-widest">Rapid Database Seeding</p>
+                  </div>
+                </div>
+                <p className="text-slate-300 text-sm font-medium mb-8 max-w-xl leading-relaxed">
+                  Automatically initialize the <span className="text-indigo-300 font-bold">"Computer" Topic Wise Mock Test</span> architecture with all 180 required tests. Each test will be pre-configured with 15-minute timing, correctly categorized subjects, and hierarchical topic mapping.
+                </p>
+                <button 
+                  disabled={isBulkCreating}
+                  onClick={handleBulkCreateComputerTests}
+                  className="bg-white text-slate-900 px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:scale-105 active:scale-95 transition-all flex items-center gap-3 disabled:bg-slate-700 disabled:text-slate-300 shadow-xl shadow-black/20"
+                >
+                  {isBulkCreating ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+                      Processing 180 Batches...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-5 h-5" />
+                      Initialize 180 Computer Tests
+                    </>
+                  )}
+                </button>
+              </div>
+              <div className="absolute right-0 bottom-0 translate-x-1/4 translate-y-1/4 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none group-hover:bg-indigo-500/20 transition-all duration-1000"></div>
+            </div>
+          )}
 
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
             <table className="min-w-full divide-y divide-slate-100">
@@ -1159,6 +1398,230 @@ function AdminHome() {
           </div>
         </div>
       )}
+
+      {activeTab === 'students' && (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {/* Dashboard Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Total Students</span>
+              <span className="text-3xl font-black text-slate-900">{stats.total}</span>
+            </div>
+            <div className="bg-emerald-50 p-6 rounded-3xl border border-emerald-100 shadow-sm">
+              <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest block mb-1">Active Now</span>
+              <span className="text-3xl font-black text-emerald-700">{stats.active}</span>
+            </div>
+            <div className="bg-rose-50 p-6 rounded-3xl border border-rose-100 shadow-sm">
+              <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest block mb-1">Blocked Accounts</span>
+              <span className="text-3xl font-black text-rose-700">{stats.blocked}</span>
+            </div>
+            <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 shadow-sm">
+              <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block mb-1">Today's Reg.</span>
+              <span className="text-3xl font-black text-indigo-700">{stats.today}</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+            <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+              <span className="w-2 h-8 bg-indigo-600 rounded-full"></span>
+              Student Database
+            </h2>
+            <div className="flex flex-wrap gap-4 items-center">
+              <select 
+                value={studentFilter}
+                onChange={e => setStudentFilter(e.target.value)}
+                className="px-4 py-2.5 rounded-xl border-2 border-slate-200 focus:border-indigo-600 outline-hidden font-bold text-sm bg-white"
+              >
+                <option value="all">All Students</option>
+                <option value="active">Active Only</option>
+                <option value="blocked">Blocked Only</option>
+              </select>
+              
+              <div className="relative">
+                <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <input 
+                  type="text"
+                  placeholder="Search name or ID..."
+                  className="pl-11 pr-4 py-2.5 rounded-xl border-2 border-slate-200 focus:border-indigo-600 outline-hidden w-full md:w-64 font-medium text-sm"
+                  value={studentSearch}
+                  onChange={e => setStudentSearch(e.target.value)}
+                />
+              </div>
+
+              <button 
+                onClick={handleExportStudents}
+                className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:scale-105 active:scale-95 transition-all"
+              >
+                <Download className="w-4 h-4" />
+                Export CSV
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+            <table className="min-w-full divide-y divide-slate-100">
+              <thead className="bg-slate-50/50">
+                <tr>
+                  <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Name</th>
+                  <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Mobile Number</th>
+                  <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Registration Date</th>
+                  <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Status</th>
+                  <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Last Login</th>
+                  <th className="px-8 py-5 text-right text-xs font-black text-slate-400 uppercase tracking-widest">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-slate-50">
+                {students
+                  .filter(s => {
+                    const matchesSearch = (s.name || '').toLowerCase().includes(studentSearch.toLowerCase()) || 
+                                        (s.phoneNumber || '').includes(studentSearch) ||
+                                        (s.id || '').includes(studentSearch);
+                    const matchesFilter = studentFilter === 'all' ? true : 
+                                       studentFilter === 'blocked' ? s.status === 'blocked' : 
+                                       s.status !== 'blocked';
+                    return matchesSearch && matchesFilter;
+                  })
+                  .map(student => (
+                  <tr key={student.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-8 py-6 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className={`w-10 h-10 ${student.status === 'blocked' ? 'bg-rose-100 text-rose-600' : 'bg-indigo-50 text-indigo-600'} rounded-full flex items-center justify-center font-black mr-4 uppercase`}>
+                          {(student.name || 'S').charAt(0)}
+                        </div>
+                        <span className="text-sm font-bold text-slate-800">{student.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-8 py-6 whitespace-nowrap">
+                      <span className="text-sm font-medium text-slate-600">{student.phoneNumber}</span>
+                    </td>
+                    <td className="px-8 py-6 whitespace-nowrap">
+                      <span className="text-sm text-slate-500 font-medium">
+                        {student.registrationDate ? new Date(student.registrationDate).toLocaleDateString() : 'N/A'}
+                      </span>
+                    </td>
+                    <td className="px-8 py-6 whitespace-nowrap">
+                      <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase w-fit tracking-widest ${student.status === 'blocked' ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                        {student.status === 'blocked' ? 'Blocked' : 'Active'}
+                      </span>
+                    </td>
+                    <td className="px-8 py-6 whitespace-nowrap">
+                      <span className="text-sm text-slate-500 font-medium">
+                        {student.lastTestAt ? new Date(student.lastTestAt).toLocaleDateString() : 'Never'}
+                      </span>
+                    </td>
+                    <td className="px-8 py-6 whitespace-nowrap text-right">
+                      <div className="flex justify-end gap-2">
+                        <button 
+                          onClick={() => setEditingStudent({ ...student, focusPassword: false, newPassword: '' })}
+                          className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all"
+                          title="Edit Name/Mobile"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => setEditingStudent({ ...student, focusPassword: true, newPassword: '' })}
+                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+                          title="Reset Password"
+                        >
+                          <Key className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleBlockStudent(student)}
+                          className={`p-2 rounded-xl transition-all ${student.status === 'blocked' ? 'text-emerald-500 hover:bg-emerald-50' : 'text-rose-400 hover:text-rose-600 hover:bg-rose-50'}`}
+                          title={student.status === 'blocked' ? 'Unblock Student' : 'Block Student'}
+                        >
+                          {student.status === 'blocked' ? <ShieldCheck className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteStudent(student.id)}
+                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                          title="Delete Student Forever"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {students.length === 0 && (
+                  <tr><td colSpan={5} className="px-8 py-20 text-center text-slate-300 font-black text-xl uppercase tracking-widest italic">Database Empty</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Student Modal */}
+      {editingStudent && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg rounded-[40px] shadow-2xl p-10 relative animate-in zoom-in duration-300">
+            <button onClick={() => setEditingStudent(null)} className="absolute top-8 right-8 p-3 hover:bg-slate-100 rounded-2xl transition-all">
+              <X className="w-5 h-5 text-slate-400" />
+            </button>
+            
+            <h3 className="text-2xl font-black text-slate-800 mb-2">
+              {editingStudent.focusPassword ? 'Reset Account Password' : 'Edit Student Profile'}
+            </h3>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-8">System ID: {editingStudent.id}</p>
+            
+            <form onSubmit={handleUpdateStudent} className="space-y-6">
+              <div className={editingStudent.focusPassword ? 'opacity-50 pointer-events-none' : ''}>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Full Name</label>
+                <input 
+                  type="text" required
+                  className="w-full rounded-2xl border-slate-200 border-2 p-4 outline-hidden font-medium focus:border-indigo-600"
+                  value={editingStudent.name}
+                  onChange={e => setEditingStudent({...editingStudent, name: e.target.value})}
+                />
+              </div>
+              <div className={editingStudent.focusPassword ? 'opacity-50 pointer-events-none' : ''}>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Mobile Number</label>
+                <input 
+                  type="tel" required
+                  className="w-full rounded-2xl border-slate-200 border-2 p-4 outline-hidden font-medium focus:border-indigo-600"
+                  value={editingStudent.phoneNumber}
+                  onChange={e => setEditingStudent({...editingStudent, phoneNumber: e.target.value})}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-left">
+                <div className={editingStudent.focusPassword ? 'opacity-50 pointer-events-none' : ''}>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Account Status</label>
+                  <select 
+                    className="w-full rounded-2xl border-slate-200 border-2 p-4 outline-hidden font-bold focus:border-indigo-600"
+                    value={editingStudent.status || 'active'}
+                    onChange={e => setEditingStudent({...editingStudent, status: e.target.value})}
+                  >
+                    <option value="active">Active</option>
+                    <option value="blocked">Blocked</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-indigo-600 uppercase tracking-widest mb-2">
+                    {editingStudent.focusPassword ? 'Set New Password' : 'New Password (Optional)'}
+                  </label>
+                  <input 
+                    ref={passwordInputRef}
+                    type="password"
+                    placeholder="••••••••"
+                    className={`w-full rounded-2xl border-2 p-4 outline-hidden font-medium focus:border-indigo-600 ${editingStudent.focusPassword ? 'border-indigo-500 bg-indigo-50/30' : 'border-slate-200'}`}
+                    value={editingStudent.newPassword}
+                    onChange={e => setEditingStudent({...editingStudent, newPassword: e.target.value})}
+                  />
+                </div>
+              </div>
+              
+              <button 
+                disabled={savingStudent}
+                type="submit" 
+                className="w-full bg-indigo-600 py-5 text-white font-black text-sm uppercase tracking-[0.2em] rounded-3xl hover:bg-slate-900 transition-all shadow-xl shadow-indigo-100 disabled:bg-slate-300"
+              >
+                {savingStudent ? 'Saving Changes...' : editingStudent.focusPassword ? 'Update Password' : 'Update Records'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1169,7 +1632,7 @@ function QuestionManager() {
   const [loading, setLoading] = useState(true);
   const { user, profile } = useAuth();
   
-  if (!user || (profile?.role !== 'admin' && user.email !== 'Bakolaypan@gmail.com')) {
+  if (!user || (profile?.role !== 'admin' && user.email?.toLowerCase() !== 'bakolaypan@gmail.com')) {
     return null;
   }
 
@@ -1260,9 +1723,16 @@ function QuestionManager() {
         console.log('Question delete initiated');
         alert('Question deleted!');
       } else {
-        const errText = await res.text();
-        console.error('Question delete failed:', errText);
-        alert(`Failed to delete question: ${errText}`);
+        const bodyText = await res.text();
+        let errorMsg = bodyText;
+        try {
+          const errJson = JSON.parse(bodyText);
+          errorMsg = errJson.message || errJson.error || bodyText;
+        } catch {
+          // Fallback to raw text
+        }
+        console.error('Question delete failed:', errorMsg);
+        alert(`Failed to delete question: ${errorMsg}`);
       }
     } catch(err) {
       console.error('Question delete execution error:', err);
