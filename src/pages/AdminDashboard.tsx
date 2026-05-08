@@ -4,7 +4,7 @@ import { collection, query, getDocs, orderBy, doc, deleteDoc, where, addDoc, ser
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
-import { LogOut, ArrowLeft, Plus, Edit2, Trash2, FileText, BookOpen, Play, CheckCircle, Clock } from 'lucide-react';
+import { LogOut, ArrowLeft, Plus, Pencil, Trash2, FileText, BookOpen, Play, CheckCircle, Clock, X } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 
 type AdminTab = 'mock' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel';
@@ -20,8 +20,11 @@ function AdminHome() {
   const [activeTab, setActiveTab] = useState<AdminTab>('mock');
   
   // Test Form
+  const [editingTestId, setEditingTestId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [topic, setTopic] = useState('');
+  const [subjectName, setSubjectName] = useState('');
+  const [category, setCategory] = useState('GK');
   const [duration, setDuration] = useState('30');
   const [testType, setTestType] = useState('topic');
   
@@ -36,9 +39,9 @@ function AdminHome() {
   const [pyqSubject, setPyqSubject] = useState('');
 
   // Pattern Form
-  const [patternTitle, setPatternTitle] = useState('');
-  const [patternLink, setPatternLink] = useState('');
-  const [patternSubject, setPatternSubject] = useState('');
+  const [patternExamName, setPatternExamName] = useState('');
+  const [patternFiles, setPatternFiles] = useState<File[]>([]);
+  const [uploadingPattern, setUploadingPattern] = useState(false);
 
   // Video Form
   const [videoTitle, setVideoTitle] = useState('');
@@ -55,7 +58,19 @@ function AdminHome() {
   const [socialWhatsapp, setSocialWhatsapp] = useState('');
   const [savingSocials, setSavingSocials] = useState(false);
 
-  const user = useAuth().user;
+  const { user, profile } = useAuth();
+
+  if (!user || profile?.role !== 'admin') {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <h2 className="text-2xl font-black text-rose-600 mb-2">Access Denied</h2>
+        <p className="text-slate-500 font-bold">You do not have permission to access the admin panel.</p>
+        <Link to="/dashboard" className="mt-6 text-indigo-600 font-bold px-6 py-3 bg-indigo-50 rounded-2xl hover:bg-indigo-100 transition-all">
+          Go to Student Dashboard
+        </Link>
+      </div>
+    );
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -113,12 +128,15 @@ function AdminHome() {
 
   const handleCreateTest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !topic || !user) return;
+    if (!user) return;
     
     try {
       const token = await user.getIdToken();
-      const res = await fetch('/api/admin/create-test', {
-        method: 'POST',
+      const method = editingTestId ? 'PUT' : 'POST';
+      const url = editingTestId ? `/api/admin/tests/${editingTestId}` : '/api/admin/create-test';
+      
+      const res = await fetch(url, {
+        method: method,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -126,6 +144,8 @@ function AdminHome() {
         body: JSON.stringify({ 
           title, 
           topic, 
+          subjectName,
+          category,
           testType,
           duration: parseInt(duration) || 30,
           isActive: true 
@@ -134,12 +154,27 @@ function AdminHome() {
       if (res.ok) {
         setTitle('');
         setTopic('');
+        setSubjectName('');
+        setCategory('GK');
         setDuration('30');
+        setEditingTestId(null);
+        alert(editingTestId ? 'Test updated successfully!' : 'Test created successfully!');
       } else alert(await res.text());
     } catch (err) {
       console.error(err);
-      alert('Error creating test');
+      alert('Error processing test');
     }
+  };
+
+  const handleEditTest = (test: any) => {
+    setEditingTestId(test.id);
+    setTitle(test.title || '');
+    setTopic(test.topic || '');
+    setSubjectName(test.subjectName || '');
+    setCategory(test.category || 'GK');
+    setTestType(test.testType || 'topic');
+    setDuration(test.duration?.toString() || '30');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleAddNote = async (e: React.FormEvent) => {
@@ -184,21 +219,70 @@ function AdminHome() {
 
   const handleAddPattern = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!patternTitle || !patternLink || !user) return;
+    if (!patternExamName || patternFiles.length === 0 || !user) {
+      console.log("Validation failed:", { patternExamName, filesCount: patternFiles.length, user: !!user });
+      alert("Please enter an Exam Name and select at least one file.");
+      return;
+    }
+    
+    // Admin check from email as backup
+    if (profile?.role !== 'admin' && user.email !== 'Bakolaypan@gmail.com') {
+      alert("You don't have permission to perform this action.");
+      return;
+    }
+    
+    // Size limit check (20MB)
+    const MAX_SIZE = 20 * 1024 * 1024;
+    const oversizedFiles = patternFiles.filter(f => f.size > MAX_SIZE);
+    if (oversizedFiles.length > 0) {
+      alert(`Some files are too large (max 20MB): ${oversizedFiles.map(f => f.name).join(', ')}`);
+      return;
+    }
+
+    setUploadingPattern(true);
+    console.log("Starting pattern upload for:", patternExamName);
+    
     try {
+      const uploadPromises = patternFiles.map(async (file) => {
+        // Add random suffix to avoid collisions if multiple files are named same or uploaded same time
+        const randomID = Math.random().toString(36).substring(2, 8);
+        const fileName = `${Date.now()}_${randomID}_${file.name}`;
+        const fileRef = ref(storage, `patterns/${fileName}`);
+        
+        console.log("Uploading file:", file.name, "as", fileName);
+        const snapshot = await uploadBytes(fileRef, file);
+        const url = await getDownloadURL(snapshot.ref);
+        console.log("File uploaded successfully:", file.name, "URL:", url);
+        
+        return { name: file.name, url, type: file.type };
+      });
+
+      const uploadedFiles = await Promise.all(uploadPromises);
+      console.log("All files uploaded to storage, saving to Firestore...");
+
       await addDoc(collection(db, 'patterns'), {
-        title: patternTitle,
-        link: patternLink,
-        subject: patternSubject || 'General',
+        title: patternExamName,
+        files: uploadedFiles,
         createdAt: serverTimestamp(),
         authorId: user.uid
       });
-      setPatternTitle('');
-      setPatternLink('');
-      setPatternSubject('');
+      
+      console.log("Pattern saved to Firestore successfully.");
+
+      setPatternExamName('');
+      setPatternFiles([]);
+      const fileInput = document.getElementById('pattern-files-input') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
+      alert('Exam Pattern & Syllabus added successfully!');
     } catch (err) {
-      console.error(err);
-      alert('Error adding Pattern');
+      console.error("Error in handleAddPattern:", err);
+      if (err instanceof Error && err.message.includes('permission-denied')) {
+        alert('Permission Denied: Your account does not have admin privileges in the database.');
+      } else {
+        alert('Error adding Pattern. Please check your connection and try again.');
+      }
+    } finally {
+      setUploadingPattern(false);
     }
   };
 
@@ -224,13 +308,19 @@ function AdminHome() {
 
   const handleAddCarousel = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!carouselFile || !user) return;
+    console.log('handleAddCarousel started');
+    if (!carouselFile || !user) {
+      console.warn('handleAddCarousel: Missing file or user');
+      return;
+    }
     try {
       if (carousels.length >= 3) {
+        console.warn('Carousel limit reached (3)');
         alert('You can only have up to 3 carousel pictures.');
         return;
       }
       setUploadingCarousel(true);
+      console.log('Compressing image...');
       
       const compressImage = (file: File): Promise<string> => {
         return new Promise((resolve, reject) => {
@@ -261,29 +351,43 @@ function AdminHome() {
               canvas.height = height;
               const ctx = canvas.getContext('2d');
               ctx?.drawImage(img, 0, 0, width, height);
-              resolve(canvas.toDataURL('image/jpeg', 0.8));
+              const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+              console.log(`Image compressed. Size: ${Math.round(dataUrl.length / 1024)} KB`);
+              resolve(dataUrl);
             };
-            img.onerror = (err) => reject(err);
+            img.onerror = (err) => {
+              console.error('Image load error:', err);
+              reject(err);
+            };
           };
-          reader.onerror = (err) => reject(err);
+          reader.onerror = (err) => {
+            console.error('FileReader error:', err);
+            reject(err);
+          };
         });
       };
 
       const link = await compressImage(carouselFile);
 
-      await addDoc(collection(db, 'carousel'), {
+      console.log('Attempting addDoc to carousel collection...');
+      const docRef = await addDoc(collection(db, 'carousel'), {
         link: link,
         createdAt: serverTimestamp(),
         authorId: user.uid
       });
+      console.log(`Carousel item added successfully with ID: ${docRef.id}`);
       setCarouselFile(null);
       // Reset input type="file" manually
       const fileInput = document.getElementById('carousel-file-input') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
 
-    } catch (err) {
-      console.error(err);
-      alert('Error adding carousel picture. Make sure it is a valid image.');
+    } catch (err: any) {
+      console.error('Error in handleAddCarousel:', err);
+      // Construct a better error message
+      let msg = 'Error adding carousel picture.';
+      if (err.message && err.message.includes('quota')) msg += ' Storage quota exceeded.';
+      else if (err.message) msg += ' ' + err.message;
+      alert(msg);
     } finally {
       setUploadingCarousel(false);
     }
@@ -311,35 +415,47 @@ function AdminHome() {
   };
 
   const handleDeleteContent = async (coll: string, id: string) => {
-    if (!confirm('Are you sure you want to delete this permanently?')) return;
-    if (!user) return;
+    console.log(`handleDeleteContent called for ${coll} with ID ${id}`);
+    if (!confirm('Are you sure you want to delete this permanently?')) {
+      console.log('Delete cancelled by user');
+      return;
+    }
+    if (!user) {
+      console.error('No authenticated user found during delete attempt');
+      return;
+    }
     try {
       const token = await user.getIdToken();
+      console.log('Got auth token for delete request');
+      
       // Map matching collection names to API paths
       const pathMap: Record<string, string> = {
         'tests': 'tests',
         'notes': 'notes',
         'videos': 'videos',
-        'pyqs': 'materials/pyqs',
-        'patterns': 'materials/patterns',
-        'carousel': 'materials/carousel'
+        'pyqs': 'pyqs',
+        'patterns': 'patterns',
+        'carousel': 'carousel'
       };
       
       const apiPath = pathMap[coll] || coll;
-      console.log(`Attempting to delete ${coll} with ID ${id} at path /api/admin/${apiPath}/${id}`);
-      const res = await fetch(`/api/admin/${apiPath}/${id}`, {
+      const url = `/api/admin/${apiPath}/${encodeURIComponent(id)}`;
+      console.log(`Sending DELETE request to: ${url}`);
+      
+      const res = await fetch(url, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
       
+      console.log(`Server responded with status: ${res.status}`);
       if (res.ok) {
-        console.log(`${coll} delete successfully initiated`);
+        console.log(`${coll} delete successfully acknowledged by server`);
         alert('Deleted successfully!');
       } else {
         const errText = await res.text();
-        console.error(`${coll} delete failed:`, errText);
+        console.error(`${coll} delete failed on server (Status ${res.status}):`, errText);
         alert(`Delete failed: ${errText}`);
       }
     } catch (err) {
@@ -361,6 +477,8 @@ function AdminHome() {
         body: JSON.stringify({ 
           title: test.title, 
           topic: test.topic, 
+          subjectName: test.subjectName,
+          category: test.category,
           testType: test.testType,
           duration: test.duration || 30,
           isActive: !test.isActive 
@@ -389,6 +507,8 @@ function AdminHome() {
         body: JSON.stringify({ 
           title: test.title, 
           topic: test.topic, 
+          subjectName: test.subjectName,
+          category: test.category,
           testType: test.testType,
           duration: durNum,
           isActive: test.isActive 
@@ -441,7 +561,7 @@ function AdminHome() {
             ${activeTab === 'pattern' ? 'bg-blue-600 text-white shadow-md shadow-blue-100' : 'text-slate-500 hover:text-blue-600 hover:bg-blue-50'}`}
         >
           <FileText className="w-4 h-4" />
-          Exam Pattern
+          Exam Pattern & Syllabus
         </button>
         <button 
           onClick={() => setActiveTab('carousel')}
@@ -469,32 +589,51 @@ function AdminHome() {
           </h2>
           
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
-            <h3 className="text-lg font-bold text-slate-800 mb-6">Create New Mock Test</h3>
+            <h3 className="text-lg font-bold text-slate-800 mb-6">{editingTestId ? 'Edit Mock Test' : 'Create New Mock Test'}</h3>
             <form onSubmit={handleCreateTest} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
               <div>
                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Test Title</label>
                 <input 
                   type="text" 
-                  required
                   className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium" 
                   value={title} onChange={e => setTitle(e.target.value)} 
                   placeholder="e.g. Physics Section A"
                 />
               </div>
               <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Topic / Subject</label>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Topic Name</label>
                 <input 
                   type="text" 
-                  required
                   className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium" 
                   value={topic} onChange={e => setTopic(e.target.value)} 
                   placeholder="e.g. Mechanics"
                 />
               </div>
               <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Subject Name</label>
+                <input 
+                  type="text" 
+                  className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium" 
+                  value={subjectName} onChange={e => setSubjectName(e.target.value)} 
+                  placeholder="e.g. Physics"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Category</label>
+                <select
+                  className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium" 
+                  value={category} onChange={e => setCategory(e.target.value)}
+                >
+                  <option value="GK">GK</option>
+                  <option value="English">English</option>
+                  <option value="Math">Math</option>
+                  <option value="Reasoning">Reasoning</option>
+                  <option value="Computer">Computer</option>
+                </select>
+              </div>
+              <div>
                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Test Type</label>
                 <select
-                  required
                   className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium" 
                   value={testType} onChange={e => setTestType(e.target.value)}
                 >
@@ -507,16 +646,31 @@ function AdminHome() {
                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Duration (Mins)</label>
                 <input 
                   type="number" 
-                  required
                   min="1"
                   className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium" 
                   value={duration} onChange={e => setDuration(e.target.value)} 
                 />
               </div>
-              <button type="submit" className="bg-indigo-600 text-white px-6 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-indigo-50 flex items-center justify-center gap-2">
-                <Plus className="w-5 h-5" />
-                Build Test
-              </button>
+              <div className="md:col-span-4 flex gap-4">
+                <button type="submit" className="flex-1 bg-indigo-600 text-white px-6 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-indigo-50 flex items-center justify-center gap-2">
+                  <Plus className="w-5 h-5" />
+                  {editingTestId ? 'Update Test' : 'Build Test'}
+                </button>
+                {editingTestId && (
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setEditingTestId(null);
+                      setTitle('');
+                      setTopic('');
+                      setDuration('30');
+                    }}
+                    className="flex-1 bg-slate-100 text-slate-600 px-6 py-4 rounded-xl hover:bg-slate-200 font-bold transition-all"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
             </form>
           </div>
 
@@ -535,13 +689,17 @@ function AdminHome() {
                 {loading && <tr><td colSpan={5} className="px-8 py-10 text-center text-slate-400 font-bold">Fetching Tests...</td></tr>}
                 {!loading && tests.map(test => (
                   <tr key={test.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-8 py-6 whitespace-nowrap text-sm font-bold text-slate-800">{test.title}</td>
+                    <td className="px-8 py-6 whitespace-nowrap text-sm font-bold text-slate-800">{test.title || 'Untitled'}</td>
                     <td className="px-8 py-6 whitespace-nowrap text-sm font-medium text-slate-500">
                       <div className="flex flex-col gap-1">
-                        <span className="bg-slate-100 px-3 py-1 rounded-lg text-slate-600 inline-block w-fit">{test.topic}</span>
-                        <span className="text-[10px] uppercase font-bold text-indigo-500 tracking-wider">
-                          {test.testType === 'topic' ? 'Topic Wise' : test.testType === 'sectional' ? 'Sectional' : 'Full Mock'}
-                        </span>
+                        <span className="bg-slate-100 px-3 py-1 rounded-lg text-slate-600 inline-block w-fit">{test.topic || 'No Topic'}</span>
+                        {test.subjectName && <span className="text-xs text-slate-400 font-bold">{test.subjectName}</span>}
+                        <div className="flex gap-2 items-center">
+                          <span className="text-[10px] uppercase font-bold text-indigo-500 tracking-wider">
+                            {test.testType === 'topic' ? 'Topic Wise' : test.testType === 'sectional' ? 'Sectional' : 'Full Mock'}
+                          </span>
+                          {test.category && <span className="text-[10px] uppercase font-black text-emerald-500 bg-emerald-50 px-2 rounded">{test.category}</span>}
+                        </div>
                       </div>
                     </td>
                     <td className="px-8 py-6 whitespace-nowrap text-sm text-slate-500">
@@ -559,11 +717,26 @@ function AdminHome() {
                     </td>
                     <td className="px-8 py-6 whitespace-nowrap text-right text-sm font-bold">
                       <div className="flex justify-end gap-2">
-                        <Link to={`/admin/test/${test.id}`} className="text-indigo-600 hover:bg-indigo-600 hover:text-white p-2 rounded-xl transition-all border border-indigo-100">
-                          <Edit2 className="w-4 h-4" />
+                        <button 
+                          onClick={() => handleEditTest(test)}
+                          className="text-amber-600 hover:bg-amber-100 px-3 py-1.5 rounded-lg transition-all border border-amber-100 font-bold text-xs"
+                          title="Edit Test Settings (Title, Time)"
+                        >
+                          Settings
+                        </button>
+                        <Link 
+                          to={`/admin/test/${test.id}`} 
+                          className="text-indigo-600 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-all border border-indigo-100 font-bold text-xs"
+                          title="Modify Questions & Solutions"
+                        >
+                          Modify
                         </Link>
-                        <button onClick={() => handleDeleteContent('tests', test.id)} className="text-rose-500 hover:bg-rose-500 hover:text-white p-2 rounded-xl transition-all border border-rose-100">
-                          <Trash2 className="w-4 h-4" />
+                        <button 
+                          onClick={() => handleDeleteContent('tests', test.id)} 
+                          className="text-rose-500 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-all border border-rose-100 font-bold text-xs"
+                          title="Delete Test"
+                        >
+                          Delete
                         </button>
                       </div>
                     </td>
@@ -797,38 +970,38 @@ function AdminHome() {
           </h2>
           
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
-            <h3 className="text-lg font-bold text-slate-800 mb-6">Upload Exam Pattern</h3>
-            <form onSubmit={handleAddPattern} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <h3 className="text-lg font-bold text-slate-800 mb-6">Upload Exam Pattern & Syllabus</h3>
+            <form onSubmit={handleAddPattern} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
               <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Title</label>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Exam Name</label>
                 <input 
                   type="text" required
                   className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
-                  value={patternTitle} onChange={e => setPatternTitle(e.target.value)} 
-                  placeholder="e.g. 2024 Pattern"
+                  value={patternExamName} onChange={e => setPatternExamName(e.target.value)} 
+                  placeholder="e.g. SSC CGL 2024"
                 />
               </div>
               <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Subject</label>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Syllabus Files (PDF/Images)</label>
                 <input 
-                  type="text" required
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
-                  value={patternSubject} onChange={e => setPatternSubject(e.target.value)} 
-                  placeholder="e.g. SSC CGL"
+                  id="pattern-files-input"
+                  type="file" required multiple
+                  accept="image/*,.pdf"
+                  className="w-full rounded-xl border-slate-200 border-2 p-2.5 outline-hidden font-medium text-sm file:mr-4 file:py-1 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-black file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" 
+                  onChange={e => setPatternFiles(Array.from(e.target.files || []))} 
                 />
               </div>
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Resource Link (PDF/Drive)</label>
-                <input 
-                  type="url" required
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
-                  value={patternLink} onChange={e => setPatternLink(e.target.value)} 
-                  placeholder="https://..."
-                />
-              </div>
-              <button type="submit" className="bg-blue-600 text-white px-6 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-blue-50 flex items-center justify-center gap-2">
-                <Plus className="w-5 h-5" />
-                Add Pattern
+              <button 
+                type="submit" 
+                disabled={uploadingPattern}
+                className="bg-blue-600 text-white px-6 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-blue-50 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {uploadingPattern ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <Plus className="w-5 h-5" />
+                )}
+                {uploadingPattern ? 'Uploading...' : 'Add Pattern'}
               </button>
             </form>
           </div>
@@ -845,14 +1018,25 @@ function AdminHome() {
                 <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 mb-4 group-hover:bg-blue-600 group-hover:text-white transition-all">
                   <FileText className="w-6 h-6" />
                 </div>
-                <h4 className="font-bold text-slate-800 mb-1">{pattern.title}</h4>
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">{pattern.subject}</p>
-                <a 
-                  href={pattern.link} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center text-blue-600 font-bold text-sm bg-blue-50 px-4 py-2 rounded-xl hover:bg-blue-100 transition-colors"
-                >
-                  View Resource
-                </a>
+                <h4 className="font-bold text-slate-800 mb-4">{pattern.title}</h4>
+                <div className="flex flex-wrap gap-2">
+                  {pattern.files ? pattern.files.map((file: any, idx: number) => (
+                    <a 
+                      key={idx}
+                      href={file.url} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center text-blue-600 font-bold text-[10px] bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors uppercase tracking-tight"
+                    >
+                      {file.name.length > 15 ? file.name.substring(0, 12) + '...' : file.name}
+                    </a>
+                  )) : (
+                    <a 
+                      href={pattern.link} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center text-blue-600 font-bold text-sm bg-blue-50 px-4 py-2 rounded-xl hover:bg-blue-100 transition-colors"
+                    >
+                      View Resource
+                    </a>
+                  )}
+                </div>
               </div>
             ))}
             {patterns.length === 0 && <div className="col-span-full py-12 text-center text-slate-400 font-bold">No Pattern uploaded yet.</div>}
@@ -864,14 +1048,19 @@ function AdminHome() {
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
           <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-2">
             <span className="w-2 h-8 bg-fuchsia-600 rounded-full"></span>
-            Carousel Management (Max 3)
+            Carousel Management
           </h2>
           
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
-            <h3 className="text-lg font-bold text-slate-800 mb-6">Upload Carousel Image</h3>
+            <h3 className="text-lg font-bold text-slate-800 mb-2">Upload Carousel Image</h3>
+            <p className="text-sm text-slate-500 mb-6">
+              You can have up to <span className="font-bold text-fuchsia-600">3 images</span> in the home carousel. 
+              To <span className="font-bold text-slate-700">replace</span> an image, delete an existing one first and then add a new one.
+            </p>
+            
             <form onSubmit={handleAddCarousel} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
               <div className="md:col-span-3">
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Image File</label>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Select New Image</label>
                 <input 
                   id="carousel-file-input"
                   type="file" accept="image/*" required
@@ -883,30 +1072,40 @@ function AdminHome() {
                   }} 
                 />
               </div>
-              <button disabled={uploadingCarousel} type="submit" className="bg-fuchsia-600 disabled:opacity-50 text-white px-6 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-fuchsia-50 flex items-center justify-center gap-2">
+              <button disabled={uploadingCarousel || carousels.length >= 3} type="submit" className="bg-fuchsia-600 disabled:opacity-50 disabled:bg-slate-300 text-white px-6 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-fuchsia-50 flex items-center justify-center gap-2">
                 <Plus className="w-5 h-5" />
                 {uploadingCarousel ? 'Uploading...' : 'Add Image'}
               </button>
             </form>
+            {carousels.length >= 3 && (
+              <p className="mt-4 text-xs text-rose-500 font-bold bg-rose-50 p-3 rounded-lg border border-rose-100 flex items-center gap-2">
+                <X className="w-4 h-4" />
+                Limit reached! Delete one image below to add a new one.
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {carousels.map(carousel => (
+            {carousels.map((carousel, index) => (
               <div key={carousel.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group hover:shadow-md transition-all overflow-hidden flex flex-col">
-                <button 
-                  onClick={() => handleDeleteContent('carousel', carousel.id)} 
-                  className="absolute top-4 right-4 text-rose-500 hover:bg-rose-50 p-2 rounded-xl z-10 bg-white shadow-sm"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-                <div className="w-full h-32 bg-slate-100 rounded-2xl mb-4 overflow-hidden relative">
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Image {index + 1}</span>
+                  <button 
+                    onClick={() => handleDeleteContent('carousel', carousel.id)} 
+                    className="text-white bg-rose-500 hover:bg-rose-600 p-2 rounded-lg shadow-sm flex items-center gap-1 text-[10px] font-bold px-3 py-1.5 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    DELETE
+                  </button>
+                </div>
+                <div className="w-full h-40 bg-slate-100 rounded-2xl mb-4 overflow-hidden relative">
                    <img src={carousel.link} alt="Carousel slide" className="w-full h-full object-cover" />
                 </div>
                 <a 
                   href={carousel.link} target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center text-fuchsia-600 font-bold text-sm bg-fuchsia-50 px-4 py-2 rounded-xl hover:bg-fuchsia-100 transition-colors mt-auto w-fit"
                 >
-                  View Image
+                  View Large
                 </a>
               </div>
             ))}
@@ -968,13 +1167,19 @@ function QuestionManager() {
   const { testId } = useParams();
   const [questions, setQuestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const user = useAuth().user;
+  const { user, profile } = useAuth();
+  
+  if (!user || profile?.role !== 'admin') {
+    return null;
+  }
 
   // Form states
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
   const [qText, setQText] = useState('');
   const [qTopic, setQTopic] = useState('');
   const [qOptions, setQOptions] = useState(['', '', '', '']);
   const [qCorrect, setQCorrect] = useState('');
+  const [qSolution, setQSolution] = useState('');
 
   useEffect(() => {
     if (!testId) return;
@@ -999,8 +1204,11 @@ function QuestionManager() {
 
     try {
       const token = await user.getIdToken();
-      const res = await fetch('/api/admin/questions', {
-        method: 'POST',
+      const method = editingQuestionId ? 'PUT' : 'POST';
+      const url = editingQuestionId ? `/api/admin/questions/${editingQuestionId}` : '/api/admin/questions';
+      
+      const res = await fetch(url, {
+        method: method,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -1008,19 +1216,32 @@ function QuestionManager() {
         body: JSON.stringify({ 
           testId, 
           topic: qTopic, 
-          qNo: questions.length + 1, 
+          qNo: editingQuestionId ? undefined : questions.length + 1, 
           questionText: qText, 
           options: qOptions, 
-          correctAnswer: qCorrect 
+          correctAnswer: qCorrect,
+          solution: qSolution
         })
       });
       if (res.ok) {
-        setQText(''); setQTopic(''); setQOptions(['', '', '', '']); setQCorrect('');
+        setQText(''); setQTopic(''); setQOptions(['', '', '', '']); setQCorrect(''); setQSolution('');
+        setEditingQuestionId(null);
+        alert(editingQuestionId ? 'Question updated!' : 'Question added!');
       } else alert(await res.text());
     } catch (error) {
       console.error(error);
-      alert('Failed to add question');
+      alert('Failed to process question');
     }
+  };
+
+  const handleEditQuestion = (q: any) => {
+    setEditingQuestionId(q.id);
+    setQText(q.questionText);
+    setQTopic(q.topic || '');
+    setQOptions([...q.options]);
+    setQCorrect(q.correctAnswer);
+    setQSolution(q.solution || '');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDeleteQuestion = async (qId: string) => {
@@ -1059,7 +1280,7 @@ function QuestionManager() {
       </div>
 
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
-         <h3 className="text-lg font-bold text-slate-800 mb-6">Add New Question</h3>
+         <h3 className="text-lg font-bold text-slate-800 mb-6">{editingQuestionId ? 'Edit Question' : 'Add New Question'}</h3>
          <form onSubmit={handleAddQuestion} className="space-y-6">
            <div>
              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Question Description</label>
@@ -1110,28 +1331,62 @@ function QuestionManager() {
              </div>
            </div>
 
-           <div className="flex justify-end pt-4">
+           <div>
+             <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Solution / More Details</label>
+             <textarea 
+               className="w-full rounded-2xl border-slate-200 border-2 p-4 outline-hidden font-medium"
+               rows={3} value={qSolution} onChange={e => setQSolution(e.target.value)}
+               placeholder="Explain the logic or provide the step-by-step solution..."
+             />
+           </div>
+
+           <div className="flex justify-end gap-4 pt-4">
+             {editingQuestionId && (
+               <button 
+                 type="button" 
+                 onClick={() => {
+                   setEditingQuestionId(null);
+                   setQText(''); setQTopic(''); setQOptions(['', '', '', '']); setQCorrect(''); setQSolution('');
+                 }}
+                 className="bg-slate-100 text-slate-600 px-8 py-4 rounded-xl hover:bg-slate-200 font-bold transition-all"
+               >
+                 Cancel
+               </button>
+             )}
              <button type="submit" className="bg-indigo-600 text-white px-8 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-indigo-50 flex items-center gap-2">
-               <Plus className="w-5 h-5" /> Add Question to Test
+               <Plus className="w-5 h-5" /> {editingQuestionId ? 'Update Question' : 'Add Question to Test'}
              </button>
            </div>
          </form>
       </div>
 
-      <div className="space-y-4">
+       <div className="space-y-4">
         {loading ? <p className="text-slate-400 font-bold text-center py-10">Fetching questions...</p> : 
          questions.map((q, i) => (
            <div key={q.id} className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 relative group transition-all hover:shadow-md">
-             <button onClick={() => handleDeleteQuestion(q.id)} className="absolute top-6 right-6 text-rose-500 hover:bg-rose-50 p-2 rounded-xl transition">
-               <Trash2 className="w-5 h-5" />
-             </button>
+             <div className="absolute top-6 right-6 flex gap-2">
+               <button 
+                 onClick={() => handleEditQuestion(q)} 
+                 className="text-indigo-600 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-all border border-indigo-100 font-bold text-xs"
+                 title="Edit Question"
+               >
+                 Edit
+               </button>
+               <button 
+                 onClick={() => handleDeleteQuestion(q.id)} 
+                 className="text-rose-500 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-all border border-rose-100 font-bold text-xs"
+                 title="Delete Question"
+               >
+                 Delete
+               </button>
+             </div>
              <div className="flex items-start mb-6">
                 <span className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 font-black mr-4 shrink-0">
                   {i+1}
                 </span>
-                <h4 className="font-bold text-slate-800 text-lg pr-12 leading-tight">{q.questionText}</h4>
+                <h4 className="font-bold text-slate-800 text-lg pr-20 leading-tight">{q.questionText}</h4>
              </div>
-             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                {q.options.map((opt: string, j: number) => (
                  <div key={j} className={`p-4 rounded-2xl border-2 transition-all flex items-center justify-between
                    ${opt === q.correctAnswer 
@@ -1146,6 +1401,12 @@ function QuestionManager() {
                  </div>
                ))}
              </div>
+             {q.solution && (
+                <div className="mt-4 p-4 bg-amber-50/50 border border-amber-100 rounded-2xl">
+                  <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Solution / Explanation</p>
+                  <p className="text-sm text-slate-600">{q.solution}</p>
+                </div>
+              )}
            </div>
          ))
         }

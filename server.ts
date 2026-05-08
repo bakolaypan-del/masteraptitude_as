@@ -57,17 +57,24 @@ async function verifyToken(req: express.Request, res: express.Response, next: ex
 
 async function verifyAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
   const user = (req as any).user;
-  if (!db) return res.status(500).json({ error: "Database not initialized" });
+  if (!db) {
+    console.error("[Auth] verifyAdmin failed: Database not initialized");
+    return res.status(500).json({ error: "Database not initialized" });
+  }
   
   try {
+    console.log(`[Auth] Verifying admin status for user: ${user.uid} (${user.email})`);
     const profileSnap = await db.collection("profiles").doc(user.uid).get();
     if (profileSnap.exists && profileSnap.data()?.role === "admin") {
+      console.log(`[Auth] Admin verified: ${user.uid}`);
       next();
     } else {
+      console.warn(`[Auth] Access denied: User ${user.uid} is not an admin. Role: ${profileSnap.data()?.role}`);
       return res.status(403).json({ error: "Forbidden: Admins only" });
     }
-  } catch (err) {
-    return res.status(500).json({ error: "Failed to verify admin status" });
+  } catch (err: any) {
+    console.error(`[Auth] Error verifying admin status for ${user.uid}:`, err);
+    return res.status(500).json({ error: "Failed to verify admin status", message: err.message });
   }
 }
 
@@ -255,17 +262,19 @@ app.use(cookieParser());
   app.post("/api/admin/create-test", verifyToken, verifyAdmin, async (req, res) => {
     if (!db) return res.status(500).json({ error: "DB offline" });
     try {
-      const { title, topic, isActive, duration, testType } = req.body;
+      const { title, topic, isActive, duration, testType, subjectName, category } = req.body;
       const ref = db.collection("tests").doc();
       await ref.set({
         title,
         topic,
+        subjectName: subjectName || "",
+        category: category || "",
         testType: testType || 'topic',
         duration: duration || 30, // Default 30 mins
         isActive: !!isActive,
         createdAt: Date.now()
       });
-      res.json({ id: ref.id, title, topic, testType, isActive, duration });
+      res.json({ id: ref.id, title, topic, testType, isActive, duration, subjectName, category });
     } catch (error) {
        console.error(error);
        res.status(500).json({ error: "Failed to create test" });
@@ -276,10 +285,12 @@ app.use(cookieParser());
     if (!db) return res.status(500).json({ error: "DB offline" });
     try {
       const { testId } = req.params;
-      const { title, topic, isActive, duration, testType } = req.body;
+      const { title, topic, isActive, duration, testType, subjectName, category } = req.body;
       const updateData: any = {
         title,
         topic,
+        subjectName: subjectName || "",
+        category: category || "",
         duration: duration || 30,
         isActive: !!isActive
       };
@@ -295,15 +306,30 @@ app.use(cookieParser());
   app.post("/api/admin/questions", verifyToken, verifyAdmin, async (req, res) => {
     if (!db) return res.status(500).json({ error: "DB offline" });
     try {
-      const { testId, topic, qNo, questionText, options, correctAnswer } = req.body;
+      const { testId, topic, qNo, questionText, options, correctAnswer, solution } = req.body;
       const ref = db.collection("questions").doc();
       await ref.set({
-        testId, topic, qNo, questionText, options, correctAnswer
+        testId, topic, qNo, questionText, options, correctAnswer, solution: solution || ""
       });
       res.json({ id: ref.id });
     } catch (error) {
        console.error(error);
        res.status(500).json({ error: "Failed to create question" });
+    }
+  });
+
+  app.put("/api/admin/questions/:questionId", verifyToken, verifyAdmin, async (req, res) => {
+    if (!db) return res.status(500).json({ error: "DB offline" });
+    try {
+      const { questionId } = req.params;
+      const { topic, questionText, options, correctAnswer, solution } = req.body;
+      await db.collection("questions").doc(questionId).update({
+        topic, questionText, options, correctAnswer, solution: solution || ""
+      });
+      res.json({ success: true });
+    } catch (error) {
+       console.error(error);
+       res.status(500).json({ error: "Failed to update question" });
     }
   });
   
@@ -321,21 +347,54 @@ app.use(cookieParser());
     }
   });
 
-  app.delete("/api/admin/materials/:collection/:id", verifyToken, verifyAdmin, async (req, res) => {
+  app.delete("/api/admin/pyqs/:id", verifyToken, verifyAdmin, async (req, res) => {
     if (!db) return res.status(500).json({ error: "DB offline" });
-    const { collection, id } = req.params;
-    const allowedCollections = ['notes', 'videos', 'pyqs', 'patterns', 'carousel'];
-    if (!allowedCollections.includes(collection)) {
-      return res.status(400).json({ error: "Invalid collection" });
-    }
-    console.log(`Server: Request to delete ${collection} ${id}`);
+    const { id } = req.params;
+    console.log(`[Admin] Request to delete pyq: ${id}`);
     try {
-      await db.collection(collection).doc(id).delete();
-      console.log(`Server: Successfully deleted ${collection} ${id}`);
+      await db.collection("pyqs").doc(id).delete();
+      console.log(`[Admin] Successfully deleted pyq: ${id}`);
       res.json({ success: true });
     } catch (error: any) {
-      console.error(`Server: Error deleting ${collection} ${id}:`, error);
-      res.status(500).json({ error: `Failed to delete ${collection}`, message: error.message });
+      console.error(`[Admin] Error deleting pyq ${id}:`, error);
+      res.status(500).json({ error: "Failed to delete pyq", message: error.message });
+    }
+  });
+
+  app.delete("/api/admin/patterns/:id", verifyToken, verifyAdmin, async (req, res) => {
+    if (!db) return res.status(500).json({ error: "DB offline" });
+    const { id } = req.params;
+    console.log(`[Admin] Request to delete pattern: ${id}`);
+    try {
+      await db.collection("patterns").doc(id).delete();
+      console.log(`[Admin] Successfully deleted pattern: ${id}`);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error(`[Admin] Error deleting pattern ${id}:`, error);
+      res.status(500).json({ error: "Failed to delete pattern", message: error.message });
+    }
+  });
+
+  app.delete("/api/admin/carousel/:id", verifyToken, verifyAdmin, async (req, res) => {
+    if (!db) {
+      console.error("[Admin] DB offline during carousel delete");
+      return res.status(500).json({ error: "DB offline" });
+    }
+    const { id } = req.params;
+    console.log(`[Admin] Request to delete carousel item: ${id}`);
+    try {
+      const docRef = db.collection("carousel").doc(id);
+      const snap = await docRef.get();
+      if (!snap.exists) {
+        console.warn(`[Admin] Carousel item ${id} not found in DB`);
+        return res.status(404).json({ error: "Carousel item not found" });
+      }
+      await docRef.delete();
+      console.log(`[Admin] Successfully deleted carousel item: ${id}`);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error(`[Admin] Error deleting carousel item ${id}:`, error);
+      res.status(500).json({ error: "Failed to delete carousel", message: error.message });
     }
   });
 

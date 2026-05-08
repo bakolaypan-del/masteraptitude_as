@@ -22,8 +22,11 @@ export default function Dashboard() {
   const [socialLinks, setSocialLinks] = useState({ youtube: '', telegram: '', whatsapp: '' });
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DashboardTab>('home');
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const categories = ['All', 'GK', 'English', 'Math', 'Reasoning', 'Computer'];
 
   useEffect(() => {
     async function fetchData() {
@@ -173,21 +176,21 @@ export default function Dashboard() {
             </div>
             <div className="flex flex-col gap-1 px-2">
               <button 
-                onClick={() => { setActiveTab('mock_topic'); setIsSidebarOpen(false); }} 
+                onClick={() => { setActiveTab('mock_topic'); setSelectedCategory('All'); setIsSidebarOpen(false); }} 
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all font-bold text-sm ${activeTab === 'mock_topic' ? 'bg-rose-500/30 text-rose-50 border-l-4 border-rose-400' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border-l-4 border-transparent'}`}
               >
                 <FileText className="w-4 h-4 shrink-0" />
                 Topic Wise Mock Test
               </button>
               <button 
-                onClick={() => { setActiveTab('mock_sectional'); setIsSidebarOpen(false); }} 
+                onClick={() => { setActiveTab('mock_sectional'); setSelectedCategory('All'); setIsSidebarOpen(false); }} 
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all font-bold text-sm ${activeTab === 'mock_sectional' ? 'bg-rose-500/30 text-rose-50 border-l-4 border-rose-400' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border-l-4 border-transparent'}`}
               >
                 <FileText className="w-4 h-4 shrink-0" />
                 Sectional Mock Test
               </button>
               <button 
-                onClick={() => { setActiveTab('mock_full'); setIsSidebarOpen(false); }} 
+                onClick={() => { setActiveTab('mock_full'); setSelectedCategory('All'); setIsSidebarOpen(false); }} 
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all font-bold text-sm ${activeTab === 'mock_full' ? 'bg-rose-500/30 text-rose-50 border-l-4 border-rose-400' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border-l-4 border-transparent'}`}
               >
                 <FileText className="w-4 h-4 shrink-0" />
@@ -203,10 +206,9 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* MISCELLANEOUS */}
           <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl py-4 pb-3">
             <div className="px-4 mb-3 text-[10px] font-black text-emerald-400/80 tracking-widest uppercase flex items-center gap-2">
-              <Trophy className="w-3 h-3" /> Miscellaneous
+              <Trophy className="w-3 h-3" /> Exam Pattern & Syllabus
             </div>
             <div className="flex flex-col gap-1 px-2">
               <button 
@@ -214,7 +216,7 @@ export default function Dashboard() {
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all font-bold text-sm ${activeTab === 'pattern' ? 'bg-emerald-500/30 text-emerald-50 border-l-4 border-emerald-400' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border-l-4 border-transparent'}`}
               >
                 <Trophy className="w-4 h-4 shrink-0" />
-                Exam Pattern
+                Exam Pattern & Syllabus
               </button>
             </div>
           </div>
@@ -308,9 +310,9 @@ export default function Dashboard() {
               {/* Social Links Box - Single Line */}
               <div className="mt-8 grid grid-cols-3 gap-2 sm:gap-4">
                 {socialLinks.youtube && (
-                  <a href={socialLinks.youtube} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-2 sm:p-4 bg-white border border-red-100 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
-                    <div className="absolute inset-0 bg-gradient-to-b from-red-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <div className="w-8 h-8 sm:w-12 sm:h-12 bg-red-100 text-red-600 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 relative z-10 group-hover:scale-110 transition-transform">
+                  <a href={socialLinks.youtube} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-2 sm:p-4 bg-rose-50/80 border border-red-200 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative animate-pulse">
+                    <div className="absolute inset-0 bg-gradient-to-b from-red-100/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="w-8 h-8 sm:w-12 sm:h-12 bg-red-600 text-white rounded-lg sm:rounded-xl flex items-center justify-center mb-2 relative z-10 group-hover:scale-110 transition-transform shadow-lg shadow-red-200">
                       <Youtube className="w-4 h-4 sm:w-6 sm:h-6" />
                     </div>
                     <div className="relative z-10 text-center">
@@ -321,9 +323,9 @@ export default function Dashboard() {
                 )}
                 
                 {socialLinks.whatsapp && (
-                  <a href={socialLinks.whatsapp} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-2 sm:p-4 bg-white border border-green-100 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
-                    <div className="absolute inset-0 bg-gradient-to-b from-green-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <div className="w-8 h-8 sm:w-12 sm:h-12 bg-green-100 text-green-600 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 relative z-10 group-hover:scale-110 transition-transform">
+                  <a href={socialLinks.whatsapp} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-2 sm:p-4 bg-emerald-50/80 border border-green-200 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative animate-pulse">
+                    <div className="absolute inset-0 bg-gradient-to-b from-green-100/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="w-8 h-8 sm:w-12 sm:h-12 bg-emerald-600 text-white rounded-lg sm:rounded-xl flex items-center justify-center mb-2 relative z-10 group-hover:scale-110 transition-transform shadow-lg shadow-emerald-200">
                       <MessageCircle className="w-4 h-4 sm:w-6 sm:h-6" />
                     </div>
                     <div className="relative z-10 text-center">
@@ -334,9 +336,9 @@ export default function Dashboard() {
                 )}
 
                 {socialLinks.telegram && (
-                  <a href={socialLinks.telegram} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-2 sm:p-4 bg-white border border-blue-100 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
-                    <div className="absolute inset-0 bg-gradient-to-b from-blue-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <div className="w-8 h-8 sm:w-12 sm:h-12 bg-blue-100 text-blue-600 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 relative z-10 group-hover:scale-110 transition-transform">
+                  <a href={socialLinks.telegram} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-2 sm:p-4 bg-sky-50/80 border border-blue-200 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative animate-pulse">
+                    <div className="absolute inset-0 bg-gradient-to-b from-blue-100/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="w-8 h-8 sm:w-12 sm:h-12 bg-sky-600 text-white rounded-lg sm:rounded-xl flex items-center justify-center mb-2 relative z-10 group-hover:scale-110 transition-transform shadow-lg shadow-sky-200">
                       <Send className="w-4 h-4 sm:w-6 sm:h-6" />
                     </div>
                     <div className="relative z-10 text-center">
@@ -353,13 +355,35 @@ export default function Dashboard() {
           {activeTab.startsWith('mock') && (
             <div className="space-y-10">
               
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-black text-slate-900 tracking-tight">
-                  Your <span className="text-indigo-600">{activeTab === 'mock_topic' ? 'Topic Wise' : activeTab === 'mock_sectional' ? 'Sectional' : 'Full'} Test Series</span>
-                </h2>
+              <div className="flex flex-col gap-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight">
+                    Your <span className="text-indigo-600">{activeTab === 'mock_topic' ? 'Topic Wise' : activeTab === 'mock_sectional' ? 'Sectional' : 'Full'} Test Series</span>
+                  </h2>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {categories.map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedCategory(cat)}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
+                        selectedCategory === cat
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-100'
+                          : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-400 hover:text-indigo-600'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              {activeTests.filter(t => (t.testType || 'topic') === activeTab.replace('mock_', '')).length === 0 ? (
+              {activeTests.filter(t => {
+                const matchesType = (t.testType || 'topic') === activeTab.replace('mock_', '');
+                const matchesCategory = selectedCategory === 'All' || t.category === selectedCategory;
+                return matchesType && matchesCategory;
+              }).length === 0 ? (
                 <div className="bg-white rounded-3xl p-12 border border-slate-200 text-center text-slate-400 shadow-sm flex flex-col items-center">
                   <FileText className="w-12 h-12 mb-4 text-slate-200" />
                   <p className="font-bold text-sm uppercase tracking-widest text-slate-500 mb-2">No {activeTab.replace('mock_', '')} Mock Tests yet.</p>
@@ -367,7 +391,11 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {activeTests.filter(t => (t.testType || 'topic') === activeTab.replace('mock_', '')).map(test => {
+                  {activeTests.filter(t => {
+                    const matchesType = (t.testType || 'topic') === activeTab.replace('mock_', '');
+                    const matchesCategory = selectedCategory === 'All' || t.category === selectedCategory;
+                    return matchesType && matchesCategory;
+                  }).map(test => {
                     const isTaken = pastResults.some(r => r.testId === test.id);
                     return (
                       <div key={test.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs transition-all hover:shadow-lg group flex flex-col">
@@ -376,14 +404,26 @@ export default function Dashboard() {
                             <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
                               <Target className="w-5 h-5" />
                             </div>
-                            <span className="px-2 py-1 bg-amber-50 text-amber-600 text-[10px] font-black uppercase tracking-widest rounded border border-amber-100 flex items-center gap-1">
-                                Students <FileText className="w-3 h-3" />
-                            </span>
+                            <div className="flex flex-col items-end gap-1">
+                              {test.category && (
+                                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded border border-emerald-100">
+                                  {test.category}
+                                </span>
+                              )}
+                              <span className="px-2 py-1 bg-amber-50 text-amber-600 text-[10px] font-black uppercase tracking-widest rounded border border-amber-100 flex items-center gap-1">
+                                  Students <FileText className="w-3 h-3" />
+                              </span>
+                            </div>
                           </div>
                           
-                          <h3 className="font-bold text-slate-800 text-base leading-snug mb-3 min-h-[40px] group-hover:text-indigo-600 transition-colors">
+                          <h3 className="font-bold text-slate-800 text-base leading-snug mb-1 min-h-[24px] group-hover:text-indigo-600 transition-colors">
                             {test.title}
                           </h3>
+                          {test.subjectName && (
+                            <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-3">
+                              {test.subjectName}
+                            </p>
+                          )}
                           
                           <div className="flex items-center justify-between mt-auto">
                             <p className="text-xs font-bold text-slate-500 flex items-center">
@@ -528,15 +568,27 @@ export default function Dashboard() {
                     <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 mb-4 group-hover:bg-blue-600 group-hover:text-white transition-all">
                       <Trophy className="w-6 h-6" />
                     </div>
-                    <h4 className="font-bold text-slate-800 text-lg mb-2 tracking-tight">{pattern.title}</h4>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">{pattern.subject}</p>
-                    <a 
-                      href={pattern.link} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center justify-between w-full text-blue-600 font-bold text-xs uppercase tracking-wider bg-blue-50 px-4 py-2.5 rounded-lg hover:bg-blue-600 hover:text-white transition-all"
-                    >
-                      Open Syllabus
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
+                    <h4 className="font-bold text-slate-800 text-lg mb-4 tracking-tight">{pattern.title}</h4>
+                    <div className="space-y-2">
+                      {pattern.files ? pattern.files.map((file: any, idx: number) => (
+                        <a 
+                          key={idx}
+                          href={file.url} target="_blank" rel="noopener noreferrer"
+                          className="flex items-center justify-between w-full text-blue-600 font-bold text-[10px] uppercase tracking-wider bg-blue-50 px-4 py-2.5 rounded-lg hover:bg-blue-600 hover:text-white transition-all"
+                        >
+                          {file.name.length > 25 ? file.name.substring(0, 22) + '...' : file.name}
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )) : (
+                        <a 
+                          href={pattern.link} target="_blank" rel="noopener noreferrer"
+                          className="flex items-center justify-between w-full text-blue-600 font-bold text-xs uppercase tracking-wider bg-blue-50 px-4 py-2.5 rounded-lg hover:bg-blue-600 hover:text-white transition-all"
+                        >
+                          Open Syllabus
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      )}
+                    </div>
                   </div>
                 ))}
                 {patterns.length === 0 && (

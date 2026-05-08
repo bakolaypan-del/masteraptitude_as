@@ -73,14 +73,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const profileSnap = await getDoc(profileRef);
           
           if (profileSnap.exists()) {
-            setProfile(profileSnap.data() as UserProfile);
+            const data = profileSnap.data() as UserProfile;
+            if (currentUser.email === 'Bakolaypan@gmail.com' && data.role !== 'admin') {
+              const updatedProfile = { ...data, role: 'admin' as const };
+              await setDoc(profileRef, updatedProfile);
+              setProfile(updatedProfile);
+            } else {
+              setProfile(data);
+            }
           } else {
             // Create default profile
             const newProfile: UserProfile = {
               name: currentUser.displayName || '',
               email: currentUser.email || '',
               phoneNumber: currentUser.phoneNumber || '',
-              role: 'user',
+              role: currentUser.email === 'Bakolaypan@gmail.com' ? 'admin' : 'user',
               totalTestsTaken: 0,
               cumulativeScore: 0,
               globalRank: 0
