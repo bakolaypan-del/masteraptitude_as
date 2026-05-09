@@ -630,6 +630,30 @@ app.use(cookieParser());
     }
   });
 
+  app.delete("/api/admin/affairs/:id", verifyToken, verifyAdmin, async (req, res) => {
+    if (!db) return res.status(500).json({ error: "DB offline" });
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ error: "Missing ID" });
+    try {
+      await db.collection("affairs").doc(id).delete();
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to delete current affair", message: error.message });
+    }
+  });
+
+  app.delete("/api/admin/practice_sets/:id", verifyToken, verifyAdmin, async (req, res) => {
+    if (!db) return res.status(500).json({ error: "DB offline" });
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ error: "Missing ID" });
+    try {
+      await db.collection("practice_sets").doc(id).delete();
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to delete practice set", message: error.message });
+    }
+  });
+
   app.delete("/api/admin/tests/:id", verifyToken, verifyAdmin, async (req, res) => {
     if (!db) return res.status(500).json({ error: "DB offline" });
     const { id } = req.params;

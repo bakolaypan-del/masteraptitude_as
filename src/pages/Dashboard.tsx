@@ -4,9 +4,9 @@ import { collection, query, where, getDocs, orderBy, doc, getDoc } from 'firebas
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
-import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ArrowLeft, ExternalLink, Menu, X, Youtube, MessageCircle, Send } from 'lucide-react';
+import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ArrowLeft, ExternalLink, Menu, X, Youtube, MessageCircle, Send, LayoutDashboard, History, ChevronDown, ArrowRight, User, Info, Phone, Download } from 'lucide-react';
 
-type DashboardTab = 'home' | 'mock_topic' | 'mock_sectional' | 'mock_full' | 'notes' | 'video' | 'pyq' | 'pattern';
+type DashboardTab = 'home' | 'mock_topic' | 'mock_sectional' | 'mock_full' | 'notes' | 'video' | 'pyq' | 'pattern' | 'affairs' | 'practice' | 'about' | 'contact';
 
 export default function Dashboard() {
   const { user, profile } = useAuth();
@@ -19,6 +19,9 @@ export default function Dashboard() {
   const [pyqs, setPyqs] = useState<any[]>([]);
   const [patterns, setPatterns] = useState<any[]>([]);
   const [carousels, setCarousels] = useState<any[]>([]);
+  const [affairs, setAffairs] = useState<any[]>([]);
+  const [practiceSets, setPracticeSets] = useState<any[]>([]);
+  const [aboutInfo, setAboutInfo] = useState({ content: '', contact: '' });
   const [socialLinks, setSocialLinks] = useState({ youtube: '', telegram: '', whatsapp: '' });
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DashboardTab>('home');
@@ -26,6 +29,8 @@ export default function Dashboard() {
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [learnOpen, setLearnOpen] = useState(false);
+  const [mockOpen, setMockOpen] = useState(false);
 
   const categories = ['All', 'GK', 'English', 'Math', 'Reasoning', 'Computer'];
 
@@ -56,6 +61,20 @@ export default function Dashboard() {
         // Fetch Patterns
         const patternsSnap = await getDocs(query(collection(db, 'patterns'), orderBy('createdAt', 'desc')));
         setPatterns(patternsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
+        // Fetch Affairs
+        const affairsSnap = await getDocs(query(collection(db, 'affairs'), orderBy('createdAt', 'desc')));
+        setAffairs(affairsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
+        // Fetch Practice Sets
+        const practiceSnap = await getDocs(query(collection(db, 'practice_sets'), orderBy('createdAt', 'desc')));
+        setPracticeSets(practiceSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
+        // Fetch About & Contact Info
+        const infoSnap = await getDoc(doc(db, 'settings', 'site_info'));
+        if (infoSnap.exists()) {
+          setAboutInfo(infoSnap.data() as any);
+        }
 
         // Fetch Carousels
         const carouselsSnap = await getDocs(query(collection(db, 'carousel'), orderBy('createdAt', 'desc')));
@@ -147,80 +166,127 @@ export default function Dashboard() {
         </div>
         
         <div className="flex-1 overflow-y-auto py-6 space-y-4 px-3">
-          {/* LEARN */}
-          <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl py-4 pb-3">
-            <div className="px-4 mb-3 text-[10px] font-black text-indigo-400/80 tracking-widest uppercase flex items-center gap-2">
-              <BookOpen className="w-3 h-3" /> Learn
-            </div>
-            <div className="flex flex-col gap-1 px-2">
-              <button 
-                onClick={() => { setActiveTab('video'); setIsSidebarOpen(false); }} 
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all font-bold text-sm ${activeTab === 'video' ? 'bg-indigo-500/30 text-indigo-50 border-l-4 border-indigo-400' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border-l-4 border-transparent'}`}
-              >
-                <Play className="w-4 h-4 shrink-0" />
-                Recorded Video
-              </button>
-              <button 
-                onClick={() => { setActiveTab('notes'); setIsSidebarOpen(false); }} 
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all font-bold text-sm ${activeTab === 'notes' ? 'bg-indigo-500/30 text-indigo-50 border-l-4 border-indigo-400' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border-l-4 border-transparent'}`}
-              >
-                <BookOpen className="w-4 h-4 shrink-0" />
-                Study Notes
-              </button>
-            </div>
+          {/* HOME */}
+          <button 
+            onClick={() => { setActiveTab('home'); setIsSidebarOpen(false); }} 
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm ${activeTab === 'home' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}
+          >
+            <Target className="w-5 h-5 shrink-0" />
+            Home
+          </button>
+
+          {/* LEARN SECTION */}
+          <div className="space-y-1">
+            <button 
+              onClick={() => setLearnOpen(!learnOpen)}
+              className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm ${['video', 'notes', 'affairs', 'practice'].includes(activeTab) ? 'bg-indigo-500/10 text-indigo-300' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}
+            >
+              <div className="flex items-center gap-3">
+                <BookOpen className="w-5 h-5 shrink-0" />
+                Learn
+              </div>
+              <ChevronRight className={`w-4 h-4 transition-transform ${learnOpen ? 'rotate-90' : ''}`} />
+            </button>
+            
+            {learnOpen && (
+              <div className="pl-6 space-y-1 animate-in slide-in-from-top-2 duration-200">
+                <button 
+                  onClick={() => { setActiveTab('video'); setIsSidebarOpen(false); }} 
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'video' ? 'text-indigo-400 bg-indigo-400/10' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  Recorded Video
+                </button>
+                <button 
+                  onClick={() => { setActiveTab('notes'); setIsSidebarOpen(false); }} 
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'notes' ? 'text-indigo-400 bg-indigo-400/10' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  Study Notes
+                </button>
+                <button 
+                  onClick={() => { setActiveTab('affairs'); setIsSidebarOpen(false); }} 
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'affairs' ? 'text-indigo-400 bg-indigo-400/10' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  Current Affairs
+                </button>
+                <button 
+                  onClick={() => { setActiveTab('practice'); setIsSidebarOpen(false); }} 
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'practice' ? 'text-indigo-400 bg-indigo-400/10' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  Practice Set
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* TESTS */}
-          <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl py-4 pb-3">
-            <div className="px-4 mb-3 text-[10px] font-black text-rose-400/80 tracking-widest uppercase flex items-center gap-2">
-              <FileText className="w-3 h-3" /> Tests
-            </div>
-            <div className="flex flex-col gap-1 px-2">
-              <button 
-                onClick={() => { setActiveTab('mock_topic'); setSelectedCategory('All'); setIsSidebarOpen(false); }} 
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all font-bold text-sm ${activeTab === 'mock_topic' ? 'bg-rose-500/30 text-rose-50 border-l-4 border-rose-400' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border-l-4 border-transparent'}`}
-              >
-                <FileText className="w-4 h-4 shrink-0" />
-                Topic Wise Mock Test
-              </button>
-              <button 
-                onClick={() => { setActiveTab('mock_sectional'); setSelectedCategory('All'); setIsSidebarOpen(false); }} 
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all font-bold text-sm ${activeTab === 'mock_sectional' ? 'bg-rose-500/30 text-rose-50 border-l-4 border-rose-400' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border-l-4 border-transparent'}`}
-              >
-                <FileText className="w-4 h-4 shrink-0" />
-                Sectional Mock Test
-              </button>
-              <button 
-                onClick={() => { setActiveTab('mock_full'); setSelectedCategory('All'); setIsSidebarOpen(false); }} 
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all font-bold text-sm ${activeTab === 'mock_full' ? 'bg-rose-500/30 text-rose-50 border-l-4 border-rose-400' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border-l-4 border-transparent'}`}
-              >
-                <FileText className="w-4 h-4 shrink-0" />
-                Full Mock Test
-              </button>
-              <button 
-                onClick={() => { setActiveTab('pyq'); setIsSidebarOpen(false); }} 
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all font-bold text-sm ${activeTab === 'pyq' ? 'bg-rose-500/30 text-rose-50 border-l-4 border-rose-400' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border-l-4 border-transparent'}`}
-              >
-                <Clock className="w-4 h-4 shrink-0" />
-                Previous Year Papers
-              </button>
-            </div>
+          {/* MOCK TEST SECTION */}
+          <div className="space-y-1">
+            <button 
+              onClick={() => setMockOpen(!mockOpen)}
+              className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm ${activeTab.startsWith('mock') ? 'bg-rose-500/10 text-rose-300' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}
+            >
+              <div className="flex items-center gap-3">
+                <FileText className="w-5 h-5 shrink-0" />
+                Mock Test
+              </div>
+              <ChevronRight className={`w-4 h-4 transition-transform ${mockOpen ? 'rotate-90' : ''}`} />
+            </button>
+            
+            {mockOpen && (
+              <div className="pl-6 space-y-1 animate-in slide-in-from-top-2 duration-200">
+                <button 
+                  onClick={() => { setActiveTab('mock_topic'); setSelectedCategory('All'); setIsSidebarOpen(false); }} 
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'mock_topic' ? 'text-rose-400 bg-rose-400/10' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  Topic Wise Mock Test
+                </button>
+                <button 
+                  onClick={() => { setActiveTab('mock_sectional'); setSelectedCategory('All'); setIsSidebarOpen(false); }} 
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'mock_sectional' ? 'text-rose-400 bg-rose-400/10' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  Sectional Mock Test
+                </button>
+                <button 
+                  onClick={() => { setActiveTab('mock_full'); setSelectedCategory('All'); setIsSidebarOpen(false); }} 
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'mock_full' ? 'text-rose-400 bg-rose-400/10' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  Full Mock Test
+                </button>
+              </div>
+            )}
           </div>
 
-          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl py-4 pb-3">
-            <div className="px-4 mb-3 text-[10px] font-black text-emerald-400/80 tracking-widest uppercase flex items-center gap-2">
-              <Trophy className="w-3 h-3" /> Exam Pattern & Syllabus
-            </div>
-            <div className="flex flex-col gap-1 px-2">
-              <button 
-                onClick={() => { setActiveTab('pattern'); setIsSidebarOpen(false); }} 
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all font-bold text-sm ${activeTab === 'pattern' ? 'bg-emerald-500/30 text-emerald-50 border-l-4 border-emerald-400' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border-l-4 border-transparent'}`}
-              >
-                <Trophy className="w-4 h-4 shrink-0" />
-                Exam Pattern & Syllabus
-              </button>
-            </div>
-          </div>
+          {/* OTHER LINKS */}
+          <button 
+            onClick={() => { setActiveTab('pyq'); setIsSidebarOpen(false); }} 
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm ${activeTab === 'pyq' ? 'bg-amber-500/10 text-amber-300' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}
+          >
+            <Clock className="w-5 h-5 shrink-0" />
+            Previous Year Papers
+          </button>
+
+          <button 
+            onClick={() => { setActiveTab('pattern'); setIsSidebarOpen(false); }} 
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm ${activeTab === 'pattern' ? 'bg-emerald-500/10 text-emerald-300' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}
+          >
+            <Trophy className="w-5 h-5 shrink-0" />
+            Exam Pattern & Syllabus
+          </button>
+
+          <button 
+            onClick={() => { setActiveTab('about'); setIsSidebarOpen(false); }} 
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm ${activeTab === 'about' ? 'bg-blue-500/10 text-blue-300' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}
+          >
+            <BookOpen className="w-5 h-5 shrink-0" />
+            About Us
+          </button>
+
+          <button 
+            onClick={() => { setActiveTab('contact'); setIsSidebarOpen(false); }} 
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm ${activeTab === 'contact' ? 'bg-cyan-500/10 text-cyan-300' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}
+          >
+            <MessageCircle className="w-5 h-5 shrink-0" />
+            Contact Us
+          </button>
         </div>
       </aside>
 
@@ -266,18 +332,18 @@ export default function Dashboard() {
           {activeTab === 'home' && (
             <div className="animate-in fade-in duration-500">
               {/* Welcome & Motivation Section */}
-              <div className="mb-8 bg-emerald-800 rounded-2xl px-6 py-4 text-white shadow-md relative overflow-hidden flex items-center">
-                <div className="relative z-10 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full">
-                  <h2 className="text-lg sm:text-xl font-bold leading-none text-emerald-50 whitespace-nowrap">
-                    Great to see you, <span className="text-emerald-300">{profile?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Student'}!</span> 🚀
+              <div className="mb-8 bg-[#008000] rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
+                <div className="relative z-10">
+                  <h2 className="text-2xl sm:text-3xl font-black mb-2 tracking-tight">
+                    Hello <span className="text-yellow-400">{profile?.name || 'Student'}</span>,
                   </h2>
-                  <div className="hidden sm:block w-1.5 h-1.5 rounded-full bg-emerald-400/50"></div>
-                  <p className="text-sm font-medium text-emerald-100/90 truncate">
-                    You're doing amazing! Keep learning and growing today.
+                  <p className="text-lg font-bold text-white leading-relaxed max-w-lg">
+                    Welcome to <span className="text-white underline decoration-yellow-400 decoration-2 underline-offset-4">Master Aptitude</span>. Your journey towards success starts here!
                   </p>
                 </div>
                 {/* Background design elements */}
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/4 w-32 h-32 bg-emerald-500/20 rounded-full blur-xl pointer-events-none"></div>
+                <div className="absolute right-0 top-0 translate-x-1/4 -translate-y-1/4 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div className="absolute left-0 bottom-0 -translate-x-1/4 translate-y-1/4 w-48 h-48 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
               </div>
 
               {/* Image Carousel */}
@@ -318,8 +384,8 @@ export default function Dashboard() {
                       <Youtube className="w-4 h-4 sm:w-6 sm:h-6" />
                     </div>
                     <div className="relative z-10 text-center">
-                      <h4 className="font-bold text-slate-800 text-[9px] sm:text-[13px] leading-tight">YouTube Channel</h4>
-                      <p className="text-[7px] sm:text-[10px] text-slate-500 mt-1 leading-relaxed">Click here to Subscribe YouTube channel for free classes.</p>
+                      <h4 className="font-bold text-slate-800 text-[9px] sm:text-[13px] leading-tight">YouTube Link</h4>
+                      <p className="text-[7px] sm:text-[10px] text-slate-500 mt-1 leading-relaxed">Subscribe to our channel for free classes.</p>
                     </div>
                   </a>
                 )}
@@ -331,8 +397,8 @@ export default function Dashboard() {
                       <MessageCircle className="w-4 h-4 sm:w-6 sm:h-6" />
                     </div>
                     <div className="relative z-10 text-center">
-                      <h4 className="font-bold text-slate-800 text-[9px] sm:text-[13px] leading-tight">WhatsApp Group</h4>
-                      <p className="text-[7px] sm:text-[10px] text-slate-500 mt-1 leading-relaxed">Click here to join WhatsApp Group for updates content.</p>
+                      <h4 className="font-bold text-slate-800 text-[9px] sm:text-[13px] leading-tight">WhatsApp Link</h4>
+                      <p className="text-[7px] sm:text-[10px] text-slate-500 mt-1 leading-relaxed">Join our group for daily updates.</p>
                     </div>
                   </a>
                 )}
@@ -344,111 +410,150 @@ export default function Dashboard() {
                       <Send className="w-4 h-4 sm:w-6 sm:h-6" />
                     </div>
                     <div className="relative z-10 text-center">
-                      <h4 className="font-bold text-slate-800 text-[9px] sm:text-[13px] leading-tight">Telegram Channel</h4>
-                      <p className="text-[7px] sm:text-[10px] text-slate-500 mt-1 leading-relaxed">Click here to join Telegram Channel for update Notes, Practice Set, quizzes</p>
+                      <h4 className="font-bold text-slate-800 text-[9px] sm:text-[13px] leading-tight">Telegram Link</h4>
+                      <p className="text-[7px] sm:text-[10px] text-slate-500 mt-1 leading-relaxed">Get notes and practice sets instantly.</p>
                     </div>
                   </a>
                 )}
               </div>
 
-              {/* Category & Topic Selection */}
-              <div className="mt-12 space-y-8">
-                <div className="flex flex-col gap-4">
-                  <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
-                    <div className="w-1.5 h-6 bg-indigo-600 rounded-full"></div>
-                    Browse Mock Tests by Category
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {categories.map((cat) => (
-                      <button
-                        key={cat}
-                        onClick={() => { setSelectedCategory(cat); setSelectedTopic(null); }}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
-                          selectedCategory === cat
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-100'
-                            : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-400 hover:text-indigo-600'
-                        }`}
-                      >
-                        {cat}
-                      </button>
-                    ))}
+              {/* Home Footer Section */}
+              <div className="mt-16 pt-8 border-t border-slate-200">
+                <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm flex flex-col items-center text-center">
+                  <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-4">
+                    <MessageCircle className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-xl font-black text-slate-800 mb-2">Need Assistance?</h3>
+                  <p className="text-slate-500 font-medium mb-6">If you have any questions regarding your studies or the platform, feel free to contact us.</p>
+                  <div className="text-white px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl flex items-center gap-3 animate-blink-red">
+                    Any Query Call - <a href="tel:8900011708" className="hover:underline">8900011708</a> (Shibnath)
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
 
-                {selectedCategory === 'Computer' && !selectedTopic ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    {[
-                      "Basics of Computers",
-                      "Computer Hardware",
-                      "Computer Software",
-                      "Operating Systems",
-                      "MS Office",
-                      "Internet and Networking",
-                      "Computer Abbreviations and Terminology",
-                      "Computer Security",
-                      "Computer History and Generations"
-                    ].map((topicName) => (
-                      <button 
-                        key={topicName}
-                        onClick={() => { setSelectedTopic(topicName); setActiveTab('mock_topic'); }}
-                        className="bg-white p-6 rounded-[28px] border border-slate-200 shadow-xs hover:shadow-xl hover:border-indigo-400 transition-all flex flex-col items-center text-center group"
-                      >
-                        <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-indigo-600 group-hover:text-white transition-all transform group-hover:rotate-6">
-                          <BookOpen className="w-7 h-7" />
+          {/* Affairs Tab Content */}
+          {activeTab === 'affairs' && (
+            <div className="space-y-8 animate-in fade-in duration-700">
+              <h2 className="text-xl font-black text-slate-900 tracking-tight">
+                Current Affairs
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {affairs.map(item => (
+                  <div key={item.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs relative group hover:shadow-lg transition-all">
+                    <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 mb-4 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                      <FileText className="w-6 h-6" />
+                    </div>
+                    <h4 className="font-bold text-slate-800 text-lg mb-2 tracking-tight">{item.title}</h4>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">{item.date || 'Latest'}</p>
+                    <a 
+                      href={item.link} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center justify-between w-full text-blue-600 font-bold text-xs uppercase tracking-wider bg-blue-50 px-4 py-2.5 rounded-lg hover:bg-blue-600 hover:text-white transition-all"
+                    >
+                      Read Now
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  </div>
+                ))}
+                {affairs.length === 0 && (
+                  <div className="col-span-full bg-white rounded-3xl p-16 border border-slate-200 text-center">
+                    <FileText className="w-12 h-12 mx-auto mb-4 text-slate-200" />
+                    <p className="font-bold text-sm uppercase tracking-widest text-slate-500 mb-2">No Current Affairs uploaded yet.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Practice Set Tab Content */}
+          {activeTab === 'practice' && (
+            <div className="space-y-8 animate-in fade-in duration-700">
+              <h2 className="text-xl font-black text-slate-900 tracking-tight">
+                Practice Sets
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {practiceSets.map(item => (
+                  <div key={item.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs relative group hover:shadow-lg transition-all">
+                    <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 mb-4 group-hover:bg-emerald-600 group-hover:text-white transition-all">
+                      <CheckCircle className="w-6 h-6" />
+                    </div>
+                    <h4 className="font-bold text-slate-800 text-lg mb-2 tracking-tight">{item.title}</h4>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">{item.subject || 'Practice'}</p>
+                    <a 
+                      href={item.link} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center justify-between w-full text-emerald-600 font-bold text-xs uppercase tracking-wider bg-emerald-50 px-4 py-2.5 rounded-lg hover:bg-emerald-600 hover:text-white transition-all"
+                    >
+                      Download PDF
+                      <Download className="w-4 h-4" />
+                    </a>
+                  </div>
+                ))}
+                {practiceSets.length === 0 && (
+                  <div className="col-span-full bg-white rounded-3xl p-16 border border-slate-200 text-center">
+                    <CheckCircle className="w-12 h-12 mx-auto mb-4 text-slate-200" />
+                    <p className="font-bold text-sm uppercase tracking-widest text-slate-500 mb-2">No Practice Sets uploaded yet.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* About Us Tab Content */}
+          {activeTab === 'about' && (
+            <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <div className="bg-white rounded-3xl p-8 sm:p-12 border border-slate-200 shadow-xl relative overflow-hidden">
+                <div className="relative z-10">
+                  <h2 className="text-3xl font-black text-slate-900 mb-8 tracking-tight flex items-center gap-4">
+                    <div className="w-1.5 h-10 bg-indigo-600 rounded-full"></div>
+                    About Master Aptitude
+                  </h2>
+                  <div className="prose prose-slate max-w-none prose-p:text-slate-600 prose-p:text-lg prose-p:leading-relaxed prose-strong:text-indigo-600 whitespace-pre-wrap">
+                    {aboutInfo.content || 'Master Aptitude is dedicated to providing quality education and resources for all types of competitive exams. Our goal is to empower students with the tools and knowledge necessary to succeed.'}
+                  </div>
+                </div>
+                <div className="absolute right-0 top-0 translate-x-1/4 -translate-y-1/4 w-96 h-96 bg-indigo-50 rounded-full blur-3xl pointer-events-none opacity-50"></div>
+              </div>
+            </div>
+          )}
+
+          {/* Contact Us Tab Content */}
+          {activeTab === 'contact' && (
+            <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <div className="bg-white rounded-3xl p-8 sm:p-12 border border-slate-200 shadow-xl relative overflow-hidden">
+                <div className="relative z-10">
+                  <h2 className="text-3xl font-black text-slate-900 mb-8 tracking-tight flex items-center gap-4">
+                    <div className="w-1.5 h-10 bg-cyan-500 rounded-full"></div>
+                    Contact Us
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                    <div className="space-y-6">
+                      <div className="bg-cyan-50 p-6 rounded-2xl border border-cyan-100">
+                        <h4 className="font-black text-slate-800 uppercase tracking-widest text-[10px] mb-4">Official Contact</h4>
+                        <div className="flex items-center gap-4 text-xl font-bold text-slate-800">
+                           <MessageCircle className="w-6 h-6 text-cyan-600" />
+                           <a href="tel:8900011708" className="hover:text-cyan-600 transition-colors">8900011708</a>
                         </div>
-                        <h3 className="font-bold text-slate-800 text-md mb-2 leading-tight uppercase tracking-tight">{topicName}</h3>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                          20 Mock Tests <ChevronRight className="w-3 h-3 text-indigo-400" />
-                        </p>
-                      </button>
-                    ))}
-                  </div>
-                ) : selectedCategory !== 'All' ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    {activeTests.filter(t => {
-                      const matchesCategory = t.category === selectedCategory;
-                      return matchesCategory;
-                    }).length === 0 ? (
-                      <div className="col-span-full bg-white rounded-3xl p-12 border border-slate-200 text-center text-slate-400 shadow-sm flex flex-col items-center">
-                        <FileText className="w-12 h-12 mb-4 text-slate-200" />
-                        <p className="font-bold text-sm uppercase tracking-widest text-slate-500 mb-2">No {selectedCategory} Tests uploaded yet.</p>
+                        <p className="mt-2 text-slate-500 font-medium">Available for all queries (Shibnath)</p>
                       </div>
-                    ) : (
-                      activeTests.filter(t => t.category === selectedCategory).slice(0, 6).map(test => {
-                        const isTaken = pastResults.some(r => r.testId === test.id);
-                        return (
-                          <div key={test.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs transition-all hover:shadow-lg group flex flex-col">
-                            <div className="flex-1">
-                              <div className="flex items-start justify-between mb-4">
-                                <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
-                                  <Target className="w-5 h-5" />
-                                </div>
-                                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded border border-emerald-100">
-                                  {test.category}
-                                </span>
-                              </div>
-                              <h3 className="font-bold text-slate-800 text-base leading-snug mb-1 min-h-[24px]">
-                                {test.title}
-                              </h3>
-                              <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-3">
-                                {test.subjectName || test.topic}
-                              </p>
-                              <div className="flex items-center gap-4 text-xs font-bold text-slate-500">
-                                <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" />{test.duration || 60}m</span>
-                                <span className="flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" />Topic Mode</span>
-                              </div>
-                            </div>
-                            <div className="mt-6 pt-6 border-t border-slate-100">
-                              <Link to={`/test/${test.id}`} className="flex items-center justify-center w-full py-2.5 rounded-lg bg-indigo-600 text-white hover:bg-slate-900 transition-all font-bold text-xs uppercase tracking-wider">
-                                {isTaken ? 'Reattempt Test' : 'Start Mock Test'}
-                              </Link>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
+                      
+                      <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100">
+                        <h4 className="font-black text-slate-800 uppercase tracking-widest text-[10px] mb-4">Join Community</h4>
+                        <div className="flex gap-4">
+                          {socialLinks.youtube && <a href={socialLinks.youtube} className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-red-600 shadow-sm hover:scale-110 transition-transform"><Youtube className="w-6 h-6" /></a>}
+                          {socialLinks.whatsapp && <a href={socialLinks.whatsapp} className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-emerald-600 shadow-sm hover:scale-110 transition-transform"><MessageCircle className="w-6 h-6" /></a>}
+                          {socialLinks.telegram && <a href={socialLinks.telegram} className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-sky-600 shadow-sm hover:scale-110 transition-transform"><Send className="w-6 h-6" /></a>}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="prose prose-slate max-w-none prose-p:text-slate-600 prose-p:text-lg whitespace-pre-wrap">
+                      <h4 className="font-black text-slate-800 uppercase tracking-widest text-[10px] mb-4">Additional Information</h4>
+                      {aboutInfo.contact || 'For any other queries or partnership requests, please reach out to us through our social channels or contact number provided.'}
+                    </div>
                   </div>
-                ) : null}
+                </div>
+                <div className="absolute left-0 bottom-0 -translate-x-1/4 translate-y-1/4 w-96 h-96 bg-cyan-50 rounded-full blur-3xl pointer-events-none opacity-50"></div>
               </div>
             </div>
           )}

@@ -1,1 +1,67 @@
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer base {
+  /* Prevent text selection globally to protect content */
+  body {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    background-color: #f8fafc;
+  }
+
+  /* Allow selection in inputs and textareas for usability */
+  input, textarea {
+    -webkit-user-select: auto;
+    -moz-user-select: auto;
+    -ms-user-select: auto;
+    user-select: auto;
+  }
+}
+
+/* Watermark styles */
+.security-watermark {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.04;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
+  align-content: space-around;
+  overflow: hidden;
+}
+
+.watermark-item {
+  transform: rotate(-30deg);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+  color: #64748b;
+  padding: 40px;
+}
+
+/* Prevent image dragging and saving */
+img {
+  -webkit-user-drag: none;
+  user-drag: none;
+}
+
+@keyframes blink-red {
+  0%, 100% { background-color: #dc2626; opacity: 1; }
+  50% { background-color: #991b1b; opacity: 0.8; }
+}
+
+.animate-blink-red {
+  animation: blink-red 1s infinite;
+}

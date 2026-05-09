@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
-import { collection, query, getDocs, orderBy, doc, deleteDoc, where, addDoc, serverTimestamp, onSnapshot, setDoc } from 'firebase/firestore';
+import { collection, query, getDocs, orderBy, doc, deleteDoc, where, addDoc, serverTimestamp, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
-import { LogOut, ArrowLeft, Plus, Pencil, Trash2, FileText, BookOpen, Play, CheckCircle, Clock, X, User as UserIcon, Download, ShieldAlert, ShieldCheck, Key } from 'lucide-react';
+import { LogOut, ArrowLeft, Plus, Pencil, Trash2, FileText, BookOpen, Play, CheckCircle, Clock, X, User as UserIcon, Download, ShieldAlert, ShieldCheck, Key, Edit2 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 
-type AdminTab = 'students' | 'mock' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social';
+type AdminTab = 'students' | 'mock' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info';
 
 function AdminHome() {
   const [students, setStudents] = useState<any[]>([]);
@@ -21,6 +21,9 @@ function AdminHome() {
   const [videos, setVideos] = useState<any[]>([]);
   const [pyqs, setPyqs] = useState<any[]>([]);
   const [patterns, setPatterns] = useState<any[]>([]);
+  const [affairs, setAffairs] = useState<any[]>([]);
+  const [practiceSets, setPracticeSets] = useState<any[]>([]);
+  const [siteInfo, setSiteInfo] = useState({ content: '', contact: '' });
   const [carousels, setCarousels] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<AdminTab>('mock');
@@ -38,11 +41,35 @@ function AdminHome() {
   const [noteTitle, setNoteTitle] = useState('');
   const [noteLink, setNoteLink] = useState('');
   const [noteSubject, setNoteSubject] = useState('');
+  const [noteFile, setNoteFile] = useState<File | null>(null);
+  const [uploadingNote, setUploadingNote] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+
+  // Affairs Form
+  const [affairTitle, setAffairTitle] = useState('');
+  const [affairDate, setAffairDate] = useState('');
+  const [affairLink, setAffairLink] = useState('');
+  const [uploadingAffair, setUploadingAffair] = useState(false);
+
+  // Practice Set Form
+  const [practiceTitle, setPracticeTitle] = useState('');
+  const [practiceSubject, setPracticeSubject] = useState('');
+  const [practiceFile, setPracticeFile] = useState<File | null>(null);
+  const [practiceLink, setPracticeLink] = useState('');
+  const [uploadingPractice, setUploadingPractice] = useState(false);
+
+  // Site Info Form
+  const [aboutContent, setAboutContent] = useState('');
+  const [contactContent, setContactContent] = useState('');
+  const [savingInfo, setSavingInfo] = useState(false);
 
   // Pyq Form
   const [pyqTitle, setPyqTitle] = useState('');
   const [pyqLink, setPyqLink] = useState('');
   const [pyqSubject, setPyqSubject] = useState('');
+  const [pyqFile, setPyqFile] = useState<File | null>(null);
+  const [uploadingPyq, setUploadingPyq] = useState(false);
+  const [editingPyqId, setEditingPyqId] = useState<string | null>(null);
 
   // Pattern Form
   const [patternExamName, setPatternExamName] = useState('');
@@ -57,76 +84,18 @@ function AdminHome() {
   // Carousel Form
   const [carouselFile, setCarouselFile] = useState<File | null>(null);
   const [uploadingCarousel, setUploadingCarousel] = useState(false);
+  const [clearingCarousel, setClearingCarousel] = useState(false);
+  const [clearingTests, setClearingTests] = useState(false);
+  const [savingTest, setSavingTest] = useState(false);
 
   // Social Links Form
   const [socialYoutube, setSocialYoutube] = useState('');
   const [socialTelegram, setSocialTelegram] = useState('');
   const [socialWhatsapp, setSocialWhatsapp] = useState('');
   const [savingSocials, setSavingSocials] = useState(false);
-  const [isBulkCreating, setIsBulkCreating] = useState(false);
 
   const { user, profile } = useAuth();
   const passwordInputRef = useRef<HTMLInputElement>(null);
-
-  const handleBulkCreateComputerTests = async () => {
-    if (!confirm('This will create 180 Computer Mock Tests (20 for each of the 9 topics). Continue?') || !user) return;
-    
-    setIsBulkCreating(true);
-    try {
-      const token = await user.getIdToken();
-      const topics = [
-        "Basics of Computers",
-        "Computer Hardware",
-        "Computer Software",
-        "Operating Systems",
-        "MS Office",
-        "Internet and Networking",
-        "Computer Abbreviations and Terminology",
-        "Computer Security",
-        "Computer History and Generations"
-      ];
-
-      const allTests: any[] = [];
-      topics.forEach(topicName => {
-        for (let i = 1; i <= 20; i++) {
-          const testNum = i.toString().padStart(2, '0');
-          allTests.push({
-            title: `${topicName} Mock Test ${testNum}`,
-            topic: topicName,
-            subjectName: "Computer",
-            category: "Computer",
-            testType: "topic",
-            duration: 15,
-            isActive: true
-          });
-        }
-      });
-
-      // Split into chunks of 30 tests (each test adds 10 questions, total 11 docs per test)
-      // Max firestore batch limit is 500. 30 * 11 = 330 docs.
-      const chunkSize = 30;
-      for (let i = 0; i < allTests.length; i += chunkSize) {
-        const chunk = allTests.slice(i, i + chunkSize);
-        const res = await fetch('/api/admin/bulk-create-tests', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ tests: chunk })
-        });
-        if (!res.ok) throw new Error(await res.text());
-        console.log(`Uploaded chunk ${Math.floor(i/chunkSize) + 1}`);
-      }
-
-      alert('Successfully created 180 Computer Mock Tests!');
-    } catch (err: any) {
-      console.error(err);
-      alert('Error bulk creating tests: ' + err.message);
-    } finally {
-      setIsBulkCreating(false);
-    }
-  };
 
   useEffect(() => {
     if (editingStudent?.focusPassword && passwordInputRef.current) {
@@ -153,6 +122,8 @@ function AdminHome() {
     const qVideos = query(collection(db, 'videos'), orderBy('createdAt', 'desc'));
     const qPyqs = query(collection(db, 'pyqs'), orderBy('createdAt', 'desc'));
     const qPatterns = query(collection(db, 'patterns'), orderBy('createdAt', 'desc'));
+    const qAffairs = query(collection(db, 'affairs'), orderBy('createdAt', 'desc'));
+    const qPractice = query(collection(db, 'practice_sets'), orderBy('createdAt', 'desc'));
     const qCarousels = query(collection(db, 'carousel'), orderBy('createdAt', 'desc'));
     const qStudents = query(collection(db, 'profiles'), where('role', 'in', ['user', 'student']));
 
@@ -181,6 +152,14 @@ function AdminHome() {
       setPatterns(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     }, (err) => console.error(err));
 
+    const unsubAffairs = onSnapshot(qAffairs, (snap) => {
+      setAffairs(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (err) => console.error(err));
+
+    const unsubPractice = onSnapshot(qPractice, (snap) => {
+      setPracticeSets(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (err) => console.error(err));
+
     const unsubCarousels = onSnapshot(qCarousels, (snap) => {
       setCarousels(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     }, (err) => console.error(err));
@@ -191,6 +170,14 @@ function AdminHome() {
         setSocialYoutube(data.youtube || '');
         setSocialTelegram(data.telegram || '');
         setSocialWhatsapp(data.whatsapp || '');
+      }
+    }, (err) => console.error(err));
+
+    const unsubInfo = onSnapshot(doc(db, 'settings', 'site_info'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        setAboutContent(data.content || '');
+        setContactContent(data.contact || '');
       }
     }, (err) => console.error(err));
 
@@ -216,8 +203,11 @@ function AdminHome() {
       unsubVideos();
       unsubPyqs();
       unsubPatterns();
+      unsubAffairs();
+      unsubPractice();
       unsubCarousels();
       unsubSocials();
+      unsubInfo();
       clearInterval(statsInterval);
     };
   }, []);
@@ -225,7 +215,7 @@ function AdminHome() {
   const handleCreateTest = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    
+    setSavingTest(true);
     try {
       const token = await user.getIdToken();
       const method = editingTestId ? 'PUT' : 'POST';
@@ -259,6 +249,8 @@ function AdminHome() {
     } catch (err) {
       console.error(err);
       alert('Error processing test');
+    } finally {
+      setSavingTest(false);
     }
   };
 
@@ -275,42 +267,133 @@ function AdminHome() {
 
   const handleAddNote = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!noteTitle || !noteLink || !user) return;
+    if (!noteTitle || !user) {
+      alert('Note Title is required');
+      return;
+    }
+    setUploadingNote(true);
     try {
-      await addDoc(collection(db, 'notes'), {
+      let finalLink = noteLink;
+
+      if (noteFile) {
+        const randomID = Math.random().toString(36).substring(2, 8);
+        const fileName = `${Date.now()}_${randomID}_${noteFile.name}`;
+        const fileRef = ref(storage, `notes/${fileName}`);
+        const snapshot = await uploadBytes(fileRef, noteFile);
+        finalLink = await getDownloadURL(snapshot.ref);
+      }
+
+      if (!finalLink && !editingNoteId) {
+        alert('Please provide either a link or upload a file.');
+        setUploadingNote(false);
+        return;
+      }
+
+      const noteData: any = {
         title: noteTitle,
-        link: noteLink,
         subject: noteSubject || 'General',
-        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
         authorId: user.uid
-      });
+      };
+      if (finalLink) noteData.link = finalLink;
+
+      if (editingNoteId) {
+        await updateDoc(doc(db, 'notes', editingNoteId), noteData);
+      } else {
+        await addDoc(collection(db, 'notes'), {
+          ...noteData,
+          createdAt: serverTimestamp()
+        });
+      }
+
       setNoteTitle('');
       setNoteLink('');
       setNoteSubject('');
+      setNoteFile(null);
+      setEditingNoteId(null);
+      const fileInput = document.getElementById('note-file-input') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
+      alert(editingNoteId ? 'Note updated successfully!' : 'Note added successfully!');
     } catch (err) {
       console.error(err);
-      alert('Error adding note');
+      alert('Error processing note');
+    } finally {
+      setUploadingNote(false);
     }
+  };
+
+  const handleEditNote = (note: any) => {
+    setEditingNoteId(note.id);
+    setNoteTitle(note.title);
+    setNoteSubject(note.subject || '');
+    setNoteLink(note.link || '');
+    // Scroll to form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleAddPyq = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!pyqTitle || !pyqLink || !user) return;
+    if (!pyqTitle || !user) {
+      alert('PYQ Title is required');
+      return;
+    }
+    setUploadingPyq(true);
     try {
-      await addDoc(collection(db, 'pyqs'), {
+      let finalLink = pyqLink;
+
+      if (pyqFile) {
+        const randomID = Math.random().toString(36).substring(2, 8);
+        const fileName = `${Date.now()}_${randomID}_${pyqFile.name}`;
+        const fileRef = ref(storage, `pyqs/${fileName}`);
+        const snapshot = await uploadBytes(fileRef, pyqFile);
+        finalLink = await getDownloadURL(snapshot.ref);
+      }
+
+      if (!finalLink && !editingPyqId) {
+        alert('Please provide either a link or upload a file.');
+        setUploadingPyq(false);
+        return;
+      }
+
+      const pyqData: any = {
         title: pyqTitle,
-        link: pyqLink,
         subject: pyqSubject || 'General',
-        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
         authorId: user.uid
-      });
+      };
+      if (finalLink) pyqData.link = finalLink;
+
+      if (editingPyqId) {
+        await updateDoc(doc(db, 'pyqs', editingPyqId), pyqData);
+      } else {
+        await addDoc(collection(db, 'pyqs'), {
+           ...pyqData,
+           createdAt: serverTimestamp()
+        });
+      }
+
       setPyqTitle('');
       setPyqLink('');
       setPyqSubject('');
+      setPyqFile(null);
+      setEditingPyqId(null);
+      const fileInput = document.getElementById('pyq-file-input') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
+      alert(editingPyqId ? 'PYQ updated successfully!' : 'PYQ added successfully!');
     } catch (err) {
       console.error(err);
-      alert('Error adding PYQ');
+      alert('Error processing PYQ');
+    } finally {
+      setUploadingPyq(false);
     }
+  };
+
+  const handleEditPyq = (pyq: any) => {
+    setEditingPyqId(pyq.id);
+    setPyqTitle(pyq.title);
+    setPyqSubject(pyq.subject || '');
+    setPyqLink(pyq.link || '');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleAddPattern = async (e: React.FormEvent) => {
@@ -489,10 +572,49 @@ function AdminHome() {
     }
   };
 
+  const handleBulkClearCarousel = async () => {
+    if (!confirm('This will delete ALL carousel images. Are you sure?') || !user) return;
+    setClearingCarousel(true);
+    try {
+      const token = await user.getIdToken();
+      // We'll call a special endpoint or just loop if we had to, but let's try to fix backend or add direct delete
+      for (const item of carousels) {
+        await fetch(`/api/admin/carousel/${item.id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      }
+      alert('Carousel cleared!');
+    } catch (err) {
+      console.error(err);
+      alert('Error clearing carousel');
+    } finally {
+      setClearingCarousel(false);
+    }
+  };
+
+  const handleBulkClearTests = async () => {
+    if (!confirm('This will delete ALL Mock Tests and their Questions. THIS CANNOT BE UNDONE. Proceed?') || !user) return;
+    setClearingTests(true);
+    try {
+      const token = await user.getIdToken();
+      for (const test of tests) {
+        await fetch(`/api/admin/tests/${test.id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      }
+      alert('All tests deleted successfully!');
+    } catch (err) {
+      console.error(err);
+      alert('Error clearing tests');
+    } finally {
+      setClearingTests(false);
+    }
+  };
   const handleSaveSocials = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    setSavingSocials(true);
     try {
       await setDoc(doc(db, 'settings', 'social_links'), {
         youtube: socialYoutube,
@@ -507,6 +629,86 @@ function AdminHome() {
       alert('Error updating social links. Make sure you have the correct permissions.');
     } finally {
       setSavingSocials(false);
+    }
+  };
+
+  const handleAddAffair = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!affairTitle || !user) return;
+    setUploadingAffair(true);
+    try {
+      await addDoc(collection(db, 'affairs'), {
+        title: affairTitle,
+        date: affairDate || new Date().toISOString().split('T')[0],
+        link: affairLink,
+        createdAt: serverTimestamp(),
+        authorId: user.uid
+      });
+      setAffairTitle('');
+      setAffairDate('');
+      setAffairLink('');
+      alert('Current Affair added successfully!');
+    } catch (err) {
+      console.error(err);
+      alert('Error adding current affair');
+    } finally {
+      setUploadingAffair(false);
+    }
+  };
+
+  const handleAddPractice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!practiceTitle || !user) return;
+    setUploadingPractice(true);
+    try {
+      let finalLink = practiceLink;
+      if (practiceFile) {
+        const randomID = Math.random().toString(36).substring(2, 8);
+        const fileName = `${Date.now()}_${randomID}_${practiceFile.name}`;
+        const fileRef = ref(storage, `practice/${fileName}`);
+        const snapshot = await uploadBytes(fileRef, practiceFile);
+        finalLink = await getDownloadURL(snapshot.ref);
+      }
+
+      await addDoc(collection(db, 'practice_sets'), {
+        title: practiceTitle,
+        subject: practiceSubject || 'General',
+        link: finalLink,
+        createdAt: serverTimestamp(),
+        authorId: user.uid
+      });
+      setPracticeTitle('');
+      setPracticeSubject('');
+      setPracticeLink('');
+      setPracticeFile(null);
+      const fileInput = document.getElementById('practice-file-input') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
+      alert('Practice Set added successfully!');
+    } catch (err) {
+      console.error(err);
+      alert('Error adding practice set');
+    } finally {
+      setUploadingPractice(false);
+    }
+  };
+
+  const handleSaveSiteInfo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    setSavingInfo(true);
+    try {
+      await setDoc(doc(db, 'settings', 'site_info'), {
+        content: aboutContent,
+        contact: contactContent,
+        updatedAt: serverTimestamp(),
+        authorId: user.uid
+      });
+      alert('Site info updated successfully!');
+    } catch (err) {
+      console.error(err);
+      alert('Error updating site info');
+    } finally {
+      setSavingInfo(false);
     }
   };
 
@@ -531,6 +733,8 @@ function AdminHome() {
         'videos': 'videos',
         'pyqs': 'pyqs',
         'patterns': 'patterns',
+        'affairs': 'affairs',
+        'practice_sets': 'practice_sets',
         'carousel': 'carousel'
       };
       
@@ -781,6 +985,30 @@ function AdminHome() {
           <Plus className="w-4 h-4" />
           Social Links
         </button>
+        <button 
+          onClick={() => setActiveTab('affairs')}
+          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all
+            ${activeTab === 'affairs' ? 'bg-orange-600 text-white shadow-md shadow-orange-100' : 'text-slate-500 hover:text-orange-600 hover:bg-orange-50'}`}
+        >
+          <Clock className="w-4 h-4" />
+          Current Affairs
+        </button>
+        <button 
+          onClick={() => setActiveTab('practice')}
+          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all
+            ${activeTab === 'practice' ? 'bg-teal-600 text-white shadow-md shadow-teal-100' : 'text-slate-500 hover:text-teal-600 hover:bg-teal-50'}`}
+        >
+          <Plus className="w-4 h-4" />
+          Practice Sets
+        </button>
+        <button 
+          onClick={() => setActiveTab('site_info')}
+          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all
+            ${activeTab === 'site_info' ? 'bg-slate-700 text-white shadow-md shadow-slate-100' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+        >
+          <Edit2 className="w-4 h-4" />
+          About & Contact Info
+        </button>
       </div>
 
       {activeTab === 'mock' && (
@@ -876,43 +1104,6 @@ function AdminHome() {
             </form>
           </div>
 
-          {!editingTestId && (
-            <div className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-[40px] p-10 mb-12 text-white shadow-2xl relative overflow-hidden group">
-              <div className="relative z-10">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20">
-                    <CheckCircle className="w-6 h-6 text-indigo-300" />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-black tracking-tight">System Bulk Configurator</h3>
-                    <p className="text-indigo-200/60 text-xs font-bold uppercase tracking-widest">Rapid Database Seeding</p>
-                  </div>
-                </div>
-                <p className="text-slate-300 text-sm font-medium mb-8 max-w-xl leading-relaxed">
-                  Automatically initialize the <span className="text-indigo-300 font-bold">"Computer" Topic Wise Mock Test</span> architecture with all 180 required tests. Each test will be pre-configured with 15-minute timing, correctly categorized subjects, and hierarchical topic mapping.
-                </p>
-                <button 
-                  disabled={isBulkCreating}
-                  onClick={handleBulkCreateComputerTests}
-                  className="bg-white text-slate-900 px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:scale-105 active:scale-95 transition-all flex items-center gap-3 disabled:bg-slate-700 disabled:text-slate-300 shadow-xl shadow-black/20"
-                >
-                  {isBulkCreating ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
-                      Processing 180 Batches...
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-5 h-5" />
-                      Initialize 180 Computer Tests
-                    </>
-                  )}
-                </button>
-              </div>
-              <div className="absolute right-0 bottom-0 translate-x-1/4 translate-y-1/4 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none group-hover:bg-indigo-500/20 transition-all duration-1000"></div>
-            </div>
-          )}
-
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
             <table className="min-w-full divide-y divide-slate-100">
               <thead className="bg-slate-50/50">
@@ -996,51 +1187,89 @@ function AdminHome() {
           </h2>
           
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
-            <h3 className="text-lg font-bold text-slate-800 mb-6">Upload / Link New Study Material</h3>
-            <form onSubmit={handleAddNote} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Note Title</label>
-                <input 
-                  type="text" required
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
-                  value={noteTitle} onChange={e => setNoteTitle(e.target.value)} 
-                  placeholder="e.g. Organic Chemistry Guide"
-                />
+            <h3 className="text-lg font-bold text-slate-800 mb-6">{editingNoteId ? 'Update Study Material' : 'Upload / Link New Study Material'}</h3>
+            <form onSubmit={handleAddNote} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Note Title <span className="text-rose-500">*</span></label>
+                  <input 
+                    type="text" required
+                    className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
+                    value={noteTitle} onChange={e => setNoteTitle(e.target.value)} 
+                    placeholder="e.g. Organic Chemistry Guide"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Subject / Category (Optional)</label>
+                  <input 
+                    type="text"
+                    className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
+                    value={noteSubject} onChange={e => setNoteSubject(e.target.value)} 
+                    placeholder="e.g. Chemistry"
+                  />
+                </div>
+                <div className="md:col-span-1">
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Resource Link (Optional)</label>
+                  <input 
+                    type="url"
+                    className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
+                    value={noteLink} onChange={e => setNoteLink(e.target.value)} 
+                    placeholder="https://..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">OR Upload File (Optional)</label>
+                  <input 
+                    id="note-file-input"
+                    type="file" 
+                    className="w-full rounded-xl border-slate-200 border-2 p-2 outline-hidden font-medium text-xs file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                    onChange={e => {
+                      if (e.target.files && e.target.files[0]) {
+                        setNoteFile(e.target.files[0]);
+                      }
+                    }}
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Subject / Category</label>
-                <input 
-                  type="text" required
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
-                  value={noteSubject} onChange={e => setNoteSubject(e.target.value)} 
-                  placeholder="e.g. Chemistry"
-                />
+              <div className="flex justify-end pt-2">
+                <button 
+                  disabled={uploadingNote}
+                  type="submit" 
+                  className="bg-emerald-600 disabled:opacity-50 text-white px-8 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-emerald-50 flex items-center justify-center gap-2"
+                >
+                  {uploadingNote ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-5 h-5" />
+                      {editingNoteId ? 'Update Note' : 'Add Note'}
+                    </>
+                  )}
+                </button>
               </div>
-              <div className="md:col-span-1">
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Resource Link (PDF/Drive)</label>
-                <input 
-                  type="url" required
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
-                  value={noteLink} onChange={e => setNoteLink(e.target.value)} 
-                  placeholder="https://..."
-                />
-              </div>
-              <button type="submit" className="bg-emerald-600 text-white px-6 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-emerald-50 flex items-center justify-center gap-2">
-                <Plus className="w-5 h-5" />
-                Add Note
-              </button>
             </form>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {notes.map(note => (
               <div key={note.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group hover:shadow-md transition-all">
-                <button 
-                  onClick={() => handleDeleteContent('notes', note.id)} 
-                  className="absolute top-4 right-4 text-rose-500 hover:bg-rose-50 p-2 rounded-xl"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="absolute top-4 right-4 flex gap-1">
+                  <button 
+                    onClick={() => handleEditNote(note)} 
+                    className="text-indigo-500 hover:bg-indigo-50 p-2 rounded-xl transition-colors"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => handleDeleteContent('notes', note.id)} 
+                    className="text-rose-500 hover:bg-rose-50 p-2 rounded-xl transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
                 <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 mb-4 group-hover:bg-emerald-600 group-hover:text-white transition-all">
                   <BookOpen className="w-6 h-6" />
                 </div>
@@ -1138,51 +1367,89 @@ function AdminHome() {
           </h2>
           
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
-            <h3 className="text-lg font-bold text-slate-800 mb-6">Upload New PYQ</h3>
-            <form onSubmit={handleAddPyq} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Title</label>
-                <input 
-                  type="text" required
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
-                  value={pyqTitle} onChange={e => setPyqTitle(e.target.value)} 
-                  placeholder="e.g. 2023 Paper"
-                />
+            <h3 className="text-lg font-bold text-slate-800 mb-6">{editingPyqId ? 'Update PYQ' : 'Upload New PYQ'}</h3>
+            <form onSubmit={handleAddPyq} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Title <span className="text-rose-500">*</span></label>
+                  <input 
+                    type="text" required
+                    className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
+                    value={pyqTitle} onChange={e => setPyqTitle(e.target.value)} 
+                    placeholder="e.g. 2023 Paper"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Subject (Optional)</label>
+                  <input 
+                    type="text"
+                    className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
+                    value={pyqSubject} onChange={e => setPyqSubject(e.target.value)} 
+                    placeholder="e.g. Maths"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Resource Link (Optional)</label>
+                  <input 
+                    type="url"
+                    className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
+                    value={pyqLink} onChange={e => setPyqLink(e.target.value)} 
+                    placeholder="https://..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">OR Upload File (Optional)</label>
+                  <input 
+                    id="pyq-file-input"
+                    type="file" 
+                    className="w-full rounded-xl border-slate-200 border-2 p-2 outline-hidden font-medium text-xs file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100"
+                    onChange={e => {
+                      if (e.target.files && e.target.files[0]) {
+                        setPyqFile(e.target.files[0]);
+                      }
+                    }}
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Subject</label>
-                <input 
-                  type="text" required
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
-                  value={pyqSubject} onChange={e => setPyqSubject(e.target.value)} 
-                  placeholder="e.g. Maths"
-                />
+              <div className="flex justify-end pt-2">
+                <button 
+                  disabled={uploadingPyq}
+                  type="submit" 
+                  className="bg-amber-600 disabled:opacity-50 text-white px-8 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-amber-50 flex items-center justify-center gap-2"
+                >
+                  {uploadingPyq ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-5 h-5" />
+                      {editingPyqId ? 'Update PYQ' : 'Add PYQ'}
+                    </>
+                  )}
+                </button>
               </div>
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Resource Link (PDF/Drive)</label>
-                <input 
-                  type="url" required
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
-                  value={pyqLink} onChange={e => setPyqLink(e.target.value)} 
-                  placeholder="https://..."
-                />
-              </div>
-              <button type="submit" className="bg-amber-600 text-white px-6 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-amber-50 flex items-center justify-center gap-2">
-                <Plus className="w-5 h-5" />
-                Add PYQ
-              </button>
             </form>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {pyqs.map(pyq => (
               <div key={pyq.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group hover:shadow-md transition-all">
-                <button 
-                  onClick={() => handleDeleteContent('pyqs', pyq.id)} 
-                  className="absolute top-4 right-4 text-rose-500 hover:bg-rose-50 p-2 rounded-xl"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="absolute top-4 right-4 flex gap-1">
+                  <button 
+                    onClick={() => handleEditPyq(pyq)} 
+                    className="text-indigo-500 hover:bg-indigo-50 p-2 rounded-xl transition-colors"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => handleDeleteContent('pyqs', pyq.id)} 
+                    className="text-rose-500 hover:bg-rose-50 p-2 rounded-xl transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
                 <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600 mb-4 group-hover:bg-amber-600 group-hover:text-white transition-all">
                   <FileText className="w-6 h-6" />
                 </div>
@@ -1291,11 +1558,23 @@ function AdminHome() {
           </h2>
           
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
-            <h3 className="text-lg font-bold text-slate-800 mb-2">Upload Carousel Image</h3>
-            <p className="text-sm text-slate-500 mb-6">
-              You can have up to <span className="font-bold text-fuchsia-600">3 images</span> in the home carousel. 
-              To <span className="font-bold text-slate-700">replace</span> an image, delete an existing one first and then add a new one.
-            </p>
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className="text-lg font-bold text-slate-800 mb-1">Upload Carousel Image</h3>
+                <p className="text-sm text-slate-500">
+                  You can have up to <span className="font-bold text-fuchsia-600">3 images</span> in the home carousel. 
+                  To <span className="font-bold text-slate-700">replace</span> an image, delete an existing one first.
+                </p>
+              </div>
+              <button 
+                disabled={clearingCarousel || carousels.length === 0}
+                onClick={handleBulkClearCarousel}
+                className="bg-rose-50 text-rose-600 px-4 py-2 rounded-xl font-bold text-xs hover:bg-rose-600 hover:text-white transition-all disabled:opacity-50 flex items-center gap-2 border border-rose-100"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                {clearingCarousel ? 'Clearing...' : 'Clear All Images'}
+              </button>
+            </div>
             
             <form onSubmit={handleAddCarousel} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
               <div className="md:col-span-3">
@@ -1393,6 +1672,187 @@ function AdminHome() {
               <button disabled={savingSocials} type="submit" className="w-full md:w-auto bg-cyan-600 disabled:opacity-50 text-white px-8 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-cyan-50 flex items-center justify-center gap-2">
                 <CheckCircle className="w-5 h-5" />
                 {savingSocials ? 'Saving...' : 'Save Links'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'affairs' && (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-2">
+            <span className="w-2 h-8 bg-orange-600 rounded-full"></span>
+            Current Affairs Management
+          </h2>
+          
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
+            <h3 className="text-lg font-bold text-slate-800 mb-6">Add Current Affair</h3>
+            <form onSubmit={handleAddAffair} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Title</label>
+                <input 
+                  type="text" required
+                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
+                  value={affairTitle} onChange={e => setAffairTitle(e.target.value)} 
+                  placeholder="Title"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Date (YYYY-MM-DD)</label>
+                <input 
+                  type="date"
+                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
+                  value={affairDate} onChange={e => setAffairDate(e.target.value)} 
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">External Link (Optional)</label>
+                <input 
+                  type="url"
+                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
+                  value={affairLink} onChange={e => setAffairLink(e.target.value)} 
+                  placeholder="https://..."
+                />
+              </div>
+              <div className="md:col-span-3">
+                <button disabled={uploadingAffair} type="submit" className="w-full md:w-auto bg-orange-600 disabled:opacity-50 text-white px-8 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg flex items-center justify-center gap-2">
+                  <Plus className="w-5 h-5" />
+                  {uploadingAffair ? 'Saving...' : 'Add Current Affair'}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {affairs.map(item => (
+              <div key={item.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group">
+                <button 
+                  onClick={() => handleDeleteContent('affairs', item.id)} 
+                  className="absolute top-4 right-4 text-rose-500 hover:bg-rose-50 p-2 rounded-xl"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+                <Clock className="w-6 h-6 text-orange-600 mb-4" />
+                <h4 className="font-bold text-slate-800 mb-1">{item.title}</h4>
+                <p className="text-xs font-bold text-slate-400 mb-4">{item.date}</p>
+                {item.link && (
+                  <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-orange-600 text-sm font-bold hover:underline">
+                    Read More →
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'practice' && (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-2">
+            <span className="w-2 h-8 bg-teal-600 rounded-full"></span>
+            Practice Set Management
+          </h2>
+          
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
+            <h3 className="text-lg font-bold text-slate-800 mb-6">Add Practice Set</h3>
+            <form onSubmit={handleAddPractice} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Title</label>
+                <input 
+                  type="text" required
+                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
+                  value={practiceTitle} onChange={e => setPracticeTitle(e.target.value)} 
+                  placeholder="Set Title"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Subject</label>
+                <input 
+                  type="text"
+                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
+                  value={practiceSubject} onChange={e => setPracticeSubject(e.target.value)} 
+                  placeholder="Subject"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">OR Upload File</label>
+                <input 
+                  id="practice-file-input"
+                  type="file"
+                  className="w-full rounded-xl border-slate-200 border-2 p-2 outline-hidden font-medium text-xs" 
+                  onChange={e => setPracticeFile(e.target.files ? e.target.files[0] : null)}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">External Link</label>
+                <input 
+                  type="url"
+                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
+                  value={practiceLink} onChange={e => setPracticeLink(e.target.value)} 
+                  placeholder="https://..."
+                />
+              </div>
+              <div className="md:col-span-3">
+                <button disabled={uploadingPractice} type="submit" className="w-full md:w-auto bg-teal-600 disabled:opacity-50 text-white px-8 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg flex items-center justify-center gap-2">
+                  <Plus className="w-5 h-5" />
+                  {uploadingPractice ? 'Saving...' : 'Add Practice Set'}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {practiceSets.map(item => (
+              <div key={item.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group">
+                <button 
+                  onClick={() => handleDeleteContent('practice_sets', item.id)} 
+                  className="absolute top-4 right-4 text-rose-500 hover:bg-rose-50 p-2 rounded-xl"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+                <FileText className="w-6 h-6 text-teal-600 mb-4" />
+                <h4 className="font-bold text-slate-800 mb-1">{item.title}</h4>
+                <p className="text-xs font-bold text-slate-400 mb-4">{item.subject}</p>
+                {item.link && (
+                  <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-teal-600 text-sm font-bold hover:underline">
+                    Download / View →
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'site_info' && (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-2">
+            <span className="w-2 h-8 bg-slate-700 rounded-full"></span>
+            About Us & Contact Info
+          </h2>
+          
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
+            <h3 className="text-lg font-bold text-slate-800 mb-6">Edit Site Information</h3>
+            <form onSubmit={handleSaveSiteInfo} className="space-y-6">
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">About Us Content</label>
+                <textarea 
+                  className="w-full rounded-2xl border-slate-200 border-2 p-4 outline-hidden font-medium min-h-[200px]"
+                  value={aboutContent} onChange={e => setAboutContent(e.target.value)}
+                  placeholder="Tell students about Master Aptitude..."
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Contact Us Details</label>
+                <textarea 
+                  className="w-full rounded-2xl border-slate-200 border-2 p-4 outline-hidden font-medium min-h-[150px]"
+                  value={contactContent} onChange={e => setContactContent(e.target.value)}
+                  placeholder="Address, Phone, Email details..."
+                />
+              </div>
+              <button disabled={savingInfo} type="submit" className="w-full md:w-auto bg-slate-700 disabled:opacity-50 text-white px-8 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg flex items-center justify-center gap-2">
+                <CheckCircle className="w-5 h-5" />
+                {savingInfo ? 'Saving...' : 'Update Information'}
               </button>
             </form>
           </div>
