@@ -5,6 +5,10 @@ import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 import cookieParser from "cookie-parser";
 import fs from "fs";
+import { GoogleGenAI } from "@google/genai";
+
+// Initialize Gemini
+const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
 
 // Initialize Firebase Admin
 let config: any = {};
@@ -97,7 +101,7 @@ app.use(express.json({ limit: '5mb' }));
 app.use(cookieParser());
 
 // API Routes
-  
+
   // Get test and questions (without correct answer)
   app.get("/api/test/:testId", verifyToken, async (req, res) => {
     if (!db) return res.status(500).json({ error: "DB offline" });
@@ -126,6 +130,59 @@ app.use(cookieParser());
     }
   });
 
+  // Translate questions endpoint
+  app.post("/api/translate", verifyToken, async (req, res) => {
+    const { questions, targetLang } = req.body;
+    if (!ai) {
+      console.error("Gemini API key not configured on server");
+      return res.status(500).json({ error: "Translation service not configured" });
+    }
+    if (!questions || !targetLang) {
+      return res.status(400).json({ error: "Missing questions or targetLang" });
+    }
+
+    try {
+      const prompt = `
+        You are an expert educational translator specializing in competitive exam content.
+        Translate the following array of questions from English to ${targetLang}.
+        
+        Rules:
+        1. Return ONLY a valid JSON array of objects.
+        2. Translate 'questionText' and each string in the 'options' array.
+        3. Do NOT translate the 'id', 'testId', or any technical keys.
+        4. The translation must be formal, grammatically perfect, and use standard terminology used in West Bengal government exams (like WBPSC, WBP, WBSETCL).
+        5. Use proper Unicode Bengali fonts.
+        6. If a term is technical (like 'Photosynthesis'), you can keep the term in brackets after the Bengali translation.
+        
+        JSON to translate:
+        ${JSON.stringify(questions)}
+      `;
+
+      const result = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json"
+        }
+      });
+      
+      let text = result.text.trim();
+      
+      // Sanitization
+      if (text.startsWith("```json")) {
+        text = text.substring(7, text.length - 3).trim();
+      } else if (text.startsWith("```")) {
+        text = text.substring(3, text.length - 3).trim();
+      }
+
+      const translated = JSON.parse(text);
+      res.json(translated);
+    } catch (error: any) {
+      console.error("Translation ERROR:", error);
+      res.status(500).json({ error: "Translation failed", message: error.message });
+    }
+  });
+
   // Submit test and score it
   app.post("/api/submit-test", verifyToken, async (req, res) => {
     if (!db) return res.status(500).json({ error: "DB offline" });
@@ -140,6 +197,15 @@ app.use(cookieParser());
     }
     
     try {
+      // Fetch test details for marking scheme
+      const testSnap = await db.collection("tests").doc(testId).get();
+      if (!testSnap.exists) {
+        return res.status(404).json({ error: "Test not found" });
+      }
+      const testData = testSnap.data();
+      const posMarks = testData?.marksPerCorrect || 1;
+      const negMarks = testData?.negativeMarks || 0.25;
+
       // Fetch the actual questions to get correctAnswers
       const questionsSnap = await db.collection("questions").where("testId", "==", testId).get();
       if (questionsSnap.empty) {
@@ -162,10 +228,10 @@ app.use(cookieParser());
           unattempted++;
         } else if (actual === ans.selected) {
           correct++;
-          score += 1;
+          score += posMarks;
         } else {
           wrong++;
-          score -= 0.25;
+          score -= negMarks;
         }
       });
       
@@ -420,7 +486,7 @@ app.use(cookieParser());
   app.post("/api/admin/create-test", verifyToken, verifyAdmin, async (req, res) => {
     if (!db) return res.status(500).json({ error: "DB offline" });
     try {
-      const { title, topic, isActive, duration, testType, subjectName, category } = req.body;
+      const { title, topic, isActive, duration, testType, subjectName, category, marksPerCorrect, negativeMarks } = req.body;
       const ref = db.collection("tests").doc();
       await ref.set({
         title,
@@ -428,7 +494,9 @@ app.use(cookieParser());
         subjectName: subjectName || "",
         category: category || "",
         testType: testType || 'topic',
-        duration: duration || 30, // Default 30 mins
+        duration: duration || 30, 
+        marksPerCorrect: marksPerCorrect || 1,
+        negativeMarks: negativeMarks || 0,
         isActive: !!isActive,
         createdAt: Date.now()
       });
@@ -481,13 +549,15 @@ app.use(cookieParser());
     if (!db) return res.status(500).json({ error: "DB offline" });
     try {
       const { testId } = req.params;
-      const { title, topic, isActive, duration, testType, subjectName, category } = req.body;
+      const { title, topic, isActive, duration, testType, subjectName, category, marksPerCorrect, negativeMarks } = req.body;
       const updateData: any = {
         title,
         topic,
         subjectName: subjectName || "",
         category: category || "",
         duration: duration || 30,
+        marksPerCorrect: marksPerCorrect || 1,
+        negativeMarks: negativeMarks || 0,
         isActive: !!isActive
       };
       if (testType) updateData.testType = testType;

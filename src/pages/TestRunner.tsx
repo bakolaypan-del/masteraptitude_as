@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthContext';
-import { Clock, AlertTriangle, CheckCircle, ChevronRight, ChevronLeft, Flag } from 'lucide-react';
+import { Clock, AlertTriangle, CheckCircle, ChevronRight, ChevronLeft, Flag, Info, Globe, Play, Menu, X } from 'lucide-react';
+import { translateQuestions } from '../services/translationService';
 
 export default function TestRunner() {
   const { testId } = useParams();
@@ -24,6 +25,12 @@ export default function TestRunner() {
   const [result, setResult] = useState<any>(null);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [warnings, setWarnings] = useState(0);
+  
+  const [showInstructions, setShowInstructions] = useState(true);
+  const [selectedLang, setSelectedLang] = useState('English');
+  const [translating, setTranslating] = useState(false);
+  const [originalQuestions, setOriginalQuestions] = useState<any[]>([]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   const isSubmittingRef = useRef(false);
   const timerRef = useRef<any>(null);
@@ -51,6 +58,7 @@ export default function TestRunner() {
         const data = await res.json();
         setTest(data.test);
         setQuestions(data.questions);
+        setOriginalQuestions(data.questions);
         if (data.questions.length > 0) {
            setVisited(new Set([data.questions[0].id]));
         }
@@ -81,7 +89,7 @@ export default function TestRunner() {
   }, [currentIdx, questions]);
 
   useEffect(() => {
-    if (!submitting && !result && questions.length > 0 && timeLeft > 0) {
+    if (!showInstructions && !submitting && !result && questions.length > 0 && timeLeft > 0) {
       timerRef.current = setInterval(() => {
         setTimeLeft(prev => {
           if (prev <= 1) {
@@ -101,7 +109,7 @@ export default function TestRunner() {
   // Anti-cheat
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden' && !submitting && !result && questions.length > 0) {
+      if (document.visibilityState === 'hidden' && !showInstructions && !submitting && !result && questions.length > 0) {
         setWarnings(w => w + 1);
         alert('Warning: Switching tabs during a test is strictly prohibited! This has been recorded.');
       }
@@ -202,9 +210,171 @@ export default function TestRunner() {
     navigate('/dashboard');
   };
 
-  if (loading) return <div className="flex justify-center items-center h-screen">Loading test environment...</div>;
-  if (error) return <div className="p-8 text-center text-red-500 font-bold">{error}</div>;
-  if (questions.length === 0) return <div className="p-8 text-center text-gray-500">This test has no questions yet.</div>;
+  const handleStartTest = async () => {
+    if (selectedLang === 'Bengali') {
+      setTranslating(true);
+      try {
+        const translated = await translateQuestions(originalQuestions, 'Bengali', user);
+        setQuestions(translated);
+      } catch (err) {
+        console.error("Translation error:", err);
+      } finally {
+        setTranslating(false);
+      }
+    } else {
+      setQuestions(originalQuestions);
+    }
+    setShowInstructions(false);
+  };
+
+  const t = (en: string, bn: string) => (selectedLang === 'Bengali' ? bn : en);
+
+  if (loading) return <div className="flex justify-center items-center h-screen font-bold text-slate-600 bg-slate-50">
+    <div className="flex flex-col items-center gap-4">
+      <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+      Loading test environment...
+    </div>
+  </div>;
+
+  if (error) return <div className="min-h-screen bg-slate-50 flex items-center justify-center p-8">
+     <div className="bg-white p-8 rounded-3xl shadow-xl border border-red-100 text-center max-w-md">
+        <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+        <h2 className="text-xl font-bold text-slate-800 mb-2">Failed to Load Test</h2>
+        <p className="text-slate-500 mb-6">{error}</p>
+        <button onClick={() => navigate('/dashboard')} className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold uppercase text-xs tracking-widest">Back to Home</button>
+     </div>
+  </div>;
+
+  if (questions.length === 0) return <div className="min-h-screen bg-slate-50 flex items-center justify-center p-8 text-center text-slate-500 font-bold">This test has no questions yet.</div>;
+
+  if (showInstructions) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="max-w-3xl w-full bg-white rounded-[32px] md:rounded-[40px] shadow-2xl overflow-hidden border border-slate-100 flex flex-col animate-in fade-in zoom-in duration-500">
+          <div className="bg-indigo-600 p-6 md:p-8 text-white">
+            <h2 className="text-2xl md:text-3xl font-black mb-2 tracking-tighter uppercase">
+              {t("Test Instructions", "পরীক্ষার নির্দেশাবলী")}
+            </h2>
+            <p className="text-indigo-100 font-medium text-sm md:text-base">
+              {t("Please read the following guidelines carefully before starting.", "শুরু করার আগে নিচের নির্দেশিকাগুলো মনোযোগ দিয়ে পড়ুন।")}
+            </p>
+          </div>
+          
+          <div className="p-6 md:p-12 space-y-6 md:y-8 flex-1 overflow-y-auto max-h-[70vh]">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+              <div className="bg-slate-50 p-4 md:p-6 rounded-3xl border border-slate-200">
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 md:mb-4 flex items-center gap-2">
+                  <Info className="w-3 h-3" /> {t("Test Details", "পরীক্ষার বিবরণ")}
+                </h3>
+                <div className="space-y-2 md:space-y-3">
+                  <div className="flex justify-between items-center text-xs md:text-sm">
+                    <span className="text-slate-500 font-medium">{t("Test Name", "পরীক্ষার নাম")}</span>
+                    <span className="font-bold text-slate-800 text-right ml-2">{test?.title}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs md:text-sm">
+                    <span className="text-slate-500 font-medium">{t("Topic", "বিষয়")}</span>
+                    <span className="font-bold text-slate-800">{test?.topic}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs md:text-sm">
+                    <span className="text-slate-500 font-medium">{t("Total Questions", "মোট প্রশ্ন")}</span>
+                    <span className="font-bold text-indigo-600">{originalQuestions.length} {t("Items", "টি")}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs md:text-sm">
+                    <span className="text-slate-500 font-medium">{t("Total Time", "মোট সময়")}</span>
+                    <span className="font-bold text-indigo-600">{test?.duration || 30} {t("Minutes", "মিনিট")}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-slate-50 p-4 md:p-6 rounded-3xl border border-slate-200">
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 md:mb-4 flex items-center gap-2">
+                  <Flag className="w-3 h-3" /> {t("Marking Scheme", "নম্বর বিভাজন")}
+                </h3>
+                <div className="space-y-2 md:space-y-3">
+                  <div className="flex justify-between items-center text-xs md:text-sm">
+                    <span className="text-emerald-600 font-bold">{t("Correct Answer", "সঠিক উত্তর")}</span>
+                    <span className="font-black text-emerald-600">+{test?.marksPerCorrect || 1.0}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs md:text-sm">
+                    <span className="text-rose-600 font-bold">{t("Wrong Answer", "ভুল উত্তর")}</span>
+                    <span className="font-black text-rose-600">-{test?.negativeMarks || 0.25}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs md:text-sm">
+                    <span className="text-slate-500 font-medium">{t("Unattempted", "চেষ্টা করা হয়নি")}</span>
+                    <span className="font-bold text-slate-800">0.0</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3 md:space-y-4">
+              <h3 className="text-xs md:text-sm font-black text-slate-800 uppercase tracking-tight">{t("General Rules:", "সাধারণ নিয়মাবলী:")}</h3>
+              <ul className="space-y-2 md:space-y-3 text-xs md:text-sm text-slate-600 list-disc pl-5 font-medium">
+                <li>{t("You cannot switch tabs or minimize the browser window. Doing so will result in immediate disqualification.", "আপনি ট্যাব পরিবর্তন করতে পারবেন না বা ব্রাউজার উইন্ডো ছোট করতে পারবেন না। এটি করলে অবিলম্বে অযোগ্য বলে গণ্য করা হবে।")}</li>
+                <li>{t("The timer will start as soon as you click the Start Test button.", "আপনি 'শুরু করুন' বাটনে ক্লিক করার সাথে সাথেই টাইমার শুরু হবে।")}</li>
+                <li>{t("You can mark questions for review and revisit them later.", "আপনি প্রশ্নগুলো পর্যালোচনার জন্য চিহ্নিত করতে পারেন এবং পরে আবার দেখতে পারেন।")}</li>
+                <li>{t("Your progress is automatically saved as you navigate through questions.", "আপনি প্রশ্নের মধ্যে নেভিগেট করার সাথে সাথে আপনার অগ্রগতি স্বয়ংক্রিয়ভাবে সংরক্ষিত হয়।")}</li>
+                <li>{t("Ensure you have a stable internet connection.", "আপনার ইন্টারনেট সংযোগ স্থিতিশীল আছে কিনা তা নিশ্চিত করুন।")}</li>
+              </ul>
+            </div>
+
+            <div className="pt-6 border-t border-slate-100">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 md:mb-6 flex items-center gap-2">
+                <Globe className="w-3 h-3" /> {t("Select Test Language", "পরীক্ষার ভাষা নির্বাচন করুন")}
+              </h3>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setSelectedLang('English')}
+                  className={`flex-1 py-3 md:py-4 rounded-2xl border-2 font-black text-xs md:text-sm uppercase tracking-widest transition-all
+                    ${selectedLang === 'English' ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300'}
+                  `}
+                >
+                  English
+                </button>
+                <button 
+                  onClick={() => setSelectedLang('Bengali')}
+                  className={`flex-1 py-3 md:py-4 rounded-2xl border-2 font-black text-xs md:text-sm uppercase tracking-widest transition-all
+                    ${selectedLang === 'Bengali' ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300'}
+                  `}
+                >
+                  বাংলা
+                </button>
+              </div>
+              <p className="mt-4 text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-tight text-center">
+                {t("Questions and Options will be automatically translated if Bengali is selected.", "বাংলা সিলেক্ট করলে প্রশ্ন ও অপশনগুলো স্বয়ংক্রিয়ভাবে অনুবাদ করা হবে।")}
+              </p>
+            </div>
+          </div>
+
+          <div className="p-6 md:p-8 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row gap-3 md:gap-4">
+            <button 
+              onClick={() => navigate('/dashboard')}
+              className="flex-1 py-3 md:py-4 bg-white border border-slate-300 text-slate-600 font-black rounded-2xl hover:bg-slate-50 transition shadow-sm uppercase tracking-widest text-[10px] md:text-xs"
+            >
+              {t("Back to Dashboard", "ড্যাশবোর্ডে ফিরে যান")}
+            </button>
+            <button 
+              disabled={translating}
+              onClick={handleStartTest}
+              className="flex-[2] py-3 md:py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-slate-900 transition shadow-lg shadow-indigo-100 flex items-center justify-center gap-3 uppercase tracking-widest text-[10px] md:text-xs disabled:opacity-50"
+            >
+              {translating ? (
+                <>
+                  <div className="w-4 h-4 md:w-5 md:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  {t("Translating Questions...", "প্রশ্ন অনুবাদ করা হচ্ছে...")}
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 md:w-5 md:h-5 fill-current" />
+                  {t("Start Test Now", "এখনই পরীক্ষা শুরু করুন")}
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (result) {
     if (showAnalysis) {
@@ -315,11 +485,11 @@ export default function TestRunner() {
                       <div className="mt-6 pt-6 border-t border-slate-100 flex items-center justify-between text-xs font-bold uppercase tracking-widest text-slate-400">
                         <span>Topic: {q.topic || 'General'}</span>
                         {isCorrect ? (
-                          <span className="text-emerald-500">+1.0 Marks</span>
+                          <span className="text-emerald-500">+{test?.marksPerCorrect || 1.0} Marks</span>
                         ) : isUnattempted ? (
                           <span className="text-slate-400">0.0 Marks</span>
                         ) : (
-                          <span className="text-rose-500">-0.25 Marks</span>
+                          <span className="text-rose-500">-{test?.negativeMarks || 0.25} Marks</span>
                         )}
                       </div>
                     </div>
@@ -457,33 +627,39 @@ export default function TestRunner() {
       )}
 
       {/* Header Navigation */}
-      <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 shadow-sm sticky top-0 z-10">
-        <div className="flex items-center gap-3">
+      <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 shrink-0 shadow-sm sticky top-0 z-[60]">
+        <div className="flex items-center gap-2 md:gap-3">
           <button 
             onClick={handleExit}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-all text-sm font-bold mr-2 group"
+            className="flex items-center gap-1.5 px-2 md:px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-all text-[10px] md:text-sm font-bold group"
             title="Exit Test"
           >
-            <ChevronLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-            Exit Test
+            <ChevronLeft className="w-3 h-3 md:w-4 md:h-4 group-hover:-translate-x-0.5 transition-transform" />
+            <span className="hidden sm:inline">{t("Exit Test", "পরীক্ষা শেষ")}</span>
           </button>
-          <div className="w-8 h-8 bg-indigo-600 rounded flex items-center justify-center text-white font-bold">M</div>
-          <h1 className="text-lg font-bold tracking-tight text-slate-800">
+          <div className="hidden xs:flex w-8 h-8 bg-indigo-600 rounded items-center justify-center text-white font-bold shrink-0">M</div>
+          <h1 className="text-xs md:text-lg font-bold tracking-tight text-slate-800 truncate max-w-[120px] sm:max-w-none">
             {test?.title || 'Mock Test'}
-            <span className="text-slate-400 font-normal ml-2">| {test?.topic}</span>
+            <span className="hidden md:inline text-slate-400 font-normal ml-2">| {test?.topic}</span>
           </h1>
         </div>
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2 bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-full text-rose-600 font-mono font-bold">
-            <Clock className="w-4 h-4" />
+        <div className="flex items-center gap-3 md:gap-6">
+          <div className="flex items-center gap-1.5 md:gap-2 bg-rose-50 border border-rose-100 px-2 md:px-3 py-1 md:py-1.5 rounded-full text-rose-600 font-mono font-bold text-xs md:text-sm">
+            <Clock className="w-3 h-3 md:w-4 md:h-4" />
             {mins.toString().padStart(2, '0')}:{secs.toString().padStart(2, '0')}
           </div>
-          <div className="flex items-center gap-3 border-l pl-6 border-slate-200">
-            <div className="text-right">
-              <p className="text-xs font-bold text-slate-700">{profile?.name || user?.email || user?.phoneNumber}</p>
-              <p className="text-[10px] text-slate-500 tracking-wider">RANK: {profile?.globalRank === 0 ? '-' : `#${profile?.globalRank}`}</p>
+          <div className="flex items-center gap-2 md:gap-3 border-l pl-3 md:pl-6 border-slate-200">
+            <div className="hidden sm:block text-right">
+              <p className="text-[10px] md:text-xs font-bold text-slate-700 truncate max-w-[80px]">{profile?.name || user?.email || user?.phoneNumber}</p>
+              <p className="text-[8px] md:text-[10px] text-slate-500 tracking-wider">RANK: {profile?.globalRank === 0 ? '-' : `#${profile?.globalRank}`}</p>
             </div>
-            <div className="w-9 h-9 rounded-full bg-indigo-100 border border-indigo-200 flex items-center justify-center text-indigo-700 font-bold text-xs uppercase">
+            <button 
+              onClick={() => setIsSidebarOpen(true)}
+              className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-indigo-100 border border-indigo-200 flex items-center justify-center text-indigo-700 font-bold text-[10px] md:text-xs uppercase md:hidden"
+            >
+              <Menu className="w-4 h-4" />
+            </button>
+            <div className="hidden md:flex w-9 h-9 rounded-full bg-indigo-100 border border-indigo-200 items-center justify-center text-indigo-700 font-bold text-xs uppercase cursor-pointer">
               {userInitial}
             </div>
           </div>
@@ -491,36 +667,44 @@ export default function TestRunner() {
       </header>
 
       {/* Alert Banner */}
-      <div className="bg-amber-100 border-b border-amber-200 px-6 py-2 flex items-center gap-2 text-xs font-medium text-amber-800 shrink-0">
-        <AlertTriangle className="w-3.5 h-3.5" />
-        Warning: Tab switching or minimizing window will result in automatic submission. (Visibility Detection Active)
-        {warnings > 0 && <span className="text-red-600 font-bold ml-2">({warnings} Warnings Recorded)</span>}
+      <div className="bg-amber-100 border-b border-amber-200 px-4 md:px-6 py-2 flex items-center gap-2 text-[9px] md:text-xs font-medium text-amber-800 shrink-0">
+        <AlertTriangle className="w-3 h-3 md:w-3.5 md:h-3.5 shrink-0" />
+        <span className="truncate">
+          {t("Warning: Tab switching or minimizing window will result in automatic submission.", "সতর্কতা: ট্যাব পরিবর্তন বা উইন্ডো ছোট করলে স্বয়ংক্রিয়ভাবে সাবমিট হয়ে যাবে।")}
+          {warnings > 0 && <span className="text-red-600 font-bold ml-2">({warnings} {t("Warnings Recorded", "টি সতর্কতা")})</span>}
+        </span>
       </div>
 
       {/* Main Content Layout */}
-      <main className="flex-1 flex overflow-hidden">
+      <main className="flex-1 flex overflow-hidden relative">
+        {/* Mobile Sidebar Overlay */}
+        {isSidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-slate-900/50 z-[70] md:hidden backdrop-blur-sm"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+        )}
+
         {/* Left: Question Panel */}
-        <section className="flex-1 flex flex-col p-8 overflow-y-auto">
+        <section className="flex-1 flex flex-col p-4 md:p-8 overflow-y-auto">
           <div className="flex items-center justify-between mb-4">
-            <span className="px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-[10px] font-bold uppercase tracking-widest">
-              Question {currentIdx + 1} of {questions.length}
+            <span className="px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-[9px] md:text-[10px] font-bold uppercase tracking-widest">
+              {t("Question", "প্রশ্ন")} {currentIdx + 1} {t("of", "এর")} {questions.length}
             </span>
-            <div className="flex gap-2 text-[10px] font-bold text-slate-400">
-              <span className="text-green-600">+1.0 Correct</span>
-              <span className="text-rose-600">-0.25 Negative</span>
+            <div className="flex gap-2 text-[9px] md:text-[10px] font-bold text-slate-400">
+              <span className="text-green-600">+{test?.marksPerCorrect || 1.0} {t("Correct", "সঠিক")}</span>
+              <span className="text-rose-600">-{test?.negativeMarks || 0.25} {t("Negative", "ভুল")}</span>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-8 flex-1 flex flex-col">
-            <h2 className="text-xl font-medium leading-relaxed mb-8 text-slate-800">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 md:p-8 flex-1 flex flex-col">
+            <h2 className="text-base md:text-xl font-medium leading-relaxed mb-6 md:mb-8 text-slate-800">
               {currentQuestion.questionText}
             </h2>
 
-            <div className="space-y-4">
+            <div className="space-y-3 md:space-y-4">
               {(currentQuestion.options || []).map((opt: string, i: number) => {
-                // Check if selected and ensure it's not a generic empty match or undefined match
                 const isSelected = answers[currentQuestion.id] !== undefined && answers[currentQuestion.id] === opt && opt !== '';
-                // Force a stable key using question index and option index
                 const optionKey = `test-${testId}-q-${currentIdx}-opt-${i}`;
                 const optionLabel = String.fromCharCode(65 + i); 
                 
@@ -529,14 +713,14 @@ export default function TestRunner() {
                     key={optionKey}
                     type="button"
                     onClick={() => handleSelectOption(currentQuestion.id, opt)}
-                    className={`w-full flex items-center p-4 rounded-xl border-2 transition-all group relative text-left select-none
+                    className={`w-full flex items-center p-3 md:p-4 rounded-xl border-2 transition-all group relative text-left select-none break-words
                       ${isSelected 
                         ? 'border-indigo-600 bg-indigo-50/50 text-indigo-900 shadow-sm' 
                         : 'border-slate-100 hover:border-slate-300 hover:bg-slate-50 text-slate-700'
                       }`}
                   >
                     <span 
-                      className={`w-8 h-8 shrink-0 rounded border flex items-center justify-center font-bold mr-4 transition-colors
+                      className={`w-7 h-7 md:w-8 md:h-8 shrink-0 rounded border flex items-center justify-center font-bold mr-3 md:mr-4 transition-colors text-xs md:text-sm
                         ${isSelected 
                           ? 'border-indigo-600 bg-indigo-600 text-white' 
                           : 'border-slate-300 group-hover:border-slate-400 text-slate-500'
@@ -544,10 +728,10 @@ export default function TestRunner() {
                     >
                       {optionLabel}
                     </span>
-                    <span className="font-medium text-sm md:text-base">{opt}</span>
+                    <span className="font-medium text-sm md:text-base pr-6">{opt}</span>
                     {isSelected && (
-                      <div className="absolute right-4 w-5 h-5 bg-indigo-600 rounded-full flex items-center justify-center shrink-0">
-                         <CheckCircle className="w-3 h-3 text-white" />
+                      <div className="absolute right-3 md:right-4 w-4 h-4 md:w-5 md:h-5 bg-indigo-600 rounded-full flex items-center justify-center shrink-0">
+                         <CheckCircle className="w-2.5 h-2.5 md:w-3 md:h-3 text-white" />
                       </div>
                     )}
                   </button>
@@ -555,50 +739,62 @@ export default function TestRunner() {
               })}
             </div>
 
-            <div className="mt-8 pt-6 lg:mt-auto border-t border-slate-100 flex justify-between items-center">
-              <button 
-                onClick={handlePrev}
-                disabled={currentIdx === 0}
-                className="px-6 py-2.5 rounded-lg border border-slate-300 text-slate-600 font-bold text-sm flex items-center gap-2 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                Previous
-              </button>
-               <div className="flex flex-wrap gap-2 justify-end">
+            <div className="mt-8 pt-6 lg:mt-auto border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+              <div className="flex gap-2 w-full sm:w-auto">
+                <button 
+                  onClick={handlePrev}
+                  disabled={currentIdx === 0}
+                  className="flex-1 sm:flex-none px-4 md:px-6 py-2 md:py-2.5 rounded-lg border border-slate-300 text-slate-600 font-bold text-xs md:text-sm flex items-center justify-center gap-2 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  <span className="hidden xs:inline">{t("Previous", "আগেরটি")}</span>
+                  <span className="xs:hidden">{t("Prev", "আগের")}</span>
+                </button>
+                <button 
+                  onClick={handleNext}
+                  disabled={currentIdx === questions.length - 1}
+                  className="flex-1 sm:flex-none px-4 md:px-6 py-2 md:py-2.5 rounded-lg bg-indigo-600 text-white font-bold text-xs md:text-sm flex items-center justify-center gap-2 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <span className="hidden xs:inline">{t("Save & Next", "সংরক্ষণ ও পরেরটি")}</span>
+                  <span className="xs:hidden">{t("Next", "পরেরটি")}</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+              
+               <div className="flex gap-2 w-full sm:w-auto justify-center">
                 <button 
                   onClick={() => clearResponse(currentQuestion.id)}
-                  className="px-4 py-2.5 rounded-lg border border-slate-200 text-slate-500 font-bold text-sm hover:bg-slate-50 transition-colors"
+                  className="px-3 md:px-4 py-2 md:py-2.5 rounded-lg border border-slate-200 text-slate-500 font-bold text-[10px] md:text-sm hover:bg-slate-50 transition-colors whitespace-nowrap"
                 >
-                  Clear Response
+                  {t("Clear Response", "পরিষ্কার করুন")}
                 </button>
                 <button 
                   onClick={() => toggleReview(currentQuestion.id)}
-                  className={`px-4 py-2.5 rounded-lg border font-bold text-sm flex items-center gap-2 transition-colors
+                  className={`px-3 md:px-4 py-2 md:py-2.5 rounded-lg border font-bold text-[10px] md:text-sm flex items-center gap-2 transition-colors whitespace-nowrap
                     ${review.has(currentQuestion.id)
                       ? 'bg-amber-100 border-amber-400 text-amber-800 hover:bg-amber-200'
                       : 'bg-white border-amber-400 text-amber-700 hover:bg-amber-50'
                     }`}
                 >
-                  <Flag className="w-4 h-4" />
-                  Mark for Review
-                </button>
-                <button 
-                  onClick={handleNext}
-                  disabled={currentIdx === questions.length - 1}
-                  className="px-6 py-2.5 rounded-lg bg-indigo-600 text-white font-bold text-sm flex items-center gap-2 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Save & Next
-                  <ChevronRight className="w-4 h-4" />
+                  <Flag className="w-3 h-3 md:w-4 md:h-4 shrink-0" />
+                  {t("Mark for Review", "রিভিউ করুন")}
                 </button>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Right: Status Panel */}
-        <aside className="w-80 bg-white border-l border-slate-200 flex flex-col shrink-0 p-6 overflow-y-auto">
+        {/* Right: Status Panel (Desktop default, Mobile drawer) */}
+        <aside className={`fixed md:relative inset-y-0 right-0 w-72 md:w-80 bg-white border-l border-slate-200 flex flex-col shrink-0 p-6 overflow-y-auto z-[80] transform transition-transform duration-300 md:translate-x-0 ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : 'translate-x-full md:translate-x-0'}`}>
+          <div className="flex md:hidden items-center justify-between mb-6">
+            <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">{t("Test Progress", "পরীক্ষার অগ্রগতি")}</h3>
+            <button onClick={() => setIsSidebarOpen(false)} className="p-1 hover:bg-slate-100 rounded-lg">
+              <X className="w-5 h-5 text-slate-400" />
+            </button>
+          </div>
+          
           <div className="mb-6">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Test Progress</h3>
+            <h3 className="hidden md:block text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">{t("Test Progress", "পরীক্ষার অগ্রগতি")}</h3>
             <div className="flex items-center gap-4 mb-2">
               <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
                 <div 
@@ -611,8 +807,8 @@ export default function TestRunner() {
           </div>
 
           <div className="flex-1">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Question Palette</h3>
-            <div className="grid grid-cols-5 gap-2">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">{t("Question Palette", "প্রশ্ন প্যালেট")}</h3>
+            <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
               {questions.map((q, idx) => {
                 const isCurrent = idx === currentIdx;
                 const isAnswered = !!answers[q.id];
@@ -637,8 +833,11 @@ export default function TestRunner() {
                 return (
                   <button
                     key={q.id}
-                    onClick={() => setCurrentIdx(idx)}
-                    className={`h-8 w-8 rounded flex items-center justify-center text-xs font-bold transition-all hover:opacity-80 ${btnStyles}`}
+                    onClick={() => {
+                        setCurrentIdx(idx);
+                        if (window.innerWidth < 768) setIsSidebarOpen(false);
+                    }}
+                    className={`h-8 w-8 md:h-9 md:w-9 rounded-lg flex items-center justify-center text-[10px] md:text-xs font-bold transition-all hover:opacity-80 active:scale-90 ${btnStyles}`}
                   >
                     {idx + 1}
                   </button>
@@ -648,25 +847,25 @@ export default function TestRunner() {
           </div>
 
           <div className="mt-auto space-y-4 pt-6 border-t border-slate-100 sticky bottom-0 bg-white pb-2">
-            <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-[10px] font-bold uppercase text-slate-600">
-              <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 bg-green-500 rounded-sm"></div> Answered</div>
-              <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 bg-amber-500 rounded-sm"></div> Review</div>
-              <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 bg-slate-200 rounded-sm border border-slate-300"></div> Unvisited</div>
-              <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 bg-rose-500 rounded-sm"></div> Skipped</div>
+            <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-[9px] md:text-[10px] font-bold uppercase text-slate-600">
+              <div className="flex items-center gap-2"><div className="w-2 md:w-2.5 h-2 md:h-2.5 bg-green-500 rounded-sm"></div> {t("Answered", "উত্তর দেওয়া")}</div>
+              <div className="flex items-center gap-2"><div className="w-2 md:w-2.5 h-2 md:h-2.5 bg-amber-500 rounded-sm"></div> {t("Review", "পর্যালোচনা")}</div>
+              <div className="flex items-center gap-2"><div className="w-2 md:w-2.5 h-2 md:h-2.5 bg-slate-200 rounded-sm border border-slate-300"></div> {t("Unvisited", "দেখা হয়নি")}</div>
+              <div className="flex items-center gap-2"><div className="w-2 md:w-2.5 h-2 md:h-2.5 bg-rose-500 rounded-sm"></div> {t("Skipped", "বাদ দেওয়া")}</div>
             </div>
             <button 
               onClick={() => handleSubmission(false)}
               disabled={submitting}
-              className={`w-full mt-4 py-4 bg-indigo-600 text-white rounded-xl font-bold uppercase tracking-widest text-sm hover:bg-slate-900 transition-all flex items-center justify-center shadow-lg shadow-indigo-100 active:scale-95
+              className={`w-full mt-4 py-3 md:py-4 bg-indigo-600 text-white rounded-xl font-bold uppercase tracking-widest text-xs md:text-sm hover:bg-slate-900 transition-all flex items-center justify-center shadow-lg shadow-indigo-100 active:scale-95
                 ${submitting ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'}
               `}
             >
               {submitting ? (
                 <>
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-3"></div>
-                  Submitting
+                  <div className="w-4 h-4 md:w-5 md:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-3"></div>
+                  {t("Submitting", "সাবমিট হচ্ছে")}
                 </>
-              ) : 'Submit Test'}
+              ) : t("Submit Test", "সাবমিট করুন")}
             </button>
           </div>
         </aside>

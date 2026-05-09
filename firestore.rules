@@ -1,10 +1,12 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // 0. Global Safety Net
     match /{document=**} {
       allow read, write: if false;
     }
 
+    // Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
@@ -22,32 +24,45 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
     match /profiles/{userId} {
-      // User can read their own profile, admins can read all
       allow read: if isOwner(userId) || isAdmin();
       
-      // User can create their profile. Strict limits for standard users.
-      // Admin can create whatever.
       allow create: if isOwner(userId) && (
         isAdmin() || (
-          request.resource.data.role == 'user' &&
-          (!('totalTestsTaken' in request.resource.data) || request.resource.data.totalTestsTaken == 0) &&
-          (!('cumulativeScore' in request.resource.data) || request.resource.data.cumulativeScore == 0)
+          incoming().role == 'user' &&
+          (!('totalTestsTaken' in incoming()) || incoming().totalTestsTaken == 0) &&
+          (!('cumulativeScore' in incoming()) || incoming().cumulativeScore == 0)
         )
       );
 
-      // User can only update name/email/phone.
-      // Admin can update everything.
-      allow update: if isAdmin() || (
+      allow update: if (
+        isAdmin() && (
+          // Admin can update anything except perhaps keeping it a profile
+          true
+        )
+      ) || (
         isOwner(userId) && 
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'email', 'phoneNumber'])
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'email', 'phoneNumber']) &&
+        // Ensure standard users can't change their role
+        incoming().role == existing().role
       );
     }
 
     match /tests/{testId} {
       // Users can only read active tests. Admins can read all.
-      // We check resource.data.isActive for document read, but how for list? 
-      // The query must strictly include `where('isActive', '==', true)`
+      // List query must explicitly include `where('isActive', '==', true)`
       allow read: if isSignedIn() && (resource.data.isActive == true || isAdmin());
       allow write: if isAdmin();
     }
@@ -55,8 +70,6 @@ service cloud.firestore {
     match /questions/{questionId} {
       // Backend API handles questions so we strip answers. No direct client access allowed!
       allow read, write: if isAdmin(); 
-      // Actually strictly clients should NEVER read. The API doesn't use `request.auth` (it uses firebase-admin), therefore `isAdmin()` here only applies to clients who actually are admins.
-      // So admin client CAN read, write questions.
     }
 
     match /results/{resultId} {
@@ -90,6 +103,16 @@ service cloud.firestore {
     }
 
     match /carousel/{carouselId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /affairs/{affairId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /practice_sets/{setId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }

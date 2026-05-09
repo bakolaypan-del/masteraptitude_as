@@ -22,10 +22,28 @@
       "properties": {
         "title": { "type": "string" },
         "topic": { "type": "string" },
+        "subjectName": { "type": "string" },
+        "category": { "type": "string" },
+        "testType": { "type": "string" },
+        "duration": { "type": "number" },
+        "marksPerCorrect": { "type": "number" },
+        "negativeMarks": { "type": "number" },
         "isActive": { "type": "boolean" },
         "createdAt": { "type": "number" }
       },
       "required": ["title", "topic", "isActive", "createdAt"]
+    },
+    "Carousel": {
+      "title": "Carousel",
+      "description": "Carousel images for home page",
+      "type": "object",
+      "properties": {
+        "link": { "type": "string" },
+        "priority": { "type": "number" },
+        "createdAt": { "type": "object" },
+        "authorId": { "type": "string" }
+      },
+      "required": ["link", "createdAt", "authorId"]
     },
     "Question": {
       "title": "Question",
@@ -55,6 +73,32 @@
         "status": { "type": "string", "enum": ["completed"] }
       },
       "required": ["timestamp", "userId", "testId", "score", "status"]
+    },
+    "Affair": {
+      "title": "Current Affair",
+      "description": "Daily current affairs",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "date": { "type": "string" },
+        "link": { "type": "string" },
+        "createdAt": { "type": "object" },
+        "authorId": { "type": "string" }
+      },
+      "required": ["title", "createdAt", "authorId"]
+    },
+    "PracticeSet": {
+      "title": "Practice Set",
+      "description": "Practice set PDFs or links",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "subject": { "type": "string" },
+        "link": { "type": "string" },
+        "createdAt": { "type": "object" },
+        "authorId": { "type": "string" }
+      },
+      "required": ["title", "createdAt", "authorId"]
     }
   },
   "firestore": {
@@ -73,6 +117,18 @@
     "/results/{resultId}": {
       "schema": { "$ref": "#/entities/Result" },
       "description": "Test results"
+    },
+    "/affairs/{affairId}": {
+      "schema": { "$ref": "#/entities/Affair" },
+      "description": "Current affairs"
+    },
+    "/practice_sets/{setId}": {
+      "schema": { "$ref": "#/entities/PracticeSet" },
+      "description": "Practice sets"
+    },
+    "/carousel/{carouselId}": {
+      "schema": { "$ref": "#/entities/Carousel" },
+      "description": "Home page carousel images"
     }
   }
 }

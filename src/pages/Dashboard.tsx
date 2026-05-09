@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { collection, query, where, getDocs, orderBy, doc, getDoc } from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
+import { collection, query, where, getDocs, orderBy, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { signOut, updatePassword } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
+import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ArrowLeft, ExternalLink, Menu, X, Youtube, MessageCircle, Send, LayoutDashboard, History, ChevronDown, ArrowRight, User, Info, Phone, Download } from 'lucide-react';
 
-type DashboardTab = 'home' | 'mock_topic' | 'mock_sectional' | 'mock_full' | 'notes' | 'video' | 'pyq' | 'pattern' | 'affairs' | 'practice' | 'about' | 'contact';
+type DashboardTab = 'home' | 'profile' | 'mock_topic' | 'mock_sectional' | 'mock_full' | 'notes' | 'video' | 'pyq' | 'pattern' | 'affairs' | 'practice' | 'about' | 'contact';
 
 export default function Dashboard() {
   const { user, profile } = useAuth();
@@ -31,6 +32,19 @@ export default function Dashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [learnOpen, setLearnOpen] = useState(false);
   const [mockOpen, setMockOpen] = useState(false);
+  
+  // Profile Update State
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [updatingProfile, setUpdatingProfile] = useState(false);
+
+  useEffect(() => {
+    if (profile) {
+      setEditName(profile.name || '');
+      setEditPhone(profile.phoneNumber || '');
+    }
+  }, [profile]);
 
   const categories = ['All', 'GK', 'English', 'Math', 'Reasoning', 'Computer'];
 
@@ -78,7 +92,9 @@ export default function Dashboard() {
 
         // Fetch Carousels
         const carouselsSnap = await getDocs(query(collection(db, 'carousel'), orderBy('createdAt', 'desc')));
-        setCarousels(carouselsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        const sortedCarousels = carouselsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+          .sort((a: any, b: any) => (a.priority || 99) - (b.priority || 99));
+        setCarousels(sortedCarousels);
 
         // Fetch Social Links
         const socialSnap = await getDoc(doc(db, 'settings', 'social_links'));
@@ -99,17 +115,7 @@ export default function Dashboard() {
         setPastResults(results);
 
       } catch (error) {
-        console.error("Error fetching data", error);
-        // Fallback for missing index or other issues during development
-        try {
-           const allTestsSnap = await getDocs(collection(db, 'tests'));
-           const active = allTestsSnap.docs
-             .map(doc => ({ id: doc.id, ...doc.data() } as any))
-             .filter(t => t.isActive === true);
-           setActiveTests(active);
-        } catch (innerError) {
-           console.error("Critical error fetching data", innerError);
-        }
+        handleFirestoreError(error, OperationType.GET, 'multiple collections');
       }
       setLoading(false);
     }
@@ -128,6 +134,51 @@ export default function Dashboard() {
 
   const handleLogout = async () => {
     await signOut(auth);
+  };
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    setUpdatingProfile(true);
+    try {
+      // 1. Update Firestore Profile
+      const profileRef = doc(db, 'profiles', user.uid);
+      await updateDoc(profileRef, {
+        name: editName,
+        phoneNumber: editPhone,
+        updatedAt: new Date().toISOString()
+      });
+
+      // 2. Update Password if provided
+      if (newPassword.trim()) {
+        if (newPassword.length < 6) {
+          alert('Password must be at least 6 characters long');
+          setUpdatingProfile(false);
+          return;
+        }
+        await updatePassword(user, newPassword);
+        setNewPassword('');
+      }
+
+      alert('Profile updated successfully!');
+    } catch (error: any) {
+      console.error(error);
+      if (error.code === 'auth/requires-recent-login') {
+        alert('Please log out and log back in to change your password for security reasons.');
+      } else {
+        alert('Error updating profile: ' + error.message);
+      }
+    } finally {
+      setUpdatingProfile(false);
+    }
+  };
+
+  const performanceStats = {
+    totalTests: pastResults.length,
+    bestScore: pastResults.length > 0 ? Math.max(...pastResults.map(r => r.score || 0)) : 0,
+    avgScore: pastResults.length > 0 ? (pastResults.reduce((acc, r) => acc + (r.score || 0), 0) / pastResults.length).toFixed(1) : 0,
+    avgAccuracy: pastResults.length > 0 ? (pastResults.reduce((acc, r) => acc + (r.accuracy || 0), 0) / pastResults.length).toFixed(1) : 0,
+    latestScore: pastResults.length > 0 ? pastResults[0].score : 0,
   };
 
   if (loading) return (
@@ -169,20 +220,38 @@ export default function Dashboard() {
           {/* HOME */}
           <button 
             onClick={() => { setActiveTab('home'); setIsSidebarOpen(false); }} 
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm ${activeTab === 'home' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm 
+              ${activeTab === 'home' 
+                ? 'bg-indigo-50 text-indigo-600 shadow-lg shadow-indigo-200/20' 
+                : 'text-slate-400 bg-indigo-500/5 hover:bg-indigo-500/10 hover:text-indigo-300'}`}
           >
-            <Target className="w-5 h-5 shrink-0" />
+            <Target className={`w-5 h-5 shrink-0 ${activeTab === 'home' ? 'text-indigo-600' : 'text-indigo-400'}`} />
             Home
+          </button>
+
+          {/* PROFILE */}
+          <button 
+            onClick={() => { setActiveTab('profile'); setIsSidebarOpen(false); }} 
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm 
+              ${activeTab === 'profile' 
+                ? 'bg-rose-50 text-rose-600 shadow-lg shadow-rose-200/20' 
+                : 'text-slate-400 bg-rose-500/5 hover:bg-rose-500/10 hover:text-rose-300'}`}
+          >
+            <User className={`w-5 h-5 shrink-0 ${activeTab === 'profile' ? 'text-rose-600' : 'text-rose-400'}`} />
+            Profile
           </button>
 
           {/* LEARN SECTION */}
           <div className="space-y-1">
             <button 
               onClick={() => setLearnOpen(!learnOpen)}
-              className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm ${['video', 'notes', 'affairs', 'practice'].includes(activeTab) ? 'bg-indigo-500/10 text-indigo-300' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}
+              className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm 
+                ${['video', 'notes', 'affairs', 'practice'].includes(activeTab) 
+                  ? 'bg-violet-50 text-violet-600 shadow-lg shadow-violet-200/20' 
+                  : 'text-slate-400 bg-violet-500/5 hover:bg-violet-500/10 hover:text-violet-300'}`}
             >
               <div className="flex items-center gap-3">
-                <BookOpen className="w-5 h-5 shrink-0" />
+                <BookOpen className={`w-5 h-5 shrink-0 ${['video', 'notes', 'affairs', 'practice'].includes(activeTab) ? 'text-violet-600' : 'text-violet-400'}`} />
                 Learn
               </div>
               <ChevronRight className={`w-4 h-4 transition-transform ${learnOpen ? 'rotate-90' : ''}`} />
@@ -192,25 +261,25 @@ export default function Dashboard() {
               <div className="pl-6 space-y-1 animate-in slide-in-from-top-2 duration-200">
                 <button 
                   onClick={() => { setActiveTab('video'); setIsSidebarOpen(false); }} 
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'video' ? 'text-indigo-400 bg-indigo-400/10' : 'text-slate-500 hover:text-slate-300'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'video' ? 'text-rose-600 bg-rose-50' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
                 >
                   Recorded Video
                 </button>
                 <button 
                   onClick={() => { setActiveTab('notes'); setIsSidebarOpen(false); }} 
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'notes' ? 'text-indigo-400 bg-indigo-400/10' : 'text-slate-500 hover:text-slate-300'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'notes' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
                 >
                   Study Notes
                 </button>
                 <button 
                   onClick={() => { setActiveTab('affairs'); setIsSidebarOpen(false); }} 
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'affairs' ? 'text-indigo-400 bg-indigo-400/10' : 'text-slate-500 hover:text-slate-300'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'affairs' ? 'text-blue-600 bg-blue-50' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
                 >
                   Current Affairs
                 </button>
                 <button 
                   onClick={() => { setActiveTab('practice'); setIsSidebarOpen(false); }} 
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'practice' ? 'text-indigo-400 bg-indigo-400/10' : 'text-slate-500 hover:text-slate-300'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'practice' ? 'text-amber-600 bg-amber-50' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
                 >
                   Practice Set
                 </button>
@@ -222,10 +291,13 @@ export default function Dashboard() {
           <div className="space-y-1">
             <button 
               onClick={() => setMockOpen(!mockOpen)}
-              className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm ${activeTab.startsWith('mock') ? 'bg-rose-500/10 text-rose-300' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}
+              className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm 
+                ${activeTab.startsWith('mock') 
+                  ? 'bg-emerald-50 text-emerald-600 shadow-lg shadow-emerald-200/20' 
+                  : 'text-slate-400 bg-emerald-500/5 hover:bg-emerald-500/10 hover:text-emerald-300'}`}
             >
               <div className="flex items-center gap-3">
-                <FileText className="w-5 h-5 shrink-0" />
+                <FileText className={`w-5 h-5 shrink-0 ${activeTab.startsWith('mock') ? 'text-emerald-600' : 'text-emerald-400'}`} />
                 Mock Test
               </div>
               <ChevronRight className={`w-4 h-4 transition-transform ${mockOpen ? 'rotate-90' : ''}`} />
@@ -235,19 +307,19 @@ export default function Dashboard() {
               <div className="pl-6 space-y-1 animate-in slide-in-from-top-2 duration-200">
                 <button 
                   onClick={() => { setActiveTab('mock_topic'); setSelectedCategory('All'); setIsSidebarOpen(false); }} 
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'mock_topic' ? 'text-rose-400 bg-rose-400/10' : 'text-slate-500 hover:text-slate-300'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'mock_topic' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
                 >
                   Topic Wise Mock Test
                 </button>
                 <button 
                   onClick={() => { setActiveTab('mock_sectional'); setSelectedCategory('All'); setIsSidebarOpen(false); }} 
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'mock_sectional' ? 'text-rose-400 bg-rose-400/10' : 'text-slate-500 hover:text-slate-300'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'mock_sectional' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
                 >
                   Sectional Mock Test
                 </button>
                 <button 
                   onClick={() => { setActiveTab('mock_full'); setSelectedCategory('All'); setIsSidebarOpen(false); }} 
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'mock_full' ? 'text-rose-400 bg-rose-400/10' : 'text-slate-500 hover:text-slate-300'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'mock_full' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
                 >
                   Full Mock Test
                 </button>
@@ -258,33 +330,45 @@ export default function Dashboard() {
           {/* OTHER LINKS */}
           <button 
             onClick={() => { setActiveTab('pyq'); setIsSidebarOpen(false); }} 
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm ${activeTab === 'pyq' ? 'bg-amber-500/10 text-amber-300' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm 
+              ${activeTab === 'pyq' 
+                ? 'bg-amber-50 text-amber-600 shadow-lg shadow-amber-200/20' 
+                : 'text-slate-400 bg-amber-500/5 hover:bg-amber-500/10 hover:text-amber-300'}`}
           >
-            <Clock className="w-5 h-5 shrink-0" />
+            <Clock className={`w-5 h-5 shrink-0 ${activeTab === 'pyq' ? 'text-amber-600' : 'text-amber-400'}`} />
             Previous Year Papers
           </button>
 
           <button 
             onClick={() => { setActiveTab('pattern'); setIsSidebarOpen(false); }} 
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm ${activeTab === 'pattern' ? 'bg-emerald-500/10 text-emerald-300' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm 
+              ${activeTab === 'pattern' 
+                ? 'bg-blue-50 text-blue-600 shadow-lg shadow-blue-200/20' 
+                : 'text-slate-400 bg-blue-500/5 hover:bg-blue-500/10 hover:text-blue-300'}`}
           >
-            <Trophy className="w-5 h-5 shrink-0" />
+            <Trophy className={`w-5 h-5 shrink-0 ${activeTab === 'pattern' ? 'text-blue-600' : 'text-blue-400'}`} />
             Exam Pattern & Syllabus
           </button>
 
           <button 
             onClick={() => { setActiveTab('about'); setIsSidebarOpen(false); }} 
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm ${activeTab === 'about' ? 'bg-blue-500/10 text-blue-300' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm 
+              ${activeTab === 'about' 
+                ? 'bg-cyan-50 text-cyan-600 shadow-lg shadow-cyan-200/20' 
+                : 'text-slate-400 bg-cyan-500/5 hover:bg-cyan-500/10 hover:text-cyan-300'}`}
           >
-            <BookOpen className="w-5 h-5 shrink-0" />
+            <BookOpen className={`w-5 h-5 shrink-0 ${activeTab === 'about' ? 'text-cyan-600' : 'text-cyan-400'}`} />
             About Us
           </button>
 
           <button 
             onClick={() => { setActiveTab('contact'); setIsSidebarOpen(false); }} 
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm ${activeTab === 'contact' ? 'bg-cyan-500/10 text-cyan-300' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm 
+              ${activeTab === 'contact' 
+                ? 'bg-sky-50 text-sky-600 shadow-lg shadow-sky-200/20' 
+                : 'text-slate-400 bg-sky-500/5 hover:bg-sky-500/10 hover:text-sky-300'}`}
           >
-            <MessageCircle className="w-5 h-5 shrink-0" />
+            <MessageCircle className={`w-5 h-5 shrink-0 ${activeTab === 'contact' ? 'text-sky-600' : 'text-sky-400'}`} />
             Contact Us
           </button>
         </div>
@@ -332,23 +416,36 @@ export default function Dashboard() {
           {activeTab === 'home' && (
             <div className="animate-in fade-in duration-500">
               {/* Welcome & Motivation Section */}
-              <div className="mb-8 bg-[#008000] rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
-                <div className="relative z-10">
-                  <h2 className="text-2xl sm:text-3xl font-black mb-2 tracking-tight">
-                    Hello <span className="text-yellow-400">{profile?.name || 'Student'}</span>,
+              <div className="mb-6 bg-[#004d00] rounded-2xl p-4 md:p-6 text-white shadow-lg relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-4">
+                {/* Background images - more visible now */}
+                <div className="absolute inset-0 opacity-40 mix-blend-overlay pointer-events-none">
+                  <div className="absolute inset-0 flex gap-2 p-1">
+                    <img src="https://images.unsplash.com/photo-1544377193-33dcf4d68fb5?auto=format&fit=crop&q=80&w=400" className="w-1/2 h-full object-cover blur-[1.5px]" alt="Studying Boy" referrerPolicy="no-referrer" />
+                    <img src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&q=80&w=400" className="w-1/2 h-full object-cover blur-[1.5px]" alt="Studying Girl" referrerPolicy="no-referrer" />
+                  </div>
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-r from-[#004d00]/80 via-[#004d00]/60 to-transparent pointer-events-none"></div>
+
+                <div className="relative z-10 w-full text-center md:text-left">
+                  <h2 className="text-lg md:text-2xl font-black mb-1 tracking-tight">
+                    Welcome, <span className="text-yellow-400">{profile?.name || 'Student'}</span>
                   </h2>
-                  <p className="text-lg font-bold text-white leading-relaxed max-w-lg">
-                    Welcome to <span className="text-white underline decoration-yellow-400 decoration-2 underline-offset-4">Master Aptitude</span>. Your journey towards success starts here!
+                  <p className="text-xs md:text-sm font-bold text-white/95 drop-shadow-sm">
+                    Master Aptitude: Your Journey to Success Begins Today!
                   </p>
                 </div>
-                {/* Background design elements */}
-                <div className="absolute right-0 top-0 translate-x-1/4 -translate-y-1/4 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
-                <div className="absolute left-0 bottom-0 -translate-x-1/4 translate-y-1/4 w-48 h-48 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
+                
+                <div className="relative z-10 flex gap-4 shrink-0">
+                  <div className="bg-white/20 backdrop-blur-md px-5 py-2.5 rounded-xl border border-white/30 text-center shadow-lg">
+                    <p className="text-[10px] uppercase font-black tracking-widest text-white/80">Tests Attempted</p>
+                    <p className="text-2xl font-black text-white leading-none mt-1">{performanceStats.totalTests}</p>
+                  </div>
+                </div>
               </div>
 
               {/* Image Carousel */}
               {carousels.length > 0 && (
-                <div className="mb-10 w-full h-48 sm:h-64 md:h-80 lg:h-96 relative rounded-3xl overflow-hidden shadow-lg border-2 border-slate-200">
+                <div className="mb-8 w-full h-44 sm:h-56 md:h-72 lg:h-96 relative rounded-3xl overflow-hidden shadow-lg border-2 border-slate-200">
                    <div 
                      className="w-full h-full flex transition-transform duration-1000 ease-in-out"
                      style={{ transform: `translateX(-${currentSlideIndex * 100}%)` }}
@@ -356,6 +453,11 @@ export default function Dashboard() {
                      {carousels.map((slide) => (
                        <div key={slide.id} className="w-full h-full shrink-0 relative">
                           <img src={slide.link} alt="Slide Informational" className="w-full h-full object-cover" />
+                          <div className="absolute top-4 right-4 z-30">
+                            <div className="bg-red-600 text-white text-[10px] sm:text-xs font-black px-3 py-1 rounded-full shadow-lg border border-white/20 animate-fast-blink">
+                              NEW
+                            </div>
+                          </div>
                        </div>
                      ))}
                    </div>
@@ -429,6 +531,106 @@ export default function Dashboard() {
                     Any Query Call - <a href="tel:8900011708" className="hover:underline">8900011708</a> (Shibnath)
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Affairs Tab Content */}
+          {activeTab === 'profile' && (
+            <div className="max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <div className="bg-white rounded-[40px] p-8 sm:p-12 border border-slate-100 shadow-2xl relative overflow-hidden">
+                <div className="relative z-10">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center shadow-lg shadow-rose-100">
+                      <User className="w-8 h-8" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-black text-slate-800 tracking-tight">Your Profile</h2>
+                      <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Personal Account Settings</p>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleUpdateProfile} className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
+                        <input 
+                          type="text" required
+                          value={editName} onChange={e => setEditName(e.target.value)}
+                          className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 outline-hidden focus:border-rose-400 focus:bg-white transition-all font-bold text-slate-700 shadow-sm"
+                          placeholder="Your Name"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mobile Number</label>
+                        <input 
+                          type="tel" required
+                          value={editPhone} onChange={e => setEditPhone(e.target.value)}
+                          className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 outline-hidden focus:border-rose-400 focus:bg-white transition-all font-bold text-slate-700 shadow-sm"
+                          placeholder="Mobile Number"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email Address (Read-only)</label>
+                      <input 
+                        type="email" readOnly
+                        value={user?.email || ''}
+                        className="w-full bg-slate-100 border-2 border-slate-200 rounded-2xl px-6 py-4 outline-hidden opacity-60 font-bold text-slate-500 cursor-not-allowed"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">New Password (Leave blank to keep current)</label>
+                      <input 
+                        type="password"
+                        value={newPassword} onChange={e => setNewPassword(e.target.value)}
+                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 outline-hidden focus:border-rose-400 focus:bg-white transition-all font-bold text-slate-700 shadow-sm"
+                        placeholder="••••••••"
+                      />
+                    </div>
+
+                    <div className="pt-6">
+                      <button 
+                        type="submit"
+                        disabled={updatingProfile}
+                        className="w-full bg-rose-600 text-white rounded-2xl py-5 font-black text-sm uppercase tracking-widest hover:bg-slate-900 transition-all shadow-xl shadow-rose-200 disabled:bg-slate-400 disabled:shadow-none flex items-center justify-center gap-3"
+                      >
+                        {updatingProfile ? (
+                          <>
+                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            Saving Changes...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-5 h-5" />
+                            Update Profile
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+
+                  <div className="mt-12 pt-8 border-t border-slate-50">
+                    <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-4">Registration Details</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                        <span className="block text-[9px] font-black text-slate-400 uppercase tracking-tight mb-1">Account Role</span>
+                        <span className="text-xs font-bold text-slate-600 uppercase tracking-widest bg-white px-2 py-1 rounded-md shadow-xs border border-slate-200">
+                          {profile?.role || 'User'}
+                        </span>
+                      </div>
+                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                        <span className="block text-[9px] font-black text-slate-400 uppercase tracking-tight mb-1">Status</span>
+                        <span className="text-xs font-bold text-emerald-600 uppercase tracking-widest flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3" /> Active
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="absolute left-0 bottom-0 -translate-x-1/4 translate-y-1/4 w-96 h-96 bg-rose-50 rounded-full blur-3xl pointer-events-none opacity-40"></div>
               </div>
             </div>
           )}
@@ -561,7 +763,6 @@ export default function Dashboard() {
           {/* Dashboard Tab Content */}
           {activeTab.startsWith('mock') && (
             <div className="space-y-10">
-              
               <div className="flex flex-col gap-6">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-black text-slate-900 tracking-tight">
@@ -705,8 +906,62 @@ export default function Dashboard() {
               )}
             </>
           )}
-        </div>
-      )}
+
+              {/* Performance Analytics Section - Moved here and made compact */}
+              <div className="bg-white rounded-3xl p-6 border border-indigo-100 shadow-xl shadow-indigo-500/5 relative overflow-hidden group mt-12 mb-8">
+                  <div className="absolute top-0 right-0 p-4 text-indigo-50/20 pointer-events-none transition-transform group-hover:scale-105 duration-700">
+                    <Trophy className="w-32 h-32 -mr-6 -mt-6 rotate-12" />
+                  </div>
+                  
+                  <h3 className="text-lg font-black text-slate-800 mb-6 flex items-center gap-3 relative z-10">
+                    <div className="w-1.5 h-6 bg-indigo-600 rounded-full"></div>
+                    Performance Insights
+                  </h3>
+                  
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 relative z-10">
+                    <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 shadow-xs text-center flex flex-col items-center justify-center hover:border-indigo-300 transition-colors">
+                      <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 mb-2">
+                        <Trophy className="w-4 h-4" />
+                      </div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Best Score</p>
+                      <p className="text-lg font-black text-indigo-600 tracking-tighter">{performanceStats.bestScore}</p>
+                    </div>
+                    
+                    <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 shadow-xs text-center flex flex-col items-center justify-center hover:border-emerald-300 transition-colors">
+                      <div className="w-8 h-8 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 mb-2">
+                        <Target className="w-4 h-4" />
+                      </div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Avg Score</p>
+                      <p className="text-lg font-black text-emerald-600 tracking-tighter">{performanceStats.avgScore}</p>
+                    </div>
+
+                    <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 shadow-xs text-center flex flex-col items-center justify-center hover:border-amber-300 transition-colors">
+                      <div className="w-8 h-8 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 mb-2">
+                        <User className="w-4 h-4" />
+                      </div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Global Rank</p>
+                      <p className="text-lg font-black text-amber-600 tracking-tighter">#{profile?.globalRank || '-'}</p>
+                    </div>
+
+                    <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 shadow-xs text-center flex flex-col items-center justify-center hover:border-rose-300 transition-colors">
+                      <div className="w-8 h-8 bg-rose-50 rounded-xl flex items-center justify-center text-rose-600 mb-2">
+                        <CheckCircle className="w-4 h-4" />
+                      </div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Accuracy</p>
+                      <p className="text-lg font-black text-rose-600 tracking-tighter">{performanceStats.avgAccuracy}%</p>
+                    </div>
+
+                    <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 shadow-xs text-center flex flex-col items-center justify-center hover:border-violet-300 transition-colors">
+                      <div className="w-8 h-8 bg-violet-50 rounded-xl flex items-center justify-center text-violet-600 mb-2">
+                        <History className="w-4 h-4" />
+                      </div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Latest</p>
+                      <p className="text-lg font-black text-violet-600 tracking-tighter">{performanceStats.latestScore}</p>
+                    </div>
+                  </div>
+              </div>
+            </div>
+          )}
 
           {activeTab === 'notes' && (
             <div className="space-y-8 animate-in fade-in duration-700">

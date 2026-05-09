@@ -1,44 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc, getDocFromServer } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
-
-enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
-
-interface FirestoreErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId?: string | null;
-    email?: string | null;
-    emailVerified?: boolean | null;
-    isAnonymous?: boolean | null;
-  }
-}
-
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-    },
-    operationType,
-    path
-  }
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
-}
+import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 interface UserProfile {
   name?: string;
@@ -64,26 +28,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    let unsubscribeProfile: () => void = () => {};
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      
       if (currentUser) {
+        const profileRef = doc(db, 'profiles', currentUser.uid);
         const profilePath = `profiles/${currentUser.uid}`;
-        try {
-          const profileRef = doc(db, 'profiles', currentUser.uid);
-          const profileSnap = await getDoc(profileRef);
-          
-          if (profileSnap.exists()) {
-            const data = profileSnap.data() as UserProfile;
+
+        unsubscribeProfile = onSnapshot(profileRef, async (snap) => {
+          if (snap.exists()) {
+            const data = snap.data() as UserProfile;
             const isOwner = currentUser.email?.toLowerCase() === 'bakolaypan@gmail.com';
+            
             if (isOwner && data.role !== 'admin') {
               const updatedProfile = { ...data, role: 'admin' as const };
-              await setDoc(profileRef, updatedProfile);
-              setProfile(updatedProfile);
+              try {
+                await setDoc(profileRef, updatedProfile, { merge: true });
+              } catch (e) {
+                console.error("Error upgrading to admin", e);
+              }
             } else {
               setProfile(data);
             }
           } else {
-            // Create default profile
+            // Create default profile if it doesn't exist
             const isOwner = currentUser.email?.toLowerCase() === 'bakolaypan@gmail.com';
             const newProfile: UserProfile = {
               name: currentUser.displayName || '',
@@ -96,27 +66,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             };
             try {
               await setDoc(profileRef, newProfile);
-              setProfile(newProfile);
             } catch (writeErr) {
               handleFirestoreError(writeErr, OperationType.WRITE, profilePath);
             }
           }
-        } catch (error) {
-          console.error("Error fetching/creating profile", error);
-          // Only throw if it's a permission/security error that handleFirestoreError already logged or if it's critical
-          if (error instanceof Error && error.message.includes('{')) {
-             // Already handled by handleFirestoreError (which throws JSON string)
+          setLoading(false);
+        }, (error) => {
+          console.error("Profile onSnapshot error", error);
+          if (error.code === 'permission-denied') {
+            // Handle expected case before profile is created
           } else {
-             handleFirestoreError(error, OperationType.GET, profilePath);
+            handleFirestoreError(error, OperationType.GET, profilePath);
           }
-        }
+          setLoading(false);
+        });
       } else {
         setProfile(null);
+        setLoading(false);
+        unsubscribeProfile();
       }
-      setLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribeAuth();
+      unsubscribeProfile();
+    };
   }, []);
 
   return (

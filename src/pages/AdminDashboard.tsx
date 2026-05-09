@@ -4,6 +4,7 @@ import { collection, query, getDocs, orderBy, doc, deleteDoc, where, addDoc, ser
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
+import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { LogOut, ArrowLeft, Plus, Pencil, Trash2, FileText, BookOpen, Play, CheckCircle, Clock, X, User as UserIcon, Download, ShieldAlert, ShieldCheck, Key, Edit2 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 
@@ -83,10 +84,15 @@ function AdminHome() {
 
   // Carousel Form
   const [carouselFile, setCarouselFile] = useState<File | null>(null);
+  const [carouselPriority, setCarouselPriority] = useState('1');
   const [uploadingCarousel, setUploadingCarousel] = useState(false);
   const [clearingCarousel, setClearingCarousel] = useState(false);
   const [clearingTests, setClearingTests] = useState(false);
   const [savingTest, setSavingTest] = useState(false);
+  
+  // Test marks
+  const [marksPerCorrect, setMarksPerCorrect] = useState('1');
+  const [negativeMarks, setNegativeMarks] = useState('0.25');
 
   // Social Links Form
   const [socialYoutube, setSocialYoutube] = useState('');
@@ -234,6 +240,8 @@ function AdminHome() {
           category,
           testType,
           duration: parseInt(duration) || 30,
+          marksPerCorrect: parseFloat(marksPerCorrect) || 1,
+          negativeMarks: parseFloat(negativeMarks) || 0,
           isActive: true 
         })
       });
@@ -262,6 +270,8 @@ function AdminHome() {
     setCategory(test.category || 'GK');
     setTestType(test.testType || 'topic');
     setDuration(test.duration?.toString() || '30');
+    setMarksPerCorrect(test.marksPerCorrect?.toString() || '1');
+    setNegativeMarks(test.negativeMarks?.toString() || '0.25');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -549,17 +559,18 @@ function AdminHome() {
       const link = await compressImage(carouselFile);
 
       console.log('Attempting addDoc to carousel collection...');
-      const docRef = await addDoc(collection(db, 'carousel'), {
+      await addDoc(collection(db, 'carousel'), {
         link: link,
+        priority: parseInt(carouselPriority) || 1,
         createdAt: serverTimestamp(),
         authorId: user.uid
       });
-      console.log(`Carousel item added successfully with ID: ${docRef.id}`);
+      console.log('Carousel item added successfully');
       setCarouselFile(null);
-      // Reset input type="file" manually
+      setCarouselPriority('1');
       const fileInput = document.getElementById('carousel-file-input') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
-
+      alert('Carousel Image Added!');
     } catch (err: any) {
       console.error('Error in handleAddCarousel:', err);
       // Construct a better error message
@@ -569,6 +580,24 @@ function AdminHome() {
       alert(msg);
     } finally {
       setUploadingCarousel(false);
+    }
+  };
+
+  const handleUpdateCarouselPriority = async (id: string, currentPriority: number) => {
+    const newPriority = prompt('Enter new priority order (1, 2, 3, etc.):', currentPriority.toString());
+    if (newPriority === null) return;
+    const priorityVal = parseInt(newPriority);
+    if (isNaN(priorityVal)) {
+      alert('Invalid priority number');
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, 'carousel', id), { priority: priorityVal });
+      alert('Carousel Order Updated!');
+    } catch (err) {
+      console.error(err);
+      alert('Error updating priority');
     }
   };
 
@@ -1081,6 +1110,22 @@ function AdminHome() {
                   value={duration} onChange={e => setDuration(e.target.value)} 
                 />
               </div>
+              <div className="w-full">
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Marks (+ve)</label>
+                <input 
+                  type="number" step="0.1"
+                  className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium" 
+                  value={marksPerCorrect} onChange={e => setMarksPerCorrect(e.target.value)} 
+                />
+              </div>
+              <div className="w-full">
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Negative (-ve)</label>
+                <input 
+                  type="number" step="0.01"
+                  className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium" 
+                  value={negativeMarks} onChange={e => setNegativeMarks(e.target.value)} 
+                />
+              </div>
               <div className="md:col-span-4 flex gap-4">
                 <button type="submit" className="flex-1 bg-indigo-600 text-white px-6 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-indigo-50 flex items-center justify-center gap-2">
                   <Plus className="w-5 h-5" />
@@ -1576,7 +1621,7 @@ function AdminHome() {
               </button>
             </div>
             
-            <form onSubmit={handleAddCarousel} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <form onSubmit={handleAddCarousel} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
               <div className="md:col-span-3">
                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Select New Image</label>
                 <input 
@@ -1588,6 +1633,14 @@ function AdminHome() {
                       setCarouselFile(e.target.files[0]);
                     }
                   }} 
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Priority (1-10)</label>
+                <input 
+                  type="number" required min="1" max="10"
+                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium focus:border-fuchsia-500" 
+                  value={carouselPriority} onChange={e => setCarouselPriority(e.target.value)} 
                 />
               </div>
               <button disabled={uploadingCarousel || carousels.length >= 3} type="submit" className="bg-fuchsia-600 disabled:opacity-50 disabled:bg-slate-300 text-white px-6 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-fuchsia-50 flex items-center justify-center gap-2">
@@ -1604,10 +1657,19 @@ function AdminHome() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {carousels.map((carousel, index) => (
+            {carousels.sort((a,b) => (a.priority || 99) - (b.priority || 99)).map((carousel, index) => (
               <div key={carousel.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group hover:shadow-md transition-all overflow-hidden flex flex-col">
                 <div className="flex justify-between items-center mb-4">
-                  <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Image {index + 1}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Order: {carousel.priority || index + 1}</span>
+                    <button 
+                      onClick={() => handleUpdateCarouselPriority(carousel.id, carousel.priority || index + 1)}
+                      className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-600 hover:text-white transition-all"
+                      title="Change Order"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                    </button>
+                  </div>
                   <button 
                     onClick={() => handleDeleteContent('carousel', carousel.id)} 
                     className="text-white bg-rose-500 hover:bg-rose-600 p-2 rounded-lg shadow-sm flex items-center gap-1 text-[10px] font-bold px-3 py-1.5 transition-colors"
