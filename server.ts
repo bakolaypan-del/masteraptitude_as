@@ -11,7 +11,9 @@ import { GoogleGenAI } from "@google/genai";
 const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
 
 // Initialize Firebase Admin
+let db: any = null;
 let config: any = {};
+
 try {
   const firebaseConfigPath = path.resolve(process.cwd(), "firebase-applet-config.json");
   if (fs.existsSync(firebaseConfigPath)) {
@@ -31,18 +33,21 @@ try {
       });
       console.log("Firebase Admin initialized with application default credentials.");
     }
+    
+    // Initialize Firestore after Admin is initialized
+    db = getFirestore(admin.app(), config.firestoreDatabaseId);
+    console.log("Firestore initialized successfully.");
   } else {
     // Basic initialization for cases where config file is missing
     admin.initializeApp({
         credential: admin.credential.applicationDefault()
     });
-    console.log("Firebase Admin initialized with basic application default credentials.");
+    db = getFirestore(admin.app());
+    console.log("Firebase Admin & Firestore initialized with basic application default credentials.");
   }
 } catch (error) {
-  console.error("Failed to initialize Firebase Admin:", error);
+  console.error("Failed to initialize Firebase Admin or Firestore:", error);
 }
-
-const db = admin.apps.length > 0 ? getFirestore(admin.app(), config.firestoreDatabaseId) : null;
 
 async function verifyToken(req: express.Request, res: express.Response, next: express.NextFunction) {
   const authHeader = req.headers.authorization;
@@ -351,37 +356,46 @@ app.use(cookieParser());
   app.post("/api/auth/check-mobile", async (req, res) => {
     if (!db) {
       console.error("[Auth] check-mobile failed: Database offline");
-      return res.status(503).json({ error: "Database service temporarily offline. Please try again in 1 minute." });
+      return res.status(503).json({ error: "Database service temporarily offline." });
     }
     const { mobile } = req.body;
-    console.log(`[Auth] Checking mobile: ${mobile}`);
     if (!mobile) return res.status(400).json({ error: "Mobile number is required" });
     
     try {
-      // Basic sanitization
-      const cleanMobile = mobile.toString().trim();
+      // Normalize: strip non-digits and keep last 10 digits for consistency
+      const digitsOnly = mobile.toString().replace(/\D/g, '');
+      const cleanMobile = digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
+      console.log(`[Auth] Checking mobile: ${cleanMobile}`);
+
       const snap = await db.collection("profiles").where("phoneNumber", "==", cleanMobile).get();
       console.log(`[Auth] Mobile check for ${cleanMobile}: exists=${!snap.empty}`);
       res.json({ exists: !snap.empty });
     } catch (error: any) {
       console.error("[Auth] Mobile check error:", error);
-      res.status(500).json({ error: "Security validation failed. Please try again later.", message: error.message });
+      res.status(500).json({ error: "Mobile verification failed", message: error.message });
     }
   });
 
   app.post("/api/auth/reset-password", async (req, res) => {
     if (!db) return res.status(500).json({ error: "DB offline" });
     const { mobile, newPassword } = req.body;
-    if (!mobile || !newPassword) return res.status(400).json({ error: "Missing data" });
+    if (!mobile || !newPassword) return res.status(400).json({ error: "Missing mobile or new password" });
+    
     try {
-      const snap = await db.collection("profiles").where("phoneNumber", "==", mobile).get();
-      if (snap.empty) return res.status(404).json({ error: "Mobile not found" });
+      // Normalize: strip non-digits and keep last 10 digits for consistency
+      const digitsOnly = mobile.toString().replace(/\D/g, '');
+      const cleanMobile = digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
+      console.log(`[Auth] Resetting password for mobile: ${cleanMobile}`);
+
+      const snap = await db.collection("profiles").where("phoneNumber", "==", cleanMobile).get();
+      if (snap.empty) return res.status(404).json({ error: "No account found with this mobile number." });
       
       const userId = snap.docs[0].id;
       await admin.auth().updateUser(userId, { password: newPassword });
       res.json({ success: true });
-    } catch (error) {
-      res.status(500).json({ error: "Reset failed" });
+    } catch (error: any) {
+      console.error("[Auth] Reset password error:", error);
+      res.status(500).json({ error: "Password reset failed", message: error.message });
     }
   });
 

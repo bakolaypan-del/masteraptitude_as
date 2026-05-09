@@ -64,68 +64,80 @@ export default function Login() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName.trim() || !phoneNumber || !password) {
+    
+    // Normalize phone number: strip non-digits and keep last 10 digits for consistency
+    const digitsOnly = phoneNumber.replace(/\D/g, '');
+    const cleanPhone = digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
+    
+    if (!fullName.trim() || !cleanPhone || !password) {
       setError('Please fill all fields');
       return;
     }
-    if (phoneNumber.length < 10) {
-      setError('Invalid mobile number');
+    
+    // Validate length (Indian standard is 10 digits)
+    if (cleanPhone.length < 10) {
+      setError('Invalid mobile number. Please enter a valid 10-digit number.');
       return;
     }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
-      return;
-    }
-
+    
     setLoading(true);
     setError('');
     setSuccess('');
 
     try {
+      console.log('Registering with mobile:', cleanPhone);
+      
       // 1. Check if mobile already exists in DB
       let checkRes;
       try {
         checkRes = await fetch('/api/auth/check-mobile', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mobile: phoneNumber.trim() })
+          body: JSON.stringify({ mobile: cleanPhone })
         });
       } catch (fetchErr) {
-        throw new Error('Connection failed. Please check your internet.');
+        throw new Error('Network error. Please check your internet connection and try again.');
       }
 
       if (!checkRes.ok) {
-        let errorMsg = 'Failed to verify mobile number';
         const errorText = await checkRes.text();
+        console.error('Check mobile service error:', checkRes.status, errorText);
+        
+        let errorMsg = `Server error (${checkRes.status}). Please try again later.`;
         try {
           const errorJson = JSON.parse(errorText);
           errorMsg = errorJson.error || errorJson.message || errorMsg;
         } catch (e) {
-          errorMsg = errorText || errorMsg;
+          // If HTML returned, errorText might be long, slice it
+          if (errorText.includes('<!DOCTYPE') || errorText.includes('<html')) {
+             errorMsg = `Server returned an unexpected response (HTML). Likely a configuration issue.`;
+          } else {
+             errorMsg = errorText.substring(0, 100) || errorMsg;
+          }
         }
         throw new Error(errorMsg);
       }
 
       const data = await checkRes.json().catch(() => {
-        throw new Error('Server returned invalid response. Please try again.');
+        throw new Error('Server returned an invalid response. Technical details: Malformed JSON.');
       });
       
       if (data.exists) {
-        setError('This mobile number is already registered. Please go to Login.');
+        setError('This mobile number is already registered. Please go to the Login tab.');
         setLoading(false);
         return;
       }
 
       // 2. Create Firebase Auth user
-      const pseudoEmail = getSyntheticEmail(phoneNumber);
+      const pseudoEmail = getSyntheticEmail(cleanPhone);
       const userCredential = await createUserWithEmailAndPassword(auth, pseudoEmail, password);
       const newUser = userCredential.user;
 
       // 3. Create Profile in Firestore
       const profileRef = doc(db, 'profiles', newUser.uid);
       await setDoc(profileRef, {
-        name: fullName,
-        phoneNumber: phoneNumber,
+        name: fullName.trim(),
+        phoneNumber: cleanPhone,
         email: pseudoEmail,
         role: 'user',
         registrationDate: new Date().toISOString(),
@@ -135,14 +147,14 @@ export default function Login() {
         createdAt: Date.now()
       });
 
-      setSuccess('Registration successful! Redirecting...');
+      setSuccess('Registration successful! Redirecting to Dashboard...');
       setTimeout(() => navigate('/dashboard'), 2000);
     } catch (err: any) {
-      console.error(err);
+      console.error('Registration error:', err);
       if (err.code === 'auth/email-already-in-use') {
-        setError('This mobile number is already in use. Try Logging in.');
+        setError('This mobile number is already in use by another account. Please try logging in.');
       } else {
-        setError(err.message || 'Registration failed');
+        setError(err.message || 'An unexpected error occurred during registration.');
       }
     } finally {
       setLoading(false);
@@ -151,9 +163,12 @@ export default function Login() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const targetEmail = isAdminLogin ? email : getSyntheticEmail(phoneNumber);
     
-    if ((isAdminLogin && !email) || (!isAdminLogin && !phoneNumber) || !password) {
+    const digitsOnly = phoneNumber.replace(/\D/g, '');
+    const cleanPhone = digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
+    const targetEmail = isAdminLogin ? email : getSyntheticEmail(cleanPhone);
+    
+    if ((isAdminLogin && !email) || (!isAdminLogin && !cleanPhone) || !password) {
       setError('Please provide all credentials');
       return;
     }
@@ -165,7 +180,7 @@ export default function Login() {
       await signInWithEmailAndPassword(auth, targetEmail, password);
       navigate('/dashboard');
     } catch (err: any) {
-      console.error(err);
+      console.error('Login error:', err);
       if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
         if (!isAdminLogin) {
           setError('Invalid Mobile Number or Password. If you haven\'t registered yet, please use the Register tab.');
@@ -182,7 +197,9 @@ export default function Login() {
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phoneNumber || !password) {
+    const digitsOnly = phoneNumber.replace(/\D/g, '');
+    const cleanPhone = digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
+    if (!cleanPhone || !password) {
       setError('Please provide mobile and new password');
       return;
     }
@@ -194,7 +211,7 @@ export default function Login() {
       const res = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mobile: phoneNumber.trim(), newPassword: password })
+        body: JSON.stringify({ mobile: cleanPhone, newPassword: password })
       });
       
       if (!res.ok) {
@@ -202,7 +219,7 @@ export default function Login() {
         let errorMsg = 'Failed to reset password';
         try {
           const errorJson = JSON.parse(errorText);
-          errorMsg = errorJson.error || errorMsg;
+          errorMsg = errorJson.error || errorJson.message || errorMsg;
         } catch (e) {
           errorMsg = errorText || errorMsg;
         }
