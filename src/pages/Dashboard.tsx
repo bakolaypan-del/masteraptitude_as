@@ -350,6 +350,106 @@ export default function Dashboard() {
                   </a>
                 )}
               </div>
+
+              {/* Category & Topic Selection */}
+              <div className="mt-12 space-y-8">
+                <div className="flex flex-col gap-4">
+                  <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
+                    <div className="w-1.5 h-6 bg-indigo-600 rounded-full"></div>
+                    Browse Mock Tests by Category
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {categories.map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => { setSelectedCategory(cat); setSelectedTopic(null); }}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
+                          selectedCategory === cat
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-100'
+                            : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-400 hover:text-indigo-600'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {selectedCategory === 'Computer' && !selectedTopic ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    {[
+                      "Basics of Computers",
+                      "Computer Hardware",
+                      "Computer Software",
+                      "Operating Systems",
+                      "MS Office",
+                      "Internet and Networking",
+                      "Computer Abbreviations and Terminology",
+                      "Computer Security",
+                      "Computer History and Generations"
+                    ].map((topicName) => (
+                      <button 
+                        key={topicName}
+                        onClick={() => { setSelectedTopic(topicName); setActiveTab('mock_topic'); }}
+                        className="bg-white p-6 rounded-[28px] border border-slate-200 shadow-xs hover:shadow-xl hover:border-indigo-400 transition-all flex flex-col items-center text-center group"
+                      >
+                        <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-indigo-600 group-hover:text-white transition-all transform group-hover:rotate-6">
+                          <BookOpen className="w-7 h-7" />
+                        </div>
+                        <h3 className="font-bold text-slate-800 text-md mb-2 leading-tight uppercase tracking-tight">{topicName}</h3>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                          20 Mock Tests <ChevronRight className="w-3 h-3 text-indigo-400" />
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                ) : selectedCategory !== 'All' ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    {activeTests.filter(t => {
+                      const matchesCategory = t.category === selectedCategory;
+                      return matchesCategory;
+                    }).length === 0 ? (
+                      <div className="col-span-full bg-white rounded-3xl p-12 border border-slate-200 text-center text-slate-400 shadow-sm flex flex-col items-center">
+                        <FileText className="w-12 h-12 mb-4 text-slate-200" />
+                        <p className="font-bold text-sm uppercase tracking-widest text-slate-500 mb-2">No {selectedCategory} Tests uploaded yet.</p>
+                      </div>
+                    ) : (
+                      activeTests.filter(t => t.category === selectedCategory).slice(0, 6).map(test => {
+                        const isTaken = pastResults.some(r => r.testId === test.id);
+                        return (
+                          <div key={test.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs transition-all hover:shadow-lg group flex flex-col">
+                            <div className="flex-1">
+                              <div className="flex items-start justify-between mb-4">
+                                <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+                                  <Target className="w-5 h-5" />
+                                </div>
+                                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded border border-emerald-100">
+                                  {test.category}
+                                </span>
+                              </div>
+                              <h3 className="font-bold text-slate-800 text-base leading-snug mb-1 min-h-[24px]">
+                                {test.title}
+                              </h3>
+                              <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-3">
+                                {test.subjectName || test.topic}
+                              </p>
+                              <div className="flex items-center gap-4 text-xs font-bold text-slate-500">
+                                <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" />{test.duration || 60}m</span>
+                                <span className="flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" />Topic Mode</span>
+                              </div>
+                            </div>
+                            <div className="mt-6 pt-6 border-t border-slate-100">
+                              <Link to={`/test/${test.id}`} className="flex items-center justify-center w-full py-2.5 rounded-lg bg-indigo-600 text-white hover:bg-slate-900 transition-all font-bold text-xs uppercase tracking-wider">
+                                {isTaken ? 'Reattempt Test' : 'Start Mock Test'}
+                              </Link>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                ) : null}
+              </div>
             </div>
           )}
 

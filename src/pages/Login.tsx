@@ -83,14 +83,34 @@ export default function Login() {
 
     try {
       // 1. Check if mobile already exists in DB
-      const checkRes = await fetch('/api/auth/check-mobile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mobile: phoneNumber })
+      let checkRes;
+      try {
+        checkRes = await fetch('/api/auth/check-mobile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mobile: phoneNumber.trim() })
+        });
+      } catch (fetchErr) {
+        throw new Error('Connection failed. Please check your internet.');
+      }
+
+      if (!checkRes.ok) {
+        const errorText = await checkRes.text();
+        let errorMsg = 'Failed to verify mobile number';
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMsg = errorJson.error || errorMsg;
+        } catch (e) {
+          errorMsg = errorText || errorMsg;
+        }
+        throw new Error(errorMsg);
+      }
+
+      const data = await checkRes.json().catch(() => {
+        throw new Error('Server returned invalid response. Please try again.');
       });
-      const { exists } = await checkRes.json();
       
-      if (exists) {
+      if (data.exists) {
         setError('This mobile number is already registered. Please go to Login.');
         setLoading(false);
         return;
@@ -174,17 +194,29 @@ export default function Login() {
       const res = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mobile: phoneNumber, newPassword: password })
+        body: JSON.stringify({ mobile: phoneNumber.trim(), newPassword: password })
       });
-      const data = await res.json();
-      if (res.ok) {
-        setSuccess('Password updated successfully! You can now login.');
-        setTimeout(() => setMode('login'), 2000);
-      } else {
-        setError(data.error || 'Failed to reset password');
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        let errorMsg = 'Failed to reset password';
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMsg = errorJson.error || errorMsg;
+        } catch (e) {
+          errorMsg = errorText || errorMsg;
+        }
+        throw new Error(errorMsg);
       }
+
+      const data = await res.json().catch(() => {
+        throw new Error('Server returned invalid response');
+      });
+
+      setSuccess('Password updated successfully! You can now login.');
+      setTimeout(() => setMode('login'), 2000);
     } catch (err: any) {
-      setError('Connection error');
+      setError(err.message || 'Connection error');
     } finally {
       setLoading(false);
     }
