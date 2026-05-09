@@ -102,6 +102,15 @@ app.use(cookieParser());
 
 // API Routes
 
+  // Health check
+  app.get("/api/health", async (req, res) => {
+    res.json({ 
+      status: "ok", 
+      db: db ? "online" : "offline",
+      apps: admin.apps.length
+    });
+  });
+
   // Get test and questions (without correct answer)
   app.get("/api/test/:testId", verifyToken, async (req, res) => {
     if (!db) return res.status(500).json({ error: "DB offline" });
@@ -158,15 +167,17 @@ app.use(cookieParser());
         ${JSON.stringify(questions)}
       `;
 
-      const result = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
-        config: {
+      const model = ai.getGenerativeModel({ 
+        model: "gemini-2.0-flash",
+      });
+      const result = await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
           responseMimeType: "application/json"
         }
       });
       
-      let text = result.text.trim();
+      let text = result.response.text().trim();
       
       // Sanitization
       if (text.startsWith("```json")) {
@@ -338,14 +349,23 @@ app.use(cookieParser());
 
   // Auth Helpers for students
   app.post("/api/auth/check-mobile", async (req, res) => {
-    if (!db) return res.status(500).json({ error: "DB offline" });
+    if (!db) {
+      console.error("[Auth] check-mobile failed: Database offline");
+      return res.status(503).json({ error: "Database service temporarily offline. Please try again in 1 minute." });
+    }
     const { mobile } = req.body;
-    if (!mobile) return res.status(400).json({ error: "Mobile number required" });
+    console.log(`[Auth] Checking mobile: ${mobile}`);
+    if (!mobile) return res.status(400).json({ error: "Mobile number is required" });
+    
     try {
-      const snap = await db.collection("profiles").where("phoneNumber", "==", mobile).get();
+      // Basic sanitization
+      const cleanMobile = mobile.toString().trim();
+      const snap = await db.collection("profiles").where("phoneNumber", "==", cleanMobile).get();
+      console.log(`[Auth] Mobile check for ${cleanMobile}: exists=${!snap.empty}`);
       res.json({ exists: !snap.empty });
-    } catch (error) {
-      res.status(500).json({ error: "Search failed" });
+    } catch (error: any) {
+      console.error("[Auth] Mobile check error:", error);
+      res.status(500).json({ error: "Security validation failed. Please try again later.", message: error.message });
     }
   });
 

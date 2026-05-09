@@ -95,11 +95,11 @@ export default function Login() {
       }
 
       if (!checkRes.ok) {
-        const errorText = await checkRes.text();
         let errorMsg = 'Failed to verify mobile number';
+        const errorText = await checkRes.text();
         try {
           const errorJson = JSON.parse(errorText);
-          errorMsg = errorJson.error || errorMsg;
+          errorMsg = errorJson.error || errorJson.message || errorMsg;
         } catch (e) {
           errorMsg = errorText || errorMsg;
         }
