@@ -418,10 +418,10 @@ export default function Dashboard() {
               {/* Welcome & Motivation Section */}
               <div className="mb-6 bg-[#004d00] rounded-2xl p-4 md:p-6 text-white shadow-lg relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-4">
                 {/* Background images - more visible now */}
-                <div className="absolute inset-0 opacity-40 mix-blend-overlay pointer-events-none">
+                <div className="absolute inset-0 opacity-60 mix-blend-overlay pointer-events-none">
                   <div className="absolute inset-0 flex gap-2 p-1">
-                    <img src="https://images.unsplash.com/photo-1544377193-33dcf4d68fb5?auto=format&fit=crop&q=80&w=400" className="w-1/2 h-full object-cover blur-[1.5px]" alt="Studying Boy" referrerPolicy="no-referrer" />
-                    <img src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&q=80&w=400" className="w-1/2 h-full object-cover blur-[1.5px]" alt="Studying Girl" referrerPolicy="no-referrer" />
+                    <img src="https://images.unsplash.com/photo-1544377193-33dcf4d68fb5?auto=format&fit=crop&q=80&w=400" className="w-1/2 h-full object-cover" alt="Studying Boy" referrerPolicy="no-referrer" />
+                    <img src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&q=80&w=400" className="w-1/2 h-full object-cover" alt="Studying Girl" referrerPolicy="no-referrer" />
                   </div>
                 </div>
                 <div className="absolute inset-0 bg-gradient-to-r from-[#004d00]/80 via-[#004d00]/60 to-transparent pointer-events-none"></div>
@@ -433,13 +433,6 @@ export default function Dashboard() {
                   <p className="text-xs md:text-sm font-bold text-white/95 drop-shadow-sm">
                     Master Aptitude: Your Journey to Success Begins Today!
                   </p>
-                </div>
-                
-                <div className="relative z-10 flex gap-4 shrink-0">
-                  <div className="bg-white/20 backdrop-blur-md px-5 py-2.5 rounded-xl border border-white/30 text-center shadow-lg">
-                    <p className="text-[10px] uppercase font-black tracking-widest text-white/80">Tests Attempted</p>
-                    <p className="text-2xl font-black text-white leading-none mt-1">{performanceStats.totalTests}</p>
-                  </div>
                 </div>
               </div>
 

@@ -242,13 +242,21 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl md:text-5xl font-black text-indigo-600 tracking-tighter uppercase leading-tight drop-shadow-sm">
+            Master Aptitude
+          </h1>
+          <h2 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight mt-[-4px]">
+            By Suman Sir
+          </h2>
+        </div>
         <div className="flex justify-center">
-          <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-indigo-100 mb-6 transform -rotate-12">
-            <GraduationCap size={40} />
+          <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center text-indigo-600 shadow-sm mb-4 transform -rotate-12">
+            <GraduationCap size={28} />
           </div>
         </div>
-        <h2 className="text-center text-3xl font-black text-slate-900 tracking-tight">
-          {mode === 'login' ? 'Welcome Back!' : mode === 'register' ? 'Create Account' : 'Reset Password'}
+        <h2 className="text-center text-xl font-bold text-slate-700 tracking-tight">
+          {mode === 'login' ? 'Student Login' : mode === 'register' ? 'Create Account' : 'Reset Password'}
         </h2>
         <p className="mt-2 text-center text-sm text-slate-500 font-medium">
           {mode === 'login' ? 'Login to access your mock tests' : mode === 'register' ? 'Join our platform and start learning' : 'Recover your account access'}

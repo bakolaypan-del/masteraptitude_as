@@ -5,10 +5,6 @@ import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 import cookieParser from "cookie-parser";
 import fs from "fs";
-import { GoogleGenAI } from "@google/genai";
-
-// Initialize Gemini
-const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
 
 // Initialize Firebase Admin
 let db: any = null;
@@ -103,7 +99,16 @@ const app = express();
 const PORT = parseInt(process.env.PORT as string) || 3000;
 
 app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// Request logger for debugging Vercel/Production issues
+app.use((req, res, next) => {
+  if (req.url.startsWith('/api')) {
+    console.log(`[API Request] ${req.method} ${req.url}`);
+  }
+  next();
+});
 
 // API Routes
 
@@ -141,61 +146,6 @@ app.use(cookieParser());
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: "Failed to fetch test" });
-    }
-  });
-
-  // Translate questions endpoint
-  app.post("/api/translate", verifyToken, async (req, res) => {
-    const { questions, targetLang } = req.body;
-    if (!ai) {
-      console.error("Gemini API key not configured on server");
-      return res.status(500).json({ error: "Translation service not configured" });
-    }
-    if (!questions || !targetLang) {
-      return res.status(400).json({ error: "Missing questions or targetLang" });
-    }
-
-    try {
-      const prompt = `
-        You are an expert educational translator specializing in competitive exam content.
-        Translate the following array of questions from English to ${targetLang}.
-        
-        Rules:
-        1. Return ONLY a valid JSON array of objects.
-        2. Translate 'questionText' and each string in the 'options' array.
-        3. Do NOT translate the 'id', 'testId', or any technical keys.
-        4. The translation must be formal, grammatically perfect, and use standard terminology used in West Bengal government exams (like WBPSC, WBP, WBSETCL).
-        5. Use proper Unicode Bengali fonts.
-        6. If a term is technical (like 'Photosynthesis'), you can keep the term in brackets after the Bengali translation.
-        
-        JSON to translate:
-        ${JSON.stringify(questions)}
-      `;
-
-      const model = ai.getGenerativeModel({ 
-        model: "gemini-2.0-flash",
-      });
-      const result = await model.generateContent({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-          responseMimeType: "application/json"
-        }
-      });
-      
-      let text = result.response.text().trim();
-      
-      // Sanitization
-      if (text.startsWith("```json")) {
-        text = text.substring(7, text.length - 3).trim();
-      } else if (text.startsWith("```")) {
-        text = text.substring(3, text.length - 3).trim();
-      }
-
-      const translated = JSON.parse(text);
-      res.json(translated);
-    } catch (error: any) {
-      console.error("Translation ERROR:", error);
-      res.status(500).json({ error: "Translation failed", message: error.message });
     }
   });
 
@@ -801,9 +751,15 @@ app.use(cookieParser());
     }
   });
 
-  // Catch-all for API routes to prevent HTML responses
+  // --- API ROUTE CATCH-ALL ---
+  // This ensures that any unmatched /api/* request returns JSON, not HTML
   app.all("/api/*", (req, res) => {
-    res.status(404).json({ error: `API Route Not Found: ${req.method} ${req.url}` });
+    console.warn(`[API 404] Unmatched route: ${req.method} ${req.url}`);
+    res.status(404).json({ 
+      error: "API Route Not Found", 
+      method: req.method,
+      path: req.url 
+    });
   });
 
 // Vite Integration
