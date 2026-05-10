@@ -205,7 +205,7 @@ app.use((req, res, next) => {
   app.post("/api/submit-test", verifyToken, async (req, res) => {
     const currentDb = getDb();
     if (!currentDb) return res.status(500).json({ error: "Database offline" });
-    const { testId, answers } = req.body; 
+    const { testId, answers, timeTaken } = req.body; 
     const user = (req as any).user;
 
     if (!testId || !answers || !Array.isArray(answers)) {
@@ -223,17 +223,23 @@ app.use((req, res, next) => {
 
       const questionsSnap = await currentDb.collection("questions").where("testId", "==", testId).get();
       const actualAnswers = new Map();
+      const correctAnswersMap: Record<string, string> = {};
+
       questionsSnap.docs.forEach(doc => {
-        actualAnswers.set(doc.id, doc.data().correctAnswer);
+        const data = doc.data();
+        actualAnswers.set(doc.id, data.correctAnswer);
+        correctAnswersMap[doc.id] = data.correctAnswer;
       });
       
       let correct = 0;
       let wrong = 0;
       let unattempted = 0;
       let score = 0;
+      const userAnswers: Record<string, string> = {};
       
       answers.forEach((ans: { id: string, selected: string }) => {
         const actual = actualAnswers.get(ans.id);
+        userAnswers[ans.id] = ans.selected || "";
         if (!ans.selected) {
           unattempted++;
         } else if (actual === ans.selected) {
@@ -248,13 +254,23 @@ app.use((req, res, next) => {
       const missing = questionsSnap.size - answers.length;
       if (missing > 0) unattempted += missing;
 
+      const totalQuestions = questionsSnap.size;
+      const accuracy = totalQuestions > 0 ? ((correct / (correct + wrong || 1)) * 100).toFixed(1) : 0;
+
       const resultData = {
         timestamp: Date.now(),
         userId: user.uid,
         testId: testId,
+        testTitle: testData?.title || "Mock Test",
         score: parseFloat(score.toFixed(2)),
         correctAnswers: correct,
         wrongAnswers: wrong,
+        unattempted: unattempted,
+        totalQuestions: totalQuestions,
+        accuracy: parseFloat(accuracy.toString()),
+        timeTaken: timeTaken || "N/A",
+        userAnswers,
+        correctAnswersMap,
         status: "completed"
       };
 
@@ -778,6 +794,49 @@ app.use((req, res, next) => {
     } catch (error: any) {
       console.error(`Server: ERROR deleting test ${id}:`, error);
       res.status(500).json({ error: "Failed to delete test", message: error.message });
+    }
+  });
+
+  // PDF Download: Get all questions for a test
+  app.get("/api/test-questions/:testId", verifyToken, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    const { testId } = req.params;
+    try {
+      const questionsSnap = await currentDb.collection("questions").where("testId", "==", testId).orderBy("qNo", "asc").get();
+      const questions = questionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      res.json({ questions });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch questions" });
+    }
+  });
+
+  // Admin: Get Category Order
+  app.get("/api/category-order", async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "DB offline" });
+    try {
+      const snap = await currentDb.collection("settings").doc("category_order").get();
+      if (snap.exists) {
+        res.json(snap.data());
+      } else {
+        res.json({ order: [] });
+      }
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch category order" });
+    }
+  });
+
+  // Admin: Update Category Order
+  app.post("/api/admin/category-order", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "DB offline" });
+    const { order } = req.body;
+    try {
+      await currentDb.collection("settings").doc("category_order").set({ order });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to update category order" });
     }
   });
 

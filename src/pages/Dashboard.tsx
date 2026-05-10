@@ -1,17 +1,20 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { collection, query, where, getDocs, orderBy, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { signOut, updatePassword } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ArrowLeft, ExternalLink, Menu, X, Youtube, MessageCircle, Send, LayoutDashboard, History, ChevronDown, ArrowRight, User, Info, Phone, Download } from 'lucide-react';
+import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ArrowLeft, ExternalLink, Menu, X, Youtube, MessageCircle, Send, LayoutDashboard, History, ChevronDown, ArrowRight, User, Info, Phone, Download, Printer, AlertCircle, BarChart3 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 type DashboardTab = 'home' | 'profile' | 'mock_topic' | 'mock_sectional' | 'mock_full' | 'notes' | 'video' | 'pyq' | 'pattern' | 'affairs' | 'practice' | 'about' | 'contact';
 
 export default function Dashboard() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   
   const [activeTests, setActiveTests] = useState<any[]>([]);
   const [pastResults, setPastResults] = useState<any[]>([]);
@@ -24,10 +27,32 @@ export default function Dashboard() {
   const [practiceSets, setPracticeSets] = useState<any[]>([]);
   const [aboutInfo, setAboutInfo] = useState({ content: '', contact: '' });
   const [socialLinks, setSocialLinks] = useState({ youtube: '', telegram: '', whatsapp: '' });
+  const [categoryOrder, setCategoryOrder] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<DashboardTab>('home');
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  
+  const activeTab = (searchParams.get('tab') as DashboardTab) || 'home';
+  const selectedCategory = searchParams.get('cat') || '';
+
+  const setActiveTab = (tab: DashboardTab) => {
+    setSearchParams({ tab, cat: '' });
+    // Reset secondary states
+    if (!tab.startsWith('mock')) {
+      setMockOpen(false);
+    }
+    if (!['video', 'notes', 'affairs', 'practice'].includes(tab)) {
+      setLearnOpen(false);
+    }
+  };
+
+  const setSelectedCategory = (cat: string) => {
+    setSearchParams({ tab: activeTab, cat });
+  };
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
+
+  // Analysis State
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+  const [selectedResult, setSelectedResult] = useState<any>(null);
+  const [downloadingPDF, setDownloadingPDF] = useState<string | null>(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [learnOpen, setLearnOpen] = useState(false);
@@ -46,7 +71,54 @@ export default function Dashboard() {
     }
   }, [profile]);
 
-  const categories = ['All', 'GK', 'English', 'Math', 'Reasoning', 'Computer'];
+  const categories = (() => {
+    const rawCategories = [...new Set(activeTests.filter(t => (t.testType || 'topic') === activeTab.replace('mock_', '')).map(t => t.category).filter(Boolean)) as Set<string>];
+    
+    let sorted = [];
+    if (categoryOrder.length > 0) {
+      sorted = rawCategories.sort((a, b) => {
+        const indexA = categoryOrder.indexOf(a);
+        const indexB = categoryOrder.indexOf(b);
+        if (indexA === -1 && indexB === -1) return a.localeCompare(b);
+        if (indexA === -1) return 1;
+        if (indexB === -1) return -1;
+        return indexA - indexB;
+      });
+    } else {
+      sorted = rawCategories.sort((a, b) => a.localeCompare(b));
+    }
+    return sorted;
+  })();
+
+  useEffect(() => {
+    if (categories.length > 0 && !selectedCategory) {
+      setSelectedCategory(categories[0]);
+    }
+  }, [activeTab, categories.length]);
+
+  // Track if we are in "Full Analysis" mode
+  const [showFullAnalysis, setShowFullAnalysis] = useState(false);
+  const [testQuestions, setTestQuestions] = useState<any[]>([]);
+  const [loadingQuestions, setLoadingQuestions] = useState(false);
+
+  const fetchQuestionsForAnalysis = async (testId: string) => {
+    if (!user) return;
+    setLoadingQuestions(true);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch(`/api/test-questions/${testId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTestQuestions(data.questions || []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingQuestions(false);
+    }
+  };
 
   useEffect(() => {
     async function fetchData() {
@@ -107,6 +179,13 @@ export default function Dashboard() {
           });
         }
 
+        // Fetch Category Order
+        const orderRes = await fetch('/api/category-order');
+        if (orderRes.ok) {
+          const orderData = await orderRes.json();
+          setCategoryOrder(orderData.order || []);
+        }
+
         // Fetch Past Results
         const resultsQuery = query(collection(db, 'results'), where('userId', '==', user.uid));
         const resultsSnap = await getDocs(resultsQuery);
@@ -134,6 +213,195 @@ export default function Dashboard() {
 
   const handleLogout = async () => {
     await signOut(auth);
+  };
+
+  const handleDownloadPDF = async (testId: string, testTitle: string, category: string, testType: string) => {
+    if (!user) return;
+    setDownloadingPDF(testId);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch(`/api/test-questions/${testId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to fetch questions');
+      const { questions } = await res.json();
+
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 10;
+      const contentWidth = pageWidth - (2 * margin);
+
+      // Helper for Page Border
+      const addPageBorder = (pdfDoc: jsPDF) => {
+        pdfDoc.setDrawColor(0, 77, 0); // Dark Green
+        pdfDoc.setLineWidth(1);
+        pdfDoc.rect(margin - 2, margin - 2, pageWidth - 2 * (margin - 2), pageHeight - 2 * (margin - 2));
+      };
+
+      // Helper for Multiple Watermarks
+      const addWatermarks = (pdfDoc: jsPDF) => {
+        pdfDoc.saveGraphicsState();
+        pdfDoc.setGState(new (pdfDoc as any).GState({ opacity: 0.05 }));
+        pdfDoc.setFontSize(30);
+        pdfDoc.setTextColor(150, 150, 150);
+        pdfDoc.setFont('helvetica', 'bold');
+        
+        // Grid of watermarks
+        for (let x = 30; x < pageWidth; x += 80) {
+          for (let y = 50; y < pageHeight; y += 80) {
+            pdfDoc.text('Master Aptitude by Suman Sir', x, y, {
+              align: 'center',
+              angle: 45
+            });
+          }
+        }
+        pdfDoc.restoreGraphicsState();
+      };
+
+      // Header Design - Stylish Box
+      const drawHeader = (pdfDoc: jsPDF) => {
+        const headerY = margin + 5;
+        const headerHeight = 35;
+        
+        pdfDoc.setFillColor(0, 77, 0);
+        pdfDoc.roundedRect(margin, headerY, contentWidth, headerHeight, 3, 3, 'F');
+        
+        pdfDoc.setTextColor(255, 255, 255);
+        pdfDoc.setFontSize(18);
+        pdfDoc.setFont('helvetica', 'bold');
+        pdfDoc.text('Master Aptitude by Suman Sir', pageWidth / 2, headerY + 12, { align: 'center' });
+        
+        pdfDoc.setFontSize(12);
+        pdfDoc.text(`${testTitle}`, pageWidth / 2, headerY + 20, { align: 'center' });
+        
+        pdfDoc.setFontSize(9);
+        pdfDoc.setFont('helvetica', 'normal');
+        pdfDoc.text(`Category: ${category} | Type: ${testType} | Date: ${new Date().toLocaleDateString()}`, pageWidth / 2, headerY + 28, { align: 'center' });
+      };
+
+      // Footer Design - Stylish Box
+      const drawFooter = (pdfDoc: jsPDF, pageNum: number) => {
+        const footerHeight = 15;
+        const footerY = pageHeight - margin - footerHeight;
+        
+        // Footer Box
+        pdfDoc.setFillColor(245, 245, 245);
+        pdfDoc.setDrawColor(200, 200, 200);
+        pdfDoc.roundedRect(margin, footerY, contentWidth, footerHeight, 2, 2, 'FD');
+        
+        pdfDoc.setFontSize(8);
+        pdfDoc.setTextColor(80, 80, 80);
+        pdfDoc.setFont('helvetica', 'bold');
+        
+        // Contact Number
+        pdfDoc.text('Contact: 8900011708 (Shibnath)', margin + 5, footerY + 9);
+        
+        // Social Link Placeholder text (since we can't easily embed clickable icons complexly without plugins, we use text)
+        pdfDoc.setTextColor(0, 100, 255);
+        const tgX = pageWidth / 2 - 15;
+        const waX = pageWidth / 2 + 15;
+        pdfDoc.text('Telegram: @MasterAptitudeGroup', tgX, footerY + 9, { align: 'center' });
+        pdfDoc.text('WhatsApp: +91 8900011708', waX, footerY + 9, { align: 'center' });
+        
+        // Page Number
+        pdfDoc.setTextColor(150, 150, 150);
+        pdfDoc.text(`Page ${pageNum}`, pageWidth - margin - 15, footerY + 9);
+      };
+
+      addPageBorder(doc);
+      addWatermarks(doc);
+      drawHeader(doc);
+      drawFooter(doc, 1);
+
+      let currentY = margin + 50;
+      let currentPageNum = 1;
+
+      questions.forEach((q: any, index: number) => {
+        // Optimized spacing - check if enough space for Q + 1 line of options
+        if (currentY > pageHeight - 55) {
+          doc.addPage();
+          addPageBorder(doc);
+          addWatermarks(doc);
+          currentPageNum++;
+          drawFooter(doc, currentPageNum);
+          currentY = margin + 15;
+        }
+
+        // Question text
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        const qText = `${index + 1}. ${q.questionText}`;
+        const splitQ = doc.splitTextToSize(qText, contentWidth - 10);
+        doc.text(splitQ, margin + 5, currentY);
+        currentY += (splitQ.length * 6);
+
+        // Options - Horizontal arrangement
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        const optWidth = (contentWidth - 10) / 2; // 2 columns for better spatial management if long, or 4 if short
+        
+        // Simple heuristic: if all options are short, put on one line
+        const totalOptLength = q.options.reduce((acc: number, o: string) => acc + o.length, 0);
+        
+        if (totalOptLength < 50) {
+          // One line
+          let optX = margin + 8;
+          q.options.forEach((opt: string, optIndex: number) => {
+            const label = String.fromCharCode(65 + optIndex);
+            const text = `${label}. ${opt}`;
+            doc.text(text, optX, currentY);
+            optX += (contentWidth / 4);
+          });
+          currentY += 8;
+        } else {
+          // Two per line
+          let optX = margin + 8;
+          q.options.forEach((opt: string, optIndex: number) => {
+            const label = String.fromCharCode(65 + optIndex);
+            const text = `${label}. ${opt}`;
+            doc.text(text, optX, currentY);
+            if (optIndex % 2 === 1) {
+              currentY += 7;
+              optX = margin + 8;
+            } else {
+              optX += (contentWidth / 2);
+            }
+          });
+          if (q.options.length % 2 !== 0) currentY += 7;
+        }
+
+        // Correct Answer
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(0, 100, 0);
+        doc.text(`Correct Answer: ${q.correctAnswer}`, margin + 8, currentY);
+        currentY += 8;
+
+        if (q.explanation) {
+          doc.setFont('helvetica', 'italic');
+          doc.setTextColor(80, 80, 80);
+          const expText = `Explanation: ${q.explanation}`;
+          const splitExp = doc.splitTextToSize(expText, contentWidth - 15);
+          doc.text(splitExp, margin + 12, currentY);
+          currentY += (splitExp.length * 5) + 6;
+        } else {
+          currentY += 4;
+        }
+      });
+
+      doc.save(`${testTitle.replace(/\s+/g, '_')}_Master_Aptitude.pdf`);
+    } catch (err: any) {
+      console.error(err);
+      alert('Error generating PDF: ' + err.message);
+    } finally {
+      setDownloadingPDF(null);
+    }
   };
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
@@ -244,7 +512,11 @@ export default function Dashboard() {
           {/* LEARN SECTION */}
           <div className="space-y-1">
             <button 
-              onClick={() => setLearnOpen(!learnOpen)}
+              onClick={() => {
+                const newState = !learnOpen;
+                setLearnOpen(newState);
+                if (newState) setMockOpen(false);
+              }}
               className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm 
                 ${['video', 'notes', 'affairs', 'practice'].includes(activeTab) 
                   ? 'bg-violet-50 text-violet-600 shadow-lg shadow-violet-200/20' 
@@ -290,7 +562,11 @@ export default function Dashboard() {
           {/* MOCK TEST SECTION */}
           <div className="space-y-1">
             <button 
-              onClick={() => setMockOpen(!mockOpen)}
+              onClick={() => {
+                const newState = !mockOpen;
+                setMockOpen(newState);
+                if (newState) setLearnOpen(false);
+              }}
               className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm 
                 ${activeTab.startsWith('mock') 
                   ? 'bg-emerald-50 text-emerald-600 shadow-lg shadow-emerald-200/20' 
@@ -300,25 +576,25 @@ export default function Dashboard() {
                 <FileText className={`w-5 h-5 shrink-0 ${activeTab.startsWith('mock') ? 'text-emerald-600' : 'text-emerald-400'}`} />
                 Mock Test
               </div>
-              <ChevronRight className={`w-4 h-4 transition-transform ${mockOpen ? 'rotate-90' : ''}`} />
+              <ChevronRight className={`w-4 h-4 transition-transform ${mockOpen || activeTab.startsWith('mock') ? 'rotate-90' : ''}`} />
             </button>
             
-            {mockOpen && (
+            {(mockOpen || activeTab.startsWith('mock')) && (
               <div className="pl-6 space-y-1 animate-in slide-in-from-top-2 duration-200">
                 <button 
-                  onClick={() => { setActiveTab('mock_topic'); setSelectedCategory('All'); setIsSidebarOpen(false); }} 
+                  onClick={() => { setActiveTab('mock_topic'); setIsSidebarOpen(false); }} 
                   className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'mock_topic' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
                 >
                   Topic Wise Mock Test
                 </button>
                 <button 
-                  onClick={() => { setActiveTab('mock_sectional'); setSelectedCategory('All'); setIsSidebarOpen(false); }} 
+                  onClick={() => { setActiveTab('mock_sectional'); setIsSidebarOpen(false); }} 
                   className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'mock_sectional' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
                 >
                   Sectional Mock Test
                 </button>
                 <button 
-                  onClick={() => { setActiveTab('mock_full'); setSelectedCategory('All'); setIsSidebarOpen(false); }} 
+                  onClick={() => { setActiveTab('mock_full'); setIsSidebarOpen(false); }} 
                   className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'mock_full' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
                 >
                   Full Mock Test
@@ -522,6 +798,39 @@ export default function Dashboard() {
                   <p className="text-slate-500 font-medium mb-6">If you have any questions regarding your studies or the platform, feel free to contact us.</p>
                   <div className="text-white px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl flex items-center gap-3 animate-blink-red">
                     Any Query Call - <a href="tel:8900011708" className="hover:underline">8900011708</a> (Shibnath)
+                  </div>
+                </div>
+              </div>
+
+              {/* Overall Performance Section - Focused strictly on Mock Tests */}
+              <div className="mt-12 bg-white rounded-3xl p-6 border border-indigo-100 shadow-xl shadow-indigo-500/5 relative overflow-hidden group mb-8">
+                <div className="relative z-10">
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200">
+                      <BarChart3 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-black text-slate-800 tracking-tight">Mock Overall Performance</h3>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Test Series Analytics</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <span className="block text-[9px] font-black text-slate-400 uppercase tracking-tight mb-1">Total Mock Attempted</span>
+                      <span className="text-xl font-black text-indigo-600 tracking-tighter">{performanceStats.totalTests}</span>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <span className="block text-[9px] font-black text-slate-400 uppercase tracking-tight mb-1">Best Score</span>
+                      <span className="text-xl font-black text-emerald-600 tracking-tighter">{performanceStats.bestScore}</span>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <span className="block text-[9px] font-black text-slate-400 uppercase tracking-tight mb-1">Average Accuracy</span>
+                      <span className="text-xl font-black text-amber-600 tracking-tighter">{performanceStats.avgAccuracy}%</span>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <span className="block text-[9px] font-black text-slate-400 uppercase tracking-tight mb-1">Latest Mock Score</span>
+                      <span className="text-xl font-black text-rose-600 tracking-tighter">{performanceStats.latestScore}</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -755,7 +1064,7 @@ export default function Dashboard() {
 
           {/* Dashboard Tab Content */}
           {activeTab.startsWith('mock') && (
-            <div className="space-y-10">
+            <div className="space-y-10 animate-in fade-in duration-700">
               <div className="flex flex-col gap-6">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-black text-slate-900 tracking-tight">
@@ -763,142 +1072,155 @@ export default function Dashboard() {
                   </h2>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {categories.map((cat) => (
-                    <button
-                      key={cat}
-                      onClick={() => { setSelectedCategory(cat); setSelectedTopic(null); }}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
-                        selectedCategory === cat
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-100'
-                          : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-400 hover:text-indigo-600'
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
+                {categories.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {categories.map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => { setSelectedCategory(cat); setSelectedTopic(null); }}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
+                          selectedCategory === cat
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-100'
+                            : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-400 hover:text-indigo-600'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {selectedCategory === 'Computer' && !selectedTopic ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {[
-                    "Basics of Computers",
-                    "Computer Hardware",
-                    "Computer Software",
-                    "Operating Systems",
-                    "MS Office",
-                    "Internet and Networking",
-                    "Computer Abbreviations and Terminology",
-                    "Computer Security",
-                    "Computer History and Generations"
-                  ].map((topicName) => (
-                    <button 
-                      key={topicName}
-                      onClick={() => setSelectedTopic(topicName)}
-                      className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm hover:shadow-xl hover:border-indigo-400 transition-all flex flex-col items-center text-center group"
-                    >
-                      <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-3xl flex items-center justify-center mb-6 group-hover:bg-indigo-600 group-hover:text-white transition-all transform group-hover:rotate-6">
-                        <BookOpen className="w-8 h-8" />
-                      </div>
-                      <h3 className="font-black text-slate-800 text-lg mb-2 leading-tight uppercase tracking-tight">{topicName}</h3>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                        20 Mock Tests <ChevronRight className="w-3 h-3 text-indigo-400" />
-                      </p>
-                    </button>
-                  ))}
+              {categories.length === 0 ? (
+                <div className="bg-white rounded-3xl p-12 py-20 border border-slate-200 text-center text-slate-400 shadow-sm flex flex-col items-center max-w-2xl mx-auto w-full">
+                  <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6">
+                    <FileText className="w-10 h-10 text-slate-200" />
+                  </div>
+                  <h3 className="font-black text-slate-800 text-lg uppercase tracking-widest mb-2">No Mock Available</h3>
+                  <p className="text-slate-400 text-sm font-medium">We are working on bringing new tests to this section. Please check back later!</p>
                 </div>
-              ) : (
-                <>
-                  {selectedTopic && (
-                    <div className="flex items-center gap-4 mb-4">
-                      <button 
-                        onClick={() => setSelectedTopic(null)}
-                        className="flex items-center gap-2 text-indigo-600 font-bold text-sm bg-indigo-50 px-4 py-2 rounded-xl hover:bg-indigo-100 transition-all"
-                      >
-                        <ArrowLeft className="w-4 h-4" />
-                        Back to Topics
-                      </button>
-                      <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">{selectedTopic}</h3>
-                    </div>
-                  )}
-
-                  {activeTests.filter(t => {
-                    const matchesType = (t.testType || 'topic') === activeTab.replace('mock_', '');
-                    const matchesCategory = selectedCategory === 'All' || t.category === selectedCategory;
-                    const matchesTopic = !selectedTopic || t.topic === selectedTopic;
-                    return matchesType && matchesCategory && matchesTopic;
-                  }).length === 0 ? (
+              ) : !selectedCategory ? (
                 <div className="bg-white rounded-3xl p-12 border border-slate-200 text-center text-slate-400 shadow-sm flex flex-col items-center">
                   <FileText className="w-12 h-12 mb-4 text-slate-200" />
-                  <p className="font-bold text-sm uppercase tracking-widest text-slate-500 mb-2">No {activeTab.replace('mock_', '')} Mock Tests yet.</p>
-                  <p className="text-slate-400 text-xs font-medium">Informing Suman Sir to upload new Mock!</p>
+                  <p className="font-bold text-sm uppercase tracking-widest text-slate-500">Select a category above to viewAvailable Mocks.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+                    <div className="flex items-center gap-4">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Selected Category</span>
+                        <h3 className="text-xl font-black text-slate-800 tracking-tight">{selectedCategory}</h3>
+                      </div>
+                    </div>
+                  </div>
+
                   {activeTests.filter(t => {
                     const matchesType = (t.testType || 'topic') === activeTab.replace('mock_', '');
-                    const matchesCategory = selectedCategory === 'All' || t.category === selectedCategory;
-                    const matchesTopic = !selectedTopic || t.topic === selectedTopic;
-                    return matchesType && matchesCategory && matchesTopic;
-                  }).map(test => {
-                    const isTaken = pastResults.some(r => r.testId === test.id);
-                    return (
-                      <div key={test.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs transition-all hover:shadow-lg group flex flex-col">
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
-                              <Target className="w-5 h-5" />
-                            </div>
-                            <div className="flex flex-col items-end gap-1">
-                              {test.category && (
-                                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded border border-emerald-100">
-                                  {test.category}
-                                </span>
+                    const matchesCategory = t.category === selectedCategory;
+                    return matchesType && matchesCategory;
+                  }).length === 0 ? (
+                    <div className="bg-white rounded-3xl p-12 border border-slate-200 text-center text-slate-400 shadow-sm flex flex-col items-center">
+                      <FileText className="w-12 h-12 mb-4 text-slate-200" />
+                      <p className="font-bold text-sm uppercase tracking-widest text-slate-500 mb-2">No tests found in this category.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {activeTests.filter(t => {
+                        const matchesType = (t.testType || 'topic') === activeTab.replace('mock_', '');
+                        const matchesCategory = t.category === selectedCategory;
+                        return matchesType && matchesCategory;
+                      }).map(test => {
+                        const isTaken = pastResults.some(r => r.testId === test.id);
+                        return (
+                          <div key={test.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs transition-all hover:shadow-lg group flex flex-col">
+                            <div className="flex-1">
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+                                  <Target className="w-5 h-5" />
+                                </div>
+                                <div className="flex flex-col items-end gap-1">
+                                  {test.isActive && (
+                                    <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded border border-emerald-100 flex items-center gap-1">
+                                      <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse"></span>
+                                      Live Now
+                                    </span>
+                                  )}
+                                  {isTaken && (
+                                    <button 
+                                      onClick={() => handleDownloadPDF(test.id, test.title, test.category || 'N/A', test.testType || 'N/A')}
+                                      disabled={downloadingPDF === test.id}
+                                      className="flex items-center gap-1 text-[8px] font-black uppercase tracking-widest bg-slate-900 text-white px-2 py-1 rounded hover:bg-indigo-600 transition-all disabled:opacity-50"
+                                    >
+                                      {downloadingPDF === test.id ? '...' : <><Download className="w-2.5 h-2.5" /> PDF</>}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              <h3 className="font-bold text-slate-800 text-base leading-snug mb-1 min-h-[24px] group-hover:text-indigo-600 transition-colors">
+                                {test.title}
+                              </h3>
+                              {test.subjectName && (
+                                <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-3">
+                                  {test.subjectName}
+                                </p>
                               )}
-                              <span className="px-2 py-1 bg-amber-50 text-amber-600 text-[10px] font-black uppercase tracking-widest rounded border border-amber-100 flex items-center gap-1">
-                                  Students <FileText className="w-3 h-3" />
-                              </span>
+                              
+                              <div className="space-y-2 mt-auto">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center">
+                                    <Clock className="w-3 h-3 mr-1.5" />
+                                    {test.duration || 30} Mins
+                                  </p>
+                                  <p className="text-[10px] font-black text-slate-600 uppercase tracking-tight">
+                                    {test.topic || 'General Mock'}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[8px] font-black uppercase rounded">
+                                    {test.marksPerCorrect || 1} Marks/Q
+                                  </span>
+                                  <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[8px] font-black uppercase rounded">
+                                    -{test.negativeMarks || 0.25} Neg
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="mt-6 pt-6 border-t border-slate-100 flex flex-col gap-3">
+                              {isTaken && (
+                                <button 
+                                  onClick={() => {
+                                    const res = pastResults.find(r => r.testId === test.id);
+                                    if (res) {
+                                      setSelectedResult(res);
+                                      setShowAnalysisModal(true);
+                                      setShowFullAnalysis(false);
+                                      fetchQuestionsForAnalysis(test.id);
+                                    }
+                                  }}
+                                  className="flex items-center justify-center w-full py-2.5 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200"
+                                >
+                                  <BarChart3 className="w-3.5 h-3.5 mr-2" />
+                                  View Previous Analysis
+                                </button>
+                              )}
+                              <Link 
+                                to={`/test/${test.id}`}
+                                className={`flex items-center justify-center w-full py-3 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest ${isTaken ? 'bg-slate-100 text-slate-600 hover:bg-indigo-600 hover:text-white' : 'bg-indigo-600 text-white hover:bg-slate-900 shadow-lg shadow-indigo-100'}`}
+                              >
+                                {isTaken ? 'Reattempt Mock' : 'Take Mock Test'}
+                                <ChevronRight className="w-3.5 h-3.5 ml-2" />
+                              </Link>
                             </div>
                           </div>
-                          
-                          <h3 className="font-bold text-slate-800 text-base leading-snug mb-1 min-h-[24px] group-hover:text-indigo-600 transition-colors">
-                            {test.title}
-                          </h3>
-                          {test.subjectName && (
-                            <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-3">
-                              {test.subjectName}
-                            </p>
-                          )}
-                          
-                          <div className="flex items-center justify-between mt-auto">
-                            <p className="text-xs font-bold text-slate-500 flex items-center">
-                              <Clock className="w-3.5 h-3.5 mr-1.5 text-slate-400" />
-                              {test.duration || 60} Mins
-                            </p>
-                            <p className="text-xs font-bold text-slate-500 truncate max-w-[120px]">
-                              {test.topic}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="mt-6 pt-6 border-t border-slate-100">
-                          <Link 
-                            to={`/test/${test.id}`}
-                            className={`flex items-center justify-center w-full py-2.5 rounded-lg transition-all font-bold text-xs uppercase tracking-wider
-                              ${isTaken ? 'bg-[#00c9db] text-white hover:bg-[#00b5c5]' : 'bg-[#00c9db] text-white hover:bg-[#00b5c5]'}
-                            `}
-                          >
-                            {isTaken ? 'Reattempt Test' : 'Go To Test Series'}
-                          </Link>
-                        </div>
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
-            </>
-          )}
 
               {/* Performance Analytics Section - Moved here and made compact */}
               <div className="bg-white rounded-3xl p-6 border border-indigo-100 shadow-xl shadow-indigo-500/5 relative overflow-hidden group mt-12 mb-8">
@@ -1072,7 +1394,7 @@ export default function Dashboard() {
                     </div>
                     <h4 className="font-bold text-slate-800 text-lg mb-4 tracking-tight">{pattern.title}</h4>
                     <div className="space-y-2">
-                      {pattern.files ? pattern.files.map((file: any, idx: number) => (
+                       {pattern.files ? pattern.files.map((file: any, idx: number) => (
                         <a 
                           key={idx}
                           href={file.url} target="_blank" rel="noopener noreferrer"
@@ -1102,10 +1424,245 @@ export default function Dashboard() {
               </div>
             </div>
           )}
-          
+
         </main>
       </div>
 
+      {/* Detailed Analysis Modal */}
+      {showAnalysisModal && selectedResult && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-3xl rounded-[40px] shadow-2xl overflow-hidden border border-white/20 flex flex-col max-h-[90vh]">
+            <div className="bg-slate-900 p-8 text-white relative flex justify-between items-center shrink-0">
+               <div className="flex-1">
+                 <h2 className="text-2xl font-black mb-1 tracking-tighter uppercase">
+                   {showFullAnalysis ? 'Detailed Question Review' : 'Attempt Analysis'}
+                 </h2>
+                 <p className="text-slate-400 font-bold text-xs">{selectedResult.testTitle || 'Mock Test'}</p>
+               </div>
+              <button 
+                onClick={() => { setShowAnalysisModal(false); setShowFullAnalysis(false); }}
+                className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-[#f8f9fa]">
+              {!showFullAnalysis ? (
+                /* Summary Section */
+                <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-center">
+                      <span className="block text-[10px] font-black text-slate-400 uppercase mb-2">Marks Obtained</span>
+                      <span className="text-3xl font-black text-indigo-600">{selectedResult.score}</span>
+                      <span className="block text-[10px] font-bold text-slate-400 mt-1">out of {selectedResult.totalQuestions * (selectedResult.marksPerCorrect || 1)}</span>
+                    </div>
+                    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-center">
+                      <span className="block text-[10px] font-black text-slate-400 uppercase mb-2">Accuracy %</span>
+                      <span className={`text-3xl font-black ${selectedResult.accuracy >= 80 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        {selectedResult.accuracy || 0}%
+                      </span>
+                    </div>
+                    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-center">
+                      <span className="block text-[10px] font-black text-slate-400 uppercase mb-2">Correct Hits</span>
+                      <span className="text-3xl font-black text-emerald-500">{selectedResult.correctAnswers}</span>
+                    </div>
+                    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-center">
+                      <span className="block text-[10px] font-black text-slate-400 uppercase mb-2">Time Taken</span>
+                      <span className="text-3xl font-black text-slate-700">{selectedResult.timeTaken || 'N/A'}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
+                       <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center">
+                         <AlertCircle className="w-6 h-6" />
+                       </div>
+                       <div>
+                         <p className="text-[10px] font-black text-slate-400 uppercase">Wrong Answers</p>
+                         <p className="text-xl font-black text-rose-600">{selectedResult.wrongAnswers}</p>
+                       </div>
+                    </div>
+                    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
+                       <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center">
+                         <BarChart3 className="w-6 h-6" />
+                       </div>
+                       <div>
+                         <p className="text-[10px] font-black text-slate-400 uppercase">Unattempted</p>
+                         <p className="text-xl font-black text-slate-600">{selectedResult.unattempted || 0}</p>
+                       </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-indigo-600 rounded-3xl p-8 text-white flex items-center justify-between shadow-xl shadow-indigo-100">
+                    <div>
+                      <h4 className="text-xl font-black mb-1">Deep Dive into Mistakes?</h4>
+                      <p className="text-indigo-100 text-xs font-medium">See which questions you missed and review explanations.</p>
+                    </div>
+                    <button 
+                      onClick={() => setShowFullAnalysis(true)}
+                      className="bg-white text-indigo-600 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all shadow-lg"
+                    >
+                      Full Analysis
+                    </button>
+                  </div>
+
+                  <div className="text-center pb-4">
+                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Attempted on {new Date(selectedResult.timestamp).toLocaleString()}</p>
+                  </div>
+                </div>
+              ) : (
+                /* Full Analysis View */
+                <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
+                  <button 
+                    onClick={() => setShowFullAnalysis(false)}
+                    className="flex items-center gap-2 text-indigo-600 font-bold text-xs bg-indigo-50 px-4 py-2 rounded-xl hover:bg-indigo-100 transition-all mb-4"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    Back to Summary
+                  </button>
+
+                  <div className="space-y-6">
+                    {loadingQuestions ? (
+                      <div className="text-center py-20">
+                        <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                        <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Loading Question Bank...</p>
+                      </div>
+                    ) : testQuestions.map((q, idx) => {
+                      const userAns = selectedResult.userAnswers?.[q.id];
+                      // Normalize answers for comparison - handling potential label vs text issues
+                      const correctAnswerRaw = q.correctAnswer;
+                      const userAnsRaw = userAns;
+                      
+                      const isCorrect = userAnsRaw === correctAnswerRaw;
+                      const isSkipped = !userAnsRaw;
+
+                      return (
+                        <div key={q.id} className={`bg-white rounded-[32px] p-8 border shadow-sm transition-all overflow-hidden ${isCorrect ? 'border-emerald-100' : isSkipped ? 'border-slate-100' : 'border-rose-100'}`}>
+                          <div className="flex items-center justify-between mb-8">
+                            <div className="flex items-center gap-3">
+                              <span className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-sm font-black text-white shadow-lg">
+                                {idx + 1}
+                              </span>
+                              <div className="flex flex-col">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Question</span>
+                                <span className="text-xs font-bold text-slate-600">{q.topic || 'General Mock'}</span>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                              {isSkipped ? (
+                                <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-full border border-slate-200">
+                                  <Info className="w-4 h-4 text-slate-400" />
+                                  <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Not Attempted</span>
+                                </div>
+                              ) : isCorrect ? (
+                                <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 rounded-full border border-emerald-200">
+                                  <CheckCircle className="w-4 h-4 text-emerald-600" />
+                                  <span className="text-[10px] font-black uppercase text-emerald-600 tracking-wider">Correct</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2 px-4 py-2 bg-rose-50 rounded-full border border-rose-200">
+                                  <X className="w-4 h-4 text-rose-600" />
+                                  <span className="text-[10px] font-black uppercase text-rose-600 tracking-wider">Incorrect</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <h4 className="font-bold text-slate-800 text-xl mb-10 leading-relaxed px-2">{q.questionText}</h4>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                            {q.options.map((opt: string, i: number) => {
+                              const label = String.fromCharCode(65 + i);
+                              const isThisCorrect = opt === correctAnswerRaw;
+                              const isThisUserAns = opt === userAnsRaw;
+                              
+                              let state: 'default' | 'correct' | 'incorrect' = 'default';
+                              if (isThisCorrect) state = 'correct';
+                              else if (isThisUserAns && !isCorrect) state = 'incorrect';
+
+                              return (
+                                <div 
+                                  key={i} 
+                                  className={`p-5 rounded-2xl border-2 flex items-center gap-4 transition-all relative
+                                    ${state === 'correct' 
+                                      ? 'bg-emerald-50 border-emerald-500 text-emerald-900 shadow-md shadow-emerald-100 ring-2 ring-emerald-500/10' 
+                                      : state === 'incorrect'
+                                      ? 'bg-rose-50 border-rose-500 text-rose-900 shadow-md shadow-rose-100 ring-2 ring-rose-500/10'
+                                      : 'bg-white border-slate-100 text-slate-600 hover:border-slate-300'
+                                    }`}
+                                >
+                                  <span className={`w-9 h-9 shrink-0 rounded-xl flex items-center justify-center font-black text-sm
+                                    ${state === 'correct' ? 'bg-emerald-500 text-white shadow-md' : state === 'incorrect' ? 'bg-rose-500 text-white shadow-md' : 'bg-slate-100 text-slate-400'}`}>
+                                    {label}
+                                  </span>
+                                  <span className="font-bold text-sm md:text-base leading-tight pr-6">{opt}</span>
+                                  
+                                  {state === 'correct' && (
+                                    <div className="absolute right-4 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm">
+                                      <CheckCircle className="w-3.5 h-3.5 text-white" />
+                                    </div>
+                                  )}
+                                  {state === 'incorrect' && (
+                                    <div className="absolute right-4 w-6 h-6 bg-rose-500 rounded-full flex items-center justify-center shadow-sm">
+                                      <X className="w-3.5 h-3.5 text-white" />
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {q.explanation && (
+                            <div className="mt-4 bg-[#f8fafc] p-6 md:p-8 rounded-[24px] border border-slate-100 relative group overflow-hidden">
+                              <div className="absolute top-0 right-0 p-4 text-indigo-500/5 transition-transform group-hover:scale-110">
+                                <Info className="w-16 h-16 rotate-12" />
+                              </div>
+                              <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] mb-4 flex items-center gap-2 relative z-10">
+                                <div className="w-1.5 h-3 bg-indigo-500 rounded-full"></div>
+                                Solution Deep Dive
+                              </p>
+                              <div className="text-slate-600 text-sm md:text-base leading-relaxed whitespace-pre-wrap font-medium relative z-10">
+                                {q.explanation}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-8 bg-white border-t border-slate-100 flex gap-4 shrink-0">
+               <button 
+                onClick={() => {
+                  const testData = activeTests.find(t => t.id === selectedResult.testId);
+                  handleDownloadPDF(
+                    selectedResult.testId, 
+                    selectedResult.testTitle || 'Mock Test',
+                    testData?.category || 'N/A',
+                    testData?.testType || 'N/A'
+                  );
+                }}
+                disabled={downloadingPDF === selectedResult.testId}
+                className="flex-1 bg-slate-900 text-white font-black py-4 rounded-2xl hover:bg-indigo-600 transition shadow-xl uppercase tracking-widest text-[10px] flex items-center justify-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                {downloadingPDF === selectedResult.testId ? 'Preparing...' : 'Download Analysis PDF'}
+              </button>
+              <button 
+                onClick={() => { setShowAnalysisModal(false); setShowFullAnalysis(false); }}
+                className="flex-1 bg-slate-100 text-slate-600 font-black py-4 rounded-2xl hover:bg-slate-200 transition uppercase tracking-widest text-[10px]"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

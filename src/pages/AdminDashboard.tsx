@@ -5,7 +5,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { LogOut, ArrowLeft, Plus, Pencil, Trash2, FileText, BookOpen, Play, CheckCircle, Clock, X, User as UserIcon, Download, ShieldAlert, ShieldCheck, Key, Edit2 } from 'lucide-react';
+import { LogOut, ArrowLeft, Plus, Pencil, Trash2, FileText, BookOpen, Play, CheckCircle, Clock, X, User as UserIcon, Download, ShieldAlert, ShieldCheck, Key, Edit2, Search, LayoutDashboard } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 
 type AdminTab = 'students' | 'mock' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info';
@@ -90,6 +90,13 @@ function AdminHome() {
   const [clearingTests, setClearingTests] = useState(false);
   const [savingTest, setSavingTest] = useState(false);
   
+  // Search and Filter State
+  const [mockSearch, setMockSearch] = useState('');
+  const [mockFilterCategory, setMockFilterCategory] = useState('All');
+  const [mockFilterType, setMockFilterType] = useState('All');
+  const [categoryOrder, setCategoryOrder] = useState<string[]>([]);
+  const [isUpdatingOrder, setIsUpdatingOrder] = useState(false);
+
   // Test marks
   const [marksPerCorrect, setMarksPerCorrect] = useState('1');
   const [negativeMarks, setNegativeMarks] = useState('0.25');
@@ -195,6 +202,13 @@ function AdminHome() {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) setStats(await res.json());
+
+        // Fetch Category Order
+        const orderRes = await fetch('/api/category-order');
+        if (orderRes.ok) {
+          const orderData = await orderRes.json();
+          setCategoryOrder(orderData.order || []);
+        }
       } catch (err) {
         console.error('Stats fetch failed:', err);
       }
@@ -261,6 +275,43 @@ function AdminHome() {
       setSavingTest(false);
     }
   };
+
+  const handleUpdateCategoryOrder = async () => {
+    const orderInput = prompt('Enter categories in order separated by commas (e.g. GK, Math, English)', categoryOrder.join(', '));
+    if (orderInput === null) return;
+    
+    const newOrder = orderInput.split(',').map(s => s.trim()).filter(s => s !== '');
+    setIsUpdatingOrder(true);
+    try {
+      const response = await fetch('/api/admin/category-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await user?.getIdToken()}`
+        },
+        body: JSON.stringify({ order: newOrder })
+      });
+      if (response.ok) {
+        setCategoryOrder(newOrder);
+        alert('Category order updated successfully!');
+      } else {
+        throw new Error('Failed to update order');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error updating category order');
+    } finally {
+      setIsUpdatingOrder(false);
+    }
+  };
+
+  const filteredTests = tests.filter(test => {
+    const matchesSearch = test.title?.toLowerCase().includes(mockSearch.toLowerCase()) || 
+                          test.topic?.toLowerCase().includes(mockSearch.toLowerCase());
+    const matchesCategory = mockFilterCategory === 'All' || test.category === mockFilterCategory;
+    const matchesType = mockFilterType === 'All' || test.testType === mockFilterType;
+    return matchesSearch && matchesCategory && matchesType;
+  });
 
   const handleEditTest = (test: any) => {
     setEditingTestId(test.id);
@@ -1042,10 +1093,20 @@ function AdminHome() {
 
       {activeTab === 'mock' && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-2">
-            <span className="w-2 h-8 bg-indigo-600 rounded-full"></span>
-            Mock Test Management
-          </h2>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+              <span className="w-2 h-8 bg-indigo-600 rounded-full"></span>
+              Mock Test Management
+            </h2>
+            <button 
+              onClick={handleUpdateCategoryOrder}
+              disabled={isUpdatingOrder}
+              className="px-4 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-indigo-600 transition-all flex items-center gap-2 shadow-lg shadow-slate-200"
+            >
+              <LayoutDashboard className="w-3.5 h-3.5" />
+              {isUpdatingOrder ? 'Updating...' : 'Set Category Order'}
+            </button>
+          </div>
           
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
             <h3 className="text-lg font-bold text-slate-800 mb-6">{editingTestId ? 'Edit Mock Test' : 'Create New Mock Test'}</h3>
@@ -1088,6 +1149,12 @@ function AdminHome() {
                   <option value="Math">Math</option>
                   <option value="Reasoning">Reasoning</option>
                   <option value="Computer">Computer</option>
+                  <option value="Science">Science</option>
+                  <option value="History">History</option>
+                  <option value="Geography">Geography</option>
+                  <option value="Polity">Polity</option>
+                  <option value="Economics">Economics</option>
+                  <option value="Current Affairs">Current Affairs</option>
                 </select>
               </div>
               <div>
@@ -1149,6 +1216,39 @@ function AdminHome() {
             </form>
           </div>
 
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 mb-4 flex flex-wrap gap-4 items-center">
+            <div className="flex-1 min-w-[200px] relative">
+              <input 
+                type="text" 
+                placeholder="Search mock tests..." 
+                className="w-full bg-slate-50 border-none rounded-xl p-3 pl-10 text-sm font-medium focus:ring-2 focus:ring-indigo-500"
+                value={mockSearch}
+                onChange={e => setMockSearch(e.target.value)}
+              />
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            </div>
+            <select 
+              className="bg-slate-50 border-none rounded-xl p-3 text-sm font-bold text-slate-600 focus:ring-2 focus:ring-indigo-500"
+              value={mockFilterCategory}
+              onChange={e => setMockFilterCategory(e.target.value)}
+            >
+              <option value="All">All Categories</option>
+              {Array.from(new Set(tests.map(t => t.category).filter(Boolean))).map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+            <select 
+              className="bg-slate-50 border-none rounded-xl p-3 text-sm font-bold text-slate-600 focus:ring-2 focus:ring-indigo-500"
+              value={mockFilterType}
+              onChange={e => setMockFilterType(e.target.value)}
+            >
+              <option value="All">All Types</option>
+              <option value="topic">Topic Wise</option>
+              <option value="sectional">Sectional</option>
+              <option value="full">Full Mock</option>
+            </select>
+          </div>
+
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
             <table className="min-w-full divide-y divide-slate-100">
               <thead className="bg-slate-50/50">
@@ -1162,7 +1262,7 @@ function AdminHome() {
               </thead>
               <tbody className="bg-white divide-y divide-slate-50 relative">
                 {loading && <tr><td colSpan={5} className="px-8 py-10 text-center text-slate-400 font-bold">Fetching Tests...</td></tr>}
-                {!loading && tests.map(test => (
+                {!loading && filteredTests.map(test => (
                   <tr key={test.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-8 py-6 whitespace-nowrap text-sm font-bold text-slate-800">{test.title || 'Untitled'}</td>
                     <td className="px-8 py-6 whitespace-nowrap text-sm font-medium text-slate-500">
