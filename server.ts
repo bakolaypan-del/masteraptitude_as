@@ -8,7 +8,20 @@ import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
 
 // Initialize Gemini
-const googleGenAI = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY || "" });
+let _googleGenAI: any = null;
+function getGeminiClient() {
+  if (_googleGenAI) return _googleGenAI;
+  
+  const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_API_KEY;
+  if (!key) {
+    console.warn("[Gemini] No API key found in environment variables (GEMINI_API_KEY or GOOGLE_GENAI_API_KEY)");
+  } else {
+    console.log(`[Gemini] Initializing client with key starting with: ${key.substring(0, 6)}...`);
+  }
+  
+  _googleGenAI = new GoogleGenAI({ apiKey: key || "" });
+  return _googleGenAI;
+}
 
 // Global State
 let db: admin.firestore.Firestore | null = null;
@@ -175,7 +188,8 @@ app.use((req, res, next) => {
         return res.json(questions); // Fallback to English
       }
 
-      const response = await googleGenAI.models.generateContent({
+      const client = getGeminiClient();
+      const response = await client.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: `Translate this educational question array to ${targetLang}. Keep answer labels and formulas intact. Return ONLY valid JSON array: ${JSON.stringify(questions)}`,
         config: {
