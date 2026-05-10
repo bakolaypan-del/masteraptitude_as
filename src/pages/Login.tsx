@@ -88,26 +88,27 @@ export default function Login() {
     setError('');
 
     try {
-      // 1. Check if mobile already exists
-      const checkRes = await fetch('/api/auth/check-mobile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mobile: cleanPhone })
-      });
+      // 1. Optional: Check if mobile already exists (don't block if API fails)
+      try {
+        const checkRes = await fetch('/api/auth/check-mobile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mobile: cleanPhone })
+        });
 
-      if (!checkRes.ok) {
-        const errData = await checkRes.json().catch(() => ({}));
-        throw new Error(errData.error || 'Unable to verify mobile number. Please try again.');
+        if (checkRes.ok) {
+          const { exists } = await checkRes.json();
+          if (exists) {
+            setError('This mobile number is already registered. Please login.');
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (checkErr) {
+        console.warn('Pre-registration mobile check failed, proceeding to direct registration:', checkErr);
       }
 
-      const { exists } = await checkRes.json();
-      if (exists) {
-        setError('This mobile number is already registered.');
-        setLoading(false);
-        return;
-      }
-
-      // 2. Create Auth User
+      // 2. Create Auth User directly
       const pseudoEmail = getSyntheticEmail(cleanPhone);
       const userCredential = await createUserWithEmailAndPassword(auth, pseudoEmail, password);
       const newUser = userCredential.user;
@@ -127,10 +128,14 @@ export default function Login() {
       });
 
       setSuccess('Registration successful! Redirecting you...');
-      setTimeout(() => navigate('/dashboard'), 2000);
+      setTimeout(() => navigate('/dashboard'), 1500);
     } catch (err: any) {
       console.error('Registration error:', err);
-      setError(err.message || 'Registration service is currently unavailable.');
+      if (err.code === 'auth/email-already-in-use') {
+        setError('This mobile number is already registered. Please login.');
+      } else {
+        setError('Registration failed. Please check your internet and try again.');
+      }
     } finally {
       setLoading(false);
     }

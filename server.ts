@@ -11,8 +11,7 @@ import { GoogleGenAI } from "@google/genai";
 const googleGenAI = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY || "" });
 
 // Global State
-let db: FirebaseFirestore.Firestore | null = null;
-let profileDb: any = null;
+let db: admin.firestore.Firestore | null = null;
 
 /**
  * Robust Firebase Initialization
@@ -21,14 +20,13 @@ const getDb = () => {
   if (db) return db;
 
   try {
-    if (admin.apps.length === 0) {
-      const firebaseConfigPath = path.resolve(process.cwd(), "firebase-applet-config.json");
-      let config: any = {};
-      
-      if (fs.existsSync(firebaseConfigPath)) {
-        config = JSON.parse(fs.readFileSync(firebaseConfigPath, "utf-8"));
-      }
+    const firebaseConfigPath = path.resolve(process.cwd(), "firebase-applet-config.json");
+    let config: any = {};
+    if (fs.existsSync(firebaseConfigPath)) {
+      config = JSON.parse(fs.readFileSync(firebaseConfigPath, "utf-8"));
+    }
 
+    if (admin.apps.length === 0) {
       const serviceAccountStr = process.env.FIREBASE_SERVICE_ACCOUNT;
       
       if (serviceAccountStr) {
@@ -38,34 +36,21 @@ const getDb = () => {
             credential: admin.credential.cert(serviceAccount),
             projectId: config.projectId,
           });
-          console.log("[Firebase] Initialized with Service Account.");
         } catch (e) {
-          console.error("[Firebase] Service Account JSON parse failed. Using basic init.");
           admin.initializeApp({ projectId: config.projectId });
         }
       } else {
-        // Fallback for AI Studio preview / Local
         admin.initializeApp({
           credential: admin.credential.applicationDefault(),
           projectId: config.projectId,
         });
-        console.log("[Firebase] Initialized with Application Default.");
       }
-      
-      db = getFirestore(admin.app(), config.firestoreDatabaseId);
-    } else {
-      // Named database ID might be required for Enterprise edition
-      const firebaseConfigPath = path.resolve(process.cwd(), "firebase-applet-config.json");
-      let databaseId = undefined;
-      if (fs.existsSync(firebaseConfigPath)) {
-         const config = JSON.parse(fs.readFileSync(firebaseConfigPath, "utf-8"));
-         databaseId = config.firestoreDatabaseId;
-      }
-      db = getFirestore(admin.apps[0], databaseId);
     }
+    
+    db = getFirestore(admin.apps[0], config.firestoreDatabaseId || undefined);
     return db;
   } catch (error) {
-    console.error("[Firebase] Critical Initialization Error:", error);
+    console.error("[Firebase] Initialization Error:", error);
     return null;
   }
 };
