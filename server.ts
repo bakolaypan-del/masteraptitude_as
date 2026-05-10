@@ -5,6 +5,9 @@ import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 import cookieParser from "cookie-parser";
 import fs from "fs";
+import { GoogleGenAI } from "@google/genai";
+
+const googleGenAI = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY || "" });
 
 // Initialize Firebase Admin
 let db: any = null;
@@ -106,10 +109,6 @@ app.use(cookieParser());
 app.use((req, res, next) => {
   if (req.url.startsWith('/api')) {
     console.log(`[API Request] ${req.method} ${req.url}`);
-  } else if (process.env.VERCEL) {
-    // On Vercel, if the prefix is missing, restore it so that routes match
-    console.log(`[API Request - Vercel Fix] ${req.method} ${req.url} -> /api${req.url}`);
-    req.url = '/api' + req.url;
   }
   next();
 });
@@ -123,6 +122,37 @@ app.use((req, res, next) => {
       db: db ? "online" : "offline",
       apps: admin.apps.length
     });
+  });
+
+  // Translation endpoint
+  app.post("/api/translate", verifyToken, async (req, res) => {
+    const { questions, targetLang } = req.body;
+    if (!questions || !targetLang) return res.status(400).json({ error: "Missing data" });
+
+    try {
+      const response = await googleGenAI.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `Translate this array to ${targetLang}: ${JSON.stringify(questions)}`,
+        config: {
+          systemInstruction: `You are an expert educational translator.
+            Rules:
+            1. Maintain standard JSON structure.
+            2. Keep mathematical formulas, technical terms, and placeholders unchanged.
+            3. Provide the translation in the exact same index order.
+            4. Output ONLY the raw JSON array.`,
+          responseMimeType: "application/json"
+        }
+      });
+
+      const text = response.text;
+      if (!text) throw new Error("Empty response from AI");
+      
+      const translated = JSON.parse(text.trim());
+      res.json(translated);
+    } catch (error: any) {
+      console.error("[API] Translation failed:", error);
+      res.status(500).json({ error: "Translation failed", details: error.message });
+    }
   });
 
   // Get test and questions (without correct answer)

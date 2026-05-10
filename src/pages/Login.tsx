@@ -79,6 +79,11 @@ export default function Login() {
       setError('Invalid mobile number. Please enter a valid 10-digit number.');
       return;
     }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      return;
+    }
     
     setLoading(true);
     setError('');
@@ -201,6 +206,10 @@ export default function Login() {
     const cleanPhone = digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
     if (!cleanPhone || !password) {
       setError('Please provide mobile and new password');
+      return;
+    }
+    if (password.length < 6) {
+      setError('New password must be at least 6 characters long.');
       return;
     }
     setLoading(true);
@@ -337,6 +346,7 @@ export default function Login() {
                         <UserIcon size={18} />
                       </div>
                       <input
+                        id="full-name"
                         type="text"
                         required
                         value={fullName}
@@ -356,6 +366,7 @@ export default function Login() {
                         <UserIcon size={18} />
                       </div>
                       <input
+                        id="admin-email"
                         type="email"
                         required
                         value={email}
@@ -373,6 +384,7 @@ export default function Login() {
                         <Phone size={18} />
                       </div>
                       <input
+                        id="phone-number"
                         type="tel"
                         required
                         value={phoneNumber}
@@ -393,6 +405,7 @@ export default function Login() {
                       <Lock size={18} />
                     </div>
                     <input
+                      id="password"
                       type="password"
                       required
                       value={password}
