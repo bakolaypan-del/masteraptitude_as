@@ -100,12 +100,12 @@ export default function Login() {
 
         if (!checkRes.ok) {
           const errData = await checkRes.json().catch(() => ({}));
-          throw new Error(errData.error || 'Server is temporarily unable to verify mobile numbers. Please try again later.');
+          throw new Error(errData.error || 'Unable to verify mobile number. Please try again.');
         }
 
         const { exists } = await checkRes.json();
         if (exists) {
-          setError('This mobile number is already registered. Please go to the Login tab.');
+          setError('This mobile number is already registered.');
           setLoading(false);
           return;
         }
@@ -117,7 +117,10 @@ export default function Login() {
           body: JSON.stringify({ mobile: cleanPhone })
         });
 
-        if (!otpRes.ok) throw new Error('Failed to send verification code.');
+        if (!otpRes.ok) {
+          const errData = await otpRes.json().catch(() => ({}));
+          throw new Error(errData.error || 'Failed to send verification code.');
+        }
 
         setSuccess('Verification code sent to ' + cleanPhone);
         setStep('otp');

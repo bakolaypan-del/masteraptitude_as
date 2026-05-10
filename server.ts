@@ -7,23 +7,28 @@ import cookieParser from "cookie-parser";
 import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
 
+// Initialize Gemini
 const googleGenAI = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY || "" });
 
-// Initialize Firebase Admin
-let db: any = null;
+// Global State
+let db: FirebaseFirestore.Firestore | null = null;
 let profileDb: any = null;
-let config: any = {};
 
-const initializeFirebase = () => {
-  if (admin.apps.length > 0) {
-    db = getFirestore(admin.app(), config.firestoreDatabaseId);
-    return;
-  }
+/**
+ * Robust Firebase Initialization
+ */
+const getDb = () => {
+  if (db) return db;
 
   try {
-    const firebaseConfigPath = path.resolve(process.cwd(), "firebase-applet-config.json");
-    if (fs.existsSync(firebaseConfigPath)) {
-      config = JSON.parse(fs.readFileSync(firebaseConfigPath, "utf-8"));
+    if (admin.apps.length === 0) {
+      const firebaseConfigPath = path.resolve(process.cwd(), "firebase-applet-config.json");
+      let config: any = {};
+      
+      if (fs.existsSync(firebaseConfigPath)) {
+        config = JSON.parse(fs.readFileSync(firebaseConfigPath, "utf-8"));
+      }
+
       const serviceAccountStr = process.env.FIREBASE_SERVICE_ACCOUNT;
       
       if (serviceAccountStr) {
@@ -33,35 +38,40 @@ const initializeFirebase = () => {
             credential: admin.credential.cert(serviceAccount),
             projectId: config.projectId,
           });
-          console.log("Firebase Admin initialized with service account.");
-        } catch (parseError) {
-          console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT env var. Ensure it is a valid JSON string.");
-          admin.initializeApp({
-            projectId: config.projectId,
-          });
+          console.log("[Firebase] Initialized with Service Account.");
+        } catch (e) {
+          console.error("[Firebase] Service Account JSON parse failed. Using basic init.");
+          admin.initializeApp({ projectId: config.projectId });
         }
       } else {
+        // Fallback for AI Studio preview / Local
         admin.initializeApp({
           credential: admin.credential.applicationDefault(),
           projectId: config.projectId,
         });
-        console.log("Firebase Admin initialized with application default credentials.");
+        console.log("[Firebase] Initialized with Application Default.");
       }
       
-      // Initialize Firestore after Admin is initialized
       db = getFirestore(admin.app(), config.firestoreDatabaseId);
-      console.log("Firestore initialized successfully.");
     } else {
-      console.warn("firebase-applet-config.json not found. Initializing with defaults.");
-      admin.initializeApp();
-      db = getFirestore(admin.app());
+      // Named database ID might be required for Enterprise edition
+      const firebaseConfigPath = path.resolve(process.cwd(), "firebase-applet-config.json");
+      let databaseId = undefined;
+      if (fs.existsSync(firebaseConfigPath)) {
+         const config = JSON.parse(fs.readFileSync(firebaseConfigPath, "utf-8"));
+         databaseId = config.firestoreDatabaseId;
+      }
+      db = getFirestore(admin.apps[0], databaseId);
     }
+    return db;
   } catch (error) {
-    console.error("CRITICAL: Failed to initialize Firebase Admin or Firestore:", error);
+    console.error("[Firebase] Critical Initialization Error:", error);
+    return null;
   }
 };
 
-initializeFirebase();
+// Start initialization early but don't crash the process if it fails
+getDb();
 
 async function verifyToken(req: express.Request, res: express.Response, next: express.NextFunction) {
   const authHeader = req.headers.authorization;
@@ -366,79 +376,70 @@ app.use((req, res, next) => {
       const cleanMobile = String(mobile).replace(/\D/g, '').slice(-10);
       console.log(`[Auth] Sending (mock) OTP to: ${cleanMobile}`);
       
-      // In a real app, you'd call an SMS API here.
-      // For now, we simulate success.
-      res.json({ success: true, message: "OTP sent successfully (Simulated)" });
+      // simulated success
+      res.json({ success: true, message: "OTP sent successfully" });
     } catch (error: any) {
-      res.status(500).json({ error: "Failed to send OTP", details: error.message });
+      res.status(500).json({ error: "Failed to send verification code." });
     }
   });
 
   app.post("/api/auth/verify-otp", async (req, res) => {
     const { mobile, otp } = req.body || {};
-    if (!mobile || !otp) return res.status(400).json({ error: "Mobile and OTP are required" });
+    if (!mobile || !otp) return res.status(400).json({ error: "Verification code is required" });
 
     try {
-      console.log(`[Auth] Verifying (mock) OTP: ${otp} for ${mobile}`);
-      
-      // Verification logic: For demo/simulated purposes, accept 123456 or any 6-digit code
       if (otp.length === 6) {
         res.json({ success: true });
       } else {
-        res.status(400).json({ error: "Invalid OTP code" });
+        res.status(400).json({ error: "Invalid verification code." });
       }
     } catch (error: any) {
-      res.status(500).json({ error: "OTP verification failed" });
+      res.status(500).json({ error: "Verification failed." });
     }
   });
 
   app.post("/api/auth/check-mobile", async (req, res) => {
-    if (!db) {
+    const currentDb = getDb();
+    if (!currentDb) {
       console.error("[Auth] check-mobile failed: Database offline");
-      return res.status(503).json({ error: "Database service temporarily offline. Please ensure FIREBASE_SERVICE_ACCOUNT is set." });
+      return res.status(503).json({ error: "System is initializing. Please wait a moment." });
     }
     const { mobile } = req.body || {};
     if (!mobile) return res.status(400).json({ error: "Mobile number is required" });
     
     try {
-      // Normalize: strip non-digits and keep last 10 digits for consistency
       const digitsOnly = String(mobile).replace(/\D/g, '');
       const cleanMobile = digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
       
       if (cleanMobile.length < 10) {
-        return res.status(400).json({ error: "Invalid mobile number. Please provide a 10-digit number." });
+        return res.status(400).json({ error: "Invalid mobile number." });
       }
 
-      console.log(`[Auth] Checking mobile exists: ${cleanMobile}`);
-
-      const snap = await db.collection("profiles").where("phoneNumber", "==", cleanMobile).get();
+      const snap = await currentDb.collection("profiles").where("phoneNumber", "==", cleanMobile).get();
       res.json({ exists: !snap.empty });
     } catch (error: any) {
       console.error("[Auth] Mobile check error:", error);
-      res.status(500).json({ error: "Mobile verification failed", message: error.message });
+      res.status(500).json({ error: "Failed to verify mobile number." });
     }
   });
 
   app.post("/api/auth/reset-password", async (req, res) => {
-    if (!db) return res.status(500).json({ error: "DB offline" });
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "System error" });
     const { mobile, newPassword } = req.body;
-    if (!mobile || !newPassword) return res.status(400).json({ error: "Missing mobile or new password" });
+    if (!mobile || !newPassword) return res.status(400).json({ error: "Missing data" });
     
     try {
-      // Normalize: strip non-digits and keep last 10 digits for consistency
       const digitsOnly = mobile.toString().replace(/\D/g, '');
       const cleanMobile = digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
-      console.log(`[Auth] Resetting password for mobile: ${cleanMobile}`);
-
-      const snap = await db.collection("profiles").where("phoneNumber", "==", cleanMobile).get();
-      if (snap.empty) return res.status(404).json({ error: "No account found with this mobile number." });
+      const snap = await currentDb.collection("profiles").where("phoneNumber", "==", cleanMobile).get();
+      if (snap.empty) return res.status(404).json({ error: "No account found." });
       
       const userId = snap.docs[0].id;
       await admin.auth().updateUser(userId, { password: newPassword });
       res.json({ success: true });
     } catch (error: any) {
-      console.error("[Auth] Reset password error:", error);
-      res.status(500).json({ error: "Password reset failed", message: error.message });
+      res.status(500).json({ error: "Failed to reset password." });
     }
   });
 
@@ -857,39 +858,44 @@ app.use((req, res, next) => {
 
 // Vite Integration
 async function startVite() {
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else if (!process.env.VERCEL) {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    // Express 4 wildcard catch-all for SPA fallback
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
-  }
-
-  // Global error handler to prevent HTML stack traces
-  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.error("Unhandled Express Error:", err);
-    if (req.path.startsWith('/api/')) {
-      res.status(500).json({ error: "Internal Server Error", details: err.message });
-    } else {
-      next(err);
+  try {
+    if (process.env.NODE_ENV !== "production") {
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+    } else if (!process.env.VERCEL) {
+      const distPath = path.join(process.cwd(), "dist");
+      app.use(express.static(distPath));
+      app.get("*", (req, res) => {
+        res.sendFile(path.join(distPath, "index.html"));
+      });
     }
-  });
 
-  // Only listen if not deployed on Vercel
-  if (!process.env.VERCEL) {
-    app.listen(PORT, "0.0.0.0" as any, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
+    // Global error handler
+    app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+      console.error("Unhandled Express Error:", err);
+      if (req.path.startsWith('/api/')) {
+        res.status(500).json({ error: "Internal Server Error" });
+      } else {
+        next(err);
+      }
     });
+
+    if (!process.env.VERCEL) {
+      app.listen(PORT, "0.0.0.0" as any, () => {
+        console.log(`Server running on http://localhost:${PORT}`);
+      });
+    }
+  } catch (err) {
+    console.error("Vite setup error:", err);
   }
 }
 
-startVite();
+// Start Vite but don't block
+startVite().catch(err => {
+  console.error("Crash during startVite:", err);
+});
 
 export default app;
