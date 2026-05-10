@@ -368,36 +368,6 @@ app.use((req, res, next) => {
   });
 
   // Auth Helpers for students
-  app.post("/api/auth/send-otp", async (req, res) => {
-    const { mobile } = req.body || {};
-    if (!mobile) return res.status(400).json({ error: "Mobile number is required" });
-    
-    try {
-      const cleanMobile = String(mobile).replace(/\D/g, '').slice(-10);
-      console.log(`[Auth] Sending (mock) OTP to: ${cleanMobile}`);
-      
-      // simulated success
-      res.json({ success: true, message: "OTP sent successfully" });
-    } catch (error: any) {
-      res.status(500).json({ error: "Failed to send verification code." });
-    }
-  });
-
-  app.post("/api/auth/verify-otp", async (req, res) => {
-    const { mobile, otp } = req.body || {};
-    if (!mobile || !otp) return res.status(400).json({ error: "Verification code is required" });
-
-    try {
-      if (otp.length === 6) {
-        res.json({ success: true });
-      } else {
-        res.status(400).json({ error: "Invalid verification code." });
-      }
-    } catch (error: any) {
-      res.status(500).json({ error: "Verification failed." });
-    }
-  });
-
   app.post("/api/auth/check-mobile", async (req, res) => {
     const currentDb = getDb();
     if (!currentDb) {

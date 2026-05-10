@@ -14,12 +14,10 @@ export default function Login() {
   const navigate = useNavigate();
   
   const [mode, setMode] = useState<AuthMode>('login');
-  const [step, setStep] = useState<'details' | 'otp'>('details');
   const [isAdminLogin, setIsAdminLogin] = useState(false);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [otp, setOtp] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -71,110 +69,70 @@ export default function Login() {
     const digitsOnly = phoneNumber.replace(/\D/g, '');
     const cleanPhone = digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
     
-    if (step === 'details') {
-      if (!fullName.trim() || !cleanPhone || !password) {
-        setError('All fields are mandatory for registration.');
-        return;
+    if (!fullName.trim() || !cleanPhone || !password) {
+      setError('All fields are mandatory for registration.');
+      return;
+    }
+    
+    if (cleanPhone.length < 10) {
+      setError('Please enter a valid 10-digit mobile number.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long for your security.');
+      return;
+    }
+    
+    setLoading(true);
+    setError('');
+
+    try {
+      // 1. Check if mobile already exists
+      const checkRes = await fetch('/api/auth/check-mobile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mobile: cleanPhone })
+      });
+
+      if (!checkRes.ok) {
+        const errData = await checkRes.json().catch(() => ({}));
+        throw new Error(errData.error || 'Unable to verify mobile number. Please try again.');
       }
-      
-      if (cleanPhone.length < 10) {
-        setError('Please enter a valid 10-digit mobile number.');
-        return;
-      }
 
-      if (password.length < 6) {
-        setError('Password must be at least 6 characters long for your security.');
-        return;
-      }
-      
-      setLoading(true);
-      setError('');
-
-      try {
-        // 1. Check if mobile already exists
-        const checkRes = await fetch('/api/auth/check-mobile', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mobile: cleanPhone })
-        });
-
-        if (!checkRes.ok) {
-          const errData = await checkRes.json().catch(() => ({}));
-          throw new Error(errData.error || 'Unable to verify mobile number. Please try again.');
-        }
-
-        const { exists } = await checkRes.json();
-        if (exists) {
-          setError('This mobile number is already registered.');
-          setLoading(false);
-          return;
-        }
-
-        // 2. Send (mock) OTP
-        const otpRes = await fetch('/api/auth/send-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mobile: cleanPhone })
-        });
-
-        if (!otpRes.ok) {
-          const errData = await otpRes.json().catch(() => ({}));
-          throw new Error(errData.error || 'Failed to send verification code.');
-        }
-
-        setSuccess('Verification code sent to ' + cleanPhone);
-        setStep('otp');
-      } catch (err: any) {
-        setError(err.message || 'Registration service is currently unavailable.');
-      } finally {
+      const { exists } = await checkRes.json();
+      if (exists) {
+        setError('This mobile number is already registered.');
         setLoading(false);
-      }
-    } else if (step === 'otp') {
-      if (otp.length < 6) {
-        setError('Please enter the 6-digit verification code.');
         return;
       }
 
-      setLoading(true);
-      setError('');
+      // 2. Create Auth User
+      const pseudoEmail = getSyntheticEmail(cleanPhone);
+      const userCredential = await createUserWithEmailAndPassword(auth, pseudoEmail, password);
+      const newUser = userCredential.user;
 
-      try {
-        // 1. Verify OTP
-        const verifyRes = await fetch('/api/auth/verify-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mobile: cleanPhone, otp })
-        });
+      // 3. Create Profile
+      const profileRef = doc(db, 'profiles', newUser.uid);
+      await setDoc(profileRef, {
+        name: fullName.trim(),
+        phoneNumber: cleanPhone,
+        email: pseudoEmail,
+        role: 'user',
+        registrationDate: new Date().toISOString(),
+        totalTestsTaken: 0,
+        cumulativeScore: 0,
+        globalRank: 0,
+        createdAt: Date.now()
+      });
 
-        if (!verifyRes.ok) throw new Error('Invalid verification code. Please try again.');
-
-        // 2. Create Auth User
-        const pseudoEmail = getSyntheticEmail(cleanPhone);
-        const userCredential = await createUserWithEmailAndPassword(auth, pseudoEmail, password);
-        const newUser = userCredential.user;
-
-        // 3. Create Profile
-        const profileRef = doc(db, 'profiles', newUser.uid);
-        await setDoc(profileRef, {
-          name: fullName.trim(),
-          phoneNumber: cleanPhone,
-          email: pseudoEmail,
-          role: 'user',
-          registrationDate: new Date().toISOString(),
-          totalTestsTaken: 0,
-          cumulativeScore: 0,
-          globalRank: 0,
-          createdAt: Date.now()
-        });
-
-        setSuccess('Registration successful! Redirecting you...');
-        setTimeout(() => navigate('/dashboard'), 2000);
-      } catch (err: any) {
-        console.error('Final registration error:', err);
-        setError(err.message || 'Failed to complete registration.');
-      } finally {
-        setLoading(false);
-      }
+      setSuccess('Registration successful! Redirecting you...');
+      setTimeout(() => navigate('/dashboard'), 2000);
+    } catch (err: any) {
+      console.error('Registration error:', err);
+      setError(err.message || 'Registration service is currently unavailable.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -350,7 +308,7 @@ export default function Login() {
               )}
 
               <form className="space-y-6" onSubmit={mode === 'login' ? handleLogin : mode === 'register' ? handleRegister : handleResetPassword}>
-                {mode === 'register' && step === 'details' && (
+                {mode === 'register' && (
                   <>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Full Name</label>
@@ -404,35 +362,6 @@ export default function Login() {
                       </div>
                     </div>
                   </>
-                )}
-
-                {mode === 'register' && step === 'otp' && (
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Verification Code (OTP)</label>
-                    <div className="mt-1 relative group">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                        <KeyRound size={18} />
-                      </div>
-                      <input
-                        id="otp-input"
-                        type="text"
-                        required
-                        maxLength={6}
-                        value={otp}
-                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                        className="appearance-none block w-full pl-10 px-3 py-3 border border-slate-200 rounded-xl shadow-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent sm:text-sm font-medium text-center tracking-[0.5em]"
-                        placeholder="123456"
-                      />
-                    </div>
-                    <p className="mt-2 text-[10px] text-slate-400 font-bold uppercase text-center">Enter the 6-digit code sent to your mobile</p>
-                    <button 
-                      type="button"
-                      onClick={() => setStep('details')}
-                      className="mt-4 w-full text-xs font-bold text-indigo-600 hover:text-indigo-500"
-                    >
-                      Wait, change my details
-                    </button>
-                  </div>
                 )}
 
                 {mode === 'login' && (
