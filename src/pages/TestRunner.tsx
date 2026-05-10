@@ -38,8 +38,11 @@ export default function TestRunner() {
   useEffect(() => {
     async function loadTest() {
       if (!user) return;
+      setLoading(true);
+      setError('');
       try {
         const token = await user.getIdToken();
+        console.log(`[TestRunner] Loading test content for: ${testId}`);
         const res = await fetch(`/api/test/${testId}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -48,28 +51,39 @@ export default function TestRunner() {
         if (!res.ok) {
           if (contentType && contentType.includes("application/json")) {
             const errorData = await res.json();
-            throw new Error(errorData.error || errorData.message || 'Failed to load test data');
+            throw new Error(errorData.message || errorData.error || 'Failed to load test data');
           } else {
             const text = await res.text();
             console.error("Non-JSON error from server:", text);
-            throw new Error(`Server returned an error (${res.status}). Please try again later.`);
+            if (res.status === 500) {
+              throw new Error(`Server encountered an internal error (500). This often happens during high traffic or configuration issues. Please try again in a few minutes.`);
+            } else if (res.status === 503) {
+              throw new Error(`The database is currently offline or initializing. Please wait a moment and refresh.`);
+            }
+            throw new Error(`Server returned an error (${res.status}). Please contact support if this persists.`);
           }
         }
         
         if (!contentType || !contentType.includes("application/json")) {
-           throw new Error("Server returned invalid response format. Please refresh and try again.");
+           throw new Error("The server sent an unexpected response format. Please refresh the page.");
         }
 
         const data = await res.json();
+        if (data.success === false) {
+          throw new Error(data.message || 'Failed to initialize test session.');
+        }
+
         setTest(data.test);
-        setQuestions(data.questions);
-        setOriginalQuestions(data.questions);
-        if (data.questions.length > 0) {
+        setQuestions(data.questions || []);
+        setOriginalQuestions(data.questions || []);
+        if (data.questions && data.questions.length > 0) {
            setVisited(new Set([data.questions[0].id]));
+        } else {
+          setError("This test currently has no questions. Please contact your administrator.");
         }
         
         // Use test duration from DB, or fallback to 30 mins
-        const durationMins = data.test.duration || 30;
+        const durationMins = data.test?.duration || 30;
         setTimeLeft(Math.floor(durationMins * 60));
       } catch (err: any) {
         console.error("Load test error:", err);

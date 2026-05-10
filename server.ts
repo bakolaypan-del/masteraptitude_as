@@ -23,7 +23,11 @@ const getDb = () => {
     const firebaseConfigPath = path.resolve(process.cwd(), "firebase-applet-config.json");
     let config: any = {};
     if (fs.existsSync(firebaseConfigPath)) {
-      config = JSON.parse(fs.readFileSync(firebaseConfigPath, "utf-8"));
+      try {
+        config = JSON.parse(fs.readFileSync(firebaseConfigPath, "utf-8"));
+      } catch (err) {
+        console.error("[Firebase] Failed to parse config file:", err);
+      }
     }
 
     if (admin.apps.length === 0) {
@@ -36,21 +40,34 @@ const getDb = () => {
             credential: admin.credential.cert(serviceAccount),
             projectId: config.projectId,
           });
+          console.log("[Firebase] Initialized with Service Account");
         } catch (e) {
+          console.error("[Firebase] Service Account parse failed, trying default initialization:", e);
           admin.initializeApp({ projectId: config.projectId });
         }
       } else {
-        admin.initializeApp({
-          credential: admin.credential.applicationDefault(),
-          projectId: config.projectId,
-        });
+        // Safe fallback for local or env-based secondary auth
+        try {
+          admin.initializeApp({
+            credential: admin.credential.applicationDefault(),
+            projectId: config.projectId,
+          });
+          console.log("[Firebase] Initialized with Application Default");
+        } catch (e) {
+          console.warn("[Firebase] Default initialization failed, using project ID fallback");
+          admin.initializeApp({ projectId: config.projectId });
+        }
       }
     }
     
-    db = getFirestore(admin.apps[0], config.firestoreDatabaseId || undefined);
+    if (admin.apps.length > 0) {
+      db = getFirestore(admin.apps[0], config.firestoreDatabaseId || undefined);
+    } else {
+      console.error("[Firebase] No apps initialized");
+    }
     return db;
   } catch (error) {
-    console.error("[Firebase] Initialization Error:", error);
+    console.error("[Firebase] Serious Initialization Error:", error);
     return null;
   }
 };
@@ -146,17 +163,28 @@ app.use((req, res, next) => {
     const { questions, targetLang } = req.body;
     if (!questions || !targetLang) return res.status(400).json({ error: "Missing data" });
 
+    // Safety fallback: If too many questions, don't crash, just return original
+    if (!Array.isArray(questions) || questions.length > 100) {
+      console.warn(`[API] Translation skipped: Too many questions (${questions?.length})`);
+      return res.json(questions); 
+    }
+
     try {
+      if (!process.env.GOOGLE_GENAI_API_KEY && !process.env.GEMINI_API_KEY) {
+        console.error("[API] Translation failed: No API key configured");
+        return res.json(questions); // Fallback to English
+      }
+
       const response = await googleGenAI.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `Translate this array to ${targetLang}: ${JSON.stringify(questions)}`,
+        contents: `Translate this educational question array to ${targetLang}. Keep answer labels and formulas intact. Return ONLY valid JSON array: ${JSON.stringify(questions)}`,
         config: {
           systemInstruction: `You are an expert educational translator.
             Rules:
-            1. Maintain standard JSON structure.
+            1. Maintain EXACT JSON structure and keys.
             2. Keep mathematical formulas, technical terms, and placeholders unchanged.
             3. Provide the translation in the exact same index order.
-            4. Output ONLY the raw JSON array.`,
+            4. Output ONLY the raw JSON array. No markup or explanation.`,
           responseMimeType: "application/json"
         }
       });
@@ -164,29 +192,47 @@ app.use((req, res, next) => {
       const text = response.text;
       if (!text) throw new Error("Empty response from AI");
       
-      const translated = JSON.parse(text.trim());
-      res.json(translated);
+      try {
+        const translated = JSON.parse(text.trim());
+        res.json(translated);
+      } catch (parseErr) {
+        console.error("[API] Failed to parse translation JSON:", text);
+        res.json(questions); // Fallback
+      }
     } catch (error: any) {
       console.error("[API] Translation failed:", error);
-      res.status(500).json({ error: "Translation failed", details: error.message });
+      // fallback to original questions so student can still test
+      res.json(questions);
     }
   });
 
   // Get test and questions (without correct answer)
   app.get("/api/test/:testId", verifyToken, async (req, res) => {
-    const currentDb = getDb();
-    if (!currentDb) return res.status(500).json({ error: "Database offline" });
     const { testId } = req.params;
+    console.log(`[API] Loading test: ${testId}`);
+
+    const currentDb = getDb();
+    if (!currentDb) {
+      return res.status(503).json({ 
+        success: false, 
+        error: "Database offline", 
+        message: "The database is currently initializing. Please try again in a few seconds." 
+      });
+    }
     
     try {
       const testSnap = await currentDb.collection("tests").doc(testId).get();
       if (!testSnap.exists) {
-        return res.status(404).json({ error: "Test not found" });
+        return res.status(404).json({ success: false, error: "Test not found" });
       }
       
       const testData = { id: testSnap.id, ...testSnap.data() };
       
-      const questionsSnap = await currentDb.collection("questions").where("testId", "==", testId).get();
+      const questionsSnap = await currentDb.collection("questions")
+        .where("testId", "==", testId)
+        .limit(200) // Safety limit to avoid huge responses/timeouts
+        .get();
+        
       const questions = questionsSnap.docs.map(doc => {
         const data = doc.data();
         // **STRIP correctAnswer**
@@ -194,10 +240,16 @@ app.use((req, res, next) => {
         return { id: doc.id, ...safeData };
       });
       
-      res.json({ test: testData, questions });
+      console.log(`[API] Successfully loaded ${questions.length} questions for test ${testId}`);
+      res.json({ success: true, test: testData, questions });
     } catch (error: any) {
       console.error("[API] Failed to fetch test:", error);
-      res.status(500).json({ error: "Failed to load mock test", details: error.message });
+      res.status(500).json({ 
+        success: false, 
+        error: "Failed to load mock test", 
+        message: "A server error occurred while fetching questions.",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined 
+      });
     }
   });
 
