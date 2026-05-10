@@ -14,10 +14,12 @@ export default function Login() {
   const navigate = useNavigate();
   
   const [mode, setMode] = useState<AuthMode>('login');
+  const [step, setStep] = useState<'details' | 'otp'>('details');
   const [isAdminLogin, setIsAdminLogin] = useState(false);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [otp, setOtp] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -65,104 +67,111 @@ export default function Login() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Normalize phone number: strip non-digits and keep last 10 digits for consistency
+    // Normalize phone number
     const digitsOnly = phoneNumber.replace(/\D/g, '');
     const cleanPhone = digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
     
-    if (!fullName.trim() || !cleanPhone || !password) {
-      setError('Please fill all fields');
-      return;
-    }
-    
-    // Validate length (Indian standard is 10 digits)
-    if (cleanPhone.length < 10) {
-      setError('Invalid mobile number. Please enter a valid 10-digit number.');
-      return;
-    }
-
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters long.');
-      return;
-    }
-    
-    setLoading(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      console.log('Registering with mobile:', cleanPhone);
+    if (step === 'details') {
+      if (!fullName.trim() || !cleanPhone || !password) {
+        setError('All fields are mandatory for registration.');
+        return;
+      }
       
-      // 1. Check if mobile already exists in DB
-      let checkRes;
+      if (cleanPhone.length < 10) {
+        setError('Please enter a valid 10-digit mobile number.');
+        return;
+      }
+
+      if (password.length < 6) {
+        setError('Password must be at least 6 characters long for your security.');
+        return;
+      }
+      
+      setLoading(true);
+      setError('');
+
       try {
-        checkRes = await fetch('/api/auth/check-mobile', {
+        // 1. Check if mobile already exists
+        const checkRes = await fetch('/api/auth/check-mobile', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ mobile: cleanPhone })
         });
-      } catch (fetchErr) {
-        throw new Error('Network error. Please check your internet connection and try again.');
-      }
 
-      if (!checkRes.ok) {
-        const errorText = await checkRes.text();
-        console.error('Check mobile service error:', checkRes.status, errorText);
-        
-        let errorMsg = `Server error (${checkRes.status}). Please try again later.`;
-        try {
-          const errorJson = JSON.parse(errorText);
-          errorMsg = errorJson.error || errorJson.message || errorMsg;
-        } catch (e) {
-          // If HTML returned, errorText might be long, slice it
-          if (errorText.includes('<!DOCTYPE') || errorText.includes('<html')) {
-             errorMsg = `Server returned an unexpected response (HTML). Likely a configuration issue.`;
-          } else {
-             errorMsg = errorText.substring(0, 100) || errorMsg;
-          }
+        if (!checkRes.ok) {
+          const errData = await checkRes.json().catch(() => ({}));
+          throw new Error(errData.error || 'Server is temporarily unable to verify mobile numbers. Please try again later.');
         }
-        throw new Error(errorMsg);
-      }
 
-      const data = await checkRes.json().catch(() => {
-        throw new Error('Server returned an invalid response. Technical details: Malformed JSON.');
-      });
-      
-      if (data.exists) {
-        setError('This mobile number is already registered. Please go to the Login tab.');
+        const { exists } = await checkRes.json();
+        if (exists) {
+          setError('This mobile number is already registered. Please go to the Login tab.');
+          setLoading(false);
+          return;
+        }
+
+        // 2. Send (mock) OTP
+        const otpRes = await fetch('/api/auth/send-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mobile: cleanPhone })
+        });
+
+        if (!otpRes.ok) throw new Error('Failed to send verification code.');
+
+        setSuccess('Verification code sent to ' + cleanPhone);
+        setStep('otp');
+      } catch (err: any) {
+        setError(err.message || 'Registration service is currently unavailable.');
+      } finally {
         setLoading(false);
+      }
+    } else if (step === 'otp') {
+      if (otp.length < 6) {
+        setError('Please enter the 6-digit verification code.');
         return;
       }
 
-      // 2. Create Firebase Auth user
-      const pseudoEmail = getSyntheticEmail(cleanPhone);
-      const userCredential = await createUserWithEmailAndPassword(auth, pseudoEmail, password);
-      const newUser = userCredential.user;
+      setLoading(true);
+      setError('');
 
-      // 3. Create Profile in Firestore
-      const profileRef = doc(db, 'profiles', newUser.uid);
-      await setDoc(profileRef, {
-        name: fullName.trim(),
-        phoneNumber: cleanPhone,
-        email: pseudoEmail,
-        role: 'user',
-        registrationDate: new Date().toISOString(),
-        totalTestsTaken: 0,
-        cumulativeScore: 0,
-        globalRank: 0,
-        createdAt: Date.now()
-      });
+      try {
+        // 1. Verify OTP
+        const verifyRes = await fetch('/api/auth/verify-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mobile: cleanPhone, otp })
+        });
 
-      setSuccess('Registration successful! Redirecting to Dashboard...');
-      setTimeout(() => navigate('/dashboard'), 2000);
-    } catch (err: any) {
-      console.error('Registration error:', err);
-      if (err.code === 'auth/email-already-in-use') {
-        setError('This mobile number is already in use by another account. Please try logging in.');
-      } else {
-        setError(err.message || 'An unexpected error occurred during registration.');
+        if (!verifyRes.ok) throw new Error('Invalid verification code. Please try again.');
+
+        // 2. Create Auth User
+        const pseudoEmail = getSyntheticEmail(cleanPhone);
+        const userCredential = await createUserWithEmailAndPassword(auth, pseudoEmail, password);
+        const newUser = userCredential.user;
+
+        // 3. Create Profile
+        const profileRef = doc(db, 'profiles', newUser.uid);
+        await setDoc(profileRef, {
+          name: fullName.trim(),
+          phoneNumber: cleanPhone,
+          email: pseudoEmail,
+          role: 'user',
+          registrationDate: new Date().toISOString(),
+          totalTestsTaken: 0,
+          cumulativeScore: 0,
+          globalRank: 0,
+          createdAt: Date.now()
+        });
+
+        setSuccess('Registration successful! Redirecting you...');
+        setTimeout(() => navigate('/dashboard'), 2000);
+      } catch (err: any) {
+        console.error('Final registration error:', err);
+        setError(err.message || 'Failed to complete registration.');
+      } finally {
+        setLoading(false);
       }
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -338,83 +347,189 @@ export default function Login() {
               )}
 
               <form className="space-y-6" onSubmit={mode === 'login' ? handleLogin : mode === 'register' ? handleRegister : handleResetPassword}>
-                {mode === 'register' && (
+                {mode === 'register' && step === 'details' && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Full Name</label>
+                      <div className="mt-1 relative group">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                          <UserIcon size={18} />
+                        </div>
+                        <input
+                          id="full-name"
+                          type="text"
+                          required
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                          className="appearance-none block w-full pl-10 px-3 py-3 border border-slate-200 rounded-xl shadow-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent sm:text-sm font-medium"
+                          placeholder="John Doe"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Mobile Number</label>
+                      <div className="mt-1 relative group">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                          <Phone size={18} />
+                        </div>
+                        <input
+                          id="phone-number"
+                          type="tel"
+                          required
+                          value={phoneNumber}
+                          onChange={(e) => setPhoneNumber(e.target.value)}
+                          className="appearance-none block w-full pl-10 px-3 py-3 border border-slate-200 rounded-xl shadow-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent sm:text-sm font-medium"
+                          placeholder="Enter mobile number"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Password</label>
+                      <div className="mt-1 relative group">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                          <Lock size={18} />
+                        </div>
+                        <input
+                          id="password-reg"
+                          type="password"
+                          required
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="appearance-none block w-full pl-10 px-3 py-3 border border-slate-200 rounded-xl shadow-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent sm:text-sm font-medium"
+                          placeholder="••••••••"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {mode === 'register' && step === 'otp' && (
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Full Name</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Verification Code (OTP)</label>
                     <div className="mt-1 relative group">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                        <UserIcon size={18} />
+                        <KeyRound size={18} />
                       </div>
                       <input
-                        id="full-name"
+                        id="otp-input"
                         type="text"
                         required
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        className="appearance-none block w-full pl-10 px-3 py-3 border border-slate-200 rounded-xl shadow-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent sm:text-sm font-medium"
-                        placeholder="John Doe"
+                        maxLength={6}
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                        className="appearance-none block w-full pl-10 px-3 py-3 border border-slate-200 rounded-xl shadow-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent sm:text-sm font-medium text-center tracking-[0.5em]"
+                        placeholder="123456"
                       />
                     </div>
+                    <p className="mt-2 text-[10px] text-slate-400 font-bold uppercase text-center">Enter the 6-digit code sent to your mobile</p>
+                    <button 
+                      type="button"
+                      onClick={() => setStep('details')}
+                      className="mt-4 w-full text-xs font-bold text-indigo-600 hover:text-indigo-500"
+                    >
+                      Wait, change my details
+                    </button>
                   </div>
                 )}
 
-                {isAdminLogin && (mode === 'login') ? (
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Admin Email</label>
-                    <div className="mt-1 relative group">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                        <UserIcon size={18} />
+                {mode === 'login' && (
+                  <>
+                    {isAdminLogin ? (
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Admin Email</label>
+                        <div className="mt-1 relative group">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                            <UserIcon size={18} />
+                          </div>
+                          <input
+                            id="admin-email"
+                            type="email"
+                            required
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="appearance-none block w-full pl-10 px-3 py-3 border border-slate-200 rounded-xl shadow-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent sm:text-sm font-medium"
+                            placeholder="admin@example.com"
+                          />
+                        </div>
                       </div>
-                      <input
-                        id="admin-email"
-                        type="email"
-                        required
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="appearance-none block w-full pl-10 px-3 py-3 border border-slate-200 rounded-xl shadow-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent sm:text-sm font-medium"
-                        placeholder="admin@example.com"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Mobile Number</label>
-                    <div className="mt-1 relative group">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                        <Phone size={18} />
+                    ) : (
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Mobile Number</label>
+                        <div className="mt-1 relative group">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                            <Phone size={18} />
+                          </div>
+                          <input
+                            id="phone-number-login"
+                            type="tel"
+                            required
+                            value={phoneNumber}
+                            onChange={(e) => setPhoneNumber(e.target.value)}
+                            className="appearance-none block w-full pl-10 px-3 py-3 border border-slate-200 rounded-xl shadow-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent sm:text-sm font-medium"
+                            placeholder="Enter mobile number"
+                          />
+                        </div>
                       </div>
-                      <input
-                        id="phone-number"
-                        type="tel"
-                        required
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                        className="appearance-none block w-full pl-10 px-3 py-3 border border-slate-200 rounded-xl shadow-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent sm:text-sm font-medium"
-                        placeholder="Enter mobile number"
-                      />
+                    )}
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Password</label>
+                      <div className="mt-1 relative group">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                          <Lock size={18} />
+                        </div>
+                        <input
+                          id="password-login"
+                          type="password"
+                          required
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="appearance-none block w-full pl-10 px-3 py-3 border border-slate-200 rounded-xl shadow-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent sm:text-sm font-medium"
+                          placeholder="••••••••"
+                        />
+                      </div>
                     </div>
-                  </div>
+                  </>
                 )}
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                    {mode === 'forgot' ? 'New Password' : 'Password'}
-                  </label>
-                  <div className="mt-1 relative group">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                      <Lock size={18} />
+                {mode === 'forgot' && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Mobile Number</label>
+                      <div className="mt-1 relative group">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                          <Phone size={18} />
+                        </div>
+                        <input
+                          id="phone-number-forgot"
+                          type="tel"
+                          required
+                          value={phoneNumber}
+                          onChange={(e) => setPhoneNumber(e.target.value)}
+                          className="appearance-none block w-full pl-10 px-3 py-3 border border-slate-200 rounded-xl shadow-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent sm:text-sm font-medium"
+                          placeholder="Enter registered mobile"
+                        />
+                      </div>
                     </div>
-                    <input
-                      id="password"
-                      type="password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="appearance-none block w-full pl-10 px-3 py-3 border border-slate-200 rounded-xl shadow-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent sm:text-sm font-medium"
-                      placeholder="••••••••"
-                    />
-                  </div>
-                </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">New Password</label>
+                      <div className="mt-1 relative group">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                          <Lock size={18} />
+                        </div>
+                        <input
+                          id="password-forgot"
+                          type="password"
+                          required
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="appearance-none block w-full pl-10 px-3 py-3 border border-slate-200 rounded-xl shadow-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent sm:text-sm font-medium"
+                          placeholder="••••••••"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {mode === 'login' && (
                   <div className="flex items-center justify-end">

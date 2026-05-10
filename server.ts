@@ -11,42 +11,57 @@ const googleGenAI = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENAI_API_KEY |
 
 // Initialize Firebase Admin
 let db: any = null;
+let profileDb: any = null;
 let config: any = {};
 
-try {
-  const firebaseConfigPath = path.resolve(process.cwd(), "firebase-applet-config.json");
-  if (fs.existsSync(firebaseConfigPath)) {
-    config = JSON.parse(fs.readFileSync(firebaseConfigPath, "utf-8"));
-    const serviceAccountStr = process.env.FIREBASE_SERVICE_ACCOUNT;
-    
-    if (serviceAccountStr) {
-      admin.initializeApp({
-        credential: admin.credential.cert(JSON.parse(serviceAccountStr)),
-        projectId: config.projectId,
-      });
-      console.log("Firebase Admin initialized with service account.");
-    } else {
-      admin.initializeApp({
-        credential: admin.credential.applicationDefault(),
-        projectId: config.projectId,
-      });
-      console.log("Firebase Admin initialized with application default credentials.");
-    }
-    
-    // Initialize Firestore after Admin is initialized
+const initializeFirebase = () => {
+  if (admin.apps.length > 0) {
     db = getFirestore(admin.app(), config.firestoreDatabaseId);
-    console.log("Firestore initialized successfully.");
-  } else {
-    // Basic initialization for cases where config file is missing
-    admin.initializeApp({
-        credential: admin.credential.applicationDefault()
-    });
-    db = getFirestore(admin.app());
-    console.log("Firebase Admin & Firestore initialized with basic application default credentials.");
+    return;
   }
-} catch (error) {
-  console.error("Failed to initialize Firebase Admin or Firestore:", error);
-}
+
+  try {
+    const firebaseConfigPath = path.resolve(process.cwd(), "firebase-applet-config.json");
+    if (fs.existsSync(firebaseConfigPath)) {
+      config = JSON.parse(fs.readFileSync(firebaseConfigPath, "utf-8"));
+      const serviceAccountStr = process.env.FIREBASE_SERVICE_ACCOUNT;
+      
+      if (serviceAccountStr) {
+        try {
+          const serviceAccount = JSON.parse(serviceAccountStr);
+          admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+            projectId: config.projectId,
+          });
+          console.log("Firebase Admin initialized with service account.");
+        } catch (parseError) {
+          console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT env var. Ensure it is a valid JSON string.");
+          admin.initializeApp({
+            projectId: config.projectId,
+          });
+        }
+      } else {
+        admin.initializeApp({
+          credential: admin.credential.applicationDefault(),
+          projectId: config.projectId,
+        });
+        console.log("Firebase Admin initialized with application default credentials.");
+      }
+      
+      // Initialize Firestore after Admin is initialized
+      db = getFirestore(admin.app(), config.firestoreDatabaseId);
+      console.log("Firestore initialized successfully.");
+    } else {
+      console.warn("firebase-applet-config.json not found. Initializing with defaults.");
+      admin.initializeApp();
+      db = getFirestore(admin.app());
+    }
+  } catch (error) {
+    console.error("CRITICAL: Failed to initialize Firebase Admin or Firestore:", error);
+  }
+};
+
+initializeFirebase();
 
 async function verifyToken(req: express.Request, res: express.Response, next: express.NextFunction) {
   const authHeader = req.headers.authorization;
@@ -120,7 +135,13 @@ app.use((req, res, next) => {
     res.json({ 
       status: "ok", 
       db: db ? "online" : "offline",
-      apps: admin.apps.length
+      apps: admin.apps.length,
+      env: {
+        hasGeminiKey: !!(process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY),
+        hasServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT,
+        nodeEnv: process.env.NODE_ENV,
+        isVercel: !!process.env.VERCEL
+      }
     });
   });
 
@@ -337,22 +358,60 @@ app.use((req, res, next) => {
   });
 
   // Auth Helpers for students
+  app.post("/api/auth/send-otp", async (req, res) => {
+    const { mobile } = req.body || {};
+    if (!mobile) return res.status(400).json({ error: "Mobile number is required" });
+    
+    try {
+      const cleanMobile = String(mobile).replace(/\D/g, '').slice(-10);
+      console.log(`[Auth] Sending (mock) OTP to: ${cleanMobile}`);
+      
+      // In a real app, you'd call an SMS API here.
+      // For now, we simulate success.
+      res.json({ success: true, message: "OTP sent successfully (Simulated)" });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to send OTP", details: error.message });
+    }
+  });
+
+  app.post("/api/auth/verify-otp", async (req, res) => {
+    const { mobile, otp } = req.body || {};
+    if (!mobile || !otp) return res.status(400).json({ error: "Mobile and OTP are required" });
+
+    try {
+      console.log(`[Auth] Verifying (mock) OTP: ${otp} for ${mobile}`);
+      
+      // Verification logic: For demo/simulated purposes, accept 123456 or any 6-digit code
+      if (otp.length === 6) {
+        res.json({ success: true });
+      } else {
+        res.status(400).json({ error: "Invalid OTP code" });
+      }
+    } catch (error: any) {
+      res.status(500).json({ error: "OTP verification failed" });
+    }
+  });
+
   app.post("/api/auth/check-mobile", async (req, res) => {
     if (!db) {
       console.error("[Auth] check-mobile failed: Database offline");
-      return res.status(503).json({ error: "Database service temporarily offline." });
+      return res.status(503).json({ error: "Database service temporarily offline. Please ensure FIREBASE_SERVICE_ACCOUNT is set." });
     }
-    const { mobile } = req.body;
+    const { mobile } = req.body || {};
     if (!mobile) return res.status(400).json({ error: "Mobile number is required" });
     
     try {
       // Normalize: strip non-digits and keep last 10 digits for consistency
-      const digitsOnly = mobile.toString().replace(/\D/g, '');
+      const digitsOnly = String(mobile).replace(/\D/g, '');
       const cleanMobile = digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
-      console.log(`[Auth] Checking mobile: ${cleanMobile}`);
+      
+      if (cleanMobile.length < 10) {
+        return res.status(400).json({ error: "Invalid mobile number. Please provide a 10-digit number." });
+      }
+
+      console.log(`[Auth] Checking mobile exists: ${cleanMobile}`);
 
       const snap = await db.collection("profiles").where("phoneNumber", "==", cleanMobile).get();
-      console.log(`[Auth] Mobile check for ${cleanMobile}: exists=${!snap.empty}`);
       res.json({ exists: !snap.empty });
     } catch (error: any) {
       console.error("[Auth] Mobile check error:", error);
