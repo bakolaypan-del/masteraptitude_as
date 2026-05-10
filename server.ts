@@ -106,6 +106,10 @@ app.use(cookieParser());
 app.use((req, res, next) => {
   if (req.url.startsWith('/api')) {
     console.log(`[API Request] ${req.method} ${req.url}`);
+  } else if (process.env.VERCEL) {
+    // On Vercel, if the prefix is missing, restore it so that routes match
+    console.log(`[API Request - Vercel Fix] ${req.method} ${req.url} -> /api${req.url}`);
+    req.url = '/api' + req.url;
   }
   next();
 });
@@ -770,7 +774,7 @@ async function startVite() {
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else {
+  } else if (!process.env.VERCEL) {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
     // Express 4 wildcard catch-all for SPA fallback
