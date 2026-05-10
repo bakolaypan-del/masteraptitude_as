@@ -14,8 +14,18 @@ export async function translateQuestions(questions: any[], targetLang: string, u
     });
 
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Translation failed');
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const err = await res.json();
+        throw new Error(err.error || 'Translation failed');
+      } else {
+        throw new Error(`Translation server error (${res.status})`);
+      }
+    }
+
+    const contentType = res.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      throw new Error("Invalid translation response");
     }
 
     return await res.json();

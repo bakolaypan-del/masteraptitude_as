@@ -45,16 +45,21 @@ export default function TestRunner() {
         });
         
         const contentType = res.headers.get("content-type");
-        if (contentType && contentType.includes("text/html")) {
-          const text = await res.text();
-          console.error("HTML response in loadTest:", text);
-          throw new Error(`Server returned HTML instead of JSON. The backend might be offline. Status: ${res.status}`);
+        if (!res.ok) {
+          if (contentType && contentType.includes("application/json")) {
+            const errorData = await res.json();
+            throw new Error(errorData.error || errorData.message || 'Failed to load test data');
+          } else {
+            const text = await res.text();
+            console.error("Non-JSON error from server:", text);
+            throw new Error(`Server returned an error (${res.status}). Please try again later.`);
+          }
+        }
+        
+        if (!contentType || !contentType.includes("application/json")) {
+           throw new Error("Server returned invalid response format. Please refresh and try again.");
         }
 
-        if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.error || 'Failed to load test');
-        }
         const data = await res.json();
         setTest(data.test);
         setQuestions(data.questions);
@@ -63,8 +68,8 @@ export default function TestRunner() {
            setVisited(new Set([data.questions[0].id]));
         }
         
-        // Use test duration from DB, or fallback to 45s per question
-        const durationMins = data.test.duration || (data.questions.length * 0.75);
+        // Use test duration from DB, or fallback to 30 mins
+        const durationMins = data.test.duration || 30;
         setTimeLeft(Math.floor(durationMins * 60));
       } catch (err: any) {
         console.error("Load test error:", err);
@@ -156,19 +161,22 @@ export default function TestRunner() {
       });
       
       const contentType = res.headers.get("content-type");
-      if (contentType && contentType.includes("text/html")) {
-        const text = await res.text();
-        console.error("HTML response in submitTest:", text);
-        throw new Error(`Server returned HTML instead of JSON. The backend might be offline. Status: ${res.status}`);
+      if (!res.ok) {
+        if (contentType && contentType.includes("application/json")) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || errorData.message || 'Failed to submit test');
+        } else {
+          const text = await res.text();
+          console.error("Non-JSON error in submission:", text);
+          throw new Error(`Submission failed with server error (${res.status}). Please try again.`);
+        }
+      }
+
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Invalid response format from server during submission.");
       }
 
       const responseData = await res.json();
-      
-      if (!res.ok) {
-        console.error("Server submission error:", responseData);
-        throw new Error(responseData.error || 'The server encountered an error while calculating results.');
-      }
-      
       console.log("Submission success:", responseData);
       setResult(responseData);
     } catch (err: any) {

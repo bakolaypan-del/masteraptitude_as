@@ -75,7 +75,8 @@ async function verifyToken(req: express.Request, res: express.Response, next: ex
 
 async function verifyAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
   const user = (req as any).user;
-  if (!db) {
+  const currentDb = getDb();
+  if (!currentDb) {
     console.error("[Auth] verifyAdmin failed: Database not initialized");
     return res.status(500).json({ error: "Database not initialized" });
   }
@@ -90,7 +91,7 @@ async function verifyAdmin(req: express.Request, res: express.Response, next: ex
       return next();
     }
 
-    const profileSnap = await db.collection("profiles").doc(user.uid).get();
+    const profileSnap = await currentDb.collection("profiles").doc(user.uid).get();
     const profileData = profileSnap.data();
     if (profileSnap.exists && profileData?.role === "admin") {
       console.log(`[Auth] Admin verified via profile: ${user.uid}`);
@@ -173,18 +174,19 @@ app.use((req, res, next) => {
 
   // Get test and questions (without correct answer)
   app.get("/api/test/:testId", verifyToken, async (req, res) => {
-    if (!db) return res.status(500).json({ error: "DB offline" });
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
     const { testId } = req.params;
     
     try {
-      const testSnap = await db.collection("tests").doc(testId).get();
+      const testSnap = await currentDb.collection("tests").doc(testId).get();
       if (!testSnap.exists) {
         return res.status(404).json({ error: "Test not found" });
       }
       
       const testData = { id: testSnap.id, ...testSnap.data() };
       
-      const questionsSnap = await db.collection("questions").where("testId", "==", testId).get();
+      const questionsSnap = await currentDb.collection("questions").where("testId", "==", testId).get();
       const questions = questionsSnap.docs.map(doc => {
         const data = doc.data();
         // **STRIP correctAnswer**
@@ -193,28 +195,25 @@ app.use((req, res, next) => {
       });
       
       res.json({ test: testData, questions });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: "Failed to fetch test" });
+    } catch (error: any) {
+      console.error("[API] Failed to fetch test:", error);
+      res.status(500).json({ error: "Failed to load mock test", details: error.message });
     }
   });
 
   // Submit test and score it
   app.post("/api/submit-test", verifyToken, async (req, res) => {
-    if (!db) return res.status(500).json({ error: "DB offline" });
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
     const { testId, answers } = req.body; 
     const user = (req as any).user;
 
-    console.log(`Submission received from user ${user.uid} for test ${testId}`);
-
     if (!testId || !answers || !Array.isArray(answers)) {
-      console.error("Invalid submission payload:", { testId, answersType: typeof answers });
-      return res.status(400).json({ error: "Invalid submission data. Please ensure all questions are submitted." });
+      return res.status(400).json({ error: "Invalid submission data." });
     }
     
     try {
-      // Fetch test details for marking scheme
-      const testSnap = await db.collection("tests").doc(testId).get();
+      const testSnap = await currentDb.collection("tests").doc(testId).get();
       if (!testSnap.exists) {
         return res.status(404).json({ error: "Test not found" });
       }
@@ -222,12 +221,7 @@ app.use((req, res, next) => {
       const posMarks = testData?.marksPerCorrect || 1;
       const negMarks = testData?.negativeMarks || 0.25;
 
-      // Fetch the actual questions to get correctAnswers
-      const questionsSnap = await db.collection("questions").where("testId", "==", testId).get();
-      if (questionsSnap.empty) {
-        console.warn(`No questions found for test ${testId}`);
-      }
-
+      const questionsSnap = await currentDb.collection("questions").where("testId", "==", testId).get();
       const actualAnswers = new Map();
       questionsSnap.docs.forEach(doc => {
         actualAnswers.set(doc.id, doc.data().correctAnswer);
@@ -251,15 +245,9 @@ app.use((req, res, next) => {
         }
       });
       
-      // Calculate missing/unanswered questions that weren't in the payload
       const missing = questionsSnap.size - answers.length;
-      if (missing > 0) {
-        unattempted += missing;
-      }
+      if (missing > 0) unattempted += missing;
 
-      console.log(`Scored submission: ${correct} correct, ${wrong} wrong, ${unattempted} unattempted. Total score: ${score}`);
-
-      // Create result data
       const resultData = {
         timestamp: Date.now(),
         userId: user.uid,
@@ -270,13 +258,11 @@ app.use((req, res, next) => {
         status: "completed"
       };
 
-      const profileRef = db.collection("profiles").doc(user.uid);
-      const resultDocRef = db.collection("results").doc();
+      const profileRef = currentDb.collection("profiles").doc(user.uid);
+      const resultDocRef = currentDb.collection("results").doc();
 
-      await db.runTransaction(async (transaction) => {
+      await currentDb.runTransaction(async (transaction) => {
         const profileDoc = await transaction.get(profileRef);
-        
-        // Always record the result
         transaction.set(resultDocRef, resultData);
         
         if (profileDoc.exists) {
@@ -289,63 +275,40 @@ app.use((req, res, next) => {
             cumulativeScore: Math.max(0, newScore),
             lastTestAt: Date.now()
           });
-        } else {
-          // Create profile if missing
-          transaction.set(profileRef, {
-            uid: user.uid,
-            email: user.email || "",
-            name: user.name || user.email?.split('@')[0] || "Student",
-            role: "student",
-            totalTestsTaken: 1,
-            cumulativeScore: Math.max(0, score),
-            globalRank: 0,
-            createdAt: Date.now(),
-            lastTestAt: Date.now()
-          });
         }
       });
 
-      console.log(`Transaction committed for user ${user.uid}`);
-
-      // Calculate Rank (do this after transaction commits to ensure we see updated score)
       let rank = 1;
       try {
         const updatedProfileSnap = await profileRef.get();
         const totalScore = updatedProfileSnap.data()?.cumulativeScore || 0;
-        
-        // Use count() aggregator for efficiency
-        const rankSnap = await db.collection("profiles")
+        const rankSnap = await currentDb.collection("profiles")
           .where("cumulativeScore", ">", totalScore)
           .count()
           .get();
-        
         rank = rankSnap.data().count + 1;
-        
-        // Async update the profile with the new rank (not blocking the response)
-        profileRef.update({ globalRank: rank }).catch(e => console.error("Async rank update failed", e));
-      } catch (err) {
-        console.error("Rank calculation logic error:", err);
-      }
+        profileRef.update({ globalRank: rank }).catch(() => {});
+      } catch (err) {}
 
-      // Convert Map to plain object for JSON response
       const analysis: Record<string, string> = {};
       actualAnswers.forEach((val, key) => {
         analysis[key] = val;
       });
 
       res.json({ ...resultData, rank, analysis });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: "Failed to submit test" });
+    } catch (error: any) {
+      console.error("[API] Failed to submit test:", error);
+      res.status(500).json({ error: "Failed to submit test results" });
     }
   });
 
   // Demo endpoint to become an admin
   app.post("/api/become-admin", verifyToken, async (req, res) => {
-    if (!db) return res.status(500).json({ error: "DB offline" });
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "DB offline" });
     const user = (req as any).user;
     try {
-      await db.collection("profiles").doc(user.uid).update({ role: "admin" });
+      await currentDb.collection("profiles").doc(user.uid).update({ role: "admin" });
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: "Failed to become admin" });
@@ -400,10 +363,11 @@ app.use((req, res, next) => {
 
   // Admin: Get all students
   app.get("/api/admin/students", verifyToken, verifyAdmin, async (req, res) => {
-    if (!db) return res.status(500).json({ error: "DB offline" });
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
     try {
       // Query both 'user' and 'student' roles as they might have been created differently
-      const snap = await db.collection("profiles").where("role", "in", ["user", "student"]).get();
+      const snap = await currentDb.collection("profiles").where("role", "in", ["user", "student"]).get();
       const students = snap.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -417,7 +381,8 @@ app.use((req, res, next) => {
 
   // Admin: Update Student
   app.put("/api/admin/students/:studentId", verifyToken, verifyAdmin, async (req, res) => {
-    if (!db) return res.status(500).json({ error: "DB offline" });
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
     const { studentId } = req.params;
     const { name, phoneNumber, status, password } = req.body;
     
@@ -432,7 +397,7 @@ app.use((req, res, next) => {
       };
       
       // Update Firestore profile
-      const profileRef = db.collection("profiles").doc(studentId);
+      const profileRef = currentDb.collection("profiles").doc(studentId);
       const profileSnap = await profileRef.get();
       
       if (!profileSnap.exists) {
@@ -466,16 +431,17 @@ app.use((req, res, next) => {
 
   // Admin: Delete Student
   app.delete("/api/admin/students/:studentId", verifyToken, verifyAdmin, async (req, res) => {
-    if (!db) return res.status(500).json({ error: "DB offline" });
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
     const { studentId } = req.params;
     try {
       // 1. Delete from Auth
       await admin.auth().deleteUser(studentId);
       // 2. Delete from Firestore
-      await db.collection("profiles").doc(studentId).delete();
+      await currentDb.collection("profiles").doc(studentId).delete();
       // 3. Optional: Delete results?
-      const resultsSnap = await db.collection("results").where("userId", "==", studentId).get();
-      const batch = db.batch();
+      const resultsSnap = await currentDb.collection("results").where("userId", "==", studentId).get();
+      const batch = currentDb.batch();
       resultsSnap.docs.forEach(doc => batch.delete(doc.ref));
       await batch.commit();
 
@@ -487,9 +453,10 @@ app.use((req, res, next) => {
 
   // Admin: Dashboard Stats
   app.get("/api/admin/stats", verifyToken, verifyAdmin, async (req, res) => {
-    if (!db) return res.status(500).json({ error: "DB offline" });
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
     try {
-      const allProfiles = await db.collection("profiles").where("role", "in", ["user", "student"]).get();
+      const allProfiles = await currentDb.collection("profiles").where("role", "in", ["user", "student"]).get();
       
       const stats = {
         total: allProfiles.size,
@@ -517,10 +484,11 @@ app.use((req, res, next) => {
 
   // Admin Routes
   app.post("/api/admin/create-test", verifyToken, verifyAdmin, async (req, res) => {
-    if (!db) return res.status(500).json({ error: "DB offline" });
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
     try {
       const { title, topic, isActive, duration, testType, subjectName, category, marksPerCorrect, negativeMarks } = req.body;
-      const ref = db.collection("tests").doc();
+      const ref = currentDb.collection("tests").doc();
       await ref.set({
         title,
         topic,
@@ -541,14 +509,15 @@ app.use((req, res, next) => {
   });
 
   app.post("/api/admin/bulk-create-tests", verifyToken, verifyAdmin, async (req, res) => {
-    if (!db) return res.status(500).json({ error: "DB offline" });
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
     const { tests } = req.body;
     if (!Array.isArray(tests)) return res.status(400).json({ error: "Expected array of tests" });
 
     try {
-      const batch = db.batch();
+      const batch = currentDb.batch();
       tests.forEach(test => {
-        const docRef = db!.collection("tests").doc();
+        const docRef = currentDb!.collection("tests").doc();
         const testId = docRef.id;
         batch.set(docRef, {
           ...test,
@@ -558,7 +527,7 @@ app.use((req, res, next) => {
 
         // Add 10 placeholder questions for each test
         for (let i = 1; i <= 10; i++) {
-          const qRef = db!.collection("questions").doc();
+          const qRef = currentDb!.collection("questions").doc();
           batch.set(qRef, {
             testId: testId,
             questionText: `Sample Question ${i} for ${test.title}`,
@@ -579,7 +548,8 @@ app.use((req, res, next) => {
   });
 
   app.put("/api/admin/tests/:testId", verifyToken, verifyAdmin, async (req, res) => {
-    if (!db) return res.status(500).json({ error: "DB offline" });
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
     try {
       const { testId } = req.params;
       const { title, topic, isActive, duration, testType, subjectName, category, marksPerCorrect, negativeMarks } = req.body;
@@ -594,7 +564,7 @@ app.use((req, res, next) => {
         isActive: !!isActive
       };
       if (testType) updateData.testType = testType;
-      await db.collection("tests").doc(testId).update(updateData);
+      await currentDb.collection("tests").doc(testId).update(updateData);
       res.json({ success: true });
     } catch (error) {
        console.error(error);
@@ -603,10 +573,11 @@ app.use((req, res, next) => {
   });
 
   app.post("/api/admin/questions", verifyToken, verifyAdmin, async (req, res) => {
-    if (!db) return res.status(500).json({ error: "DB offline" });
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
     try {
       const { testId, topic, qNo, questionText, options, correctAnswer, solution } = req.body;
-      const ref = db.collection("questions").doc();
+      const ref = currentDb.collection("questions").doc();
       await ref.set({
         testId, topic, qNo, questionText, options, correctAnswer, solution: solution || ""
       });
@@ -618,11 +589,12 @@ app.use((req, res, next) => {
   });
 
   app.put("/api/admin/questions/:questionId", verifyToken, verifyAdmin, async (req, res) => {
-    if (!db) return res.status(500).json({ error: "DB offline" });
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
     try {
       const { questionId } = req.params;
       const { topic, questionText, options, correctAnswer, solution } = req.body;
-      await db.collection("questions").doc(questionId).update({
+      await currentDb.collection("questions").doc(questionId).update({
         topic, questionText, options, correctAnswer, solution: solution || ""
       });
       res.json({ success: true });
@@ -633,12 +605,13 @@ app.use((req, res, next) => {
   });
   
   app.delete("/api/admin/questions/:id", verifyToken, verifyAdmin, async (req, res) => {
-    if (!db) return res.status(500).json({ error: "DB offline" });
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
     const { id } = req.params;
     console.log(`[Admin] Request to delete question: ${id} by ${(req as any).user?.email}`);
     if (!id) return res.status(400).json({ error: "Missing question ID" });
     try {
-      await db.collection("questions").doc(id).delete();
+      await currentDb.collection("questions").doc(id).delete();
       console.log(`[Admin] Successfully deleted question: ${id}`);
       res.json({ success: true });
     } catch (error: any) {
@@ -648,12 +621,13 @@ app.use((req, res, next) => {
   });
 
   app.delete("/api/admin/pyqs/:id", verifyToken, verifyAdmin, async (req, res) => {
-    if (!db) return res.status(500).json({ error: "DB offline" });
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
     const { id } = req.params;
     console.log(`[Admin] Request to delete pyq: ${id} by ${(req as any).user?.email}`);
     if (!id) return res.status(400).json({ error: "Missing PYQ ID" });
     try {
-      await db.collection("pyqs").doc(id).delete();
+      await currentDb.collection("pyqs").doc(id).delete();
       console.log(`[Admin] Successfully deleted pyq: ${id}`);
       res.json({ success: true });
     } catch (error: any) {
@@ -663,12 +637,13 @@ app.use((req, res, next) => {
   });
 
   app.delete("/api/admin/patterns/:id", verifyToken, verifyAdmin, async (req, res) => {
-    if (!db) return res.status(500).json({ error: "DB offline" });
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
     const { id } = req.params;
     console.log(`[Admin] Request to delete pattern: ${id} by ${(req as any).user?.email}`);
     if (!id) return res.status(400).json({ error: "Missing pattern ID" });
     try {
-      await db.collection("patterns").doc(id).delete();
+      await currentDb.collection("patterns").doc(id).delete();
       console.log(`[Admin] Successfully deleted pattern: ${id}`);
       res.json({ success: true });
     } catch (error: any) {
@@ -678,7 +653,8 @@ app.use((req, res, next) => {
   });
 
   app.delete("/api/admin/carousel/:id", verifyToken, verifyAdmin, async (req, res) => {
-    if (!db) {
+    const currentDb = getDb();
+    if (!currentDb) {
       console.error("[Admin] DB offline during carousel delete");
       return res.status(500).json({ error: "DB offline" });
     }
@@ -689,7 +665,7 @@ app.use((req, res, next) => {
         console.error(`[Admin] Invalid ID provided for carousel delete: ${id}`);
         return res.status(400).json({ error: "Invalid ID" });
       }
-      const docRef = db.collection("carousel").doc(id);
+      const docRef = currentDb.collection("carousel").doc(id);
       const snap = await docRef.get();
       if (!snap.exists) {
         console.warn(`[Admin] Carousel item ${id} not found in DB - attempting deletion anyway`);
@@ -704,12 +680,13 @@ app.use((req, res, next) => {
   });
 
   app.delete("/api/admin/notes/:id", verifyToken, verifyAdmin, async (req, res) => {
-    if (!db) return res.status(500).json({ error: "DB offline" });
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
     const { id } = req.params;
     console.log(`[Admin] Request to delete note: ${id} by ${(req as any).user?.email}`);
     if (!id) return res.status(400).json({ error: "Missing note ID" });
     try {
-      await db.collection("notes").doc(id).delete();
+      await currentDb.collection("notes").doc(id).delete();
       console.log(`[Admin] Successfully deleted note: ${id}`);
       res.json({ success: true });
     } catch (error: any) {
@@ -719,12 +696,13 @@ app.use((req, res, next) => {
   });
 
   app.delete("/api/admin/videos/:id", verifyToken, verifyAdmin, async (req, res) => {
-    if (!db) return res.status(500).json({ error: "DB offline" });
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
     const { id } = req.params;
     console.log(`[Admin] Request to delete video: ${id} by ${(req as any).user?.email}`);
     if (!id) return res.status(400).json({ error: "Missing video ID" });
     try {
-      await db.collection("videos").doc(id).delete();
+      await currentDb.collection("videos").doc(id).delete();
       console.log(`[Admin] Successfully deleted video: ${id}`);
       res.json({ success: true });
     } catch (error: any) {
@@ -734,11 +712,12 @@ app.use((req, res, next) => {
   });
 
   app.delete("/api/admin/affairs/:id", verifyToken, verifyAdmin, async (req, res) => {
-    if (!db) return res.status(500).json({ error: "DB offline" });
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
     const { id } = req.params;
     if (!id) return res.status(400).json({ error: "Missing ID" });
     try {
-      await db.collection("affairs").doc(id).delete();
+      await currentDb.collection("affairs").doc(id).delete();
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: "Failed to delete current affair", message: error.message });
@@ -746,11 +725,12 @@ app.use((req, res, next) => {
   });
 
   app.delete("/api/admin/practice_sets/:id", verifyToken, verifyAdmin, async (req, res) => {
-    if (!db) return res.status(500).json({ error: "DB offline" });
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
     const { id } = req.params;
     if (!id) return res.status(400).json({ error: "Missing ID" });
     try {
-      await db.collection("practice_sets").doc(id).delete();
+      await currentDb.collection("practice_sets").doc(id).delete();
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: "Failed to delete practice set", message: error.message });
@@ -758,7 +738,8 @@ app.use((req, res, next) => {
   });
 
   app.delete("/api/admin/tests/:id", verifyToken, verifyAdmin, async (req, res) => {
-    if (!db) return res.status(500).json({ error: "DB offline" });
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
     const { id } = req.params;
     console.log(`Server: START delete request for test ${id} by ${(req as any).user?.email}`);
     
@@ -768,7 +749,7 @@ app.use((req, res, next) => {
     }
 
     try {
-      const testRef = db.collection("tests").doc(id);
+      const testRef = currentDb.collection("tests").doc(id);
       const testSnap = await testRef.get();
       
       if (!testSnap.exists) {
@@ -778,8 +759,8 @@ app.use((req, res, next) => {
 
       // Delete all questions associated with this test
       console.log(`Server: Searching for questions with testId ${id}`);
-      const questionsSnap = await db.collection("questions").where("testId", "==", id).get();
-      const batch = db.batch();
+      const questionsSnap = await currentDb.collection("questions").where("testId", "==", id).get();
+      const batch = currentDb.batch();
       console.log(`Server: Found ${questionsSnap.size} questions to delete for test ${id}`);
       
       questionsSnap.docs.forEach(doc => {
@@ -811,6 +792,17 @@ app.use((req, res, next) => {
     });
   });
 
+  // Global Error Handler for API
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error("Unhandled API Error:", err);
+    if (res.headersSent) return next(err);
+    if (req.path.startsWith('/api/')) {
+       res.status(500).json({ success: false, error: "Internal Server Error", message: "A server-side error occurred." });
+    } else {
+       next(err);
+    }
+  });
+
 // Vite Integration
 async function startVite() {
   try {
@@ -827,16 +819,6 @@ async function startVite() {
         res.sendFile(path.join(distPath, "index.html"));
       });
     }
-
-    // Global error handler
-    app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-      console.error("Unhandled Express Error:", err);
-      if (req.path.startsWith('/api/')) {
-        res.status(500).json({ error: "Internal Server Error" });
-      } else {
-        next(err);
-      }
-    });
 
     if (!process.env.VERCEL) {
       app.listen(PORT, "0.0.0.0" as any, () => {
