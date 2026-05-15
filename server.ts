@@ -30,7 +30,9 @@ function getGeminiClient() {
 let db: admin.firestore.Firestore | null = null;
 
 /**
- * Robust Firebase Initialization
+ * Firebase Initialization
+ * - Localhost: loads service-account-key.json directly from disk
+ * - Vercel: uses FIREBASE_SERVICE_ACCOUNT env var (inline JSON string)
  */
 const getDb = () => {
   if (db) return db;
@@ -40,70 +42,68 @@ const getDb = () => {
     const databaseId = process.env.FIRESTORE_DATABASE_ID || firebaseConfig.firestoreDatabaseId;
 
     if (admin.apps.length === 0) {
-      const serviceAccountStr = process.env.FIREBASE_SERVICE_ACCOUNT;
-      
-      if (serviceAccountStr) {
+      let initialized = false;
+
+      // Path 1: Inline JSON from env var (Vercel)
+      const saEnv = process.env.FIREBASE_SERVICE_ACCOUNT;
+      if (saEnv && saEnv.trim().startsWith('{')) {
         try {
-          console.log("[Firebase] Attempting to parse FIREBASE_SERVICE_ACCOUNT...");
-          let parsedData: any;
-          
-          try {
-            // Standard JSON parse
-            parsedData = JSON.parse(serviceAccountStr);
-          } catch(e) {
-             // Handle common mangling issues: escaped newlines or literal newlines in env var
-             console.log("[Firebase] Standard JSON parse failed, trying robust recovery...");
-             const cleaned = serviceAccountStr
-               .trim()
-               // Replace literal newlines with \n
-               .replace(/\n/g, "\\n")
-               // Handle cases where the whole thing is double escaped
-               .replace(/\\r\\n/g, "\\n");
-             
-             parsedData = JSON.parse(cleaned);
-          }
-
-          if (parsedData && parsedData.private_key) {
-             // Ensure private key has correct newline characters
-             parsedData.private_key = parsedData.private_key.replace(/\\n/g, "\n");
-          }
-
+          console.log("[Firebase] Using inline FIREBASE_SERVICE_ACCOUNT...");
+          let sa = JSON.parse(saEnv);
+          if (sa.private_key) sa.private_key = sa.private_key.replace(/\\n/g, '\n');
           admin.initializeApp({
-            credential: admin.credential.cert(parsedData),
-            projectId: projectId,
+            credential: admin.credential.cert(sa),
+            projectId: projectId || sa.project_id,
           });
-          console.log(`[Firebase] Initialized with Service Account for project: ${projectId}`);
+          initialized = true;
         } catch (e: any) {
-          console.error("[Firebase] Service Account parse failed:", e.message);
-          // Fallback to minimal config if service account parse fails
-          admin.initializeApp({ projectId: projectId });
+          console.error("[Firebase] Inline SA parse failed:", e.message);
         }
-      } else {
-        // Safe fallback for local or env-based secondary auth
+      }
+
+      // Path 2: Load key file from disk (localhost)
+      if (!initialized) {
+        const keyFilePath = path.resolve(process.cwd(), "service-account-key.json");
+        if (fs.existsSync(keyFilePath)) {
+          try {
+            console.log(`[Firebase] Loading key from file: ${keyFilePath}`);
+            const sa = JSON.parse(fs.readFileSync(keyFilePath, "utf-8"));
+            admin.initializeApp({
+              credential: admin.credential.cert(sa),
+              projectId: projectId || sa.project_id,
+            });
+            initialized = true;
+            console.log(`[Firebase] Initialized with key file for project: ${projectId || sa.project_id}`);
+          } catch (e: any) {
+            console.error("[Firebase] Key file load failed:", e.message);
+          }
+        }
+      }
+
+      // Path 3: Last resort fallback
+      if (!initialized) {
+        console.warn("[Firebase] No credentials found. Trying applicationDefault()...");
         try {
-          console.log("[Firebase] No service account found, attempting Default Credentials...");
           admin.initializeApp({
             credential: admin.credential.applicationDefault(),
-            projectId: projectId,
+            projectId,
           });
-          console.log(`[Firebase] Initialized with Application Default for project: ${projectId}`);
         } catch (e) {
-          console.warn("[Firebase] Default initialization failed, using project ID only fallback");
-          admin.initializeApp({ projectId: projectId });
+          console.error("[Firebase] All credential methods failed. Initializing without credentials.");
+          admin.initializeApp({ projectId });
         }
       }
     }
-    
+
     if (admin.apps.length > 0) {
       const dbId = databaseId || undefined;
-      console.log(`[Firestore] Connecting to database: ${dbId || "(default)"} in project: ${projectId}`);
+      console.log(`[Firestore] Project: ${projectId}, Database: ${dbId || "(default)"}`);
       db = getFirestore(admin.apps[0], dbId);
-    } else {
-      console.error("[Firebase] No apps initialized");
     }
+
     return db;
   } catch (error) {
-    console.error("[Firebase] Serious Initialization Error:", error);
+    console.error("[Firebase] Fatal Initialization Error:", error);
     return null;
   }
 };
