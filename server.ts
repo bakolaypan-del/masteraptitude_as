@@ -48,14 +48,22 @@ const getDb = () => {
       
       if (serviceAccountStr) {
         try {
-          const serviceAccount = JSON.parse(serviceAccountStr);
+          // Robust parsing handling escaped newlines sometimes added by platforms
+          let parsedData = serviceAccountStr;
+          try {
+            parsedData = JSON.parse(serviceAccountStr);
+          } catch(e) {
+             // If direct parse fails, try handling escaped newlines or stringified JSON
+             parsedData = JSON.parse(serviceAccountStr.replace(/(\\r\\n|\\n|\\r)/gm, "\\n"));
+          }
           admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount),
+            credential: admin.credential.cert(parsedData),
             projectId: config.projectId,
           });
           console.log("[Firebase] Initialized with Service Account");
-        } catch (e) {
-          console.error("[Firebase] Service Account parse failed, trying default initialization:", e);
+        } catch (e: any) {
+          console.error("[Firebase] Service Account parse failed (is your FIREBASE_SERVICE_ACCOUNT env var correct JSON?):", e.message);
+          // Don't fallback to default if they explicitly provided an invalid service account
           admin.initializeApp({ projectId: config.projectId });
         }
       } else {
@@ -65,7 +73,8 @@ const getDb = () => {
             credential: admin.credential.applicationDefault(),
             projectId: config.projectId,
           });
-          console.log("[Firebase] Initialized with Application Default");
+          console.log("[Firebase] Initialized with Application Default Config.");
+          console.warn("[Firebase] WARNING: Missing FIREBASE_SERVICE_ACCOUNT env variable! This application may crash if default credentials are not present locally or on Vercel.");
         } catch (e) {
           console.warn("[Firebase] Default initialization failed, using project ID fallback");
           admin.initializeApp({ projectId: config.projectId });
@@ -258,11 +267,15 @@ app.use((req, res, next) => {
       res.json({ success: true, test: testData, questions });
     } catch (error: any) {
       console.error("[API] Failed to fetch test:", error);
+      let clientMessage = "A server error occurred while fetching questions.";
+      if (error && error.message && error.message.includes("default credentials")) {
+         clientMessage = "CRITICAL SERVER ERROR: The backend cannot connect to the database because FIREBASE_SERVICE_ACCOUNT is missing in your Vercel Environment Variables.";
+      }
       res.status(500).json({ 
         success: false, 
         error: "Failed to load mock test", 
-        message: "A server error occurred while fetching questions.",
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined 
+        message: clientMessage,
+        details: error.message || undefined 
       });
     }
   });
