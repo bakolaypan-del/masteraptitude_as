@@ -55,8 +55,14 @@ export default function Dashboard() {
   const [downloadingPDF, setDownloadingPDF] = useState<string | null>(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [learnOpen, setLearnOpen] = useState(false);
-  const [mockOpen, setMockOpen] = useState(false);
+  const tabParam = (searchParams.get('tab') as DashboardTab) || 'home';
+  const [learnOpen, setLearnOpen] = useState(() => ['video', 'notes', 'affairs', 'practice'].includes(tabParam));
+  const [mockOpen, setMockOpen] = useState(() => tabParam.startsWith('mock'));
+
+  useEffect(() => {
+    setLearnOpen(['video', 'notes', 'affairs', 'practice'].includes(tabParam));
+    setMockOpen(tabParam.startsWith('mock'));
+  }, [tabParam]);
   
   // Profile Update State
   const [editName, setEditName] = useState('');
@@ -576,10 +582,10 @@ export default function Dashboard() {
                 <FileText className={`w-5 h-5 shrink-0 ${activeTab.startsWith('mock') ? 'text-emerald-600' : 'text-emerald-400'}`} />
                 Mock Test
               </div>
-              <ChevronRight className={`w-4 h-4 transition-transform ${mockOpen || activeTab.startsWith('mock') ? 'rotate-90' : ''}`} />
+              <ChevronRight className={`w-4 h-4 transition-transform ${mockOpen ? 'rotate-90' : ''}`} />
             </button>
             
-            {(mockOpen || activeTab.startsWith('mock')) && (
+            {mockOpen && (
               <div className="pl-6 space-y-1 animate-in slide-in-from-top-2 duration-200">
                 <button 
                   onClick={() => { setActiveTab('mock_topic'); setIsSidebarOpen(false); }} 
