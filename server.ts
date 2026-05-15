@@ -7,8 +7,11 @@ import { getFirestore } from "firebase-admin/firestore";
 import cookieParser from "cookie-parser";
 import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
-// @ts-ignore
-import firebaseConfig from "./firebase-applet-config.json";
+
+// Load Firebase config from file (avoids ESM JSON import attribute issues on Vercel)
+const firebaseConfig = JSON.parse(
+  fs.readFileSync(path.resolve(process.cwd(), "firebase-applet-config.json"), "utf-8")
+);
 
 // Initialize Gemini
 let _googleGenAI: any = null;
