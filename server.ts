@@ -1,6 +1,5 @@
 import "dotenv/config";
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import path from "path";
 import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
@@ -8,10 +7,16 @@ import cookieParser from "cookie-parser";
 import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
 
-// Load Firebase config from file (avoids ESM JSON import attribute issues on Vercel)
-const firebaseConfig = JSON.parse(
-  fs.readFileSync(path.resolve(process.cwd(), "firebase-applet-config.json"), "utf-8")
-);
+// Load Firebase config (file on localhost, env vars on Vercel)
+let firebaseConfig: any = { projectId: "", firestoreDatabaseId: "" };
+try {
+  const configPath = path.resolve(process.cwd(), "firebase-applet-config.json");
+  if (fs.existsSync(configPath)) {
+    firebaseConfig = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+  }
+} catch (e) {
+  console.warn("[Config] Could not load firebase-applet-config.json, using env vars");
+}
 
 // Initialize Gemini
 let _googleGenAI: any = null;
@@ -965,7 +970,9 @@ app.use((req, res, next) => {
 // Vite Integration
 async function startVite() {
   try {
-    if (process.env.NODE_ENV !== "production") {
+    if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
+      // Dynamic import: avoids pulling in vite/rollup on Vercel
+      const { createServer: createViteServer } = await import("vite");
       const vite = await createViteServer({
         server: { middlewareMode: true },
         appType: "spa",
