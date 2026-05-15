@@ -7,6 +7,8 @@ import { getFirestore } from "firebase-admin/firestore";
 import cookieParser from "cookie-parser";
 import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
+// @ts-ignore
+import firebaseConfig from "./firebase-applet-config.json";
 
 // Initialize Gemini
 let _googleGenAI: any = null;
@@ -34,57 +36,68 @@ const getDb = () => {
   if (db) return db;
 
   try {
-    const firebaseConfigPath = path.resolve(process.cwd(), "firebase-applet-config.json");
-    let config: any = {};
-    if (fs.existsSync(firebaseConfigPath)) {
-      try {
-        config = JSON.parse(fs.readFileSync(firebaseConfigPath, "utf-8"));
-      } catch (err) {
-        console.error("[Firebase] Failed to parse config file:", err);
-      }
-    }
+    const projectId = process.env.FIREBASE_PROJECT_ID || firebaseConfig.projectId;
+    const databaseId = process.env.FIRESTORE_DATABASE_ID || firebaseConfig.firestoreDatabaseId;
 
     if (admin.apps.length === 0) {
       const serviceAccountStr = process.env.FIREBASE_SERVICE_ACCOUNT;
       
       if (serviceAccountStr) {
         try {
-          // Robust parsing handling escaped newlines sometimes added by platforms
-          let parsedData = serviceAccountStr;
+          console.log("[Firebase] Attempting to parse FIREBASE_SERVICE_ACCOUNT...");
+          let parsedData: any;
+          
           try {
+            // Standard JSON parse
             parsedData = JSON.parse(serviceAccountStr);
           } catch(e) {
-             // If direct parse fails, try handling escaped newlines or stringified JSON
-             parsedData = JSON.parse(serviceAccountStr.replace(/(\\r\\n|\\n|\\r)/gm, "\\n"));
+             // Handle common mangling issues: escaped newlines or literal newlines in env var
+             console.log("[Firebase] Standard JSON parse failed, trying robust recovery...");
+             const cleaned = serviceAccountStr
+               .trim()
+               // Replace literal newlines with \n
+               .replace(/\n/g, "\\n")
+               // Handle cases where the whole thing is double escaped
+               .replace(/\\r\\n/g, "\\n");
+             
+             parsedData = JSON.parse(cleaned);
           }
+
+          if (parsedData && parsedData.private_key) {
+             // Ensure private key has correct newline characters
+             parsedData.private_key = parsedData.private_key.replace(/\\n/g, "\n");
+          }
+
           admin.initializeApp({
             credential: admin.credential.cert(parsedData),
-            projectId: config.projectId,
+            projectId: projectId,
           });
-          console.log("[Firebase] Initialized with Service Account");
+          console.log(`[Firebase] Initialized with Service Account for project: ${projectId}`);
         } catch (e: any) {
-          console.error("[Firebase] Service Account parse failed (is your FIREBASE_SERVICE_ACCOUNT env var correct JSON?):", e.message);
-          // Don't fallback to default if they explicitly provided an invalid service account
-          admin.initializeApp({ projectId: config.projectId });
+          console.error("[Firebase] Service Account parse failed:", e.message);
+          // Fallback to minimal config if service account parse fails
+          admin.initializeApp({ projectId: projectId });
         }
       } else {
         // Safe fallback for local or env-based secondary auth
         try {
+          console.log("[Firebase] No service account found, attempting Default Credentials...");
           admin.initializeApp({
             credential: admin.credential.applicationDefault(),
-            projectId: config.projectId,
+            projectId: projectId,
           });
-          console.log("[Firebase] Initialized with Application Default Config.");
-          console.warn("[Firebase] WARNING: Missing FIREBASE_SERVICE_ACCOUNT env variable! This application may crash if default credentials are not present locally or on Vercel.");
+          console.log(`[Firebase] Initialized with Application Default for project: ${projectId}`);
         } catch (e) {
-          console.warn("[Firebase] Default initialization failed, using project ID fallback");
-          admin.initializeApp({ projectId: config.projectId });
+          console.warn("[Firebase] Default initialization failed, using project ID only fallback");
+          admin.initializeApp({ projectId: projectId });
         }
       }
     }
     
     if (admin.apps.length > 0) {
-      db = getFirestore(admin.apps[0], config.firestoreDatabaseId || undefined);
+      const dbId = databaseId || undefined;
+      console.log(`[Firestore] Connecting to database: ${dbId || "(default)"} in project: ${projectId}`);
+      db = getFirestore(admin.apps[0], dbId);
     } else {
       console.error("[Firebase] No apps initialized");
     }
@@ -172,6 +185,10 @@ app.use((req, res, next) => {
       status: "ok", 
       db: db ? "online" : "offline",
       apps: admin.apps.length,
+      config: {
+        projectId: process.env.FIREBASE_PROJECT_ID || firebaseConfig.projectId,
+        databaseId: process.env.FIRESTORE_DATABASE_ID || firebaseConfig.firestoreDatabaseId || "(default)"
+      },
       env: {
         hasGeminiKey: !!(process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY),
         hasServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT,
