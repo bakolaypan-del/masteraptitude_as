@@ -7,11 +7,13 @@ import { useAuth } from '../components/AuthContext';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { LogOut, ArrowLeft, Plus, Pencil, Trash2, FileText, BookOpen, Play, CheckCircle, Clock, X, User as UserIcon, Download, ShieldAlert, ShieldCheck, Key, Edit2, Search, LayoutDashboard, Layers } from 'lucide-react';
 import { signOut } from 'firebase/auth';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 
 import AdminTypingTests from '../components/AdminTypingTests';
 import { Keyboard } from 'lucide-react';
 
-type AdminTab = 'students' | 'mock' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'categories';
+type AdminTab = 'students' | 'mock' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'student_analysis';
 
 function AdminHome() {
   const [students, setStudents] = useState<any[]>([]);
@@ -1167,270 +1169,231 @@ function AdminHome() {
           About & Contact Info
         </button>
         <button 
-          onClick={() => setActiveTab('categories')}
+          onClick={() => setActiveTab('student_analysis')}
           className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all
-            ${activeTab === 'categories' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' : 'text-slate-500 hover:text-indigo-600 hover:bg-indigo-50'}`}
+            ${activeTab === 'student_analysis' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' : 'text-slate-500 hover:text-indigo-600 hover:bg-indigo-50'}`}
         >
-          <Layers className="w-4 h-4" />
-          Custom Categories
+          <UserIcon className="w-4 h-4" />
+          STUDENT ANALYSIS
         </button>
       </div>
 
-      {activeTab === 'categories' && (() => {
-        const [customCategoriesList, setCustomCategoriesList] = useState<any[]>([]);
-        const [catName, setCatName] = useState('');
-        const [catType, setCatType] = useState<'mock' | 'study'>('mock');
-        const [catIcon, setCatIcon] = useState('Layers');
-        const [catColor, setCatColor] = useState('linear-gradient(135deg, #0052D4, #4364F7)');
-        const [catStatus, setCatStatus] = useState<number>(1);
-        const [editingCatId, setEditingCatId] = useState<string | null>(null);
-        const [loadingCats, setLoadingCats] = useState(false);
+      {activeTab === 'student_analysis' && (() => {
+        const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
+        const [studentAttempts, setStudentAttempts] = useState<any[]>([]);
+        const [loadingAttempts, setLoadingAttempts] = useState(false);
+        const [selectedAttempt, setSelectedAttempt] = useState<any | null>(null);
+        const [deepQuestions, setDeepQuestions] = useState<any[]>([]);
+        const [loadingDeep, setLoadingDeep] = useState(false);
+        const [searchQuery, setSearchQuery] = useState('');
 
-        const fetchCats = async () => {
-          setLoadingCats(true);
-          try {
-            const token = await auth.currentUser?.getIdToken();
-            const res = await fetch('/api/admin/custom-categories', {
-              headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.ok) {
-              const data = await res.json();
-              setCustomCategoriesList(data.categories || []);
-            }
-          } catch (e) {
-            console.error(e);
-          } finally {
-            setLoadingCats(false);
-          }
-        };
-
+        // Load attempts for selected student
         useEffect(() => {
-          if (activeTab === 'categories') {
-            fetchCats();
-          }
-        }, [activeTab]);
-
-        const handleSubmitCat = async (e: React.FormEvent) => {
-          e.preventDefault();
-          if (!catName.trim()) return alert('Please enter category name');
-          
-          try {
-            const token = await auth.currentUser?.getIdToken();
-            const url = editingCatId ? `/api/admin/custom-categories/${editingCatId}` : '/api/admin/custom-categories';
-            const method = editingCatId ? 'PUT' : 'POST';
-            
-            const res = await fetch(url, {
-              method,
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              },
-              body: JSON.stringify({
-                categoryName: catName,
-                categoryType: catType,
-                icon: catIcon,
-                colorTheme: catColor,
-                status: Number(catStatus)
-              })
-            });
-
-            if (res.ok) {
-              alert(editingCatId ? 'Category updated successfully!' : 'Category created successfully!');
-              setCatName('');
-              setEditingCatId(null);
-              fetchCats();
-            } else {
-              const err = await res.json();
-              alert(err.error || 'Failed to save category');
+          if (!selectedStudent) return;
+          async function fetchAttempts() {
+            setLoadingAttempts(true);
+            setSelectedAttempt(null);
+            setDeepQuestions([]);
+            try {
+              const token = await auth.currentUser?.getIdToken();
+              const res = await fetch(`/api/admin/student-attempts/${selectedStudent.id}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+              });
+              if (res.ok) {
+                const data = await res.json();
+                setStudentAttempts(data.attempts || []);
+              }
+            } catch (err) {
+              console.error(err);
+            } finally {
+              setLoadingAttempts(false);
             }
-          } catch (e) {
-            console.error(e);
-            alert('Failed to save category');
           }
-        };
+          fetchAttempts();
+        }, [selectedStudent]);
 
-        const handleEditCat = (cat: any) => {
-          setEditingCatId(cat.id);
-          setCatName(cat.categoryName);
-          setCatType(cat.categoryType);
-          setCatIcon(cat.icon || 'Layers');
-          setCatColor(cat.colorTheme || 'linear-gradient(135deg, #0052D4, #4364F7)');
-          setCatStatus(cat.status !== undefined ? Number(cat.status) : 1);
-        };
-
-        const handleDeleteCat = async (id: string) => {
-          if (!confirm('Are you sure you want to delete this category? All tests under this category will need update.')) return;
-          try {
-            const token = await auth.currentUser?.getIdToken();
-            const res = await fetch(`/api/admin/custom-categories/${id}`, {
-              method: 'DELETE',
-              headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.ok) {
-              alert('Category deleted successfully!');
-              fetchCats();
-            } else {
-              alert('Failed to delete category');
+        // Load deep questions when attempt is clicked
+        useEffect(() => {
+          if (!selectedAttempt) return;
+          async function fetchDeepQuestions() {
+            setLoadingDeep(true);
+            try {
+              const token = await auth.currentUser?.getIdToken();
+              const res = await fetch(`/api/admin/test-attempt-analysis/${selectedAttempt.id}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+              });
+              if (res.ok) {
+                const data = await res.json();
+                setDeepQuestions(data.questions || []);
+              }
+            } catch (err) {
+              console.error(err);
+            } finally {
+              setLoadingDeep(false);
             }
-          } catch (e) {
-            console.error(e);
           }
+          fetchDeepQuestions();
+        }, [selectedAttempt]);
+
+        // Export PDF
+        const handlePDFExport = (student: any, attempts: any[]) => {
+          const doc = new jsPDF();
+          doc.setFontSize(22);
+          doc.setTextColor(79, 70, 229);
+          doc.text(`Master Aptitude Student Performance Report`, 14, 20);
+
+          doc.setFontSize(11);
+          doc.setTextColor(100, 116, 139);
+          doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 27);
+
+          doc.setFontSize(13);
+          doc.setTextColor(30, 41, 59);
+          doc.text(`Basic Information`, 14, 38);
+          doc.line(14, 40, 196, 40);
+
+          doc.setFontSize(11);
+          doc.text(`Student Name: ${student.name}`, 14, 48);
+          doc.text(`Mobile Number: ${student.phoneNumber || 'N/A'}`, 14, 55);
+          doc.text(`Email: ${student.email || 'N/A'}`, 14, 62);
+          doc.text(`Course: ${student.courseName || 'General Course'}`, 14, 69);
+          doc.text(`Registered: ${student.registrationDate ? new Date(student.registrationDate).toLocaleDateString() : 'N/A'}`, 14, 76);
+
+          doc.setFontSize(13);
+          doc.text(`Performance History`, 14, 90);
+          doc.line(14, 92, 196, 92);
+
+          const headers = [["Mock Test Title", "Score Obtained", "Accuracy %", "Rank", "Date Attempted"]];
+          const tableData = attempts.map(att => [
+            att.testTitle,
+            att.score,
+            `${att.accuracy}%`,
+            att.rank || 'N/A',
+            new Date(att.createdAt).toLocaleDateString()
+          ]);
+
+          (doc as any).autoTable({
+            startY: 96,
+            head: headers,
+            body: tableData,
+            theme: 'striped',
+            headStyles: { fillColor: [79, 70, 229] }
+          });
+
+          doc.save(`${student.name}_analysis_report.pdf`);
         };
+
+        // Export Excel (CSV)
+        const handleCSVExport = (student: any, attempts: any[]) => {
+          const csvRows = [
+            ["Mock Test", "Marks", "Accuracy", "Rank", "Date"],
+            ...attempts.map(att => [
+              att.testTitle,
+              att.score,
+              `${att.accuracy}%`,
+              att.rank || 'N/A',
+              new Date(att.createdAt).toLocaleDateString()
+            ])
+          ];
+          const csvContent = "data:text/csv;charset=utf-8," 
+            + csvRows.map(e => e.map(val => `"${val}"`).join(",")).join("\n");
+          const encodedUri = encodeURI(csvContent);
+          const link = document.createElement("a");
+          link.setAttribute("href", encodedUri);
+          link.setAttribute("download", `${student.name}_mock_history.csv`);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        };
+
+        // Print Analysis
+        const handlePrint = () => {
+          window.print();
+        };
+
+        // Filters student list (Active only)
+        const activeStudents = students.filter(s => {
+          if (s.status === 'blocked') return false;
+          const matchesSearch = (s.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                (s.phoneNumber || '').includes(searchQuery) ||
+                                (s.email || '').toLowerCase().includes(searchQuery.toLowerCase());
+          return matchesSearch;
+        });
 
         return (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-2">
-              <span className="w-2 h-8 bg-indigo-600 rounded-full"></span>
-              Custom Sub-Categories Manager
-            </h2>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              
-              {/* Form panel */}
-              <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 h-fit lg:col-span-1">
-                <h3 className="text-lg font-bold text-slate-800 mb-6">
-                  {editingCatId ? 'Edit Sub-Category' : 'Create New Sub-Category'}
-                </h3>
-                <form onSubmit={handleSubmitCat} className="space-y-6">
-                  <div>
-                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Category Name</label>
-                    <input 
-                      type="text" 
-                      value={catName} 
-                      onChange={(e) => setCatName(e.target.value)} 
-                      placeholder="e.g. Railway Mock Test"
-                      className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3.5 text-sm focus:border-indigo-500 outline-hidden font-bold transition-all text-slate-700"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Category Type</label>
-                    <select
-                      value={catType}
-                      onChange={(e: any) => setCatType(e.target.value)}
-                      className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3.5 text-sm focus:border-indigo-500 outline-hidden font-bold transition-all text-slate-700"
-                    >
-                      <option value="mock">Mock Test Category</option>
-                      <option value="study">Study Notes Category</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Color Theme Gradient</label>
-                    <select
-                      value={catColor}
-                      onChange={(e) => setCatColor(e.target.value)}
-                      className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3.5 text-sm focus:border-indigo-500 outline-hidden font-bold transition-all text-slate-700 mb-3"
-                    >
-                      <option value="linear-gradient(135deg, #0052D4, #4364F7)">HOME Blue Gradient</option>
-                      <option value="linear-gradient(135deg, #41295a, #2F0743)">PROFILE Dark Purple Gradient</option>
-                      <option value="linear-gradient(135deg, #134E5E, #0C7B93)">LEARN Ocean Teal Gradient</option>
-                      <option value="linear-gradient(135deg, #FF512F, #DD2476)">MOCK TEST Sunset Orange Gradient</option>
-                      <option value="linear-gradient(135deg, #f857a6, #ff5858)">TYPING TEST Pink Gradient</option>
-                      <option value="linear-gradient(135deg, #11998e, #38ef7d)">PREVIOUS YEAR Green Gradient</option>
-                      <option value="linear-gradient(135deg, #FF8008, #FFC837)">SYLLABUS Sunny Gold Gradient</option>
-                      <option value="linear-gradient(135deg, #4CA1AF, #2C3E50)">ABOUT Slate Blue Gradient</option>
-                      <option value="linear-gradient(135deg, #310F54, #F20089)">CONTACT Neon Pink/Purple Gradient</option>
-                    </select>
-                    {/* Live Preview */}
-                    <div 
-                      style={{ background: catColor }} 
-                      className="w-full h-12 rounded-xl flex items-center justify-center text-white text-xs font-black uppercase tracking-widest shadow-md mt-3"
-                    >
-                      Live Color Preview
+          <div className="space-y-8 animate-in fade-in duration-300">
+            {!selectedStudent ? (
+              // List View of Active Students
+              <div className="space-y-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+                    <span className="w-2 h-8 bg-indigo-600 rounded-full"></span>
+                    STUDENT-WISE PERFORMANCE ANALYSIS
+                  </h2>
+                  <div className="flex flex-wrap gap-4 items-center">
+                    <div className="relative">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                      <input 
+                        type="text"
+                        placeholder="Search student, mobile, email..."
+                        className="pl-11 pr-4 py-2.5 rounded-xl border-2 border-slate-200 focus:border-indigo-600 outline-hidden w-64 md:w-80 font-medium text-sm bg-white"
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                      />
                     </div>
                   </div>
+                </div>
 
-                  <div>
-                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Status</label>
-                    <select
-                      value={catStatus}
-                      onChange={(e) => setCatStatus(Number(e.target.value))}
-                      className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3.5 text-sm focus:border-indigo-500 outline-hidden font-bold transition-all text-slate-700"
-                    >
-                      <option value={1}>Active</option>
-                      <option value={0}>Inactive</option>
-                    </select>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <button 
-                      type="submit" 
-                      className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all"
-                    >
-                      {editingCatId ? 'Update Category' : 'Create Category'}
-                    </button>
-                    {editingCatId && (
-                      <button 
-                        type="button" 
-                        onClick={() => {
-                          setEditingCatId(null);
-                          setCatName('');
-                        }}
-                        className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3.5 px-6 rounded-xl text-xs uppercase tracking-wider transition-all"
-                      >
-                        Cancel
-                      </button>
-                    )}
-                  </div>
-                </form>
-              </div>
-
-              {/* List panel */}
-              <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 lg:col-span-2">
-                <h3 className="text-lg font-bold text-slate-800 mb-6">Existing Categories</h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-100">
-                        <th className="pb-4 text-xs font-black text-slate-400 uppercase tracking-widest">Name</th>
-                        <th className="pb-4 text-xs font-black text-slate-400 uppercase tracking-widest">Type</th>
-                        <th className="pb-4 text-xs font-black text-slate-400 uppercase tracking-widest">Status</th>
-                        <th className="pb-4 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                  <table className="min-w-full divide-y divide-slate-100">
+                    <thead className="bg-slate-50/50">
+                      <tr>
+                        <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Student Name</th>
+                        <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Mobile Number</th>
+                        <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Course</th>
+                        <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Total Mock Attempts</th>
+                        <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Status</th>
+                        <th className="px-8 py-5 text-right text-xs font-black text-slate-400 uppercase tracking-widest">View Analysis</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-50">
-                      {customCategoriesList.map((cat: any) => (
-                        <tr key={cat.id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="py-4 font-bold text-slate-800 flex items-center gap-3">
-                            <span 
-                              style={{ background: cat.colorTheme }} 
-                              className="w-4 h-4 rounded-full shadow-xs inline-block"
-                            ></span>
-                            {cat.categoryName}
+                    <tbody className="bg-white divide-y divide-slate-50">
+                      {activeStudents.map(student => (
+                        <tr key={student.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-8 py-6 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center font-black mr-4 uppercase">
+                                {(student.name || 'S').charAt(0)}
+                              </div>
+                              <span className="text-sm font-bold text-slate-800">{student.name}</span>
+                            </div>
                           </td>
-                          <td className="py-4 text-xs font-black text-slate-500 uppercase tracking-wider">
-                            {cat.categoryType === 'mock' ? '🎯 Mock Test' : '📚 Study notes'}
+                          <td className="px-8 py-6 whitespace-nowrap">
+                            <span className="text-sm font-medium text-slate-600">{student.phoneNumber || 'N/A'}</span>
                           </td>
-                          <td className="py-4">
-                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                              cat.status === 1 ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'
-                            }`}>
-                              {cat.status === 1 ? 'Active' : 'Inactive'}
+                          <td className="px-8 py-6 whitespace-nowrap">
+                            <span className="text-sm text-slate-500 font-bold">{student.courseName || 'General Aptitude'}</span>
+                          </td>
+                          <td className="px-8 py-6 whitespace-nowrap">
+                            <span className="text-sm font-black text-indigo-600">{student.totalTestsTaken || 0}</span>
+                          </td>
+                          <td className="px-8 py-6 whitespace-nowrap">
+                            <span className="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-600">
+                              Active
                             </span>
                           </td>
-                          <td className="py-4 text-right">
-                            <div className="flex justify-end gap-2">
-                              <button 
-                                onClick={() => handleEditCat(cat)}
-                                className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all border border-indigo-100"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
-                              <button 
-                                onClick={() => handleDeleteCat(cat.id)}
-                                className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-all border border-rose-100"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
+                          <td className="px-8 py-6 whitespace-nowrap text-right">
+                            <button 
+                              onClick={() => setSelectedStudent(student)}
+                              className="px-4 py-2 bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all"
+                            >
+                              VIEW DETAILS
+                            </button>
                           </td>
                         </tr>
                       ))}
-                      {customCategoriesList.length === 0 && !loadingCats && (
+                      {activeStudents.length === 0 && (
                         <tr>
-                          <td colSpan={4} className="py-10 text-center text-slate-400 font-bold">
-                            No custom categories created yet.
+                          <td colSpan={6} className="py-12 text-center text-slate-400 font-bold">
+                            No active students found matching search.
                           </td>
                         </tr>
                       )}
@@ -1438,8 +1401,340 @@ function AdminHome() {
                   </table>
                 </div>
               </div>
+            ) : (
+              // Detailed Performance Dashboard View
+              <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+                {/* Header Actions */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                  <div className="flex items-center gap-4">
+                    <button 
+                      onClick={() => setSelectedStudent(null)} 
+                      className="w-10 h-10 bg-slate-100 hover:bg-slate-200 rounded-xl flex items-center justify-center transition-colors"
+                      title="Back to Student List"
+                    >
+                      <ArrowLeft className="w-5 h-5 text-slate-600" />
+                    </button>
+                    <div>
+                      <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block mb-0.5">Student Dashboard</span>
+                      <h3 className="text-2xl font-black text-slate-800">{selectedStudent.name}</h3>
+                    </div>
+                  </div>
 
-            </div>
+                  <div className="flex flex-wrap gap-3">
+                    <button 
+                      onClick={() => handlePDFExport(selectedStudent, studentAttempts)}
+                      className="px-4 py-2 bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all"
+                    >
+                      Export PDF
+                    </button>
+                    <button 
+                      onClick={() => handleCSVExport(selectedStudent, studentAttempts)}
+                      className="px-4 py-2 bg-emerald-50 hover:bg-emerald-600 text-emerald-600 hover:text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all"
+                    >
+                      Export Excel
+                    </button>
+                    <button 
+                      onClick={handlePrint}
+                      className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-black uppercase tracking-wider transition-all"
+                    >
+                      Print Analysis
+                    </button>
+                  </div>
+                </div>
+
+                {/* Dashboard Details Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  
+                  {/* Left: Basic Details & Advanced Metrics */}
+                  <div className="lg:col-span-1 space-y-8">
+                    
+                    {/* Basic details */}
+                    <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Basic Information</h4>
+                      
+                      <div className="space-y-4">
+                        <div>
+                          <span className="text-[9px] font-black text-slate-400 uppercase block">Name</span>
+                          <span className="text-sm font-bold text-slate-800">{selectedStudent.name}</span>
+                        </div>
+                        <div>
+                          <span className="text-[9px] font-black text-slate-400 uppercase block">Mobile Number</span>
+                          <span className="text-sm font-medium text-slate-600">{selectedStudent.phoneNumber || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="text-[9px] font-black text-slate-400 uppercase block">Email Address</span>
+                          <span className="text-sm font-medium text-slate-600">{selectedStudent.email || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="text-[9px] font-black text-slate-400 uppercase block">Registration Date</span>
+                          <span className="text-sm font-medium text-slate-500">
+                            {selectedStudent.registrationDate ? new Date(selectedStudent.registrationDate).toLocaleDateString() : 'N/A'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[9px] font-black text-slate-400 uppercase block">Course</span>
+                          <span className="text-sm font-bold text-indigo-600">{selectedStudent.courseName || 'General Aptitude'}</span>
+                        </div>
+                        <div>
+                          <span className="text-[9px] font-black text-slate-400 uppercase block">Active Status</span>
+                          <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase">
+                            Active
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Advanced Metrics */}
+                    {studentAttempts.length > 0 && (() => {
+                      // Compute Advanced Analytics
+                      const scores = studentAttempts.map(a => a.score || 0);
+                      const maxScore = Math.max(...scores);
+                      const minScore = Math.min(...scores);
+                      const totalTime = studentAttempts.reduce((acc, curr) => acc + (curr.timeTaken || 0), 0);
+                      const avgTime = Math.round(totalTime / studentAttempts.length);
+
+                      return (
+                        <div className="bg-slate-900 text-white p-8 rounded-3xl border border-slate-800 shadow-xl space-y-6">
+                          <h4 className="text-xs font-black text-indigo-400 uppercase tracking-widest">Advanced Statistics</h4>
+                          
+                          <div className="space-y-4">
+                            <div className="flex justify-between border-b border-slate-800 pb-2">
+                              <span className="text-xs text-slate-400 font-bold">Highest Score</span>
+                              <span className="text-sm font-black text-indigo-300 font-mono">{maxScore}</span>
+                            </div>
+                            <div className="flex justify-between border-b border-slate-800 pb-2">
+                              <span className="text-xs text-slate-400 font-bold">Lowest Score</span>
+                              <span className="text-sm font-black text-rose-400 font-mono">{minScore}</span>
+                            </div>
+                            <div className="flex justify-between border-b border-slate-800 pb-2">
+                              <span className="text-xs text-slate-400 font-bold">Average Solving Latency</span>
+                              <span className="text-sm font-black text-emerald-400 font-mono">{Math.floor(avgTime / 60)}m {avgTime % 60}s</span>
+                            </div>
+                            <div className="flex justify-between pb-2">
+                              <span className="text-xs text-slate-400 font-bold">Total Practice Time</span>
+                              <span className="text-sm font-black text-indigo-300 font-mono">{Math.floor(totalTime / 60)}m {totalTime % 60}s</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                  </div>
+
+                  {/* Right: Mock Test Summary, History & Deep Question analysis */}
+                  <div className="lg:col-span-2 space-y-8">
+                    
+                    {/* Overview Cards & History */}
+                    {loadingAttempts ? (
+                      <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-slate-100">
+                        <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                        <p className="text-slate-400 font-bold">Loading student logs...</p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Summary Metrics */}
+                        {(() => {
+                          const total = studentAttempts.length;
+                          const avgScore = total > 0 ? (studentAttempts.reduce((acc, curr) => acc + (curr.score || 0), 0) / total).toFixed(1) : '0.0';
+                          const avgAccuracy = total > 0 ? Math.round(studentAttempts.reduce((acc, curr) => acc + (curr.accuracy || 0), 0) / total) : 0;
+                          
+                          return (
+                            <div className="grid grid-cols-3 gap-4">
+                              <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-center">
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Mock Attempts</span>
+                                <span className="text-2xl font-black text-slate-900">{total}</span>
+                              </div>
+                              <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-center">
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Avg Score</span>
+                                <span className="text-2xl font-black text-indigo-600">{avgScore}</span>
+                              </div>
+                              <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-center">
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Avg Accuracy</span>
+                                <span className="text-2xl font-black text-emerald-600">{avgAccuracy}%</span>
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Progression Graph */}
+                        <div className="bg-slate-900 text-white p-6 rounded-3xl border border-slate-800 space-y-4">
+                          <h5 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                            <TrendingUp className="w-4 h-4 text-emerald-400 animate-pulse" />
+                            Progression & Improvement Graph
+                          </h5>
+                          {studentAttempts.length > 1 ? (
+                            <div className="relative pt-4">
+                              <svg viewBox="0 0 500 150" className="w-full h-40 overflow-visible">
+                                <line x1="40" y1="10" x2="480" y2="10" stroke="#1e293b" strokeDasharray="3,3" />
+                                <line x1="40" y1="50" x2="480" y2="50" stroke="#1e293b" strokeDasharray="3,3" />
+                                <line x1="40" y1="90" x2="480" y2="90" stroke="#1e293b" strokeDasharray="3,3" />
+                                <line x1="40" y1="130" x2="480" y2="130" stroke="#1e293b" />
+
+                                {(() => {
+                                  const pts = [...studentAttempts].reverse().slice(-8);
+                                  const maxScore = Math.max(...pts.map(p => p.score), 100);
+                                  const xStep = pts.length > 1 ? 440 / (pts.length - 1) : 440;
+                                  
+                                  const pointsCoords = pts.map((p, idx) => {
+                                    const x = 40 + idx * xStep;
+                                    const y = 130 - ((p.score || 0) / maxScore) * 120;
+                                    return { x, y, score: p.score, title: p.testTitle };
+                                  });
+
+                                  const dPath = pointsCoords.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+
+                                  return (
+                                    <>
+                                      <path d={dPath} fill="none" stroke="url(#indigoGrad2)" strokeWidth="3" strokeLinecap="round" />
+                                      {pointsCoords.map((p, idx) => (
+                                        <g key={idx}>
+                                          <circle cx={p.x} cy={p.y} r="5" fill="#6366f1" />
+                                          <text x={p.x} y={p.y - 12} textAnchor="middle" fill="#a5b4fc" className="text-[10px] font-bold font-mono">
+                                            {p.score}
+                                          </text>
+                                          <text x={p.x} y="145" textAnchor="middle" fill="#64748b" className="text-[8px] font-medium">
+                                            {pts[idx].testTitle.substring(0, 10)}
+                                          </text>
+                                        </g>
+                                      ))}
+                                      <defs>
+                                        <linearGradient id="indigoGrad2" x1="0" y1="0" x2="1" y2="0">
+                                          <stop offset="0%" stopColor="#818cf8" />
+                                          <stop offset="100%" stopColor="#34d399" />
+                                        </linearGradient>
+                                      </defs>
+                                    </>
+                                  );
+                                })()}
+                              </svg>
+                            </div>
+                          ) : (
+                            <div className="h-40 flex items-center justify-center border border-slate-800 border-dashed rounded-2xl text-slate-500 text-sm font-bold">
+                              Take at least 2 mock tests to display progression graph.
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Mock History List */}
+                        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
+                          <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Mock Test History</h4>
+                          
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                              <thead>
+                                <tr className="border-b border-slate-100 text-slate-400">
+                                  <th className="pb-3 text-xs font-black uppercase tracking-widest">Mock Test</th>
+                                  <th className="pb-3 text-xs font-black uppercase tracking-widest">Marks</th>
+                                  <th className="pb-3 text-xs font-black uppercase tracking-widest">Accuracy</th>
+                                  <th className="pb-3 text-xs font-black uppercase tracking-widest">Rank</th>
+                                  <th className="pb-3 text-xs font-black uppercase tracking-widest">Date</th>
+                                  <th className="pb-3 text-xs font-black uppercase tracking-widest text-right">View Analysis</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {studentAttempts.map(attempt => (
+                                  <tr key={attempt.id} className="hover:bg-slate-50/50">
+                                    <td className="py-4 text-sm font-bold text-slate-800 truncate max-w-[200px]" title={attempt.testTitle}>
+                                      {attempt.testTitle}
+                                    </td>
+                                    <td className="py-4 text-sm font-mono font-bold text-indigo-600">{attempt.score}</td>
+                                    <td className="py-4">
+                                      <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 text-xs font-bold">
+                                        {attempt.accuracy}%
+                                      </span>
+                                    </td>
+                                    <td className="py-4 text-sm text-slate-500 font-bold">#{attempt.rank || 'N/A'}</td>
+                                    <td className="py-4 text-xs text-slate-500 font-medium">
+                                      {attempt.createdAt ? new Date(attempt.createdAt).toLocaleDateString() : 'N/A'}
+                                    </td>
+                                    <td className="py-4 text-right">
+                                      <button 
+                                        onClick={() => setSelectedAttempt(attempt)}
+                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors ${
+                                          selectedAttempt?.id === attempt.id 
+                                            ? 'bg-rose-600 text-white' 
+                                            : 'bg-slate-100 text-slate-600 hover:bg-indigo-600 hover:text-white'
+                                        }`}
+                                      >
+                                        Analyze
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                                {studentAttempts.length === 0 && (
+                                  <tr>
+                                    <td colSpan={6} className="py-12 text-center text-slate-400 font-bold">
+                                      No mock test attempts recorded yet.
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
+                        {/* Deep Question analysis Matrix */}
+                        {selectedAttempt && (
+                          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6 animate-in fade-in duration-300">
+                            <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center justify-between">
+                              <span>Question-Wise Response Analysis — {selectedAttempt.testTitle}</span>
+                              <button 
+                                onClick={() => setSelectedAttempt(null)}
+                                className="text-[10px] text-rose-500 font-black uppercase tracking-widest hover:underline"
+                              >
+                                Clear Analysis
+                              </button>
+                            </h4>
+
+                            {loadingDeep ? (
+                              <div className="flex flex-col items-center justify-center py-10">
+                                <div className="w-8 h-8 border-4 border-rose-500 border-t-transparent rounded-full animate-spin mb-2"></div>
+                                <p className="text-slate-400 font-bold text-xs">Loading answers...</p>
+                              </div>
+                            ) : (
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                  <thead>
+                                    <tr className="border-b border-slate-100 text-slate-400">
+                                      <th className="pb-3 text-[10px] font-black uppercase tracking-widest">Question No</th>
+                                      <th className="pb-3 text-[10px] font-black uppercase tracking-widest">Student Answer</th>
+                                      <th className="pb-3 text-[10px] font-black uppercase tracking-widest">Correct Answer</th>
+                                      <th className="pb-3 text-[10px] font-black uppercase tracking-widest">Status</th>
+                                      <th className="pb-3 text-[10px] font-black uppercase tracking-widest text-right">Time Taken</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {deepQuestions.map(q => (
+                                      <tr key={q.questionNo} className="hover:bg-slate-50/50">
+                                        <td className="py-3 text-sm font-mono font-bold text-slate-800">Q{q.questionNo}</td>
+                                        <td className="py-3 text-sm font-mono font-bold text-slate-500">{q.studentAnswer || '--'}</td>
+                                        <td className="py-3 text-sm font-mono font-bold text-emerald-600">{q.correctAnswer}</td>
+                                        <td className="py-3">
+                                          <span className={`px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-wide ${
+                                            !q.studentAnswer ? 'bg-slate-100 text-slate-400' :
+                                            q.isCorrect ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
+                                          }`}>
+                                            {!q.studentAnswer ? 'Skipped' : q.isCorrect ? 'Correct' : 'Wrong'}
+                                          </span>
+                                        </td>
+                                        <td className="py-3 text-right text-xs font-mono text-slate-400">{q.timeTaken || 0} sec</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                  </div>
+
+                </div>
+
+              </div>
+            )}
           </div>
         );
       })()}

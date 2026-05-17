@@ -6,6 +6,62 @@ import { getFirestore } from "firebase-admin/firestore";
 import cookieParser from "cookie-parser";
 import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
+import sqlite3 from "sqlite3";
+
+// Initialize SQLite Database for Mock Question Analysis
+const sqliteDbPath = path.resolve(process.cwd(), "mock_analytics.db");
+const sqliteDb = new sqlite3.Database(sqliteDbPath, (err) => {
+  if (err) {
+    console.error("[SQLite] Error opening database:", err.message);
+  } else {
+    console.log("[SQLite] Connected to mock_analytics database.");
+    sqliteDb.run(`
+      CREATE TABLE IF NOT EXISTS mock_question_analysis (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        student_id TEXT,
+        mock_test_id TEXT,
+        question_id TEXT,
+        selected_answer TEXT,
+        correct_answer TEXT,
+        is_correct INTEGER,
+        time_taken_seconds INTEGER,
+        attempted_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `, (err) => {
+      if (err) {
+        console.error("[SQLite] Error creating mock_question_analysis table:", err.message);
+      } else {
+        console.log("[SQLite] Table mock_question_analysis verified/created successfully.");
+      }
+    });
+  }
+});
+
+function insertMockQuestionAnalysis(
+  studentId: string,
+  mockTestId: string,
+  questionId: string,
+  selectedAnswer: string,
+  correctAnswer: string,
+  isCorrect: number,
+  timeTakenSeconds: number
+) {
+  sqliteDb.run(`
+    INSERT INTO mock_question_analysis (
+      student_id,
+      mock_test_id,
+      question_id,
+      selected_answer,
+      correct_answer,
+      is_correct,
+      time_taken_seconds
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+  `, [studentId, mockTestId, questionId, selectedAnswer, correctAnswer, isCorrect, timeTakenSeconds], (err) => {
+    if (err) {
+      console.error("[SQLite] Error inserting question analysis:", err.message);
+    }
+  });
+}
 
 // Load Firebase config (file on localhost, env vars on Vercel)
 let firebaseConfig: any = { projectId: "", firestoreDatabaseId: "" };
@@ -418,6 +474,21 @@ app.use((req, res, next) => {
           const isCorr = selected === correctAns;
           const timeSpent = questionTimes[qId] || 0;
 
+          // Write to SQLite Database
+          try {
+            insertMockQuestionAnalysis(
+              user.uid,
+              testId,
+              qId,
+              selected,
+              correctAns,
+              isCorr ? 1 : 0,
+              timeSpent
+            );
+          } catch (sqliteErr) {
+            console.error("[SQLite] Error saving question analysis:", sqliteErr);
+          }
+
           const analysisRef = currentDb.collection("mock_question_analysis").doc();
           analysisBatch.set(analysisRef, {
             userId: user.uid,
@@ -537,6 +608,83 @@ app.use((req, res, next) => {
     } catch (error) {
       console.error("[Admin] Failed to fetch students:", error);
       res.status(500).json({ error: "Failed to fetch students" });
+    }
+  });
+
+  // Admin: Get Student's Test Attempts
+  app.get("/api/admin/student-attempts/:studentId", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    const { studentId } = req.params;
+
+    try {
+      const snap = await currentDb.collection("results")
+        .where("userId", "==", studentId)
+        .orderBy("timestamp", "desc")
+        .get();
+
+      const attempts = snap.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          testTitle: data.testTitle || "Mock Test",
+          createdAt: data.timestamp || Date.now(),
+          score: data.score || 0,
+          accuracy: data.accuracy || 0,
+          timeTaken: data.timeTakenStr || (typeof data.timeTaken === "number" ? data.timeTaken : parseInt(data.timeTaken) || 0),
+          totalQuestions: data.totalQuestions || 0
+        };
+      });
+
+      return res.json({ attempts });
+    } catch (err: any) {
+      console.error("[student-attempts] failed:", err);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Admin: Get Detailed Test Attempt Analysis
+  app.get("/api/admin/test-attempt-analysis/:attemptId", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    const { attemptId } = req.params;
+
+    try {
+      const resultSnap = await currentDb.collection("results").doc(attemptId).get();
+      if (!resultSnap.exists) {
+        return res.status(404).json({ error: "Attempt not found" });
+      }
+      const attemptData = resultSnap.data() || {};
+      const testId = attemptData.testId;
+      const userAnswers = attemptData.userAnswers || {};
+      const correctAnswersMap = attemptData.correctAnswersMap || {};
+      const questionTimes = attemptData.questionTimes || {};
+
+      // Get questions for this test to display question details and subject analysis
+      const questionsSnap = await currentDb.collection("questions").where("testId", "==", testId).get();
+      
+      const questions = questionsSnap.docs.map((doc, idx) => {
+        const qData = doc.data();
+        const qId = doc.id;
+        const studentAns = userAnswers[qId] || "";
+        const correctAns = correctAnswersMap[qId] || qData.correctAnswer || "";
+        const isCorrect = studentAns === correctAns;
+        const timeTaken = questionTimes[qId] || 0;
+
+        return {
+          questionNo: qData.qNo || (idx + 1),
+          subject: qData.subject || qData.subjectName || "General",
+          studentAnswer: studentAns,
+          correctAnswer: correctAns,
+          isCorrect,
+          timeTaken
+        };
+      }).sort((a, b) => a.questionNo - b.questionNo);
+
+      return res.json({ questions });
+    } catch (err: any) {
+      console.error("[attempt-analysis] failed:", err);
+      return res.status(500).json({ error: err.message });
     }
   });
 
