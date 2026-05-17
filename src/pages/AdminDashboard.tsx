@@ -12,6 +12,7 @@ import 'jspdf-autotable';
 
 import AdminTypingTests from '../components/AdminTypingTests';
 import { Keyboard } from 'lucide-react';
+import { MathRenderer } from '../components/MathRenderer';
 
 type AdminTab = 'students' | 'mock' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'student_analysis';
 
@@ -1179,6 +1180,9 @@ function AdminHome() {
       </div>
 
       {activeTab === 'student_analysis' && (() => {
+        const [studentAnalysisList, setStudentAnalysisList] = useState<any[]>([]);
+        const [loadingAnalysis, setLoadingAnalysis] = useState(false);
+        const [errorAnalysis, setErrorAnalysis] = useState<string | null>(null);
         const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
         const [studentAttempts, setStudentAttempts] = useState<any[]>([]);
         const [loadingAttempts, setLoadingAttempts] = useState(false);
@@ -1187,6 +1191,33 @@ function AdminHome() {
         const [loadingDeep, setLoadingDeep] = useState(false);
         const [searchQuery, setSearchQuery] = useState('');
 
+        const fetchStudentAnalysis = async () => {
+          setLoadingAnalysis(true);
+          setErrorAnalysis(null);
+          try {
+            const token = await auth.currentUser?.getIdToken();
+            const res = await fetch('/api/admin/student-analysis', {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+              const data = await res.json();
+              setStudentAnalysisList(data.students || []);
+            } else {
+              setErrorAnalysis('Failed to load student data');
+            }
+          } catch (err) {
+            console.error(err);
+            setErrorAnalysis('Failed to load student data');
+          } finally {
+            setLoadingAnalysis(false);
+          }
+        };
+
+        useEffect(() => {
+          if (activeTab === 'student_analysis') {
+            fetchStudentAnalysis();
+          }
+        }, [activeTab]);
         // Load attempts for selected student
         useEffect(() => {
           if (!selectedStudent) return;
@@ -1311,8 +1342,7 @@ function AdminHome() {
         };
 
         // Filters student list (Active only)
-        const activeStudents = students.filter(s => {
-          if (s.status === 'blocked') return false;
+        const activeStudents = studentAnalysisList.filter(s => {
           const matchesSearch = (s.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                                 (s.phoneNumber || '').includes(searchQuery) ||
                                 (s.email || '').toLowerCase().includes(searchQuery.toLowerCase());
@@ -1327,14 +1357,14 @@ function AdminHome() {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
                     <span className="w-2 h-8 bg-indigo-600 rounded-full"></span>
-                    STUDENT-WISE PERFORMANCE ANALYSIS
+                    STUDENT ANALYSIS DASHBOARD
                   </h2>
                   <div className="flex flex-wrap gap-4 items-center">
                     <div className="relative">
                       <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                       <input 
                         type="text"
-                        placeholder="Search student, mobile, email..."
+                        placeholder="Search Student..."
                         className="pl-11 pr-4 py-2.5 rounded-xl border-2 border-slate-200 focus:border-indigo-600 outline-hidden w-64 md:w-80 font-medium text-sm bg-white"
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
@@ -1343,63 +1373,74 @@ function AdminHome() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-                  <table className="min-w-full divide-y divide-slate-100">
-                    <thead className="bg-slate-50/50">
-                      <tr>
-                        <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Student Name</th>
-                        <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Mobile Number</th>
-                        <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Course</th>
-                        <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Total Mock Attempts</th>
-                        <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Status</th>
-                        <th className="px-8 py-5 text-right text-xs font-black text-slate-400 uppercase tracking-widest">View Analysis</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-slate-50">
-                      {activeStudents.map(student => (
-                        <tr key={student.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-8 py-6 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center font-black mr-4 uppercase">
-                                {(student.name || 'S').charAt(0)}
-                              </div>
-                              <span className="text-sm font-bold text-slate-800">{student.name}</span>
-                            </div>
-                          </td>
-                          <td className="px-8 py-6 whitespace-nowrap">
-                            <span className="text-sm font-medium text-slate-600">{student.phoneNumber || 'N/A'}</span>
-                          </td>
-                          <td className="px-8 py-6 whitespace-nowrap">
-                            <span className="text-sm text-slate-500 font-bold">{student.courseName || 'General Aptitude'}</span>
-                          </td>
-                          <td className="px-8 py-6 whitespace-nowrap">
-                            <span className="text-sm font-black text-indigo-600">{student.totalTestsTaken || 0}</span>
-                          </td>
-                          <td className="px-8 py-6 whitespace-nowrap">
-                            <span className="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-600">
-                              Active
-                            </span>
-                          </td>
-                          <td className="px-8 py-6 whitespace-nowrap text-right">
-                            <button 
-                              onClick={() => setSelectedStudent(student)}
-                              className="px-4 py-2 bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all"
-                            >
-                              VIEW DETAILS
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                      {activeStudents.length === 0 && (
+                {loadingAnalysis ? (
+                  <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-slate-100 shadow-sm animate-pulse">
+                    <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                    <p className="text-slate-500 font-bold text-sm">Loading Student Analysis...</p>
+                  </div>
+                ) : errorAnalysis ? (
+                  <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-slate-100 shadow-sm space-y-4">
+                    <p className="text-rose-500 font-black text-sm">{errorAnalysis}</p>
+                    <button 
+                      onClick={fetchStudentAnalysis}
+                      className="px-6 py-2.5 bg-indigo-600 hover:bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all"
+                    >
+                      Retry Loading
+                    </button>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                    <table className="min-w-full divide-y divide-slate-100">
+                      <thead className="bg-slate-50/50">
                         <tr>
-                          <td colSpan={6} className="py-12 text-center text-slate-400 font-bold">
-                            No active students found matching search.
-                          </td>
+                          <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Student Name</th>
+                          <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Mobile</th>
+                          <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Total Mock Attempt</th>
+                          <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Avg Marks</th>
+                          <th className="px-8 py-5 text-right text-xs font-black text-slate-400 uppercase tracking-widest">Action</th>
                         </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-slate-50">
+                        {activeStudents.map(student => (
+                          <tr key={student.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-8 py-6 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center font-black mr-4 uppercase">
+                                  {(student.name || 'S').charAt(0)}
+                                </div>
+                                <span className="text-sm font-bold text-slate-800">{student.name}</span>
+                              </div>
+                            </td>
+                            <td className="px-8 py-6 whitespace-nowrap">
+                              <span className="text-sm font-medium text-slate-600">{student.phoneNumber || 'N/A'}</span>
+                            </td>
+                            <td className="px-8 py-6 whitespace-nowrap">
+                              <span className="text-sm font-black text-indigo-600">{student.totalTestsTaken || 0}</span>
+                            </td>
+                            <td className="px-8 py-6 whitespace-nowrap">
+                              <span className="text-sm font-black text-indigo-600 font-mono">{student.avgMarks || 0}</span>
+                            </td>
+                            <td className="px-8 py-6 whitespace-nowrap text-right">
+                              <button 
+                                onClick={() => setSelectedStudent(student)}
+                                className="px-4 py-2 bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all"
+                              >
+                                VIEW DETAILS
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                        {activeStudents.length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="py-12 text-center text-slate-400 font-black">
+                              No Student Data Available
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             ) : (
               // Detailed Performance Dashboard View
@@ -3268,6 +3309,28 @@ function QuestionManager() {
   const [qCorrect, setQCorrect] = useState('');
   const [qSolution, setQSolution] = useState('');
 
+  // Rich media states
+  const [qEquation, setQEquation] = useState('');
+  const [qImage, setQImage] = useState('');
+  const [optEquations, setOptEquations] = useState(['', '', '', '']);
+  const [optImages, setOptImages] = useState(['', '', '', '']);
+  const [qDifficulty, setQDifficulty] = useState('easy');
+  const [qCategory, setQCategory] = useState('mock');
+  const [uploading, setUploading] = useState(false);
+
+  // LaTeX Shortcut helper templates
+  const latexTemplates = [
+    { label: 'Fraction', latex: '\\frac{a}{b}' },
+    { label: 'Square Root', latex: '\\sqrt{x}' },
+    { label: 'Power', latex: 'x^2' },
+    { label: 'Integral', latex: '\\int_{a}^{b} x^2 dx' },
+    { label: 'Sigma Sum', latex: '\\sum_{i=1}^{n}' },
+    { label: 'Pi', latex: '\\pi' },
+    { label: 'Theta', latex: '\\theta' },
+    { label: 'Infinity', latex: '\\infty' },
+    { label: 'Delta', latex: '\\Delta' },
+  ];
+
   useEffect(() => {
     if (!testId) return;
     setLoading(true);
@@ -3280,6 +3343,52 @@ function QuestionManager() {
     }, (err) => console.error(err));
     return () => unsub();
   }, [testId]);
+
+  const handleUploadImage = async (e: React.ChangeEvent<HTMLInputElement>, target: 'question' | number) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 3 * 1024 * 1024) {
+      alert("Image exceeds 3MB limit (Maximum 3MB allowed)");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64Data = reader.result as string;
+        const token = await user.getIdToken();
+        const res = await fetch("/api/admin/questions/upload-image", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({ base64Data, fileName: file.name })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (target === 'question') {
+            setQImage(data.imageUrl);
+          } else {
+            const newOptImgs = [...optImages];
+            newOptImgs[target] = data.imageUrl;
+            setOptImages(newOptImgs);
+          }
+        } else {
+          alert("Failed to upload image: " + await res.text());
+        }
+        setUploading(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error(err);
+      alert("Error reading file");
+      setUploading(false);
+    }
+  };
 
   const handleAddQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -3305,15 +3414,20 @@ function QuestionManager() {
           topic: qTopic, 
           qNo: editingQuestionId ? undefined : questions.length + 1, 
           questionText: qText, 
+          questionEquation: qEquation,
+          questionImage: qImage,
           options: qOptions, 
+          optionEquations: optEquations,
+          optionImages: optImages,
           correctAnswer: qCorrect,
+          difficulty: qDifficulty,
+          category: qCategory,
           solution: qSolution
         })
       });
       if (res.ok) {
-        setQText(''); setQTopic(''); setQOptions(['', '', '', '']); setQCorrect(''); setQSolution('');
-        setEditingQuestionId(null);
-        alert(editingQuestionId ? 'Question updated!' : 'Question added!');
+        clearForm();
+        alert(editingQuestionId ? 'Question updated successfully!' : 'Question added successfully!');
       } else alert(await res.text());
     } catch (error) {
       console.error(error);
@@ -3328,7 +3442,31 @@ function QuestionManager() {
     setQOptions([...q.options]);
     setQCorrect(q.correctAnswer);
     setQSolution(q.solution || '');
+    
+    // Rich properties mapping
+    setQEquation(q.questionEquation || '');
+    setQImage(q.questionImage || '');
+    setOptEquations(q.optionEquations || ['', '', '', '']);
+    setOptImages(q.optionImages || ['', '', '', '']);
+    setQDifficulty(q.difficulty || 'easy');
+    setQCategory(q.category || 'mock');
+    
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const clearForm = () => {
+    setEditingQuestionId(null);
+    setQText('');
+    setQTopic('');
+    setQOptions(['', '', '', '']);
+    setQCorrect('');
+    setQSolution('');
+    setQEquation('');
+    setQImage('');
+    setOptEquations(['', '', '', '']);
+    setOptImages(['', '', '', '']);
+    setQDifficulty('easy');
+    setQCategory('mock');
   };
 
   const handleDeleteQuestion = async (qId: string) => {
@@ -3370,91 +3508,331 @@ function QuestionManager() {
         <Link to="/admin" className="mr-4 p-3 bg-white rounded-2xl shadow-sm border border-slate-100 hover:bg-slate-50 transition group">
           <ArrowLeft className="w-5 h-5 text-indigo-600 group-hover:-translate-x-1 transition-transform" />
         </Link>
-        <h2 className="text-2xl font-black text-slate-800">Manage Test Questions</h2>
+        <h2 className="text-2xl font-black text-slate-800 text-transform-uppercase">Manage Test Questions</h2>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
-         <h3 className="text-lg font-bold text-slate-800 mb-6">{editingQuestionId ? 'Edit Question' : 'Add New Question'}</h3>
-         <form onSubmit={handleAddQuestion} className="space-y-6">
-           <div>
-             <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Question Description</label>
-             <textarea 
-               className="w-full rounded-2xl border-slate-200 border-2 p-4 outline-hidden font-medium"
-               rows={3} value={qText} onChange={e => setQText(e.target.value)} required 
-               placeholder="Write the question here..."
-             />
-           </div>
-           
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             {qOptions.map((opt, i) => (
-               <div key={i}>
-                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Option {i+1}</label>
-                 <input 
-                   type="text" className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
-                   value={opt} onChange={e => {
-                     const newOpts = [...qOptions];
-                     newOpts[i] = e.target.value;
-                     setQOptions(newOpts);
-                   }} required 
-                   placeholder={`Possibility ${i+1}`}
-                 />
-               </div>
-             ))}
-           </div>
-           
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             <div>
-               <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Correct Answer</label>
-               <select 
-                 className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-bold text-indigo-600"
-                 value={qCorrect} onChange={e => setQCorrect(e.target.value)} required
-               >
-                 <option value="">Select correct option...</option>
-                 {qOptions.filter(o => o.trim() !== '').map((opt, i) => (
-                   <option key={i} value={opt}>{opt}</option>
-                 ))}
-               </select>
-             </div>
-             <div>
-               <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Topic</label>
-               <input 
-                 type="text" className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
-                 value={qTopic} onChange={e => setQTopic(e.target.value)}
-                 placeholder="e.g. Quantum Physics" 
-               />
-             </div>
-           </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        
+        {/* Editor Form Panel */}
+        <div className="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-slate-100 p-8">
+          <h3 className="text-lg font-black text-slate-800 mb-6 uppercase tracking-wider">
+            {editingQuestionId ? '⚡ Edit Exam Question' : '✨ Add New Exam Question'}
+          </h3>
+          
+          <form onSubmit={handleAddQuestion} className="space-y-6">
+            
+            {/* 1. Question Description */}
+            <div>
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Question Title / Text</label>
+              <textarea 
+                className="w-full rounded-2xl border-slate-200 border-2 p-4 outline-hidden font-medium text-slate-800 focus:border-indigo-500 transition-colors"
+                rows={3} value={qText} onChange={e => setQText(e.target.value)} required 
+                placeholder="Enter rich question statement or word problem description..."
+              />
+            </div>
 
-           <div>
-             <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Solution / More Details</label>
-             <textarea 
-               className="w-full rounded-2xl border-slate-200 border-2 p-4 outline-hidden font-medium"
-               rows={3} value={qSolution} onChange={e => setQSolution(e.target.value)}
-               placeholder="Explain the logic or provide the step-by-step solution..."
-             />
-           </div>
+            {/* 2. LaTeX Equation Fields */}
+            <div>
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Equation Section (LaTeX)</label>
+              <input 
+                type="text"
+                className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-mono text-sm text-indigo-600 focus:border-indigo-500 transition-colors"
+                value={qEquation} onChange={e => setQEquation(e.target.value)}
+                placeholder="e.g. \frac{2x + 5}{3} = 7"
+              />
+              
+              {/* LaTeX Shortcut Keyboard */}
+              <div className="mt-3 flex flex-wrap gap-1.5 items-center">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">Math Symbols:</span>
+                {latexTemplates.map((t, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setQEquation(prev => prev + t.latex)}
+                    className="px-2 py-1 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 text-slate-600 hover:text-indigo-700 rounded-lg text-[10px] font-bold transition-all"
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-           <div className="flex justify-end gap-4 pt-4">
-             {editingQuestionId && (
-               <button 
-                 type="button" 
-                 onClick={() => {
-                   setEditingQuestionId(null);
-                   setQText(''); setQTopic(''); setQOptions(['', '', '', '']); setQCorrect(''); setQSolution('');
-                 }}
-                 className="bg-slate-100 text-slate-600 px-8 py-4 rounded-xl hover:bg-slate-200 font-bold transition-all"
-               >
-                 Cancel
-               </button>
-             )}
-             <button type="submit" className="bg-indigo-600 text-white px-8 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-indigo-50 flex items-center gap-2">
-               <Plus className="w-5 h-5" /> {editingQuestionId ? 'Update Question' : 'Add Question to Test'}
-             </button>
-           </div>
-         </form>
+            {/* 3. Question Image Upload */}
+            <div>
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Question Image / Diagram</label>
+              <div className="flex items-center gap-4">
+                <div className="flex-1 border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-xl p-4 transition-all relative flex flex-col items-center justify-center bg-slate-50">
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={e => handleUploadImage(e, 'question')}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    disabled={uploading}
+                  />
+                  <span className="text-xs font-bold text-slate-500 text-center">
+                    {uploading ? 'Processing file upload...' : qImage ? 'Change Selected Diagram' : 'Drag & Drop or Click to Upload Image (PNG, JPG, WEBP)'}
+                  </span>
+                </div>
+                {qImage && (
+                  <div className="relative shrink-0 w-16 h-16 rounded-xl border border-slate-200 overflow-hidden shadow-xs bg-white">
+                    <img src={qImage} alt="Diagram preview" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setQImage('')}
+                      className="absolute inset-0 bg-black/60 hover:bg-black/80 flex items-center justify-center text-white opacity-0 hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 4. Options Grid (A-D) */}
+            <div className="border-t border-slate-100 pt-6">
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Question Options (Equations & Diagrams Supported)</label>
+              
+              <div className="space-y-4">
+                {qOptions.map((opt, i) => {
+                  const label = String.fromCharCode(65 + i);
+                  return (
+                    <div key={i} className="bg-slate-50/50 border border-slate-200/60 p-4 rounded-2xl space-y-3">
+                      <div className="flex items-center gap-3">
+                        <span className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-black text-xs shrink-0">{label}</span>
+                        <input 
+                          type="text" className="w-full rounded-xl border-slate-200 border-2 p-2.5 outline-hidden font-medium text-slate-700 bg-white focus:border-indigo-500 transition-colors"
+                          value={opt} onChange={e => {
+                            const newOpts = [...qOptions];
+                            newOpts[i] = e.target.value;
+                            setQOptions(newOpts);
+                          }} required 
+                          placeholder={`Option ${label} Text Content`}
+                        />
+                      </div>
+                      
+                      {/* Option equation and image uploads */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-11">
+                        <div>
+                          <input 
+                            type="text" 
+                            className="w-full rounded-lg border-slate-200 border-2 p-1.5 text-xs font-mono text-slate-600 bg-white outline-hidden"
+                            placeholder="Option LaTeX Equation (e.g. \frac{1}{2})"
+                            value={optEquations[i] || ''}
+                            onChange={e => {
+                              const newEqs = [...optEquations];
+                              newEqs[i] = e.target.value;
+                              setOptEquations(newEqs);
+                            }}
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 relative border border-dashed border-slate-300 hover:border-indigo-300 rounded-lg p-1 text-center bg-white cursor-pointer transition-colors">
+                            <input 
+                              type="file" 
+                              accept="image/*"
+                              onChange={e => handleUploadImage(e, i)}
+                              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                              disabled={uploading}
+                            />
+                            <span className="text-[10px] font-bold text-slate-500">
+                              {optImages[i] ? 'Change Diagram' : 'Upload Option Diagram'}
+                            </span>
+                          </div>
+                          {optImages[i] && (
+                            <div className="relative shrink-0 w-8 h-8 rounded border border-slate-200 overflow-hidden bg-white">
+                              <img src={optImages[i]} alt="Option diagram" className="w-full h-full object-cover" />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newImgs = [...optImages];
+                                  newImgs[i] = '';
+                                  setOptImages(newImgs);
+                                }}
+                                className="absolute inset-0 bg-rose-600/80 text-white flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 5. Answer, Difficulty and Category Settings */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 border-t border-slate-100 pt-6">
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Correct Answer</label>
+                <select 
+                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-bold text-indigo-600 bg-white"
+                  value={qCorrect} onChange={e => setQCorrect(e.target.value)} required
+                >
+                  <option value="">Select Option...</option>
+                  {qOptions.filter(o => o.trim() !== '').map((opt, i) => (
+                    <option key={i} value={opt}>Option {String.fromCharCode(65 + i)}: {opt}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Difficulty</label>
+                <select
+                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-bold text-slate-700 bg-white"
+                  value={qDifficulty} onChange={e => setQDifficulty(e.target.value)}
+                >
+                  <option value="easy">🟩 Easy</option>
+                  <option value="moderate">🟨 Moderate</option>
+                  <option value="hard">🟥 Hard</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Question Category</label>
+                <select
+                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-bold text-slate-700 bg-white"
+                  value={qCategory} onChange={e => setQCategory(e.target.value)}
+                >
+                  <option value="mock">Mock Test</option>
+                  <option value="practice">Practice Set</option>
+                  <option value="pyq">PYQ</option>
+                  <option value="typing">Typing Related</option>
+                </select>
+              </div>
+            </div>
+
+            {/* 6. Topic */}
+            <div>
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Question Topic / Subject</label>
+              <input 
+                type="text" className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
+                value={qTopic} onChange={e => setQTopic(e.target.value)}
+                placeholder="e.g. Algebra, Trigonometry, Reasoning, Physics" 
+              />
+            </div>
+
+            {/* 7. Solution / Details */}
+            <div>
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Solution / Step-By-Step Explanation</label>
+              <textarea 
+                className="w-full rounded-2xl border-slate-200 border-2 p-4 outline-hidden font-medium focus:border-indigo-500 transition-colors"
+                rows={3} value={qSolution} onChange={e => setQSolution(e.target.value)}
+                placeholder="Explain the mathematical solution or logical steps to resolve..."
+              />
+            </div>
+
+            <div className="flex justify-end gap-4 pt-4 border-t border-slate-100">
+              {editingQuestionId && (
+                <button 
+                  type="button" 
+                  onClick={clearForm}
+                  className="bg-slate-100 text-slate-600 px-8 py-4 rounded-xl hover:bg-slate-200 font-bold transition-all"
+                >
+                  Cancel
+                </button>
+              )}
+              <button 
+                type="submit" 
+                className="bg-indigo-600 text-white px-8 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-indigo-50 flex items-center gap-2"
+                disabled={uploading}
+              >
+                <Plus className="w-5 h-5" /> {editingQuestionId ? 'Update Question' : 'Add Question to Test'}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* Real-time Question Preview Panel */}
+        <div className="bg-slate-50/50 border border-slate-200/80 rounded-3xl p-6 h-fit sticky top-24">
+          <div className="flex items-center gap-2 mb-6">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Real-Time Question Preview</h4>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+            
+            {/* Tag badges */}
+            <div className="flex items-center justify-between">
+              <span className={`px-2.5 py-1 text-[9px] font-black uppercase tracking-wider rounded-full border
+                ${qDifficulty === 'hard' ? 'bg-rose-50 text-rose-600 border-rose-200' :
+                  qDifficulty === 'moderate' ? 'bg-amber-50 text-amber-600 border-amber-200' :
+                  'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>
+                {qDifficulty}
+              </span>
+              <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[9px] font-extrabold rounded uppercase tracking-wider">
+                {qCategory}
+              </span>
+            </div>
+
+            {/* Question Text */}
+            <div className="space-y-3">
+              <h5 className="font-bold text-slate-800 text-base leading-relaxed break-words">
+                {qText || 'Question statement text will appear here...'}
+              </h5>
+              
+              {/* Question Equation */}
+              {qEquation && (
+                <div className="p-4 bg-indigo-50/30 rounded-xl border border-indigo-50 text-center">
+                  <MathRenderer text={qEquation} className="text-lg text-indigo-900 font-extrabold" displayMode={true} />
+                </div>
+              )}
+
+              {/* Question Image */}
+              {qImage && (
+                <div className="rounded-xl overflow-hidden border border-slate-200 max-h-56 bg-white flex items-center justify-center p-2 shadow-xs">
+                  <img src={qImage} alt="Diagram preview" className="max-w-full max-h-48 object-contain rounded-lg" />
+                </div>
+              )}
+            </div>
+
+            {/* Options */}
+            <div className="space-y-2.5 pt-2">
+              {qOptions.map((opt, idx) => {
+                const label = String.fromCharCode(65 + idx);
+                const optEq = optEquations[idx];
+                const optImg = optImages[idx];
+                const isCorrect = opt && opt === qCorrect;
+
+                return (
+                  <div key={idx} className={`p-3.5 rounded-xl border flex flex-col gap-2 relative transition-all
+                    ${isCorrect ? 'bg-emerald-50 border-emerald-400 text-emerald-950 shadow-xs' : 'bg-slate-50/40 border-slate-200 text-slate-600'}`}>
+                    
+                    <div className="flex items-center gap-3">
+                      <span className={`w-6 h-6 rounded-md flex items-center justify-center font-black text-xs shrink-0
+                        ${isCorrect ? 'bg-emerald-500 text-white shadow-xs' : 'bg-slate-100 text-slate-400'}`}>
+                        {label}
+                      </span>
+                      <span className="font-bold text-xs leading-snug break-words">{opt || `Possibility ${label}`}</span>
+                    </div>
+
+                    {/* Option equation */}
+                    {optEq && (
+                      <div className="pl-9 text-indigo-700">
+                        <MathRenderer text={optEq} className="font-bold text-xs" />
+                      </div>
+                    )}
+
+                    {/* Option diagram */}
+                    {optImg && (
+                      <div className="pl-9">
+                        <img src={optImg} alt="Option diagram" className="max-w-[120px] max-h-24 object-contain rounded border border-slate-200 p-0.5 bg-white" />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
       </div>
 
-       <div className="space-y-4">
+      {/* Questions list */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-black text-slate-800 uppercase tracking-widest mt-12 mb-6">Existing Test Questions ({questions.length})</h3>
+
         {loading ? <p className="text-slate-400 font-bold text-center py-10">Fetching questions...</p> : 
          questions.map((q, i) => (
            <div key={q.id} className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 relative group transition-all hover:shadow-md">
@@ -3474,31 +3852,103 @@ function QuestionManager() {
                  Delete
                </button>
              </div>
-             <div className="flex items-start mb-6">
-                <span className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 font-black mr-4 shrink-0">
-                  {i+1}
-                </span>
-                <h4 className="font-bold text-slate-800 text-lg pr-20 leading-tight">{q.questionText}</h4>
+
+             <div className="flex flex-col mb-6 pr-20">
+               {/* Metadata header */}
+               <div className="flex items-center gap-2.5 mb-3 flex-wrap">
+                 <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 text-[10px] font-black rounded-lg">
+                   QNo {q.qNo || i+1}
+                 </span>
+                 <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded-lg border
+                   ${q.difficulty === 'hard' ? 'bg-rose-50 text-rose-600 border-rose-200' :
+                     q.difficulty === 'moderate' ? 'bg-amber-50 text-amber-600 border-amber-200' :
+                     'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>
+                   {q.difficulty || 'easy'}
+                 </span>
+                 {q.topic && (
+                   <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded-lg uppercase">
+                     {q.topic}
+                   </span>
+                 )}
+               </div>
+
+               {/* Question text */}
+               <div className="flex items-start">
+                  <span className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 font-black mr-4 shrink-0">
+                    {i+1}
+                  </span>
+                  <div className="flex-1 space-y-4">
+                    <h4 className="font-bold text-slate-800 text-lg leading-tight">{q.questionText}</h4>
+                    
+                    {/* LaTeX Formula */}
+                    {q.questionEquation && (
+                      <div className="p-3 bg-indigo-50/40 border border-indigo-50 rounded-xl w-fit">
+                        <MathRenderer text={q.questionEquation} className="text-indigo-900 font-extrabold text-sm" displayMode={true} />
+                      </div>
+                    )}
+
+                    {/* Question Image */}
+                    {q.questionImage && (
+                      <div className="rounded-xl overflow-hidden border border-slate-200 max-h-64 max-w-lg bg-white flex items-center justify-center p-2">
+                        <img src={q.questionImage} alt="Diagram" className="max-w-full max-h-60 object-contain rounded-lg" />
+                      </div>
+                    )}
+                  </div>
+               </div>
              </div>
-             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-               {q.options.map((opt: string, j: number) => (
-                 <div key={j} className={`p-4 rounded-2xl border-2 transition-all flex items-center justify-between
-                   ${opt === q.correctAnswer 
-                     ? 'bg-emerald-50 border-emerald-200 text-emerald-800 shadow-sm' 
-                     : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
-                   <span className="font-bold">{opt}</span>
-                   {opt === q.correctAnswer && (
-                     <div className="bg-emerald-500 text-white p-1 rounded-full">
-                       <Plus className="w-3 h-3 rotate-45" /> 
+
+             {/* Options */}
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 pl-14">
+               {q.options.map((opt: string, j: number) => {
+                 const label = String.fromCharCode(65 + j);
+                 const optEq = q.optionEquations?.[j];
+                 const optImg = q.optionImages?.[j];
+                 const isCorrect = opt === q.correctAnswer;
+
+                 return (
+                   <div key={j} className={`p-4 rounded-2xl border-2 transition-all flex flex-col gap-2
+                     ${isCorrect 
+                       ? 'bg-emerald-50 border-emerald-200 text-emerald-800 shadow-sm' 
+                       : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
+                     
+                     <div className="flex items-center justify-between">
+                       <div className="flex items-center gap-3">
+                         <span className={`w-6 h-6 rounded-md flex items-center justify-center font-black text-xs shrink-0
+                           ${isCorrect ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400'}`}>
+                           {label}
+                         </span>
+                         <span className="font-bold text-sm leading-snug">{opt}</span>
+                       </div>
+                       {isCorrect && (
+                         <div className="bg-emerald-500 text-white p-1 rounded-full shrink-0">
+                           <Plus className="w-3 h-3 rotate-45" /> 
+                         </div>
+                       )}
                      </div>
-                   )}
-                 </div>
-               ))}
+
+                     {/* Option LaTeX rendering */}
+                     {optEq && (
+                       <div className="pl-9 text-indigo-700 font-bold text-xs">
+                         <MathRenderer text={optEq} />
+                       </div>
+                     )}
+
+                     {/* Option Image rendering */}
+                     {optImg && (
+                       <div className="pl-9">
+                         <img src={optImg} alt="Option diagram" className="max-w-[120px] max-h-20 object-contain rounded border border-slate-200 p-0.5 bg-white" />
+                       </div>
+                     )}
+                   </div>
+                 );
+               })}
              </div>
+
+             {/* Solution */}
              {q.solution && (
-                <div className="mt-4 p-4 bg-amber-50/50 border border-amber-100 rounded-2xl">
+                <div className="mt-4 ml-14 p-4 bg-amber-50/50 border border-amber-100 rounded-2xl">
                   <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Solution / Explanation</p>
-                  <p className="text-sm text-slate-600">{q.solution}</p>
+                  <p className="text-sm text-slate-600 leading-relaxed">{q.solution}</p>
                 </div>
               )}
            </div>

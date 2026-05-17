@@ -233,6 +233,13 @@ app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+// Ensure local uploads/questions directory exists
+const questionsUploadDir = path.join(process.cwd(), "uploads", "questions");
+if (!fs.existsSync(questionsUploadDir)) {
+  fs.mkdirSync(questionsUploadDir, { recursive: true });
+}
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
 // Request logger for debugging Vercel/Production issues
 app.use((req, res, next) => {
   if (req.url.startsWith('/api')) {
@@ -611,6 +618,56 @@ app.use((req, res, next) => {
     }
   });
 
+  // Admin: Get all student analysis aggregates
+  app.get("/api/admin/student-analysis", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+
+    try {
+      // Load all students
+      const profilesSnap = await currentDb.collection("profiles")
+        .where("role", "in", ["user", "student"])
+        .get();
+
+      const studentsData = await Promise.all(profilesSnap.docs.map(async (doc) => {
+        const profile = doc.data();
+        
+        // Fetch all results (attempts) for this student to compute total attempts & avg marks
+        const resultsSnap = await currentDb.collection("results")
+          .where("userId", "==", doc.id)
+          .get();
+
+        const totalAttempts = resultsSnap.size;
+        let cumulativeScore = 0;
+        resultsSnap.docs.forEach(r => {
+          cumulativeScore += r.data().score || 0;
+        });
+
+        const avgMarks = totalAttempts > 0 ? parseFloat((cumulativeScore / totalAttempts).toFixed(1)) : 0;
+
+        return {
+          id: doc.id,
+          name: profile.name || "Student",
+          phoneNumber: profile.phoneNumber || "N/A",
+          email: profile.email || "N/A",
+          registrationDate: profile.createdAt || profile.registrationDate || Date.now(),
+          courseName: profile.courseName || "General Aptitude",
+          totalTestsTaken: totalAttempts,
+          avgMarks: avgMarks,
+          status: profile.status || "active"
+        };
+      }));
+
+      // Filter only active students (status = 'active')
+      const activeStudents = studentsData.filter(s => s.status === 'active');
+
+      return res.json({ students: activeStudents });
+    } catch (err: any) {
+      console.error("[student-analysis] failed:", err);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   // Admin: Get Student's Test Attempts
   app.get("/api/admin/student-attempts/:studentId", verifyToken, verifyAdmin, async (req, res) => {
     const currentDb = getDb();
@@ -881,14 +938,61 @@ app.use((req, res, next) => {
     }
   });
 
+  app.post("/api/admin/questions/upload-image", verifyToken, verifyAdmin, async (req, res) => {
+    try {
+      const { base64Data, fileName } = req.body;
+      if (!base64Data) {
+        return res.status(400).json({ error: "Missing base64 data" });
+      }
+
+      // Check image size (limit to 3mb)
+      const base64Content = base64Data.split(",")[1] || base64Data;
+      const buffer = Buffer.from(base64Content, "base64");
+      if (buffer.length > 3 * 1024 * 1024) {
+        return res.status(400).json({ error: "Image exceeds 3MB limit" });
+      }
+
+      // Verify extension (png, jpg, jpeg, webp)
+      const ext = path.extname(fileName || "image.png").toLowerCase() || ".png";
+      if (![".png", ".jpg", ".jpeg", ".webp"].includes(ext)) {
+        return res.status(400).json({ error: "Invalid file extension. Only PNG, JPG, and WEBP allowed." });
+      }
+
+      const generatedName = `q_${Date.now()}_${Math.random().toString(36).substring(2, 7)}${ext}`;
+      const uploadPath = path.join(process.cwd(), "uploads", "questions", generatedName);
+
+      fs.writeFileSync(uploadPath, buffer);
+
+      res.json({ success: true, imageUrl: `/uploads/questions/${generatedName}` });
+    } catch (err: any) {
+      console.error("[upload-image] failed:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.post("/api/admin/questions", verifyToken, verifyAdmin, async (req, res) => {
     const currentDb = getDb();
     if (!currentDb) return res.status(500).json({ error: "Database offline" });
     try {
-      const { testId, topic, qNo, questionText, options, correctAnswer, solution } = req.body;
+      const { 
+        testId, topic, qNo, questionText, questionEquation, questionImage,
+        options, optionEquations, optionImages, correctAnswer, difficulty, category, solution 
+      } = req.body;
       const ref = currentDb.collection("questions").doc();
       await ref.set({
-        testId, topic, qNo, questionText, options, correctAnswer, solution: solution || ""
+        testId, 
+        topic: topic || "", 
+        qNo, 
+        questionText, 
+        questionEquation: questionEquation || "",
+        questionImage: questionImage || "",
+        options: options || [], 
+        optionEquations: optionEquations || ["", "", "", ""],
+        optionImages: optionImages || ["", "", "", ""],
+        correctAnswer, 
+        difficulty: difficulty || "easy",
+        category: category || "mock",
+        solution: solution || ""
       });
       res.json({ id: ref.id });
     } catch (error) {
@@ -902,9 +1006,22 @@ app.use((req, res, next) => {
     if (!currentDb) return res.status(500).json({ error: "Database offline" });
     try {
       const { questionId } = req.params;
-      const { topic, questionText, options, correctAnswer, solution } = req.body;
+      const { 
+        topic, questionText, questionEquation, questionImage,
+        options, optionEquations, optionImages, correctAnswer, difficulty, category, solution 
+      } = req.body;
       await currentDb.collection("questions").doc(questionId).update({
-        topic, questionText, options, correctAnswer, solution: solution || ""
+        topic: topic || "", 
+        questionText, 
+        questionEquation: questionEquation || "",
+        questionImage: questionImage || "",
+        options: options || [], 
+        optionEquations: optionEquations || ["", "", "", ""],
+        optionImages: optionImages || ["", "", "", ""],
+        correctAnswer, 
+        difficulty: difficulty || "easy",
+        category: category || "mock",
+        solution: solution || ""
       });
       res.json({ success: true });
     } catch (error) {
