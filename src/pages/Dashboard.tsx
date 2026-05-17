@@ -5,11 +5,11 @@ import { signOut, updatePassword } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ArrowLeft, ExternalLink, Menu, X, Youtube, MessageCircle, Send, LayoutDashboard, History, ChevronDown, ArrowRight, User, Info, Phone, Download, Printer, AlertCircle, BarChart3, Keyboard } from 'lucide-react';
+import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ArrowLeft, ExternalLink, Menu, X, Youtube, MessageCircle, Send, LayoutDashboard, History, ChevronDown, ArrowRight, User, Info, Phone, Download, Printer, AlertCircle, BarChart3, Keyboard, Globe, Layers, CheckSquare, Volume2, VolumeX, Maximize, NotebookPen } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-type DashboardTab = 'home' | 'profile' | 'mock_topic' | 'mock_sectional' | 'mock_full' | 'notes' | 'video' | 'pyq' | 'pattern' | 'affairs' | 'practice' | 'about' | 'contact';
+type DashboardTab = 'home' | 'profile' | 'mock_topic' | 'mock_sectional' | 'mock_full' | 'notes' | 'video' | 'pyq' | 'pattern' | 'affairs' | 'practice' | 'about' | 'contact' | 'learn_landing' | 'mock_landing';
 
 export default function Dashboard() {
   const { user, profile } = useAuth();
@@ -55,9 +55,17 @@ export default function Dashboard() {
   const [downloadingPDF, setDownloadingPDF] = useState<string | null>(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [currentPopupIndex, setCurrentPopupIndex] = useState(0);
   const tabParam = (searchParams.get('tab') as DashboardTab) || 'home';
   const [learnOpen, setLearnOpen] = useState(() => ['video', 'notes', 'affairs', 'practice'].includes(tabParam));
   const [mockOpen, setMockOpen] = useState(() => tabParam.startsWith('mock'));
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentPopupIndex((prev) => (prev + 1) % 3);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     setLearnOpen(['video', 'notes', 'affairs', 'practice'].includes(tabParam));
@@ -106,6 +114,9 @@ export default function Dashboard() {
   const [showFullAnalysis, setShowFullAnalysis] = useState(false);
   const [testQuestions, setTestQuestions] = useState<any[]>([]);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
+
+  const [selectedVideo, setSelectedVideo] = useState<any | null>(null);
+  const [videoNotes, setVideoNotes] = useState<string>('');
 
   const fetchQuestionsForAnalysis = async (testId: string) => {
     if (!user) return;
@@ -527,28 +538,28 @@ export default function Dashboard() {
             </button>
             
             {learnOpen && (
-              <div className="pl-4 pr-1 py-1 space-y-1 bg-slate-950/20 rounded-xl border border-white/5 animate-in slide-in-from-top-2 duration-200">
+              <div className="pl-2 pr-1 py-2 space-y-1.5 bg-slate-950/20 rounded-xl border border-white/5 animate-in slide-in-from-top-2 duration-200">
                 <button 
                   onClick={() => { setActiveTab('video'); setIsSidebarOpen(false); }} 
-                  className={`w-full flex items-center gap-3 px-4 py-2 rounded-xl transition-all font-bold text-xs ${activeTab === 'video' ? 'text-white bg-white/10 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                  className={`w-full sub-category sub-learn-video ${activeTab === 'video' ? 'active' : ''}`}
                 >
                   Recorded Video
                 </button>
                 <button 
                   onClick={() => { setActiveTab('notes'); setIsSidebarOpen(false); }} 
-                  className={`w-full flex items-center gap-3 px-4 py-2 rounded-xl transition-all font-bold text-xs ${activeTab === 'notes' ? 'text-white bg-white/10 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                  className={`w-full sub-category sub-learn-notes ${activeTab === 'notes' ? 'active' : ''}`}
                 >
                   Study Notes
                 </button>
                 <button 
                   onClick={() => { setActiveTab('affairs'); setIsSidebarOpen(false); }} 
-                  className={`w-full flex items-center gap-3 px-4 py-2 rounded-xl transition-all font-bold text-xs ${activeTab === 'affairs' ? 'text-white bg-white/10 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                  className={`w-full sub-category sub-learn-affairs ${activeTab === 'affairs' ? 'active' : ''}`}
                 >
                   Current Affairs
                 </button>
                 <button 
                   onClick={() => { setActiveTab('practice'); setIsSidebarOpen(false); }} 
-                  className={`w-full flex items-center gap-3 px-4 py-2 rounded-xl transition-all font-bold text-xs ${activeTab === 'practice' ? 'text-white bg-white/10 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                  className={`w-full sub-category sub-learn-practice ${activeTab === 'practice' ? 'active' : ''}`}
                 >
                   Practice Set
                 </button>
@@ -574,22 +585,22 @@ export default function Dashboard() {
             </button>
             
             {mockOpen && (
-              <div className="pl-4 pr-1 py-1 space-y-1 bg-slate-950/20 rounded-xl border border-white/5 animate-in slide-in-from-top-2 duration-200">
+              <div className="pl-2 pr-1 py-2 space-y-1.5 bg-slate-950/20 rounded-xl border border-white/5 animate-in slide-in-from-top-2 duration-200">
                 <button 
                   onClick={() => { setActiveTab('mock_topic'); setIsSidebarOpen(false); }} 
-                  className={`w-full flex items-center gap-3 px-4 py-2 rounded-xl transition-all font-bold text-xs ${activeTab === 'mock_topic' ? 'text-white bg-white/10 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                  className={`w-full sub-category sub-mock-topic ${activeTab === 'mock_topic' ? 'active' : ''}`}
                 >
                   Topic Wise Mock Test
                 </button>
                 <button 
                   onClick={() => { setActiveTab('mock_sectional'); setIsSidebarOpen(false); }} 
-                  className={`w-full flex items-center gap-3 px-4 py-2 rounded-xl transition-all font-bold text-xs ${activeTab === 'mock_sectional' ? 'text-white bg-white/10 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                  className={`w-full sub-category sub-mock-sectional ${activeTab === 'mock_sectional' ? 'active' : ''}`}
                 >
                   Sectional Mock Test
                 </button>
                 <button 
                   onClick={() => { setActiveTab('mock_full'); setIsSidebarOpen(false); }} 
-                  className={`w-full flex items-center gap-3 px-4 py-2 rounded-xl transition-all font-bold text-xs ${activeTab === 'mock_full' ? 'text-white bg-white/10 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                  className={`w-full sub-category sub-mock-full ${activeTab === 'mock_full' ? 'active' : ''}`}
                 >
                   Full Mock Test
                 </button>
@@ -743,7 +754,7 @@ export default function Dashboard() {
               {/* Social Links Box - Single Line */}
               <div className="mt-8 grid grid-cols-3 gap-2 sm:gap-4">
                 {socialLinks.youtube && (
-                  <a href={socialLinks.youtube} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-2 sm:p-4 bg-rose-50/80 border border-red-200 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative animate-pulse">
+                  <a href={socialLinks.youtube} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-2 sm:p-4 bg-rose-50/80 border border-red-200 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
                     <div className="absolute inset-0 bg-gradient-to-b from-red-100/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     <div className="w-8 h-8 sm:w-12 sm:h-12 bg-red-600 text-white rounded-lg sm:rounded-xl flex items-center justify-center mb-2 relative z-10 group-hover:scale-110 transition-transform shadow-lg shadow-red-200">
                       <Youtube className="w-4 h-4 sm:w-6 sm:h-6" />
@@ -756,7 +767,7 @@ export default function Dashboard() {
                 )}
                 
                 {socialLinks.whatsapp && (
-                  <a href={socialLinks.whatsapp} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-2 sm:p-4 bg-emerald-50/80 border border-green-200 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative animate-pulse">
+                  <a href={socialLinks.whatsapp} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-2 sm:p-4 bg-emerald-50/80 border border-green-200 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
                     <div className="absolute inset-0 bg-gradient-to-b from-green-100/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     <div className="w-8 h-8 sm:w-12 sm:h-12 bg-emerald-600 text-white rounded-lg sm:rounded-xl flex items-center justify-center mb-2 relative z-10 group-hover:scale-110 transition-transform shadow-lg shadow-emerald-200">
                       <MessageCircle className="w-4 h-4 sm:w-6 sm:h-6" />
@@ -769,7 +780,7 @@ export default function Dashboard() {
                 )}
 
                 {socialLinks.telegram && (
-                  <a href={socialLinks.telegram} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-2 sm:p-4 bg-sky-50/80 border border-blue-200 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative animate-pulse">
+                  <a href={socialLinks.telegram} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-2 sm:p-4 bg-sky-50/80 border border-blue-200 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
                     <div className="absolute inset-0 bg-gradient-to-b from-blue-100/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     <div className="w-8 h-8 sm:w-12 sm:h-12 bg-sky-600 text-white rounded-lg sm:rounded-xl flex items-center justify-center mb-2 relative z-10 group-hover:scale-110 transition-transform shadow-lg shadow-sky-200">
                       <Send className="w-4 h-4 sm:w-6 sm:h-6" />
@@ -790,7 +801,7 @@ export default function Dashboard() {
                   </div>
                   <h3 className="text-xl font-black text-slate-800 mb-2">Need Assistance?</h3>
                   <p className="text-slate-500 font-medium mb-6">If you have any questions regarding your studies or the platform, feel free to contact us.</p>
-                  <div className="text-white px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl flex items-center gap-3 animate-blink-red">
+                  <div className="text-white px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest bg-gradient-to-r from-red-600 to-rose-700 shadow-xl shadow-red-500/20 flex items-center gap-3 hover:scale-[1.02] transition-transform">
                     Any Query Call - <a href="tel:8900011708" className="hover:underline">8900011708</a> (Shibnath)
                   </div>
                 </div>
@@ -1026,44 +1037,8 @@ export default function Dashboard() {
 
           {/* Dashboard Tab Content */}
           {activeTab.startsWith('mock') && (
-            <div className="space-y-10 animate-in fade-in duration-700">
+            <div className="space-y-8 animate-in fade-in duration-700">
               
-              {/* Overall Performance Section - Focused strictly on Mock Tests */}
-              <div className="bg-white rounded-3xl p-6 border border-indigo-100 shadow-xl shadow-indigo-500/5 relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-4 text-indigo-50/20 pointer-events-none transition-transform group-hover:scale-105 duration-700">
-                  <BarChart3 className="w-32 h-32 -mr-6 -mt-6 rotate-12" />
-                </div>
-                <div className="relative z-10">
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200">
-                      <BarChart3 className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="font-black text-slate-800 tracking-tight">Mock Overall Performance</h3>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Test Series Analytics</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                      <span className="block text-[9px] font-black text-slate-400 uppercase tracking-tight mb-1">Total Mock Attempted</span>
-                      <span className="text-xl font-black text-indigo-600 tracking-tighter">{performanceStats.totalTests}</span>
-                    </div>
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                      <span className="block text-[9px] font-black text-slate-400 uppercase tracking-tight mb-1">Best Score</span>
-                      <span className="text-xl font-black text-emerald-600 tracking-tighter">{performanceStats.bestScore}</span>
-                    </div>
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                      <span className="block text-[9px] font-black text-slate-400 uppercase tracking-tight mb-1">Average Accuracy</span>
-                      <span className="text-xl font-black text-amber-600 tracking-tighter">{performanceStats.avgAccuracy}%</span>
-                    </div>
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                      <span className="block text-[9px] font-black text-slate-400 uppercase tracking-tight mb-1">Latest Mock Score</span>
-                      <span className="text-xl font-black text-rose-600 tracking-tighter">{performanceStats.latestScore}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               <div className="flex flex-col gap-6">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-black text-slate-900 tracking-tight">
@@ -1097,7 +1072,7 @@ export default function Dashboard() {
               ) : !selectedCategory ? (
                 <div className="bg-white rounded-3xl p-12 border border-slate-200 text-center text-slate-400 shadow-sm flex flex-col items-center">
                   <FileText className="w-12 h-12 mb-4 text-slate-200" />
-                  <p className="font-bold text-sm uppercase tracking-widest text-slate-500">Select a category above to viewAvailable Mocks.</p>
+                  <p className="font-bold text-sm uppercase tracking-widest text-slate-500">Select a category above to view Available Mocks.</p>
                 </div>
               ) : (
                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -1120,7 +1095,7 @@ export default function Dashboard() {
                       <p className="font-bold text-sm uppercase tracking-widest text-slate-500 mb-2">No tests found in this category.</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="flex flex-col gap-3">
                       {activeTests.filter(t => {
                         const matchesType = (t.testType || 'topic') === activeTab.replace('mock_', '');
                         const matchesCategory = t.category === selectedCategory;
@@ -1128,85 +1103,83 @@ export default function Dashboard() {
                       }).map(test => {
                         const isTaken = pastResults.some(r => r.testId === test.id);
                         return (
-                          <div key={test.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs transition-all hover:shadow-lg group flex flex-col">
-                            <div className="flex-1">
-                              <div className="flex items-start justify-between mb-2">
-                                <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
-                                  <Target className="w-5 h-5" />
-                                </div>
-                                <div className="flex flex-col items-end gap-1">
+                          <div key={test.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm transition-all hover:bg-slate-50/50 hover:shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            {/* LEFT SIDE: Mock Test Name */}
+                            <div className="flex items-center gap-3 min-w-[200px] flex-1">
+                              <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center shrink-0">
+                                <Target className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h4 className="font-extrabold text-slate-800 text-sm md:text-base leading-snug">
+                                    {test.title}
+                                  </h4>
                                   {test.isActive && (
-                                    <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded border border-emerald-100 flex items-center gap-1">
+                                    <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded border border-emerald-100 flex items-center gap-0.5 shrink-0">
                                       <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse"></span>
-                                      Live Now
+                                      Live
                                     </span>
                                   )}
-                                  {isTaken && (
-                                    <button 
-                                      onClick={() => handleDownloadPDF(test.id, test.title, test.category || 'N/A', test.testType || 'N/A')}
-                                      disabled={downloadingPDF === test.id}
-                                      className="flex items-center gap-1 text-[8px] font-black uppercase tracking-widest bg-slate-900 text-white px-2 py-1 rounded hover:bg-indigo-600 transition-all disabled:opacity-50"
-                                    >
-                                      {downloadingPDF === test.id ? '...' : <><Download className="w-2.5 h-2.5" /> PDF</>}
-                                    </button>
-                                  )}
                                 </div>
-                              </div>
-                              
-                              <h3 className="font-bold text-slate-800 text-base leading-snug mb-1 min-h-[24px] group-hover:text-indigo-600 transition-colors">
-                                {test.title}
-                              </h3>
-                              {test.subjectName && (
-                                <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-3">
-                                  {test.subjectName}
-                                </p>
-                              )}
-                              
-                              <div className="space-y-2 mt-auto">
-                                <div className="flex items-center justify-between">
-                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center">
-                                    <Clock className="w-3 h-3 mr-1.5" />
-                                    {test.duration || 30} Mins
-                                  </p>
-                                  <p className="text-[10px] font-black text-slate-600 uppercase tracking-tight">
-                                    {test.topic || 'General Mock'}
-                                  </p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[8px] font-black uppercase rounded">
-                                    {test.marksPerCorrect || 1} Marks/Q
+                                {test.subjectName && (
+                                  <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest block leading-none mt-1">
+                                    {test.subjectName}
                                   </span>
-                                  <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[8px] font-black uppercase rounded">
-                                    -{test.negativeMarks || 0.25} Neg
-                                  </span>
-                                </div>
+                                )}
                               </div>
                             </div>
 
-                            <div className="mt-6 pt-6 border-t border-slate-100 flex flex-col gap-3">
+                            {/* MIDDLE: Topic Name */}
+                            <div className="flex items-center gap-6 md:min-w-[180px]">
+                              <div className="text-left">
+                                <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Topic</span>
+                                <span className="text-xs font-black text-slate-600 uppercase">
+                                  {test.topic || 'General Mock'}
+                                </span>
+                              </div>
+                              <div className="text-left">
+                                <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Specs</span>
+                                <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1.5">
+                                  <Clock className="w-3 h-3 text-indigo-500" />
+                                  {test.duration || 30} min | {test.marksPerCorrect || 1}M
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* RIGHT SIDE: [ ATTEMPT MOCK ] */}
+                            <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
                               {isTaken && (
-                                <button 
-                                  onClick={() => {
-                                    const res = pastResults.find(r => r.testId === test.id);
-                                    if (res) {
-                                      setSelectedResult(res);
-                                      setShowAnalysisModal(true);
-                                      setShowFullAnalysis(false);
-                                      fetchQuestionsForAnalysis(test.id);
-                                    }
-                                  }}
-                                  className="flex items-center justify-center w-full py-2.5 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200"
-                                >
-                                  <BarChart3 className="w-3.5 h-3.5 mr-2" />
-                                  View Previous Analysis
-                                </button>
+                                <>
+                                  <button 
+                                    onClick={() => handleDownloadPDF(test.id, test.title, test.category || 'N/A', test.testType || 'N/A')}
+                                    disabled={downloadingPDF === test.id}
+                                    className="flex items-center justify-center p-2.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-500 rounded-xl transition-all disabled:opacity-50"
+                                    title="Download PDF Question Bank"
+                                  >
+                                    <Download className="w-4 h-4" />
+                                  </button>
+                                  <button 
+                                    onClick={() => {
+                                      const res = pastResults.find(r => r.testId === test.id);
+                                      if (res) {
+                                        setSelectedResult(res);
+                                        setShowAnalysisModal(true);
+                                        setShowFullAnalysis(false);
+                                        fetchQuestionsForAnalysis(test.id);
+                                      }
+                                    }}
+                                    className="px-4 py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 transition-all"
+                                  >
+                                    Analysis
+                                  </button>
+                                </>
                               )}
                               <Link 
                                 to={`/test/${test.id}`}
-                                className={`flex items-center justify-center w-full py-3 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest ${isTaken ? 'bg-slate-100 text-slate-600 hover:bg-indigo-600 hover:text-white' : 'bg-indigo-600 text-white hover:bg-slate-900 shadow-lg shadow-indigo-100'}`}
+                                className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-black text-[9px] uppercase tracking-widest rounded-xl hover:from-slate-900 hover:to-slate-900 transition-all shadow-md shadow-indigo-200 hover:shadow-lg flex items-center gap-1 active:scale-95"
                               >
-                                {isTaken ? 'Reattempt Mock' : 'Take Mock Test'}
-                                <ChevronRight className="w-3.5 h-3.5 ml-2" />
+                                {isTaken ? 'Reattempt' : 'Attempt Mock'}
+                                <ChevronRight className="w-3.5 h-3.5" />
                               </Link>
                             </div>
                           </div>
@@ -1315,9 +1288,9 @@ export default function Dashboard() {
                    <div key={video.id} className="bg-white rounded-2xl border border-slate-200 shadow-xs relative group hover:shadow-lg transition-all overflow-hidden flex flex-col">
                       <div className="aspect-video bg-slate-900 flex items-center justify-center relative overflow-hidden group-hover:scale-105 transition-transform duration-700 bg-[url('https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=600&auto=format&fit=crop')] bg-cover bg-center">
                          <div className="absolute inset-0 bg-slate-900/60 transition-opacity group-hover:bg-slate-900/40"></div>
-                         <a href={video.link} target="_blank" rel="noopener noreferrer" className="w-12 h-12 bg-white/20 backdrop-blur-md text-white rounded-full flex items-center justify-center relative z-10 hover:bg-rose-600 transition-all group-hover:scale-110 border border-white/30">
+                         <button onClick={() => setSelectedVideo(video)} className="w-12 h-12 bg-white/20 backdrop-blur-md text-white rounded-full flex items-center justify-center relative z-10 hover:bg-rose-600 transition-all group-hover:scale-110 border border-white/30 cursor-pointer">
                             <Play className="w-5 h-5 fill-current ml-1" />
-                         </a>
+                         </button>
                       </div>
                       <div className="p-6">
                          <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-2 flex items-center gap-2">
@@ -1325,12 +1298,12 @@ export default function Dashboard() {
                             {video.subject}
                          </p>
                          <h4 className="font-bold text-slate-800 text-lg mb-4 line-clamp-2">{video.title}</h4>
-                         <a 
-                          href={video.link} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center justify-center gap-3 w-full border border-rose-200 text-rose-600 font-bold text-xs uppercase tracking-wider px-4 py-2.5 rounded-lg hover:bg-rose-600 hover:text-white transition-all"
+                         <button 
+                          onClick={() => setSelectedVideo(video)}
+                          className="flex items-center justify-center gap-3 w-full border border-rose-200 text-rose-600 font-bold text-xs uppercase tracking-wider px-4 py-2.5 rounded-lg hover:bg-rose-600 hover:text-white transition-all cursor-pointer"
                         >
                           Watch Lecture
-                        </a>
+                        </button>
                       </div>
                    </div>
                 ))}
@@ -1609,6 +1582,32 @@ export default function Dashboard() {
                             })}
                           </div>
 
+                          {/* Timing, Success Rate and Difficulty Stats Dashboard Panel */}
+                          <div className="flex flex-wrap gap-4 mt-6 pt-6 border-t border-slate-100 items-center justify-between text-xs text-slate-500 mb-6">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-400">Time Spent:</span>
+                              <span className="font-extrabold text-slate-800 bg-slate-100 px-3 py-1.5 rounded-lg">
+                                {selectedResult.questionTimes?.[q.id] !== undefined ? `${selectedResult.questionTimes[q.id]} sec` : 'N/A'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-400">Success Rate:</span>
+                              <span className={`font-extrabold px-3 py-1.5 rounded-lg ${
+                                (q.successPercentage || 100) >= 75 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                                (q.successPercentage || 100) >= 40 ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                                'bg-rose-50 text-rose-700 border border-rose-200'
+                              }`}>{q.successPercentage !== undefined ? `${q.successPercentage}% students correct` : '100% correct'}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-400">Difficulty:</span>
+                              <span className={`font-extrabold px-3 py-1.5 rounded-lg ${
+                                q.difficulty === 'Easy' ? 'bg-emerald-100 text-emerald-800' :
+                                q.difficulty === 'Moderate' ? 'bg-amber-100 text-amber-800' :
+                                'bg-rose-100 text-rose-800'
+                              }`}>{q.difficulty || 'Easy'}</span>
+                            </div>
+                          </div>
+
                           {q.explanation && (
                             <div className="mt-4 bg-[#f8fafc] p-6 md:p-8 rounded-[24px] border border-slate-100 relative group overflow-hidden">
                               <div className="absolute top-0 right-0 p-4 text-indigo-500/5 transition-transform group-hover:scale-110">
@@ -1656,6 +1655,347 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Premium Internal Video Player Modal */}
+      {selectedVideo && (() => {
+        const getYouTubeId = (url: string) => {
+          const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+          const match = url.match(regExp);
+          return (match && match[2].length === 11) ? match[2] : null;
+        };
+
+        const ytId = getYouTubeId(selectedVideo.link);
+        const isYouTube = !!ytId;
+
+        // Custom HTML5 Video Player hook and states
+        const videoRef = React.useRef<HTMLVideoElement | null>(null);
+        const [isPlaying, setIsPlaying] = React.useState(false);
+        const [currentTime, setCurrentTime] = React.useState(0);
+        const [duration, setDuration] = React.useState(0);
+        const [volume, setVolume] = React.useState(1);
+        const [isMuted, setIsMuted] = React.useState(false);
+        const [playbackSpeed, setPlaybackSpeed] = React.useState(1);
+
+        // Load progress & Notes
+        React.useEffect(() => {
+          const savedNotes = localStorage.getItem(`video_notes_${user?.uid}_${selectedVideo.id}`) || '';
+          setVideoNotes(savedNotes);
+
+          if (!isYouTube) {
+            const savedTime = localStorage.getItem(`video_time_${user?.uid}_${selectedVideo.id}`);
+            if (savedTime && videoRef.current) {
+              const parsedTime = parseFloat(savedTime);
+              videoRef.current.currentTime = parsedTime;
+              setCurrentTime(parsedTime);
+            }
+          }
+        }, [selectedVideo.id, isYouTube]);
+
+        // Auto Save Notes
+        const handleNotesChange = (txt: string) => {
+          setVideoNotes(txt);
+          localStorage.setItem(`video_notes_${user?.uid}_${selectedVideo.id}`, txt);
+        };
+
+        // Time Updates
+        const handleTimeUpdate = () => {
+          if (videoRef.current) {
+            const cur = videoRef.current.currentTime;
+            setCurrentTime(cur);
+            localStorage.setItem(`video_time_${user?.uid}_${selectedVideo.id}`, cur.toString());
+          }
+        };
+
+        const handleLoadedMetadata = () => {
+          if (videoRef.current) {
+            setDuration(videoRef.current.duration);
+          }
+        };
+
+        const togglePlay = () => {
+          if (videoRef.current) {
+            if (isPlaying) {
+              videoRef.current.pause();
+              setIsPlaying(false);
+            } else {
+              videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+            }
+          }
+        };
+
+        const handleSeekChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+          if (videoRef.current) {
+            const val = parseFloat(e.target.value);
+            videoRef.current.currentTime = val;
+            setCurrentTime(val);
+          }
+        };
+
+        const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+          if (videoRef.current) {
+            const val = parseFloat(e.target.value);
+            videoRef.current.volume = val;
+            setVolume(val);
+            setIsMuted(val === 0);
+          }
+        };
+
+        const toggleMute = () => {
+          if (videoRef.current) {
+            const nextMute = !isMuted;
+            videoRef.current.muted = nextMute;
+            setIsMuted(nextMute);
+          }
+        };
+
+        const handleSpeedChange = (speed: number) => {
+          if (videoRef.current) {
+            videoRef.current.playbackRate = speed;
+            setPlaybackSpeed(speed);
+          }
+        };
+
+        const formatTime = (secs: number) => {
+          const m = Math.floor(secs / 60);
+          const s = Math.floor(secs % 60);
+          return `${m}:${s.toString().padStart(2, '0')}`;
+        };
+
+        return (
+          <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[100] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
+            <div className="bg-slate-900 w-full max-w-6xl rounded-[40px] shadow-2xl overflow-hidden border border-slate-800 flex flex-col md:flex-row max-h-[90vh]">
+              
+              {/* Left Side: Video Player Container */}
+              <div className="flex-1 flex flex-col bg-black relative">
+                <div className="p-6 bg-slate-900 border-b border-slate-800 flex justify-between items-center text-white shrink-0">
+                  <div className="truncate pr-4">
+                    <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest block mb-1">
+                      {selectedVideo.subject || 'Lecture'}
+                    </span>
+                    <h3 className="text-lg font-black truncate">{selectedVideo.title}</h3>
+                  </div>
+                  <button 
+                    onClick={() => setSelectedVideo(null)} 
+                    className="w-10 h-10 bg-slate-800 hover:bg-rose-600 rounded-full flex items-center justify-center transition-all text-slate-300 hover:text-white"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="flex-1 flex items-center justify-center bg-black relative min-h-[300px] md:min-h-[450px]">
+                  {isYouTube ? (
+                    <iframe
+                      width="100%"
+                      height="100%"
+                      src={`https://www.youtube.com/embed/${ytId}?autoplay=1&enablejsapi=1&rel=0`}
+                      title={selectedVideo.title}
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                      className="absolute inset-0 w-full h-full"
+                    ></iframe>
+                  ) : (
+                    <div className="absolute inset-0 w-full h-full flex flex-col justify-between group">
+                      <video
+                        ref={videoRef}
+                        src={selectedVideo.link}
+                        className="w-full h-full object-contain"
+                        onTimeUpdate={handleTimeUpdate}
+                        onLoadedMetadata={handleLoadedMetadata}
+                        onClick={togglePlay}
+                      />
+
+                      {/* Custom Controls Overlay */}
+                      <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-slate-950/80 via-slate-900/40 to-transparent p-6 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col gap-4 text-white">
+                        
+                        {/* Timeline */}
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-bold font-mono">{formatTime(currentTime)}</span>
+                          <input 
+                            type="range"
+                            min="0"
+                            max={duration || 100}
+                            value={currentTime}
+                            onChange={handleSeekChange}
+                            className="flex-1 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-rose-500"
+                          />
+                          <span className="text-xs font-bold font-mono">{formatTime(duration)}</span>
+                        </div>
+
+                        {/* Control Buttons */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-6">
+                            <button onClick={togglePlay} className="p-2 bg-rose-600 hover:bg-rose-500 rounded-full transition-all text-white shadow-lg">
+                              {isPlaying ? (
+                                <span className="block w-4 h-4 font-bold text-center leading-none">||</span>
+                              ) : (
+                                <Play className="w-4 h-4 fill-current ml-0.5" />
+                              )}
+                            </button>
+
+                            {/* Volume */}
+                            <div className="flex items-center gap-2">
+                              <button onClick={toggleMute} className="text-slate-400 hover:text-white transition-colors">
+                                {isMuted ? <VolumeX className="w-5 h-5 text-rose-500" /> : <Volume2 className="w-5 h-5" />}
+                              </button>
+                              <input 
+                                type="range"
+                                min="0"
+                                max="1"
+                                step="0.05"
+                                value={isMuted ? 0 : volume}
+                                onChange={handleVolumeChange}
+                                className="w-20 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-white"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Playback speed */}
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Speed</span>
+                            <div className="flex bg-slate-800/80 p-0.5 rounded-lg border border-slate-700">
+                              {[0.5, 1, 1.5, 2].map(speed => (
+                                <button 
+                                  key={speed}
+                                  onClick={() => handleSpeedChange(speed)}
+                                  className={`px-2.5 py-1 rounded-md text-[10px] font-black transition-all ${playbackSpeed === speed ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                                >
+                                  {speed}x
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Side: Notes and Watch Tips Panel */}
+              <div className="w-full md:w-[320px] bg-slate-900 border-t md:border-t-0 md:border-l border-slate-800 p-8 flex flex-col justify-between shrink-0 font-sans">
+                <div className="flex flex-col flex-1">
+                  <div className="flex items-center gap-2 mb-6">
+                    <NotebookPen className="w-5 h-5 text-rose-500" />
+                    <h4 className="text-md font-black text-white uppercase tracking-tight">Study Notes Pad</h4>
+                  </div>
+                  
+                  <p className="text-xs font-medium text-slate-400 mb-4">
+                    Jot down key equations, formulas, or concepts as you watch the lecture. Your notes are saved automatically!
+                  </p>
+
+                  <textarea
+                    value={videoNotes}
+                    onChange={(e) => handleNotesChange(e.target.value)}
+                    placeholder="Type your lecture notes here... e.g. Important formula: E = mc²..."
+                    className="w-full flex-1 min-h-[160px] md:min-h-0 bg-slate-950 border-2 border-slate-800 rounded-2xl p-4 text-white text-sm outline-hidden focus:border-rose-500 transition-all resize-none font-medium"
+                  />
+                </div>
+
+                <div className="mt-8 pt-6 border-t border-slate-800 flex flex-col gap-3">
+                  <div className="flex items-center justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                    <span>Notes Auto-Saved</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      const blob = new Blob([videoNotes], { type: 'text/plain' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `${selectedVideo.title.replace(/\s+/g, '_')}_Notes.txt`;
+                      a.click();
+                    }}
+                    className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all"
+                  >
+                    Download Notes TXT
+                  </button>
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Floating Social Popup Notifications */}
+      {activeTab === 'home' && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-sm w-full sm:w-[360px] animate-in slide-in-from-bottom-10 fade-in duration-500">
+          {currentPopupIndex === 0 && socialLinks.whatsapp && (
+            <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-5 rounded-2xl text-white shadow-2xl shadow-emerald-500/30 border border-white/15 relative overflow-hidden group animate-in slide-in-from-bottom-5 duration-300">
+              <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-700"></div>
+              <div className="flex gap-4">
+                <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center shrink-0 shadow-lg animate-bounce">
+                  <MessageCircle className="w-6 h-6 text-white fill-current" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-extrabold text-[14px] leading-tight mb-1">WhatsApp Community</h4>
+                  <p className="text-white/90 text-[11px] font-semibold leading-snug mb-3">Join for daily practice questions & instant study updates!</p>
+                  <a 
+                    href={socialLinks.whatsapp} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-white text-emerald-700 font-extrabold text-[9px] uppercase tracking-widest rounded-xl hover:bg-emerald-50 transition-all shadow-md active:scale-95"
+                  >
+                    Join WhatsApp
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {currentPopupIndex === 1 && socialLinks.telegram && (
+            <div className="bg-gradient-to-r from-sky-500 to-blue-600 p-5 rounded-2xl text-white shadow-2xl shadow-sky-500/30 border border-white/15 relative overflow-hidden group animate-in slide-in-from-bottom-5 duration-300">
+              <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-700"></div>
+              <div className="flex gap-4">
+                <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center shrink-0 shadow-lg animate-bounce">
+                  <Send className="w-6 h-6 text-white fill-current ml-0.5" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-extrabold text-[14px] leading-tight mb-1">Telegram Channel</h4>
+                  <p className="text-white/90 text-[11px] font-semibold leading-snug mb-3">Get standard study notes & instant practice sets free!</p>
+                  <a 
+                    href={socialLinks.telegram} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-white text-sky-700 font-extrabold text-[9px] uppercase tracking-widest rounded-xl hover:bg-sky-50 transition-all shadow-md active:scale-95"
+                  >
+                    Join Telegram
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {currentPopupIndex === 2 && socialLinks.youtube && (
+            <div className="bg-gradient-to-r from-rose-500 to-red-600 p-5 rounded-2xl text-white shadow-2xl shadow-rose-500/30 border border-white/15 relative overflow-hidden group animate-in slide-in-from-bottom-5 duration-300">
+              <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-700"></div>
+              <div className="flex gap-4">
+                <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center shrink-0 shadow-lg animate-bounce">
+                  <Youtube className="w-6 h-6 text-white fill-current" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-extrabold text-[14px] leading-tight mb-1">YouTube Classes</h4>
+                  <p className="text-white/90 text-[11px] font-semibold leading-snug mb-3">Subscribe for expert live lessons & complete preparation video series!</p>
+                  <a 
+                    href={socialLinks.youtube} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-white text-rose-700 font-extrabold text-[9px] uppercase tracking-widest rounded-xl hover:bg-rose-50 transition-all shadow-md active:scale-95"
+                  >
+                    Subscribe YouTube
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

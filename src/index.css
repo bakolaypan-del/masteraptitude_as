@@ -80,19 +80,23 @@ img {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
+  gap: 10px;
+  padding: 14px 14px;
   margin-bottom: 10px;
   border-radius: 14px;
-  font-weight: 700;
-  font-size: 0.825rem;
+  font-weight: 800;
+  font-size: 0.76rem;
   color: #ffffff !important;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.03em;
   transition: all 0.3s ease;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   cursor: pointer;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
 }
 
 .sidebar-btn:hover {
@@ -291,3 +295,160 @@ img {
 .sub-color-8.active, .sub-color-8:hover {
   box-shadow: 0 8px 24px rgba(203, 45, 62, 0.5) !important;
 }
+
+/* --- Dynamic Sub-Category Styles --- */
+.sub-category {
+  border-radius: 12px;
+  padding: 12px 14px;
+  color: white !important;
+  font-weight: 700;
+  margin-bottom: 10px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.sub-category:hover {
+  transform: scale(1.03) translateY(-1px);
+  filter: brightness(1.1);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
+}
+
+.sub-category.active {
+  border: 2px solid #ffffff !important;
+  transform: scale(1.05) translateY(-2px);
+}
+
+/* 1. Recorded Video - #ff512f to #dd2476 */
+.sub-learn-video {
+  background: linear-gradient(135deg, #ff512f, #dd2476) !important;
+}
+
+/* 2. Study Notes - #134E5E to #71B280 */
+.sub-learn-notes {
+  background: linear-gradient(135deg, #134E5E, #71B280) !important;
+}
+
+/* 3. Current Affairs - #4568DC to #B06AB3 */
+.sub-learn-affairs {
+  background: linear-gradient(135deg, #4568DC, #B06AB3) !important;
+}
+
+/* 4. Practice Set - #11998e to #38ef7d */
+.sub-learn-practice {
+  background: linear-gradient(135deg, #11998e, #38ef7d) !important;
+}
+
+/* 5. Topic Wise Mock Test - #fc4a1a to #f7b733 */
+.sub-mock-topic {
+  background: linear-gradient(135deg, #fc4a1a, #f7b733) !important;
+}
+
+/* 6. Sectional Mock Test - #00c6ff to #0072ff */
+.sub-mock-sectional {
+  background: linear-gradient(135deg, #00c6ff, #0072ff) !important;
+}
+
+/* 7. Full Mock Test - #8E2DE2 to #4A00E0 */
+.sub-mock-full {
+  background: linear-gradient(135deg, #8E2DE2, #4A00E0) !important;
+}
+
+/* --- Unique Landing Card Shapes & Designs --- */
+
+/* 1. Recorded Video - Rounded Pill shape, Medium width, Glassmorphism + Gradient */
+.landing-pill-card {
+  border-radius: 50px !important;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(255, 255, 255, 0.2) !important;
+}
+.landing-pill-card:hover {
+  transform: translateY(-8px) scale(1.03);
+  box-shadow: 0 15px 35px rgba(255, 81, 47, 0.45) !important;
+}
+
+/* 2. Study Notes - Tilted corner card, Small compact box, Shadow + Border Glow */
+.landing-tilted-card {
+  border-top-right-radius: 48px !important;
+  border-bottom-left-radius: 48px !important;
+  border-top-left-radius: 12px !important;
+  border-bottom-right-radius: 12px !important;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.15) !important;
+}
+.landing-tilted-card:hover {
+  transform: translateY(-8px) rotate(-1.5deg) scale(1.03);
+  box-shadow: 0 15px 30px rgba(19, 78, 94, 0.4) !important;
+  border-color: rgba(113, 178, 128, 0.7) !important;
+}
+
+/* 3. Current Affairs - Hexagon / modern polygon style, Medium, Animated Gradient Border */
+.landing-hexagon-card {
+  clip-path: polygon(
+    25% 5%,
+    75% 5%,
+    100% 50%,
+    75% 95%,
+    25% 95%,
+    0% 50%
+  );
+  aspect-ratio: 1.15;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.landing-hexagon-card:hover {
+  transform: translateY(-8px) scale(1.06);
+  filter: brightness(1.18);
+  box-shadow: 0 15px 30px rgba(69, 104, 220, 0.4) !important;
+}
+
+/* 4. Practice Set - Soft rounded rectangle, Wide card, Neon hover glow */
+.landing-rounded-card {
+  border-radius: 20px !important;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
+}
+.landing-rounded-card:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 0 0 40px rgba(56, 239, 125, 0.6) !important;
+}
+
+/* 5. Topic Mock - Compact Pill card */
+.landing-mock-topic {
+  border-radius: 40px !important;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.landing-mock-topic:hover {
+  transform: translateY(-8px) scale(1.04);
+  box-shadow: 0 15px 30px rgba(252, 74, 26, 0.4) !important;
+}
+
+/* 6. Sectional Mock - Rounded square card */
+.landing-mock-sectional {
+  border-radius: 24px !important;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.landing-mock-sectional:hover {
+  transform: translateY(-8px) scale(1.04);
+  box-shadow: 0 15px 30px rgba(0, 198, 255, 0.4) !important;
+}
+
+/* 7. Full Mock - Wide premium rectangle card */
+.landing-mock-full {
+  border-radius: 18px !important;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.landing-mock-full:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 0 15px 30px rgba(142, 45, 226, 0.4) !important;
+}
+
+

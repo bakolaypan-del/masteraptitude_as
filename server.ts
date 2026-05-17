@@ -362,6 +362,8 @@ app.use((req, res, next) => {
       const totalQuestions = questionsSnap.size;
       const accuracy = totalQuestions > 0 ? ((correct / (correct + wrong || 1)) * 100).toFixed(1) : 0;
 
+      const questionTimes = req.body.questionTimes || {};
+
       const resultData = {
         timestamp: Date.now(),
         userId: user.uid,
@@ -376,6 +378,7 @@ app.use((req, res, next) => {
         timeTaken: timeTaken || "N/A",
         userAnswers,
         correctAnswersMap,
+        questionTimes,
         status: "completed"
       };
 
@@ -398,6 +401,43 @@ app.use((req, res, next) => {
           });
         }
       });
+
+      // Write mock_question_analysis documents in batch
+      try {
+        let studentName = "Student";
+        const pSnap = await profileRef.get();
+        if (pSnap.exists) {
+          studentName = pSnap.data()?.name || "Student";
+        }
+
+        const analysisBatch = currentDb.batch();
+        questionsSnap.docs.forEach(doc => {
+          const qId = doc.id;
+          const selected = userAnswers[qId] || "";
+          const correctAns = correctAnswersMap[qId] || "";
+          const isCorr = selected === correctAns;
+          const timeSpent = questionTimes[qId] || 0;
+
+          const analysisRef = currentDb.collection("mock_question_analysis").doc();
+          analysisBatch.set(analysisRef, {
+            userId: user.uid,
+            studentId: user.uid,
+            studentName,
+            testId,
+            testTitle: testData?.title || "Mock Test",
+            questionId: qId,
+            qNo: doc.data().qNo || 1,
+            selectedAnswer: selected,
+            correctAnswer: correctAns,
+            isCorrect: isCorr,
+            timeTakenSeconds: timeSpent,
+            attemptedAt: Date.now()
+          });
+        });
+        await analysisBatch.commit();
+      } catch (batchErr) {
+        console.error("Batch write to mock_question_analysis failed:", batchErr);
+      }
 
       let rank = 1;
       try {
@@ -909,9 +949,43 @@ app.use((req, res, next) => {
     const { testId } = req.params;
     try {
       const questionsSnap = await currentDb.collection("questions").where("testId", "==", testId).orderBy("qNo", "asc").get();
-      const questions = questionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // Fetch dynamic statistics from mock_question_analysis collection
+      const allAnalysisSnap = await currentDb.collection("mock_question_analysis").where("testId", "==", testId).get();
+      const questionStats: Record<string, { correct: number, total: number }> = {};
+      allAnalysisSnap.docs.forEach(doc => {
+        const data = doc.data();
+        const qId = data.questionId;
+        if (!questionStats[qId]) {
+          questionStats[qId] = { correct: 0, total: 0 };
+        }
+        questionStats[qId].total++;
+        if (data.isCorrect === true || data.isCorrect === 1) {
+          questionStats[qId].correct++;
+        }
+      });
+
+      const questions = questionsSnap.docs.map(doc => {
+        const qData = doc.data();
+        const qId = doc.id;
+        const stats = questionStats[qId];
+        const percent = stats && stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 100;
+        
+        let difficulty = "Easy";
+        if (percent < 40) difficulty = "Hard";
+        else if (percent < 75) difficulty = "Moderate";
+
+        return {
+          id: qId,
+          ...qData,
+          successPercentage: percent,
+          difficulty
+        };
+      });
+
       res.json({ questions });
-    } catch (err) {
+    } catch (err: any) {
+      console.error("Failed to fetch questions with statistics:", err);
       res.status(500).json({ error: "Failed to fetch questions" });
     }
   });
@@ -942,6 +1016,109 @@ app.use((req, res, next) => {
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: "Failed to update category order" });
+    }
+  });
+
+  // ----------------------------------------------------
+  // CUSTOM CATEGORIES ROUTES
+  // ----------------------------------------------------
+
+  // Get all active custom categories (Public)
+  app.get("/api/custom-categories", async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "DB offline" });
+    try {
+      const snap = await currentDb.collection("custom_categories").where("status", "==", 1).get();
+      const categories = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      res.json({ success: true, categories });
+    } catch (err: any) {
+      console.error("Failed to fetch custom categories:", err);
+      res.status(500).json({ error: "Failed to fetch custom categories" });
+    }
+  });
+
+  // Get all custom categories (Admin - including inactive ones)
+  app.get("/api/admin/custom-categories", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "DB offline" });
+    try {
+      const snap = await currentDb.collection("custom_categories").get();
+      const categories = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      res.json({ success: true, categories });
+    } catch (err: any) {
+      console.error("Failed to fetch admin custom categories:", err);
+      res.status(500).json({ error: "Failed to fetch custom categories" });
+    }
+  });
+
+  // Create new custom category (Admin)
+  app.post("/api/admin/custom-categories", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "DB offline" });
+    const { categoryName, categoryType, icon, colorTheme, status } = req.body;
+    if (!categoryName || !categoryType) {
+      return res.status(400).json({ error: "Category name and type are required." });
+    }
+    try {
+      const docRef = await currentDb.collection("custom_categories").add({
+        categoryName,
+        categoryType,
+        icon: icon || "Layers",
+        colorTheme: colorTheme || "linear-gradient(135deg, #4facfe, #00f2fe)",
+        status: status !== undefined ? Number(status) : 1,
+        createdAt: Date.now()
+      });
+      res.json({ success: true, id: docRef.id });
+    } catch (err: any) {
+      console.error("Failed to create custom category:", err);
+      res.status(500).json({ error: "Failed to create custom category" });
+    }
+  });
+
+  // Update custom category (Admin)
+  app.put("/api/admin/custom-categories/:id", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "DB offline" });
+    const { id } = req.params;
+    const { categoryName, categoryType, icon, colorTheme, status } = req.body;
+    try {
+      const docRef = currentDb.collection("custom_categories").doc(id);
+      const docSnap = await docRef.get();
+      if (!docSnap.exists) {
+        return res.status(404).json({ error: "Category not found." });
+      }
+      
+      const updateData: any = {};
+      if (categoryName !== undefined) updateData.categoryName = categoryName;
+      if (categoryType !== undefined) updateData.categoryType = categoryType;
+      if (icon !== undefined) updateData.icon = icon;
+      if (colorTheme !== undefined) updateData.colorTheme = colorTheme;
+      if (status !== undefined) updateData.status = Number(status);
+
+      await docRef.update(updateData);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("Failed to update custom category:", err);
+      res.status(500).json({ error: "Failed to update custom category" });
+    }
+  });
+
+  // Delete custom category (Admin)
+  app.delete("/api/admin/custom-categories/:id", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "DB offline" });
+    const { id } = req.params;
+    try {
+      const docRef = currentDb.collection("custom_categories").doc(id);
+      const docSnap = await docRef.get();
+      if (!docSnap.exists) {
+        return res.status(404).json({ error: "Category not found." });
+      }
+      await docRef.delete();
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("Failed to delete custom category:", err);
+      res.status(500).json({ error: "Failed to delete custom category" });
     }
   });
 

@@ -25,6 +25,7 @@ export default function TestRunner() {
   const [result, setResult] = useState<any>(null);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [warnings, setWarnings] = useState(0);
+  const [questionTimes, setQuestionTimes] = useState<Record<string, number>>({});
   
   const [showInstructions, setShowInstructions] = useState(true);
   const [selectedLang, setSelectedLang] = useState('English');
@@ -34,6 +35,11 @@ export default function TestRunner() {
   
   const isSubmittingRef = useRef(false);
   const timerRef = useRef<any>(null);
+  const currentIdxRef = useRef(currentIdx);
+
+  useEffect(() => {
+    currentIdxRef.current = currentIdx;
+  }, [currentIdx]);
 
   useEffect(() => {
     async function loadTest() {
@@ -110,6 +116,16 @@ export default function TestRunner() {
   useEffect(() => {
     if (!showInstructions && !submitting && !result && questions.length > 0 && timeLeft > 0) {
       timerRef.current = setInterval(() => {
+        // Increment counter for current active question
+        const activeIdx = currentIdxRef.current;
+        const currentQuestionId = questions[activeIdx]?.id;
+        if (currentQuestionId) {
+          setQuestionTimes(prev => ({
+            ...prev,
+            [currentQuestionId]: (prev[currentQuestionId] || 0) + 1
+          }));
+        }
+
         setTimeLeft(prev => {
           if (prev <= 1) {
             if (timerRef.current) clearInterval(timerRef.current);
@@ -179,7 +195,8 @@ export default function TestRunner() {
         body: JSON.stringify({ 
           testId, 
           answers: payload,
-          timeTaken: timeTakenStr
+          timeTaken: timeTakenStr,
+          questionTimes
         })
       });
       

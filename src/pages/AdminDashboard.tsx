@@ -5,13 +5,13 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { LogOut, ArrowLeft, Plus, Pencil, Trash2, FileText, BookOpen, Play, CheckCircle, Clock, X, User as UserIcon, Download, ShieldAlert, ShieldCheck, Key, Edit2, Search, LayoutDashboard } from 'lucide-react';
+import { LogOut, ArrowLeft, Plus, Pencil, Trash2, FileText, BookOpen, Play, CheckCircle, Clock, X, User as UserIcon, Download, ShieldAlert, ShieldCheck, Key, Edit2, Search, LayoutDashboard, Layers } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 
 import AdminTypingTests from '../components/AdminTypingTests';
 import { Keyboard } from 'lucide-react';
 
-type AdminTab = 'students' | 'mock' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info';
+type AdminTab = 'students' | 'mock' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'categories';
 
 function AdminHome() {
   const [students, setStudents] = useState<any[]>([]);
@@ -29,8 +29,18 @@ function AdminHome() {
   const [practiceSets, setPracticeSets] = useState<any[]>([]);
   const [siteInfo, setSiteInfo] = useState({ content: '', contact: '' });
   const [carousels, setCarousels] = useState<any[]>([]);
+  const [customMockCategories, setCustomMockCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<AdminTab>('mock');
+
+  // Admin Attempts Analyzer state
+  const [selectedStudentForAnalysis, setSelectedStudentForAnalysis] = useState<any | null>(null);
+  const [showStudentAttemptsModal, setShowStudentAttemptsModal] = useState(false);
+  const [studentAttemptsList, setStudentAttemptsList] = useState<any[]>([]);
+  const [loadingAttempts, setLoadingAttempts] = useState(false);
+  const [selectedAttemptForDeepAnalysis, setSelectedAttemptForDeepAnalysis] = useState<any | null>(null);
+  const [deepAnalysisQuestions, setDeepAnalysisQuestions] = useState<any[]>([]);
+  const [loadingDeepAnalysis, setLoadingDeepAnalysis] = useState(false);
   
   // Test Form
   const [editingTestId, setEditingTestId] = useState<string | null>(null);
@@ -212,6 +222,13 @@ function AdminHome() {
           const orderData = await orderRes.json();
           setCategoryOrder(orderData.order || []);
         }
+
+        // Fetch Custom Categories
+        const catsRes = await fetch('/api/custom-categories');
+        if (catsRes.ok) {
+          const catsData = await catsRes.json();
+          setCustomMockCategories(catsData.categories || []);
+        }
       } catch (err) {
         console.error('Stats fetch failed:', err);
       }
@@ -234,6 +251,55 @@ function AdminHome() {
       clearInterval(statsInterval);
     };
   }, []);
+
+  // Load attempts when student is selected for analysis
+  useEffect(() => {
+    async function loadStudentAttempts() {
+      if (!selectedStudentForAnalysis) return;
+      setLoadingAttempts(true);
+      setSelectedAttemptForDeepAnalysis(null);
+      setDeepAnalysisQuestions([]);
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        const res = await fetch(`/api/admin/student-attempts/${selectedStudentForAnalysis.id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setStudentAttemptsList(data.attempts || []);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingAttempts(false);
+      }
+    }
+    loadStudentAttempts();
+  }, [selectedStudentForAnalysis]);
+
+  // Load deep question analysis when attempt is selected
+  useEffect(() => {
+    async function loadAttemptDeepAnalysis() {
+      if (!selectedAttemptForDeepAnalysis) return;
+      setLoadingDeepAnalysis(true);
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        const res = await fetch(`/api/admin/test-attempt-analysis/${selectedAttemptForDeepAnalysis.id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setDeepAnalysisQuestions(data.questions || []);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingDeepAnalysis(false);
+      }
+    }
+    loadAttemptDeepAnalysis();
+  }, [selectedAttemptForDeepAnalysis]);
+
 
   const handleCreateTest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1100,7 +1166,283 @@ function AdminHome() {
           <Edit2 className="w-4 h-4" />
           About & Contact Info
         </button>
+        <button 
+          onClick={() => setActiveTab('categories')}
+          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all
+            ${activeTab === 'categories' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' : 'text-slate-500 hover:text-indigo-600 hover:bg-indigo-50'}`}
+        >
+          <Layers className="w-4 h-4" />
+          Custom Categories
+        </button>
       </div>
+
+      {activeTab === 'categories' && (() => {
+        const [customCategoriesList, setCustomCategoriesList] = useState<any[]>([]);
+        const [catName, setCatName] = useState('');
+        const [catType, setCatType] = useState<'mock' | 'study'>('mock');
+        const [catIcon, setCatIcon] = useState('Layers');
+        const [catColor, setCatColor] = useState('linear-gradient(135deg, #0052D4, #4364F7)');
+        const [catStatus, setCatStatus] = useState<number>(1);
+        const [editingCatId, setEditingCatId] = useState<string | null>(null);
+        const [loadingCats, setLoadingCats] = useState(false);
+
+        const fetchCats = async () => {
+          setLoadingCats(true);
+          try {
+            const token = await auth.currentUser?.getIdToken();
+            const res = await fetch('/api/admin/custom-categories', {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+              const data = await res.json();
+              setCustomCategoriesList(data.categories || []);
+            }
+          } catch (e) {
+            console.error(e);
+          } finally {
+            setLoadingCats(false);
+          }
+        };
+
+        useEffect(() => {
+          if (activeTab === 'categories') {
+            fetchCats();
+          }
+        }, [activeTab]);
+
+        const handleSubmitCat = async (e: React.FormEvent) => {
+          e.preventDefault();
+          if (!catName.trim()) return alert('Please enter category name');
+          
+          try {
+            const token = await auth.currentUser?.getIdToken();
+            const url = editingCatId ? `/api/admin/custom-categories/${editingCatId}` : '/api/admin/custom-categories';
+            const method = editingCatId ? 'PUT' : 'POST';
+            
+            const res = await fetch(url, {
+              method,
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                categoryName: catName,
+                categoryType: catType,
+                icon: catIcon,
+                colorTheme: catColor,
+                status: Number(catStatus)
+              })
+            });
+
+            if (res.ok) {
+              alert(editingCatId ? 'Category updated successfully!' : 'Category created successfully!');
+              setCatName('');
+              setEditingCatId(null);
+              fetchCats();
+            } else {
+              const err = await res.json();
+              alert(err.error || 'Failed to save category');
+            }
+          } catch (e) {
+            console.error(e);
+            alert('Failed to save category');
+          }
+        };
+
+        const handleEditCat = (cat: any) => {
+          setEditingCatId(cat.id);
+          setCatName(cat.categoryName);
+          setCatType(cat.categoryType);
+          setCatIcon(cat.icon || 'Layers');
+          setCatColor(cat.colorTheme || 'linear-gradient(135deg, #0052D4, #4364F7)');
+          setCatStatus(cat.status !== undefined ? Number(cat.status) : 1);
+        };
+
+        const handleDeleteCat = async (id: string) => {
+          if (!confirm('Are you sure you want to delete this category? All tests under this category will need update.')) return;
+          try {
+            const token = await auth.currentUser?.getIdToken();
+            const res = await fetch(`/api/admin/custom-categories/${id}`, {
+              method: 'DELETE',
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+              alert('Category deleted successfully!');
+              fetchCats();
+            } else {
+              alert('Failed to delete category');
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        };
+
+        return (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-2">
+              <span className="w-2 h-8 bg-indigo-600 rounded-full"></span>
+              Custom Sub-Categories Manager
+            </h2>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              
+              {/* Form panel */}
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 h-fit lg:col-span-1">
+                <h3 className="text-lg font-bold text-slate-800 mb-6">
+                  {editingCatId ? 'Edit Sub-Category' : 'Create New Sub-Category'}
+                </h3>
+                <form onSubmit={handleSubmitCat} className="space-y-6">
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Category Name</label>
+                    <input 
+                      type="text" 
+                      value={catName} 
+                      onChange={(e) => setCatName(e.target.value)} 
+                      placeholder="e.g. Railway Mock Test"
+                      className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3.5 text-sm focus:border-indigo-500 outline-hidden font-bold transition-all text-slate-700"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Category Type</label>
+                    <select
+                      value={catType}
+                      onChange={(e: any) => setCatType(e.target.value)}
+                      className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3.5 text-sm focus:border-indigo-500 outline-hidden font-bold transition-all text-slate-700"
+                    >
+                      <option value="mock">Mock Test Category</option>
+                      <option value="study">Study Notes Category</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Color Theme Gradient</label>
+                    <select
+                      value={catColor}
+                      onChange={(e) => setCatColor(e.target.value)}
+                      className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3.5 text-sm focus:border-indigo-500 outline-hidden font-bold transition-all text-slate-700 mb-3"
+                    >
+                      <option value="linear-gradient(135deg, #0052D4, #4364F7)">HOME Blue Gradient</option>
+                      <option value="linear-gradient(135deg, #41295a, #2F0743)">PROFILE Dark Purple Gradient</option>
+                      <option value="linear-gradient(135deg, #134E5E, #0C7B93)">LEARN Ocean Teal Gradient</option>
+                      <option value="linear-gradient(135deg, #FF512F, #DD2476)">MOCK TEST Sunset Orange Gradient</option>
+                      <option value="linear-gradient(135deg, #f857a6, #ff5858)">TYPING TEST Pink Gradient</option>
+                      <option value="linear-gradient(135deg, #11998e, #38ef7d)">PREVIOUS YEAR Green Gradient</option>
+                      <option value="linear-gradient(135deg, #FF8008, #FFC837)">SYLLABUS Sunny Gold Gradient</option>
+                      <option value="linear-gradient(135deg, #4CA1AF, #2C3E50)">ABOUT Slate Blue Gradient</option>
+                      <option value="linear-gradient(135deg, #310F54, #F20089)">CONTACT Neon Pink/Purple Gradient</option>
+                    </select>
+                    {/* Live Preview */}
+                    <div 
+                      style={{ background: catColor }} 
+                      className="w-full h-12 rounded-xl flex items-center justify-center text-white text-xs font-black uppercase tracking-widest shadow-md mt-3"
+                    >
+                      Live Color Preview
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Status</label>
+                    <select
+                      value={catStatus}
+                      onChange={(e) => setCatStatus(Number(e.target.value))}
+                      className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3.5 text-sm focus:border-indigo-500 outline-hidden font-bold transition-all text-slate-700"
+                    >
+                      <option value={1}>Active</option>
+                      <option value={0}>Inactive</option>
+                    </select>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button 
+                      type="submit" 
+                      className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all"
+                    >
+                      {editingCatId ? 'Update Category' : 'Create Category'}
+                    </button>
+                    {editingCatId && (
+                      <button 
+                        type="button" 
+                        onClick={() => {
+                          setEditingCatId(null);
+                          setCatName('');
+                        }}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3.5 px-6 rounded-xl text-xs uppercase tracking-wider transition-all"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </form>
+              </div>
+
+              {/* List panel */}
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 lg:col-span-2">
+                <h3 className="text-lg font-bold text-slate-800 mb-6">Existing Categories</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-100">
+                        <th className="pb-4 text-xs font-black text-slate-400 uppercase tracking-widest">Name</th>
+                        <th className="pb-4 text-xs font-black text-slate-400 uppercase tracking-widest">Type</th>
+                        <th className="pb-4 text-xs font-black text-slate-400 uppercase tracking-widest">Status</th>
+                        <th className="pb-4 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {customCategoriesList.map((cat: any) => (
+                        <tr key={cat.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="py-4 font-bold text-slate-800 flex items-center gap-3">
+                            <span 
+                              style={{ background: cat.colorTheme }} 
+                              className="w-4 h-4 rounded-full shadow-xs inline-block"
+                            ></span>
+                            {cat.categoryName}
+                          </td>
+                          <td className="py-4 text-xs font-black text-slate-500 uppercase tracking-wider">
+                            {cat.categoryType === 'mock' ? '🎯 Mock Test' : '📚 Study notes'}
+                          </td>
+                          <td className="py-4">
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                              cat.status === 1 ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'
+                            }`}>
+                              {cat.status === 1 ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                          <td className="py-4 text-right">
+                            <div className="flex justify-end gap-2">
+                              <button 
+                                onClick={() => handleEditCat(cat)}
+                                className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all border border-indigo-100"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteCat(cat.id)}
+                                className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-all border border-rose-100"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {customCategoriesList.length === 0 && !loadingCats && (
+                        <tr>
+                          <td colSpan={4} className="py-10 text-center text-slate-400 font-bold">
+                            No custom categories created yet.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
 
       {activeTab === 'mock' && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1166,6 +1508,9 @@ function AdminHome() {
                   <option value="Polity">Polity</option>
                   <option value="Economics">Economics</option>
                   <option value="Current Affairs">Current Affairs</option>
+                  {customMockCategories.filter(c => c.categoryType === 'mock').map(c => (
+                    <option key={c.id} value={c.categoryName}>{c.categoryName}</option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -2156,6 +2501,16 @@ function AdminHome() {
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button 
+                          onClick={() => {
+                            setSelectedStudentForAnalysis(student);
+                            setShowStudentAttemptsModal(true);
+                          }}
+                          className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
+                          title="Analyze Mock Attempts"
+                        >
+                          <LayoutDashboard className="w-4 h-4" />
+                        </button>
+                        <button 
                           onClick={() => setEditingStudent({ ...student, focusPassword: true, newPassword: '' })}
                           className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
                           title="Reset Password"
@@ -2259,6 +2614,343 @@ function AdminHome() {
           </div>
         </div>
       )}
+
+      {/* Student Attempts & Advanced Analytics Modal */}
+      {showStudentAttemptsModal && selectedStudentForAnalysis && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-in fade-in duration-300">
+          <div className="bg-slate-900 text-white w-full max-w-5xl rounded-[40px] shadow-2xl border border-slate-800 overflow-hidden flex flex-col my-8 max-h-[90vh]">
+            
+            {/* Modal Header */}
+            <div className="p-8 bg-slate-900 border-b border-slate-800 flex justify-between items-start shrink-0">
+              <div>
+                <span className="text-[10px] font-black text-rose-500 uppercase tracking-[0.2em] block mb-1">Advanced Mock Test Analytics</span>
+                <h3 className="text-2xl font-black text-white">{selectedStudentForAnalysis.name}'s Dashboard</h3>
+                <p className="text-xs font-bold text-slate-400 mt-1">Mobile: {selectedStudentForAnalysis.phoneNumber || 'N/A'}</p>
+              </div>
+              <button 
+                onClick={() => {
+                  setShowStudentAttemptsModal(false);
+                  setSelectedStudentForAnalysis(null);
+                  setSelectedAttemptForDeepAnalysis(null);
+                  setDeepAnalysisQuestions([]);
+                }} 
+                className="w-12 h-12 bg-slate-800 hover:bg-rose-600 rounded-full flex items-center justify-center transition-all text-slate-300 hover:text-white"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-8 space-y-8 min-h-0">
+              
+              {loadingAttempts ? (
+                <div className="flex flex-col items-center justify-center py-20">
+                  <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                  <p className="text-slate-400 font-bold">Loading attempt statistics...</p>
+                </div>
+              ) : (
+                <>
+                  {/* Aggregated Overview Cards */}
+                  {(() => {
+                    const totalAttempts = studentAttemptsList.length;
+                    const avgAccuracy = totalAttempts > 0 
+                      ? Math.round(studentAttemptsList.reduce((acc, curr) => acc + (curr.accuracy || 0), 0) / totalAttempts)
+                      : 0;
+                    const avgScore = totalAttempts > 0
+                      ? (studentAttemptsList.reduce((acc, curr) => acc + (curr.score || 0), 0) / totalAttempts).toFixed(1)
+                      : '0.0';
+
+                    return (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                        <div className="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 p-6 rounded-3xl border border-indigo-500/20 relative overflow-hidden group">
+                          <div className="absolute -right-6 -bottom-6 w-20 h-20 bg-indigo-500/10 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-700"></div>
+                          <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest block mb-2">Total Mock Attempts</span>
+                          <span className="text-4xl font-black text-indigo-300">{totalAttempts}</span>
+                        </div>
+                        <div className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 p-6 rounded-3xl border border-emerald-500/20 relative overflow-hidden group">
+                          <div className="absolute -right-6 -bottom-6 w-20 h-20 bg-emerald-500/10 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-700"></div>
+                          <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest block mb-2">Average Accuracy</span>
+                          <span className="text-4xl font-black text-emerald-300">{avgAccuracy}%</span>
+                        </div>
+                        <div className="bg-gradient-to-br from-rose-500/10 to-pink-500/10 p-6 rounded-3xl border border-rose-500/20 relative overflow-hidden group">
+                          <div className="absolute -right-6 -bottom-6 w-20 h-20 bg-rose-500/10 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-700"></div>
+                          <span className="text-[10px] font-black text-rose-400 uppercase tracking-widest block mb-2">Average Score</span>
+                          <span className="text-4xl font-black text-rose-300">{avgScore} <span className="text-sm font-bold text-slate-500">pts</span></span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Attempts List */}
+                  <div className="bg-slate-950/40 rounded-3xl border border-slate-800 p-6">
+                    <h4 className="text-lg font-black text-white mb-6 uppercase tracking-tight flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+                      All Mock Test Attempts
+                    </h4>
+                    
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-slate-800 text-slate-400">
+                            <th className="pb-4 text-xs font-black uppercase tracking-widest">Test Title</th>
+                            <th className="pb-4 text-xs font-black uppercase tracking-widest">Date</th>
+                            <th className="pb-4 text-xs font-black uppercase tracking-widest">Score</th>
+                            <th className="pb-4 text-xs font-black uppercase tracking-widest">Accuracy</th>
+                            <th className="pb-4 text-xs font-black uppercase tracking-widest">Time Taken</th>
+                            <th className="pb-4 text-xs font-black uppercase tracking-widest text-right">Analysis</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/50">
+                          {studentAttemptsList.map((attempt) => (
+                            <tr key={attempt.id} className="hover:bg-slate-800/20 transition-all">
+                              <td className="py-4 font-bold text-white truncate max-w-[200px]" title={attempt.testTitle}>
+                                {attempt.testTitle}
+                              </td>
+                              <td className="py-4 text-sm text-slate-400 font-medium">
+                                {attempt.createdAt ? new Date(attempt.createdAt).toLocaleDateString() : 'N/A'}
+                              </td>
+                              <td className="py-4 font-mono font-bold text-indigo-400">
+                                {attempt.score} <span className="text-[10px] text-slate-500 font-medium">/ {attempt.totalQuestions || 0}</span>
+                              </td>
+                              <td className="py-4">
+                                <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${
+                                  (attempt.accuracy || 0) >= 80 ? 'bg-emerald-500/10 text-emerald-400' :
+                                  (attempt.accuracy || 0) >= 55 ? 'bg-indigo-500/10 text-indigo-400' : 'bg-rose-500/10 text-rose-400'
+                                }`}>
+                                  {attempt.accuracy || 0}%
+                                </span>
+                              </td>
+                              <td className="py-4 text-sm text-slate-400 font-mono">
+                                {Math.floor((attempt.timeTaken || 0) / 60)}m {(attempt.timeTaken || 0) % 60}s
+                              </td>
+                              <td className="py-4 text-right">
+                                <button 
+                                  onClick={() => setSelectedAttemptForDeepAnalysis(attempt)}
+                                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                    selectedAttemptForDeepAnalysis?.id === attempt.id 
+                                      ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/30' 
+                                      : 'bg-slate-800 hover:bg-indigo-600 text-slate-200 hover:text-white'
+                                  }`}
+                                >
+                                  Deep Analysis
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                          {studentAttemptsList.length === 0 && (
+                            <tr>
+                              <td colSpan={6} className="py-12 text-center text-slate-500 font-bold">
+                                No mock test attempts recorded yet.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Deep Question-Wise Analysis Panel */}
+                  {selectedAttemptForDeepAnalysis && (
+                    <div className="bg-slate-950/40 rounded-3xl border border-slate-850 p-6 space-y-8 animate-in fade-in duration-300">
+                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-800 pb-6 gap-4">
+                        <div>
+                          <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest block mb-1">Deep Dive Report</span>
+                          <h4 className="text-lg font-black text-white uppercase tracking-tight">{selectedAttemptForDeepAnalysis.testTitle}</h4>
+                        </div>
+                        <div className="flex items-center gap-4 bg-slate-900/60 px-4 py-2 rounded-2xl border border-slate-800">
+                          <span className="text-xs text-slate-400 font-bold">Rank:</span>
+                          <span className="text-sm font-black text-indigo-400">#{selectedAttemptForDeepAnalysis.rank || 'N/A'}</span>
+                        </div>
+                      </div>
+
+                      {loadingDeepAnalysis ? (
+                        <div className="flex flex-col items-center justify-center py-10">
+                          <div className="w-10 h-10 border-4 border-rose-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+                          <p className="text-slate-400 font-bold text-sm">Extracting response logs...</p>
+                        </div>
+                      ) : (
+                        <>
+                          {/* Subject-Wise and Time Analytics */}
+                          {(() => {
+                            const totalQuestions = deepAnalysisQuestions.length;
+                            const correctAnswers = deepAnalysisQuestions.filter(q => q.isCorrect).length;
+                            const wrongAnswers = deepAnalysisQuestions.filter(q => q.studentAnswer && !q.isCorrect).length;
+                            const skippedAnswers = deepAnalysisQuestions.filter(q => !q.studentAnswer).length;
+
+                            // Calculate Fastest/Slowest solved questions
+                            const solvedQuestions = deepAnalysisQuestions.filter(q => q.timeTaken > 0);
+                            const fastestQuestion = solvedQuestions.length > 0 
+                              ? solvedQuestions.reduce((min, q) => q.timeTaken < min.timeTaken ? q : min, solvedQuestions[0])
+                              : null;
+                            const slowestQuestion = solvedQuestions.length > 0
+                              ? solvedQuestions.reduce((max, q) => q.timeTaken > max.timeTaken ? q : max, solvedQuestions[0])
+                              : null;
+
+                            // Group by Subject
+                            const subjectStats: { [key: string]: { total: number, correct: number } } = {};
+                            deepAnalysisQuestions.forEach(q => {
+                              const sub = q.subject || 'General';
+                              if (!subjectStats[sub]) {
+                                subjectStats[sub] = { total: 0, correct: 0 };
+                              }
+                              subjectStats[sub].total += 1;
+                              if (q.isCorrect) subjectStats[sub].correct += 1;
+                            });
+
+                            const weakTopics: string[] = [];
+                            const strongTopics: string[] = [];
+                            Object.entries(subjectStats).forEach(([subject, stats]) => {
+                              const acc = (stats.correct / stats.total) * 100;
+                              if (acc >= 80) strongTopics.push(subject);
+                              else if (acc < 50) weakTopics.push(subject);
+                            });
+
+                            return (
+                              <div className="space-y-8">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                  
+                                  {/* Stats details & Timing metrics */}
+                                  <div className="bg-slate-900/60 p-6 rounded-2xl border border-slate-800 flex flex-col justify-between">
+                                    <div className="space-y-4">
+                                      <h5 className="text-xs font-black text-slate-400 uppercase tracking-widest">Question Summary</h5>
+                                      <div className="grid grid-cols-3 gap-2">
+                                        <div className="bg-emerald-500/10 p-3.5 rounded-xl border border-emerald-500/20 text-center">
+                                          <span className="text-xl font-bold text-emerald-400 block">{correctAnswers}</span>
+                                          <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Correct</span>
+                                        </div>
+                                        <div className="bg-rose-500/10 p-3.5 rounded-xl border border-rose-500/20 text-center">
+                                          <span className="text-xl font-bold text-rose-400 block">{wrongAnswers}</span>
+                                          <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Wrong</span>
+                                        </div>
+                                        <div className="bg-slate-800 p-3.5 rounded-xl text-center">
+                                          <span className="text-xl font-bold text-slate-300 block">{skippedAnswers}</span>
+                                          <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Skipped</span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-slate-800">
+                                      <div>
+                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-1">⚡ Fastest Answer</span>
+                                        <span className="text-sm font-bold text-emerald-400 font-mono">
+                                          {fastestQuestion ? `Q${fastestQuestion.questionNo} (${fastestQuestion.timeTaken}s)` : 'N/A'}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-1">🐢 Slowest Answer</span>
+                                        <span className="text-sm font-bold text-rose-400 font-mono">
+                                          {slowestQuestion ? `Q${slowestQuestion.questionNo} (${slowestQuestion.timeTaken}s)` : 'N/A'}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Subject-Wise & Topics strengths */}
+                                  <div className="bg-slate-900/60 p-6 rounded-2xl border border-slate-800 space-y-6">
+                                    <h5 className="text-xs font-black text-slate-400 uppercase tracking-widest">Subject Analysis</h5>
+                                    
+                                    <div className="space-y-3 max-h-[160px] overflow-y-auto pr-2">
+                                      {Object.entries(subjectStats).map(([subject, stats]) => {
+                                        const accuracy = Math.round((stats.correct / stats.total) * 100);
+                                        return (
+                                          <div key={subject} className="space-y-1">
+                                            <div className="flex justify-between text-xs font-bold text-slate-300">
+                                              <span>{subject}</span>
+                                              <span>{stats.correct}/{stats.total} ({accuracy}%)</span>
+                                            </div>
+                                            <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                              <div 
+                                                style={{ width: `${accuracy}%` }} 
+                                                className={`h-full rounded-full ${accuracy >= 80 ? 'bg-emerald-500' : accuracy >= 50 ? 'bg-indigo-500' : 'bg-rose-500'}`}
+                                              ></div>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+
+                                </div>
+
+                                {/* Strengths and Weaknesses */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                  <div className="bg-emerald-500/5 p-5 rounded-2xl border border-emerald-500/10">
+                                    <h5 className="text-xs font-black text-emerald-400 uppercase tracking-widest mb-3">🔥 Student Strengths</h5>
+                                    <div className="flex flex-wrap gap-2">
+                                      {strongTopics.map(t => (
+                                        <span key={t} className="px-3 py-1.5 bg-emerald-500/10 text-emerald-400 text-xs font-black rounded-lg border border-emerald-500/20">{t}</span>
+                                      ))}
+                                      {strongTopics.length === 0 && <span className="text-slate-500 text-xs font-bold">No strong topics detected yet.</span>}
+                                    </div>
+                                  </div>
+                                  <div className="bg-rose-500/5 p-5 rounded-2xl border border-rose-500/10">
+                                    <h5 className="text-xs font-black text-rose-400 uppercase tracking-widest mb-3">⚠️ Weak Areas</h5>
+                                    <div className="flex flex-wrap gap-2">
+                                      {weakTopics.map(t => (
+                                        <span key={t} className="px-3 py-1.5 bg-rose-500/10 text-rose-400 text-xs font-black rounded-lg border border-rose-500/20">{t}</span>
+                                      ))}
+                                      {weakTopics.length === 0 && <span className="text-slate-500 text-xs font-bold">No critical weak areas detected. Outstanding!</span>}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Question-Wise Response Matrix */}
+                                <div className="space-y-4">
+                                  <h5 className="text-xs font-black text-slate-400 uppercase tracking-widest">Question-Wise Response Matrix</h5>
+                                  <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse">
+                                      <thead>
+                                        <tr className="border-b border-slate-800 text-slate-400">
+                                          <th className="pb-3 text-xs font-black uppercase tracking-widest">Q#</th>
+                                          <th className="pb-3 text-xs font-black uppercase tracking-widest">Subject</th>
+                                          <th className="pb-3 text-xs font-black uppercase tracking-widest">Student Ans</th>
+                                          <th className="pb-3 text-xs font-black uppercase tracking-widest">Correct Ans</th>
+                                          <th className="pb-3 text-xs font-black uppercase tracking-widest">Result</th>
+                                          <th className="pb-3 text-xs font-black uppercase tracking-widest text-right">Time Taken</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-slate-800/30">
+                                        {deepAnalysisQuestions.map((q) => (
+                                          <tr key={q.questionNo} className="hover:bg-slate-800/10">
+                                            <td className="py-3 font-mono font-bold text-sm">Q{q.questionNo}</td>
+                                            <td className="py-3 text-xs font-bold text-slate-300">{q.subject || 'General'}</td>
+                                            <td className="py-3 font-mono font-bold text-slate-400">{q.studentAnswer || 'Skipped'}</td>
+                                            <td className="py-3 font-mono font-bold text-emerald-400">{q.correctAnswer}</td>
+                                            <td className="py-3">
+                                              <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${
+                                                !q.studentAnswer ? 'bg-slate-800 text-slate-400' :
+                                                q.isCorrect ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'
+                                              }`}>
+                                                {!q.studentAnswer ? 'Skipped' : q.isCorrect ? 'Correct' : 'Wrong'}
+                                              </span>
+                                            </td>
+                                            <td className="py-3 text-right font-mono text-xs text-slate-400">
+                                              {q.timeTaken || 0}s
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+
+                              </div>
+                            );
+                          })()}
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                </>
+              )}
+
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
