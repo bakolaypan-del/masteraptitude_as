@@ -945,6 +945,299 @@ app.use((req, res, next) => {
     }
   });
 
+  // ==========================================
+  // TYPING TEST API ROUTES
+  // ==========================================
+
+  // --- Student APIs ---
+
+  // Get all active typing tests
+  app.get("/api/typing-tests", verifyToken, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const snap = await currentDb.collection("typing_tests").where("isActive", "==", true).get();
+      const tests = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Don't send full paragraph to list view if we don't want to, but it's okay for now
+      res.json(tests);
+    } catch (error) {
+      console.error("[API] Failed to fetch typing tests", error);
+      res.status(500).json({ error: "Failed to fetch typing tests" });
+    }
+  });
+
+  // Get a specific typing test
+  app.get("/api/typing-test/:id", verifyToken, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    const { id } = req.params;
+    try {
+      const docSnap = await currentDb.collection("typing_tests").doc(id).get();
+      if (!docSnap.exists) return res.status(404).json({ error: "Test not found" });
+      res.json({ id: docSnap.id, ...docSnap.data() });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch typing test" });
+    }
+  });
+
+  // Submit typing test result
+  app.post("/api/typing-test/submit", verifyToken, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    const user = (req as any).user;
+    const { testId, typedText, wpm, accuracy, errors, correctWords, wrongWords, timeTakenMinutes } = req.body;
+
+    if (!testId || wpm === undefined) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    try {
+      // Validate test exists
+      const testSnap = await currentDb.collection("typing_tests").doc(testId).get();
+      if (!testSnap.exists) {
+        return res.status(404).json({ error: "Typing test not found" });
+      }
+      
+      const testData = testSnap.data();
+
+      // Fetch previous attempts to calculate attempt number
+      const prevAttemptsSnap = await currentDb.collection("typing_results")
+        .where("userId", "==", user.uid)
+        .where("testId", "==", testId)
+        .get();
+
+      // Calculate attempt number securely by finding the max attempt number
+      let attemptNo = 1;
+      if (prevAttemptsSnap.size > 0) {
+        const attempts = prevAttemptsSnap.docs.map(doc => doc.data().attemptNo || doc.data().attempt_no || 0);
+        attemptNo = Math.max(...attempts, 0) + 1;
+      }
+
+      // Save result with both camelCase and snake_case properties to satisfy all database contract requests
+      const resultData = {
+        userId: user.uid,
+        student_id: user.uid,
+        testId,
+        test_id: testId,
+        attemptNo,
+        attempt_no: attemptNo,
+        testTitle: testData?.title || "Unknown Test",
+        originalParagraph: testData?.paragraph || "",
+        original_text: testData?.paragraph || "",
+        typedText: typedText || "",
+        typed_text: typedText || "",
+        wpm: Number(wpm),
+        accuracy: Number(accuracy),
+        errors: Number(errors),
+        correctWords: Number(correctWords),
+        correct_words: Number(correctWords),
+        wrongWords: Number(wrongWords),
+        wrong_words: Number(wrongWords),
+        timeTakenMinutes: Number(timeTakenMinutes),
+        duration: Number(testData?.duration || 5),
+        timestamp: Date.now(),
+        completed_at: new Date().toISOString()
+      };
+
+      const docRef = await currentDb.collection("typing_results").add(resultData);
+      
+      res.json({ success: true, resultId: docRef.id, result: resultData });
+    } catch (error) {
+      console.error("[API] Failed to submit typing test result", error);
+      res.status(500).json({ error: "Failed to submit result" });
+    }
+  });
+
+  // Get all results for the logged-in student
+  app.get("/api/typing-results/student", verifyToken, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    const user = (req as any).user;
+    try {
+      const snap = await currentDb.collection("typing_results")
+        .where("userId", "==", user.uid)
+        .orderBy("timestamp", "desc")
+        .get();
+      const results = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      res.json(results);
+    } catch (error) {
+      console.error("[API] Failed to fetch student typing results", error);
+      res.status(500).json({ error: "Failed to fetch typing results" });
+    }
+  });
+
+  // Get specific typing test result (with access check)
+  app.get("/api/typing-result/:id", verifyToken, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    const user = (req as any).user;
+    const { id } = req.params;
+    try {
+      const docSnap = await currentDb.collection("typing_results").doc(id).get();
+      if (!docSnap.exists) return res.status(404).json({ error: "Result not found" });
+      const data = docSnap.data();
+
+      // Check if it belongs to current student, or if user is admin
+      if (data?.userId !== user.uid && user.email?.toLowerCase() !== 'bakolaypan@gmail.com') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      res.json({ id: docSnap.id, ...data });
+    } catch (error) {
+      console.error("[API] Failed to fetch specific typing result", error);
+      res.status(500).json({ error: "Failed to fetch typing result" });
+    }
+  });
+
+  // --- Admin APIs ---
+
+  // Add new typing test
+  app.post("/api/admin/typing-test", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const { title, paragraph, duration, difficulty, language, isActive } = req.body;
+      const ref = currentDb.collection("typing_tests").doc();
+      await ref.set({
+        title: title || "",
+        paragraph: paragraph || "",
+        duration: Number(duration) || 5, // in minutes
+        difficulty: difficulty || "Easy",
+        language: language || "English",
+        isActive: isActive !== false,
+        createdAt: Date.now()
+      });
+      res.json({ id: ref.id, success: true });
+    } catch (error) {
+      console.error("[Admin API] Failed to add typing test", error);
+      res.status(500).json({ error: "Failed to add typing test" });
+    }
+  });
+
+  // Update typing test
+  app.put("/api/admin/typing-test/:id", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const { id } = req.params;
+      const { title, paragraph, duration, difficulty, language, isActive } = req.body;
+      await currentDb.collection("typing_tests").doc(id).update({
+        title,
+        paragraph,
+        duration: Number(duration),
+        difficulty,
+        language,
+        isActive: !!isActive
+      });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[Admin API] Failed to update typing test", error);
+      res.status(500).json({ error: "Failed to update typing test" });
+    }
+  });
+
+  // Delete typing test
+  app.delete("/api/admin/typing-test/:id", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const { id } = req.params;
+      await currentDb.collection("typing_tests").doc(id).delete();
+      // Optional: Delete associated results
+      const resultsSnap = await currentDb.collection("typing_results").where("testId", "==", id).get();
+      const batch = currentDb.batch();
+      resultsSnap.docs.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+      
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete typing test" });
+    }
+  });
+
+  // Get all typing results
+  app.get("/api/admin/typing-results", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const snap = await currentDb.collection("typing_results").orderBy("timestamp", "desc").get();
+      const results = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // We should ideally fetch student names, but doing it in a batch
+      const userIds = [...new Set(results.map(r => (r as any).userId))];
+      const profilesMap: Record<string, string> = {};
+      
+      if (userIds.length > 0) {
+        // Handle firestore IN limits (10 max)
+        for (let i = 0; i < userIds.length; i += 10) {
+          const chunk = userIds.slice(i, i + 10);
+          const profilesSnap = await currentDb.collection("profiles").where("__name__", "in", chunk).get();
+          profilesSnap.docs.forEach(p => {
+             profilesMap[p.id] = p.data().name || "Unknown Student";
+          });
+        }
+      }
+      
+      const enrichedResults = results.map(r => ({
+        ...r,
+        studentName: profilesMap[(r as any).userId as string] || "Unknown Student"
+      }));
+      
+      res.json(enrichedResults);
+    } catch (error) {
+      console.error("[Admin API] Failed to fetch typing results", error);
+      res.status(500).json({ error: "Failed to fetch typing results" });
+    }
+  });
+
+  // Seed 15 typing tests
+  app.post("/api/admin/seed-typing-tests", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const dummyTests = [
+        // 1 Minute tests
+        { title: "Standard Easy Test (1 Min)", duration: 1, difficulty: "Easy", paragraph: "Technology is becoming a very important part of daily life. People use mobile phones, computers, and the internet for communication, education, shopping, and entertainment. Students can learn new skills online and attend classes from home. Offices use computers to store data and complete work quickly. Doctors use technology to help patients and maintain medical records." },
+        { title: "Short Medium Challenge (1 Min)", duration: 1, difficulty: "Medium", paragraph: "Typing tests assess efficiency and visual concentration. To succeed in competitive exams, you must practice key positions daily, minimize spelling mistakes, and build robust finger muscle memory." },
+        
+        // 2 Minute tests
+        { title: "Standard Medium Test (2 Min)", duration: 2, difficulty: "Medium", paragraph: "Electricity distribution systems require regular maintenance and monitoring. Engineers and field workers coordinate together to ensure uninterrupted power supply to consumers and business establishments across urban areas." },
+        { title: "Short Hard Challenge (2 Min)", duration: 2, difficulty: "Hard", paragraph: "Quantum mechanics dictates the behavior of subatomic particles through wave-particle duality. The mathematical framework depends upon wave functions, eigenvalues, and mathematical operators that diverge from classical physics." },
+        
+        // 3 Minute tests
+        { title: "Standard Hard Test (3 Min)", duration: 3, difficulty: "Hard", paragraph: "Cryptographic algorithms secure modern communication channels by utilizing asymmetric public key infrastructure. Encryption and decryption procedures rely on mathematical principles such as modular arithmetic, prime factorization, and complex elliptical curve coordinates to prevent unauthorized eavesdropping." },
+        { title: "Easy Paragraph Speed (3 Min)", duration: 3, difficulty: "Easy", paragraph: "Reading books expands the mind and builds a strong vocabulary. Every page offers unique lessons, new ideas, and fascinating stories from different cultures. Establishing a daily reading habit improves cognitive function, enhances personal creativity, and reduces mental stress naturally." },
+
+        // 5 Minute tests
+        { title: "Standard Easy Test (5 Min)", duration: 5, difficulty: "Easy", paragraph: "Developing proper posture is crucial for long-term keyboard usage. Keep your wrists straight, your elbows at a ninety-degree angle, and sit with your back fully supported by a high-quality office chair. Take frequent short breaks to stretch your fingers, hands, and shoulders to prevent strain during long periods of work." },
+        { title: "Medium Exam Style (5 Min)", duration: 5, difficulty: "Medium", paragraph: "The evolutionary trajectory of global communication systems has entered an unprecedented era of high-speed connectivity. Digital platforms allow instant information transfer across continental distances, fostering collaborative remote working environments and international trading channels. Adapting to this virtual ecosystem is necessary for modern corporate success." },
+        { title: "Hard Exam Challenge (5 Min)", duration: 5, difficulty: "Hard", paragraph: "Socioeconomic paradigm shifts are often catalyzed by rapid industrial digitization. Innovative technological infrastructures revolutionize mechanical pipelines, optimize supply distribution chains, and establish completely new financial ecosystems. However, these changes introduce substantial compliance challenges regarding data privacy regulations and security audits." },
+
+        // 10 Minute tests
+        { title: "10-Minute Endurance Test (Easy)", duration: 10, difficulty: "Easy", paragraph: "The quick brown fox jumps over the lazy dog. This sentence contains every single letter in the English alphabet and is frequently utilized to test typewriter keys and computer keyboards. Because it includes all characters from A to Z, it is a perfect pangram for practicing fluid typing motions. Practicing with pangrams ensures complete familiarity with all letter locations across the QWERTY layout. Consistently repeating this sentence helps build typing speed, finger rhythm, and accuracy. Over time, muscle memory takes over, allowing you to type without looking at the keys." },
+        { title: "10-Minute Endurance Test (Medium)", duration: 10, difficulty: "Medium", paragraph: "Developing a robust software application requires careful planning and coordination throughout the development life cycle. The process begins with structured requirements gathering, followed by architectural design, frontend and backend implementation, comprehensive unit testing, staging deployment, and ongoing system maintenance. Each phase plays a vital role in ensuring the final software product meets stakeholder expectations, operates reliably under load, and maintains strict security standards against potential external threats. Regular code reviews and automated testing pipelines are highly recommended." },
+        { title: "10-Minute Endurance Test (Hard)", duration: 10, difficulty: "Hard", paragraph: "In accordance with the regulatory compliance standards established under Section Forty-Two of the Environmental Quality and Resource Conservation Act of Twenty-Twenty-Three, all commercial enterprises operating within the designated special economic zones must submit their finalized greenhouse gas emission declarations and environmental impact assessments before the absolute deadline of November thirtieth. Failure to satisfy these legal guidelines will inevitably result in severe regulatory penalties, including substantial financial fines, suspension of business permits, or complete closure of operations as determined by the executive oversight committee." }
+      ];
+
+      const batch = currentDb.batch();
+      dummyTests.forEach(test => {
+        const docRef = currentDb.collection("typing_tests").doc();
+        batch.set(docRef, {
+          ...test,
+          language: "English",
+          isActive: true,
+          createdAt: Date.now()
+        });
+      });
+      await batch.commit();
+
+      res.json({ success: true, message: "Successfully seeded 10 typing tests" });
+    } catch (error) {
+      console.error("[Admin API] Failed to seed typing tests", error);
+      res.status(500).json({ error: "Failed to seed typing tests" });
+    }
+  });
+
   // --- API ROUTE CATCH-ALL ---
   // This ensures that any unmatched /api/* request returns JSON, not HTML
   app.all("/api/*", (req, res) => {

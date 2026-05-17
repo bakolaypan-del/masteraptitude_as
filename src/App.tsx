@@ -5,6 +5,9 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import TestRunner from './pages/TestRunner';
+import TypingTestList from './pages/TypingTestList';
+import TypingTestRunner from './pages/TypingTestRunner';
+import TypingTestAnalysis from './pages/TypingTestAnalysis';
 
 function SecurityWrapper({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -102,6 +105,24 @@ export default function App() {
             <Route path="/test/:testId" element={
               <ProtectedRoute>
                 <TestRunner />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/typing-test" element={
+              <ProtectedRoute>
+                <TypingTestList />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/typing-test/:id" element={
+              <ProtectedRoute>
+                <TypingTestRunner />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/typing-test/:id/analysis" element={
+              <ProtectedRoute>
+                <TypingTestAnalysis />
               </ProtectedRoute>
             } />
             

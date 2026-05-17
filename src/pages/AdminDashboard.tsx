@@ -8,7 +8,10 @@ import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { LogOut, ArrowLeft, Plus, Pencil, Trash2, FileText, BookOpen, Play, CheckCircle, Clock, X, User as UserIcon, Download, ShieldAlert, ShieldCheck, Key, Edit2, Search, LayoutDashboard } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 
-type AdminTab = 'students' | 'mock' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info';
+import AdminTypingTests from '../components/AdminTypingTests';
+import { Keyboard } from 'lucide-react';
+
+type AdminTab = 'students' | 'mock' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info';
 
 function AdminHome() {
   const [students, setStudents] = useState<any[]>([]);
@@ -1018,6 +1021,14 @@ function AdminHome() {
           Mock Tests
         </button>
         <button 
+          onClick={() => setActiveTab('typing')}
+          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all
+            ${activeTab === 'typing' ? 'bg-fuchsia-600 text-white shadow-md shadow-fuchsia-100' : 'text-slate-500 hover:text-fuchsia-600 hover:bg-fuchsia-50'}`}
+        >
+          <Keyboard className="w-4 h-4" />
+          Typing Tests
+        </button>
+        <button 
           onClick={() => setActiveTab('notes')}
           className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all
             ${activeTab === 'notes' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-100' : 'text-slate-500 hover:text-emerald-600 hover:bg-emerald-50'}`}
@@ -1322,6 +1333,10 @@ function AdminHome() {
             </table>
           </div>
         </div>
+      )}
+
+      {activeTab === 'typing' && (
+        <AdminTypingTests />
       )}
 
       {activeTab === 'notes' && (

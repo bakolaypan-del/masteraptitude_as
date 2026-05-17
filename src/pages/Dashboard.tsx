@@ -5,7 +5,7 @@ import { signOut, updatePassword } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ArrowLeft, ExternalLink, Menu, X, Youtube, MessageCircle, Send, LayoutDashboard, History, ChevronDown, ArrowRight, User, Info, Phone, Download, Printer, AlertCircle, BarChart3 } from 'lucide-react';
+import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ArrowLeft, ExternalLink, Menu, X, Youtube, MessageCircle, Send, LayoutDashboard, History, ChevronDown, ArrowRight, User, Info, Phone, Download, Printer, AlertCircle, BarChart3, Keyboard } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -494,25 +494,19 @@ export default function Dashboard() {
           {/* HOME */}
           <button 
             onClick={() => { setActiveTab('home'); setIsSidebarOpen(false); }} 
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm 
-              ${activeTab === 'home' 
-                ? 'bg-indigo-50 text-indigo-600 shadow-lg shadow-indigo-200/20' 
-                : 'text-slate-400 bg-indigo-500/5 hover:bg-indigo-500/10 hover:text-indigo-300'}`}
+            className={`w-full sidebar-btn sidebar-home ${activeTab === 'home' ? 'active' : ''}`}
           >
-            <Target className={`w-5 h-5 shrink-0 ${activeTab === 'home' ? 'text-indigo-600' : 'text-indigo-400'}`} />
-            Home
+            <Target className="w-5 h-5 shrink-0" />
+            <span>HOME</span>
           </button>
 
           {/* PROFILE */}
           <button 
             onClick={() => { setActiveTab('profile'); setIsSidebarOpen(false); }} 
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm 
-              ${activeTab === 'profile' 
-                ? 'bg-rose-50 text-rose-600 shadow-lg shadow-rose-200/20' 
-                : 'text-slate-400 bg-rose-500/5 hover:bg-rose-500/10 hover:text-rose-300'}`}
+            className={`w-full sidebar-btn sidebar-profile ${activeTab === 'profile' ? 'active' : ''}`}
           >
-            <User className={`w-5 h-5 shrink-0 ${activeTab === 'profile' ? 'text-rose-600' : 'text-rose-400'}`} />
-            Profile
+            <User className="w-5 h-5 shrink-0" />
+            <span>PROFILE</span>
           </button>
 
           {/* LEARN SECTION */}
@@ -523,41 +517,38 @@ export default function Dashboard() {
                 setLearnOpen(newState);
                 if (newState) setMockOpen(false);
               }}
-              className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm 
-                ${['video', 'notes', 'affairs', 'practice'].includes(activeTab) 
-                  ? 'bg-violet-50 text-violet-600 shadow-lg shadow-violet-200/20' 
-                  : 'text-slate-400 bg-violet-500/5 hover:bg-violet-500/10 hover:text-violet-300'}`}
+              className={`w-full sidebar-btn sidebar-learn ${['video', 'notes', 'affairs', 'practice'].includes(activeTab) ? 'active' : ''}`}
             >
               <div className="flex items-center gap-3">
-                <BookOpen className={`w-5 h-5 shrink-0 ${['video', 'notes', 'affairs', 'practice'].includes(activeTab) ? 'text-violet-600' : 'text-violet-400'}`} />
-                Learn
+                <BookOpen className="w-5 h-5 shrink-0" />
+                <span>LEARN</span>
               </div>
               <ChevronRight className={`w-4 h-4 transition-transform ${learnOpen ? 'rotate-90' : ''}`} />
             </button>
             
             {learnOpen && (
-              <div className="pl-6 space-y-1 animate-in slide-in-from-top-2 duration-200">
+              <div className="pl-4 pr-1 py-1 space-y-1 bg-slate-950/20 rounded-xl border border-white/5 animate-in slide-in-from-top-2 duration-200">
                 <button 
                   onClick={() => { setActiveTab('video'); setIsSidebarOpen(false); }} 
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'video' ? 'text-rose-600 bg-rose-50' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-2 rounded-xl transition-all font-bold text-xs ${activeTab === 'video' ? 'text-white bg-white/10 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                 >
                   Recorded Video
                 </button>
                 <button 
                   onClick={() => { setActiveTab('notes'); setIsSidebarOpen(false); }} 
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'notes' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-2 rounded-xl transition-all font-bold text-xs ${activeTab === 'notes' ? 'text-white bg-white/10 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                 >
                   Study Notes
                 </button>
                 <button 
                   onClick={() => { setActiveTab('affairs'); setIsSidebarOpen(false); }} 
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'affairs' ? 'text-blue-600 bg-blue-50' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-2 rounded-xl transition-all font-bold text-xs ${activeTab === 'affairs' ? 'text-white bg-white/10 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                 >
                   Current Affairs
                 </button>
                 <button 
                   onClick={() => { setActiveTab('practice'); setIsSidebarOpen(false); }} 
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'practice' ? 'text-amber-600 bg-amber-50' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-2 rounded-xl transition-all font-bold text-xs ${activeTab === 'practice' ? 'text-white bg-white/10 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                 >
                   Practice Set
                 </button>
@@ -573,35 +564,32 @@ export default function Dashboard() {
                 setMockOpen(newState);
                 if (newState) setLearnOpen(false);
               }}
-              className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm 
-                ${activeTab.startsWith('mock') 
-                  ? 'bg-emerald-50 text-emerald-600 shadow-lg shadow-emerald-200/20' 
-                  : 'text-slate-400 bg-emerald-500/5 hover:bg-emerald-500/10 hover:text-emerald-300'}`}
+              className={`w-full sidebar-btn sidebar-mock ${activeTab.startsWith('mock') ? 'active' : ''}`}
             >
               <div className="flex items-center gap-3">
-                <FileText className={`w-5 h-5 shrink-0 ${activeTab.startsWith('mock') ? 'text-emerald-600' : 'text-emerald-400'}`} />
-                Mock Test
+                <FileText className="w-5 h-5 shrink-0" />
+                <span>MOCK TEST</span>
               </div>
               <ChevronRight className={`w-4 h-4 transition-transform ${mockOpen ? 'rotate-90' : ''}`} />
             </button>
             
             {mockOpen && (
-              <div className="pl-6 space-y-1 animate-in slide-in-from-top-2 duration-200">
+              <div className="pl-4 pr-1 py-1 space-y-1 bg-slate-950/20 rounded-xl border border-white/5 animate-in slide-in-from-top-2 duration-200">
                 <button 
                   onClick={() => { setActiveTab('mock_topic'); setIsSidebarOpen(false); }} 
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'mock_topic' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-2 rounded-xl transition-all font-bold text-xs ${activeTab === 'mock_topic' ? 'text-white bg-white/10 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                 >
                   Topic Wise Mock Test
                 </button>
                 <button 
                   onClick={() => { setActiveTab('mock_sectional'); setIsSidebarOpen(false); }} 
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'mock_sectional' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-2 rounded-xl transition-all font-bold text-xs ${activeTab === 'mock_sectional' ? 'text-white bg-white/10 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                 >
                   Sectional Mock Test
                 </button>
                 <button 
                   onClick={() => { setActiveTab('mock_full'); setIsSidebarOpen(false); }} 
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${activeTab === 'mock_full' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-2 rounded-xl transition-all font-bold text-xs ${activeTab === 'mock_full' ? 'text-white bg-white/10 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                 >
                   Full Mock Test
                 </button>
@@ -609,49 +597,49 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* OTHER LINKS */}
+          {/* TYPING TEST LINK */}
+          <button 
+            onClick={() => { navigate('/typing-test'); setIsSidebarOpen(false); }} 
+            className="w-full sidebar-btn sidebar-typing"
+          >
+            <Keyboard className="w-5 h-5 shrink-0" />
+            <span className="text-[10px] sm:text-xs text-left leading-tight font-black">TYPING TEST [NTPC/CLERK/GROUP C/CGL]</span>
+          </button>
+          
+          {/* PREVIOUS YEAR PAPERS */}
           <button 
             onClick={() => { setActiveTab('pyq'); setIsSidebarOpen(false); }} 
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm 
-              ${activeTab === 'pyq' 
-                ? 'bg-amber-50 text-amber-600 shadow-lg shadow-amber-200/20' 
-                : 'text-slate-400 bg-amber-500/5 hover:bg-amber-500/10 hover:text-amber-300'}`}
+            className={`w-full sidebar-btn sidebar-pyq ${activeTab === 'pyq' ? 'active' : ''}`}
           >
-            <Clock className={`w-5 h-5 shrink-0 ${activeTab === 'pyq' ? 'text-amber-600' : 'text-amber-400'}`} />
-            Previous Year Papers
+            <FileText className="w-5 h-5 shrink-0" />
+            <span>PREVIOUS YEAR QUESTION</span>
           </button>
 
+          {/* EXAM PATTERN & SYLLABUS */}
           <button 
             onClick={() => { setActiveTab('pattern'); setIsSidebarOpen(false); }} 
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm 
-              ${activeTab === 'pattern' 
-                ? 'bg-blue-50 text-blue-600 shadow-lg shadow-blue-200/20' 
-                : 'text-slate-400 bg-blue-500/5 hover:bg-blue-500/10 hover:text-blue-300'}`}
+            className={`w-full sidebar-btn sidebar-pattern ${activeTab === 'pattern' ? 'active' : ''}`}
           >
-            <Trophy className={`w-5 h-5 shrink-0 ${activeTab === 'pattern' ? 'text-blue-600' : 'text-blue-400'}`} />
-            Exam Pattern & Syllabus
+            <Clock className="w-5 h-5 shrink-0" />
+            <span>EXAM PATTERN & SYLLABUS</span>
           </button>
 
+          {/* ABOUT US */}
           <button 
             onClick={() => { setActiveTab('about'); setIsSidebarOpen(false); }} 
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm 
-              ${activeTab === 'about' 
-                ? 'bg-cyan-50 text-cyan-600 shadow-lg shadow-cyan-200/20' 
-                : 'text-slate-400 bg-cyan-500/5 hover:bg-cyan-500/10 hover:text-cyan-300'}`}
+            className={`w-full sidebar-btn sidebar-about ${activeTab === 'about' ? 'active' : ''}`}
           >
-            <BookOpen className={`w-5 h-5 shrink-0 ${activeTab === 'about' ? 'text-cyan-600' : 'text-cyan-400'}`} />
-            About Us
+            <Info className="w-5 h-5 shrink-0" />
+            <span>ABOUT US</span>
           </button>
 
+          {/* CONTACT US */}
           <button 
             onClick={() => { setActiveTab('contact'); setIsSidebarOpen(false); }} 
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm 
-              ${activeTab === 'contact' 
-                ? 'bg-sky-50 text-sky-600 shadow-lg shadow-sky-200/20' 
-                : 'text-slate-400 bg-sky-500/5 hover:bg-sky-500/10 hover:text-sky-300'}`}
+            className={`w-full sidebar-btn sidebar-contact ${activeTab === 'contact' ? 'active' : ''}`}
           >
-            <MessageCircle className={`w-5 h-5 shrink-0 ${activeTab === 'contact' ? 'text-sky-600' : 'text-sky-400'}`} />
-            Contact Us
+            <Phone className="w-5 h-5 shrink-0" />
+            <span>CONTACT US</span>
           </button>
         </div>
       </aside>
@@ -808,38 +796,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Overall Performance Section - Focused strictly on Mock Tests */}
-              <div className="mt-12 bg-white rounded-3xl p-6 border border-indigo-100 shadow-xl shadow-indigo-500/5 relative overflow-hidden group mb-8">
-                <div className="relative z-10">
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200">
-                      <BarChart3 className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="font-black text-slate-800 tracking-tight">Mock Overall Performance</h3>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Test Series Analytics</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                      <span className="block text-[9px] font-black text-slate-400 uppercase tracking-tight mb-1">Total Mock Attempted</span>
-                      <span className="text-xl font-black text-indigo-600 tracking-tighter">{performanceStats.totalTests}</span>
-                    </div>
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                      <span className="block text-[9px] font-black text-slate-400 uppercase tracking-tight mb-1">Best Score</span>
-                      <span className="text-xl font-black text-emerald-600 tracking-tighter">{performanceStats.bestScore}</span>
-                    </div>
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                      <span className="block text-[9px] font-black text-slate-400 uppercase tracking-tight mb-1">Average Accuracy</span>
-                      <span className="text-xl font-black text-amber-600 tracking-tighter">{performanceStats.avgAccuracy}%</span>
-                    </div>
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                      <span className="block text-[9px] font-black text-slate-400 uppercase tracking-tight mb-1">Latest Mock Score</span>
-                      <span className="text-xl font-black text-rose-600 tracking-tighter">{performanceStats.latestScore}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           )}
 
@@ -1071,6 +1027,43 @@ export default function Dashboard() {
           {/* Dashboard Tab Content */}
           {activeTab.startsWith('mock') && (
             <div className="space-y-10 animate-in fade-in duration-700">
+              
+              {/* Overall Performance Section - Focused strictly on Mock Tests */}
+              <div className="bg-white rounded-3xl p-6 border border-indigo-100 shadow-xl shadow-indigo-500/5 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-4 text-indigo-50/20 pointer-events-none transition-transform group-hover:scale-105 duration-700">
+                  <BarChart3 className="w-32 h-32 -mr-6 -mt-6 rotate-12" />
+                </div>
+                <div className="relative z-10">
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200">
+                      <BarChart3 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-black text-slate-800 tracking-tight">Mock Overall Performance</h3>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Test Series Analytics</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <span className="block text-[9px] font-black text-slate-400 uppercase tracking-tight mb-1">Total Mock Attempted</span>
+                      <span className="text-xl font-black text-indigo-600 tracking-tighter">{performanceStats.totalTests}</span>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <span className="block text-[9px] font-black text-slate-400 uppercase tracking-tight mb-1">Best Score</span>
+                      <span className="text-xl font-black text-emerald-600 tracking-tighter">{performanceStats.bestScore}</span>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <span className="block text-[9px] font-black text-slate-400 uppercase tracking-tight mb-1">Average Accuracy</span>
+                      <span className="text-xl font-black text-amber-600 tracking-tighter">{performanceStats.avgAccuracy}%</span>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <span className="block text-[9px] font-black text-slate-400 uppercase tracking-tight mb-1">Latest Mock Score</span>
+                      <span className="text-xl font-black text-rose-600 tracking-tighter">{performanceStats.latestScore}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="flex flex-col gap-6">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-black text-slate-900 tracking-tight">
@@ -1080,15 +1073,11 @@ export default function Dashboard() {
 
                 {categories.length > 0 && (
                   <div className="flex flex-wrap gap-2">
-                    {categories.map((cat) => (
+                    {categories.map((cat, idx) => (
                       <button
                         key={cat}
                         onClick={() => { setSelectedCategory(cat); setSelectedTopic(null); }}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
-                          selectedCategory === cat
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-100'
-                            : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-400 hover:text-indigo-600'
-                        }`}
+                        className={`sub-category-btn sub-color-${idx % 9} ${selectedCategory === cat ? 'active' : ''}`}
                       >
                         {cat}
                       </button>

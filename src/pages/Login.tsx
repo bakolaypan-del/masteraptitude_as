@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { auth, db, googleProvider } from '../lib/firebase';
+import { auth, db } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
-import { Phone, AlertCircle, User as UserIcon, GraduationCap, Lock, ArrowRight, UserPlus, LogIn, KeyRound, Chrome } from 'lucide-react';
+import { Phone, AlertCircle, User as UserIcon, GraduationCap, Lock, ArrowRight, UserPlus, LogIn, Mail, Eye, EyeOff, ShieldCheck, CheckSquare, Square } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 type AuthMode = 'login' | 'register' | 'forgot';
@@ -19,6 +19,12 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,47 +35,16 @@ export default function Login() {
 
   const getSyntheticEmail = (phone: string) => `${phone.trim()}@students.myapp.com`;
 
-  const handleGoogleSignIn = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
-      
-      // Ensure profile exists
-      const profileRef = doc(db, 'profiles', user.uid);
-      const profileSnap = await getDoc(profileRef);
-      
-      if (!profileSnap.exists()) {
-        await setDoc(profileRef, {
-          name: user.displayName || 'Admin',
-          phoneNumber: user.phoneNumber || '',
-          email: user.email,
-          role: user.email?.toLowerCase() === 'bakolaypan@gmail.com' ? 'admin' : 'user',
-          registrationDate: new Date().toISOString(),
-          totalTestsTaken: 0,
-          cumulativeScore: 0,
-          globalRank: 0,
-          createdAt: Date.now()
-        });
-      }
-      navigate('/dashboard');
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || 'Google Sign-In failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    setSuccess('');
     
     // Normalize phone number
     const digitsOnly = phoneNumber.replace(/\D/g, '');
     const cleanPhone = digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
     
-    if (!fullName.trim() || !cleanPhone || !password) {
+    if (!fullName.trim() || !cleanPhone || !password || !confirmPassword || !email.trim()) {
       setError('All fields are mandatory for registration.');
       return;
     }
@@ -80,15 +55,19 @@ export default function Login() {
     }
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters long for your security.');
+      setError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match. Please verify.');
       return;
     }
     
     setLoading(true);
-    setError('');
 
     try {
-      // 1. Optional: Check if mobile already exists (don't block if API fails)
+      // 1. Mobile check
       try {
         const checkRes = await fetch('/api/auth/check-mobile', {
           method: 'POST',
@@ -105,10 +84,10 @@ export default function Login() {
           }
         }
       } catch (checkErr) {
-        console.warn('Pre-registration mobile check failed, proceeding to direct registration:', checkErr);
+        console.warn('Pre-registration mobile check bypassed:', checkErr);
       }
 
-      // 2. Create Auth User directly
+      // 2. Create Auth User
       const pseudoEmail = getSyntheticEmail(cleanPhone);
       const userCredential = await createUserWithEmailAndPassword(auth, pseudoEmail, password);
       const newUser = userCredential.user;
@@ -119,6 +98,7 @@ export default function Login() {
         name: fullName.trim(),
         phoneNumber: cleanPhone,
         email: pseudoEmail,
+        studentEmail: email.trim(),
         role: 'user',
         registrationDate: new Date().toISOString(),
         totalTestsTaken: 0,
@@ -127,14 +107,14 @@ export default function Login() {
         createdAt: Date.now()
       });
 
-      setSuccess('Registration successful! Redirecting you...');
+      setSuccess('Account created successfully! Welcome to Master Aptitude.');
       setTimeout(() => navigate('/dashboard'), 1500);
     } catch (err: any) {
       console.error('Registration error:', err);
       if (err.code === 'auth/email-already-in-use') {
         setError('This mobile number is already registered. Please login.');
       } else {
-        setError('Registration failed. Please check your internet and try again.');
+        setError(err.message || 'Registration failed. Please check your internet and try again.');
       }
     } finally {
       setLoading(false);
@@ -143,32 +123,35 @@ export default function Login() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    setSuccess('');
     
     const digitsOnly = phoneNumber.replace(/\D/g, '');
     const cleanPhone = digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
-    const targetEmail = isAdminLogin ? email : getSyntheticEmail(cleanPhone);
     
-    if ((isAdminLogin && !email) || (!isAdminLogin && !cleanPhone) || !password) {
-      setError('Please provide all credentials');
+    // Support login via either mobile number or email for complete flexibility
+    const targetEmail = isAdminLogin ? email : (phoneNumber.includes('@') ? phoneNumber : getSyntheticEmail(cleanPhone));
+    
+    if ((isAdminLogin && !email) || (!isAdminLogin && !phoneNumber) || !password) {
+      setError('Please provide all credentials.');
       return;
     }
     setLoading(true);
-    setError('');
-    setSuccess('');
 
     try {
       await signInWithEmailAndPassword(auth, targetEmail, password);
-      navigate('/dashboard');
+      setSuccess('Welcome back! Logging you in...');
+      setTimeout(() => navigate('/dashboard'), 1000);
     } catch (err: any) {
       console.error('Login error:', err);
       if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
         if (!isAdminLogin) {
-          setError('Invalid Mobile Number or Password. If you haven\'t registered yet, please use the Register tab.');
+          setError('Invalid login details or Password. If you are new here, please click Register at the top.');
         } else {
-          setError('Invalid Email or Password.');
+          setError('Invalid Admin Email/ID or Password.');
         }
       } else {
-        setError(err.message || 'Error logging in.');
+        setError(err.message || 'Error signing in. Please check your network.');
       }
     } finally {
       setLoading(false);
@@ -179,6 +162,7 @@ export default function Login() {
     e.preventDefault();
     const digitsOnly = phoneNumber.replace(/\D/g, '');
     const cleanPhone = digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
+    
     if (!cleanPhone || !password) {
       setError('Please provide mobile and new password');
       return;
@@ -199,23 +183,14 @@ export default function Login() {
       });
       
       if (!res.ok) {
-        const errorText = await res.text();
-        let errorMsg = 'Failed to reset password';
-        try {
-          const errorJson = JSON.parse(errorText);
-          errorMsg = errorJson.error || errorJson.message || errorMsg;
-        } catch (e) {
-          errorMsg = errorText || errorMsg;
-        }
-        throw new Error(errorMsg);
+        throw new Error('Failed to reset password. Please contact support.');
       }
 
-      const data = await res.json().catch(() => {
-        throw new Error('Server returned invalid response');
-      });
-
-      setSuccess('Password updated successfully! You can now login.');
-      setTimeout(() => setMode('login'), 2000);
+      setSuccess('Password updated successfully! Redirecting to login tab.');
+      setTimeout(() => {
+        setMode('login');
+        setPassword('');
+      }, 2000);
     } catch (err: any) {
       setError(err.message || 'Connection error');
     } finally {
@@ -224,102 +199,92 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl md:text-5xl font-black text-indigo-600 tracking-tighter uppercase leading-tight drop-shadow-sm">
+    <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans relative overflow-hidden">
+      
+      {/* Decorative Premium Grid / Wave Background */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.15),transparent_45%)] pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(236,72,153,0.08),transparent_50%)] pointer-events-none" />
+      
+      <div className="sm:mx-auto sm:w-full sm:max-w-md z-10">
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-tr from-indigo-500 to-fuchsia-500 rounded-2xl text-white shadow-lg shadow-indigo-500/30 mb-4 transform -rotate-12 hover:rotate-0 transition-transform duration-300">
+            <GraduationCap size={36} />
+          </div>
+          
+          <h1 className="text-4xl md:text-5xl font-black bg-gradient-to-r from-indigo-400 via-purple-300 to-fuchsia-400 bg-clip-text text-transparent tracking-tighter uppercase leading-tight drop-shadow-sm">
             Master Aptitude
           </h1>
-          <h2 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight mt-[-4px]">
-            By Suman Sir
-          </h2>
+          <p className="text-sm font-bold text-slate-400 tracking-wider uppercase mt-1">
+            Empowering Minds By Suman Sir
+          </p>
         </div>
-        <div className="flex justify-center">
-          <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center text-indigo-600 shadow-sm mb-4 transform -rotate-12">
-            <GraduationCap size={28} />
-          </div>
-        </div>
-        <h2 className="text-center text-xl font-bold text-slate-700 tracking-tight">
-          {mode === 'login' ? 'Student Login' : mode === 'register' ? 'Create Account' : 'Reset Password'}
-        </h2>
-        <p className="mt-2 text-center text-sm text-slate-500 font-medium">
-          {mode === 'login' ? 'Login to access your mock tests' : mode === 'register' ? 'Join our platform and start learning' : 'Recover your account access'}
-        </p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4">
-        <div className="bg-white py-10 px-4 shadow-sm rounded-3xl border border-slate-100 sm:px-10">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md px-2 z-10">
+        
+        {/* Main Glassmorphic Form Card */}
+        <div className="bg-slate-950/40 backdrop-blur-xl py-8 px-6 sm:px-10 rounded-[32px] border border-slate-800 shadow-2xl shadow-black/50">
           
-          <div className="flex bg-slate-100 p-1 rounded-xl mb-8">
-            <button 
-              onClick={() => { setMode('login'); setError(''); setSuccess(''); }}
-              className={`flex-1 flex items-center justify-center py-2 text-sm font-bold rounded-lg transition-all ${mode === 'login' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              <LogIn size={18} className="mr-2" />
-              Login
-            </button>
-            <button 
-              onClick={() => { setMode('register'); setError(''); setSuccess(''); }}
-              className={`flex-1 flex items-center justify-center py-2 text-sm font-bold rounded-lg transition-all ${mode === 'register' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              <UserPlus size={18} className="mr-2" />
-              Register
-            </button>
-          </div>
+          {/* Header Switcher (Student vs Admin UI) */}
+          {!isAdminLogin ? (
+            <div className="flex bg-slate-900/60 p-1.5 rounded-2xl mb-8 border border-slate-800/80">
+              <button 
+                onClick={() => { setMode('login'); setError(''); setSuccess(''); }}
+                className={`flex-1 flex items-center justify-center py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl transition-all ${mode === 'login' && !isAdminLogin ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md shadow-indigo-600/20' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                <LogIn size={15} className="mr-1.5" />
+                Login
+              </button>
+              <button 
+                onClick={() => { setMode('register'); setError(''); setSuccess(''); }}
+                className={`flex-1 flex items-center justify-center py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl transition-all ${mode === 'register' ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md shadow-indigo-600/20' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                <UserPlus size={15} className="mr-1.5" />
+                Register
+              </button>
+            </div>
+          ) : (
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-black uppercase tracking-widest mb-3">
+                <ShieldCheck size={12} /> SECURE ADMINISTRATOR PORTAL
+              </div>
+              <h3 className="text-lg font-black text-slate-100">Sign In to Dashboard</h3>
+              <p className="text-xs text-slate-500 font-medium">Verify your administrative key privileges below</p>
+            </div>
+          )}
 
           <AnimatePresence mode="wait">
             <motion.div
-              key={mode}
+              key={isAdminLogin ? 'admin' : mode}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
             >
               {error && (
-                <div className="mb-6 bg-rose-50 border border-rose-100 rounded-xl p-4 flex items-start">
-                  <AlertCircle className="w-5 h-5 text-rose-600 mt-0.5 mr-3 flex-shrink-0" />
-                  <p className="text-xs font-bold text-rose-700 leading-tight">{error}</p>
+                <div className="mb-6 bg-rose-950/20 border border-rose-500/20 rounded-xl p-4 flex items-start">
+                  <AlertCircle className="w-5 h-5 text-rose-400 mt-0.5 mr-3 flex-shrink-0" />
+                  <p className="text-xs font-bold text-rose-300 leading-tight">{error}</p>
                 </div>
               )}
 
               {success && (
-                <div className="mb-6 bg-emerald-50 border border-emerald-100 rounded-xl p-4 flex items-center">
-                  <div className="w-5 h-5 text-emerald-600 mr-3 flex-shrink-0">✓</div>
-                  <p className="text-xs font-bold text-emerald-700">{success}</p>
+                <div className="mb-6 bg-emerald-950/20 border border-emerald-500/20 rounded-xl p-4 flex items-center">
+                  <div className="w-5 h-5 text-emerald-400 mr-3 flex-shrink-0">✓</div>
+                  <p className="text-xs font-bold text-emerald-300">{success}</p>
                 </div>
               )}
 
-              {/* Google Sign-In for Admin/Owner */}
-              {(isAdminLogin || mode === 'login') && (
-                <div className="mb-8">
-                  <button
-                    type="button"
-                    onClick={handleGoogleSignIn}
-                    disabled={loading}
-                    className="w-full flex items-center justify-center gap-3 px-4 py-3 border-2 border-slate-100 rounded-xl font-bold text-slate-700 hover:bg-slate-50 transition-all active:scale-[0.98] disabled:opacity-50 shadow-sm"
-                  >
-                    <Chrome className="text-indigo-600 w-5 h-5" />
-                    <span>Sign in with Google</span>
-                  </button>
-                  <div className="relative my-8">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-slate-100"></div>
-                    </div>
-                    <div className="relative flex justify-center text-xs">
-                      <span className="px-4 bg-white text-slate-400 font-bold uppercase tracking-widest">Or login with details</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <form className="space-y-6" onSubmit={mode === 'login' ? handleLogin : mode === 'register' ? handleRegister : handleResetPassword}>
-                {mode === 'register' && (
+              <form className="space-y-5" onSubmit={isAdminLogin ? handleLogin : (mode === 'login' ? handleLogin : mode === 'register' ? handleRegister : handleResetPassword)}>
+                
+                {/* 1. STUDENT REGISTRATION TAB */}
+                {!isAdminLogin && mode === 'register' && (
                   <>
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Full Name</label>
-                      <div className="mt-1 relative group">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                          <UserIcon size={18} />
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Full Name</label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                          <UserIcon size={16} />
                         </div>
                         <input
                           id="full-name"
@@ -327,16 +292,35 @@ export default function Login() {
                           required
                           value={fullName}
                           onChange={(e) => setFullName(e.target.value)}
-                          className="appearance-none block w-full pl-10 px-3 py-3 border border-slate-200 rounded-xl shadow-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent sm:text-sm font-medium"
-                          placeholder="John Doe"
+                          className="block w-full pl-10 pr-4 py-3 bg-slate-900/80 border border-slate-800 rounded-xl placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm text-slate-100 font-medium transition-all"
+                          placeholder="e.g. John Doe"
                         />
                       </div>
                     </div>
+
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Mobile Number</label>
-                      <div className="mt-1 relative group">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                          <Phone size={18} />
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Email Address</label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                          <Mail size={16} />
+                        </div>
+                        <input
+                          id="reg-email"
+                          type="email"
+                          required
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="block w-full pl-10 pr-4 py-3 bg-slate-900/80 border border-slate-800 rounded-xl placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm text-slate-100 font-medium transition-all"
+                          placeholder="johndoe@example.com"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Mobile Number</label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                          <Phone size={16} />
                         </div>
                         <input
                           id="phone-number"
@@ -344,98 +328,168 @@ export default function Login() {
                           required
                           value={phoneNumber}
                           onChange={(e) => setPhoneNumber(e.target.value)}
-                          className="appearance-none block w-full pl-10 px-3 py-3 border border-slate-200 rounded-xl shadow-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent sm:text-sm font-medium"
-                          placeholder="Enter mobile number"
+                          className="block w-full pl-10 pr-4 py-3 bg-slate-900/80 border border-slate-800 rounded-xl placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm text-slate-100 font-medium transition-all"
+                          placeholder="10-digit mobile number"
                         />
                       </div>
                     </div>
+
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Password</label>
-                      <div className="mt-1 relative group">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                          <Lock size={18} />
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Create Password</label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                          <Lock size={16} />
                         </div>
                         <input
                           id="password-reg"
-                          type="password"
+                          type={showPassword ? "text" : "password"}
                           required
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="appearance-none block w-full pl-10 px-3 py-3 border border-slate-200 rounded-xl shadow-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent sm:text-sm font-medium"
-                          placeholder="••••••••"
+                          className="block w-full pl-10 pr-10 py-3 bg-slate-900/80 border border-slate-800 rounded-xl placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm text-slate-100 font-medium transition-all"
+                          placeholder="Min. 6 characters"
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300"
+                        >
+                          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Confirm Password</label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                          <Lock size={16} />
+                        </div>
+                        <input
+                          id="password-confirm"
+                          type={showConfirmPassword ? "text" : "password"}
+                          required
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          className="block w-full pl-10 pr-10 py-3 bg-slate-900/80 border border-slate-800 rounded-xl placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm text-slate-100 font-medium transition-all"
+                          placeholder="Repeat your password"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300"
+                        >
+                          {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
                       </div>
                     </div>
                   </>
                 )}
 
-                {mode === 'login' && (
+                {/* 2. STUDENT LOGIN TAB */}
+                {!isAdminLogin && mode === 'login' && (
                   <>
-                    {isAdminLogin ? (
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Admin Email</label>
-                        <div className="mt-1 relative group">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                            <UserIcon size={18} />
-                          </div>
-                          <input
-                            id="admin-email"
-                            type="email"
-                            required
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className="appearance-none block w-full pl-10 px-3 py-3 border border-slate-200 rounded-xl shadow-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent sm:text-sm font-medium"
-                            placeholder="admin@example.com"
-                          />
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Mobile / Email Address</label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                          <Phone size={16} />
                         </div>
+                        <input
+                          id="phone-number-login"
+                          type="text"
+                          required
+                          value={phoneNumber}
+                          onChange={(e) => setPhoneNumber(e.target.value)}
+                          className="block w-full pl-10 pr-4 py-3 bg-slate-900/80 border border-slate-800 rounded-xl placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm text-slate-100 font-medium transition-all"
+                          placeholder="Enter mobile or email"
+                        />
                       </div>
-                    ) : (
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Mobile Number</label>
-                        <div className="mt-1 relative group">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                            <Phone size={18} />
-                          </div>
-                          <input
-                            id="phone-number-login"
-                            type="tel"
-                            required
-                            value={phoneNumber}
-                            onChange={(e) => setPhoneNumber(e.target.value)}
-                            className="appearance-none block w-full pl-10 px-3 py-3 border border-slate-200 rounded-xl shadow-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent sm:text-sm font-medium"
-                            placeholder="Enter mobile number"
-                          />
-                        </div>
-                      </div>
-                    )}
+                    </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Password</label>
-                      <div className="mt-1 relative group">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                          <Lock size={18} />
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Password</label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                          <Lock size={16} />
                         </div>
                         <input
                           id="password-login"
-                          type="password"
+                          type={showPassword ? "text" : "password"}
                           required
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="appearance-none block w-full pl-10 px-3 py-3 border border-slate-200 rounded-xl shadow-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent sm:text-sm font-medium"
+                          className="block w-full pl-10 pr-10 py-3 bg-slate-900/80 border border-slate-800 rounded-xl placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm text-slate-100 font-medium transition-all"
                           placeholder="••••••••"
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300"
+                        >
+                          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
                       </div>
                     </div>
                   </>
                 )}
 
-                {mode === 'forgot' && (
+                {/* 3. DEDICATED ADMIN LOGIN OVERLAY */}
+                {isAdminLogin && (
                   <>
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Mobile Number</label>
-                      <div className="mt-1 relative group">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                          <Phone size={18} />
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Admin Email / ID</label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                          <Mail size={16} />
+                        </div>
+                        <input
+                          id="admin-email"
+                          type="email"
+                          required
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="block w-full pl-10 pr-4 py-3 bg-slate-900/80 border border-slate-800 rounded-xl placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm text-slate-100 font-medium transition-all"
+                          placeholder="admin@example.com"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Admin Password</label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                          <Lock size={16} />
+                        </div>
+                        <input
+                          id="admin-password"
+                          type={showPassword ? "text" : "password"}
+                          required
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="block w-full pl-10 pr-10 py-3 bg-slate-900/80 border border-slate-800 rounded-xl placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm text-slate-100 font-medium transition-all"
+                          placeholder="••••••••"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300"
+                        >
+                          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* 4. FORGOT PASSWORD TAB */}
+                {!isAdminLogin && mode === 'forgot' && (
+                  <>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Registered Mobile</label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                          <Phone size={16} />
                         </div>
                         <input
                           id="phone-number-forgot"
@@ -443,52 +497,74 @@ export default function Login() {
                           required
                           value={phoneNumber}
                           onChange={(e) => setPhoneNumber(e.target.value)}
-                          className="appearance-none block w-full pl-10 px-3 py-3 border border-slate-200 rounded-xl shadow-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent sm:text-sm font-medium"
-                          placeholder="Enter registered mobile"
+                          className="block w-full pl-10 pr-4 py-3 bg-slate-900/80 border border-slate-800 rounded-xl placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm text-slate-100 font-medium transition-all"
+                          placeholder="10-digit mobile number"
                         />
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">New Password</label>
-                      <div className="mt-1 relative group">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                          <Lock size={18} />
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">New Password</label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                          <Lock size={16} />
                         </div>
                         <input
                           id="password-forgot"
-                          type="password"
+                          type={showPassword ? "text" : "password"}
                           required
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="appearance-none block w-full pl-10 px-3 py-3 border border-slate-200 rounded-xl shadow-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent sm:text-sm font-medium"
+                          className="block w-full pl-10 pr-10 py-3 bg-slate-900/80 border border-slate-800 rounded-xl placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm text-slate-100 font-medium transition-all"
                           placeholder="••••••••"
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300"
+                        >
+                          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
                       </div>
                     </div>
                   </>
                 )}
 
-                {mode === 'login' && (
-                  <div className="flex items-center justify-end">
+                {/* Option Items (Remember Me & Forgot Password link) */}
+                {mode === 'login' && !isAdminLogin && (
+                  <div className="flex items-center justify-between text-xs pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setRememberMe(!rememberMe)}
+                      className="flex items-center text-slate-400 hover:text-slate-300 select-none font-bold"
+                    >
+                      {rememberMe ? (
+                        <CheckSquare size={16} className="text-indigo-400 mr-1.5 shrink-0" />
+                      ) : (
+                        <Square size={16} className="text-slate-600 mr-1.5 shrink-0" />
+                      )}
+                      Remember Me
+                    </button>
+
                     <button
                       type="button"
                       onClick={() => { setMode('forgot'); setError(''); setSuccess(''); }}
-                      className="text-xs font-bold text-indigo-600 hover:text-indigo-500"
+                      className="font-bold text-indigo-400 hover:text-indigo-300 transition-colors"
                     >
                       Forgot Password?
                     </button>
                   </div>
                 )}
 
+                {/* Action Submit Buttons */}
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full flex justify-center items-center py-3.5 px-4 border border-transparent rounded-xl shadow-md text-sm font-bold uppercase tracking-widest text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-slate-300 transition-all active:scale-[0.98]"
+                  className="w-full flex justify-center items-center py-3.5 px-4 border border-transparent rounded-xl shadow-lg shadow-indigo-900/25 text-xs font-bold uppercase tracking-widest text-white bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transition-all active:scale-[0.98]"
                 >
-                  {loading ? 'Processing...' : (
+                  {loading ? 'Processing Securely...' : (
                     <>
-                      {mode === 'login' ? 'Login' : mode === 'register' ? 'Click Here to Register' : 'Reset Password'}
-                      <ArrowRight size={18} className="ml-2" />
+                      {isAdminLogin ? 'Admin Secure Login' : (mode === 'login' ? 'Student Login' : mode === 'register' ? 'Register Now' : 'Reset My Password')}
+                      <ArrowRight size={15} className="ml-2" />
                     </>
                   )}
                 </button>
@@ -496,11 +572,12 @@ export default function Login() {
             </motion.div>
           </AnimatePresence>
 
-          {mode === 'forgot' && (
+          {/* Back links for forgot password */}
+          {mode === 'forgot' && !isAdminLogin && (
             <div className="mt-6 text-center">
               <button
                 onClick={() => { setMode('login'); setError(''); setSuccess(''); }}
-                className="text-xs font-bold text-slate-500 hover:text-slate-700 flex items-center justify-center mx-auto"
+                className="text-xs font-bold text-slate-400 hover:text-slate-200 flex items-center justify-center mx-auto transition-colors"
               >
                 <LogIn size={14} className="mr-1" />
                 Back to Login
@@ -508,21 +585,28 @@ export default function Login() {
             </div>
           )}
 
-          {mode === 'login' && (
-            <div className="mt-6 text-center pt-6 border-t border-slate-100">
-              <button
-                onClick={() => { setIsAdminLogin(!isAdminLogin); setError(''); setSuccess(''); }}
-                className="text-xs font-bold text-slate-400 hover:text-indigo-600 transition-colors"
-              >
-                {isAdminLogin ? "Back to Student Login?" : "Owner / Admin Login?"}
-              </button>
-            </div>
-          )}
+          {/* LOWER SECTION: Dedicated Admin Login Trigger */}
+          <div className="mt-6 text-center pt-6 border-t border-slate-800/80">
+            <button
+              onClick={() => { 
+                setIsAdminLogin(!isAdminLogin); 
+                setError(''); 
+                setSuccess(''); 
+                setPassword('');
+                setEmail('');
+                setPhoneNumber('');
+              }}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-amber-400 transition-colors"
+            >
+              <ShieldCheck size={14} />
+              {isAdminLogin ? "Return to Student Gateway" : "Administrative Privileged Login"}
+            </button>
+          </div>
         </div>
 
         <div className="mt-8 text-center">
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">
-            QuantMaster Pro &copy; 2026 | Educational Platform
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em]">
+            Master Aptitude Pro &copy; 2026 | Educational Suite
           </p>
         </div>
       </div>

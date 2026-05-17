@@ -74,3 +74,220 @@ img {
 .animate-fast-blink {
   animation: fast-blink 0.5s infinite;
 }
+
+/* --- Premium Colorful Sidebar Gradient Classes --- */
+.sidebar-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  border-radius: 14px;
+  font-weight: 700;
+  font-size: 0.825rem;
+  color: #ffffff !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-btn:hover {
+  transform: translateX(5px) scale(1.02);
+  color: #ffffff !important;
+  filter: brightness(1.08);
+}
+
+.sidebar-btn.active {
+  border-left: 5px solid #ffffff;
+  transform: scale(1.03);
+  color: #ffffff !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), inset 0 0 10px rgba(255, 255, 255, 0.25);
+}
+
+/* 1. HOME - Deep Blue Gradient */
+.sidebar-home {
+  background: linear-gradient(135deg, #0052D4, #4364F7) !important;
+  box-shadow: 0 4px 12px rgba(0, 82, 212, 0.3);
+}
+.sidebar-home:hover, .sidebar-home.active {
+  box-shadow: 0 8px 24px rgba(0, 82, 212, 0.5) !important;
+}
+
+/* 2. PROFILE - Deep Purple/Dark */
+.sidebar-profile {
+  background: linear-gradient(135deg, #41295a, #2F0743) !important;
+  box-shadow: 0 4px 12px rgba(65, 41, 90, 0.3);
+}
+.sidebar-profile:hover, .sidebar-profile.active {
+  box-shadow: 0 8px 24px rgba(65, 41, 90, 0.5) !important;
+}
+
+/* 3. LEARN - Deep Cyan/Teal */
+.sidebar-learn {
+  background: linear-gradient(135deg, #134E5E, #0C7B93) !important;
+  box-shadow: 0 4px 12px rgba(19, 78, 94, 0.3);
+}
+.sidebar-learn:hover, .sidebar-learn.active {
+  box-shadow: 0 8px 24px rgba(19, 78, 94, 0.5) !important;
+}
+
+/* 4. MOCK TEST - Rich Red/Pink */
+.sidebar-mock {
+  background: linear-gradient(135deg, #FF512F, #DD2476) !important;
+  box-shadow: 0 4px 12px rgba(255, 81, 47, 0.3);
+}
+.sidebar-mock:hover, .sidebar-mock.active {
+  box-shadow: 0 8px 24px rgba(255, 81, 47, 0.5) !important;
+}
+
+/* 5. TYPING TEST - Intense Violet */
+.sidebar-typing {
+  background: linear-gradient(135deg, #8E2DE2, #4A00E0) !important;
+  box-shadow: 0 4px 12px rgba(142, 45, 226, 0.3);
+}
+.sidebar-typing:hover, .sidebar-typing.active {
+  box-shadow: 0 8px 24px rgba(142, 45, 226, 0.5) !important;
+}
+
+/* 6. PREVIOUS YEAR QUESTION - Rusty Red/Slate */
+.sidebar-pyq {
+  background: linear-gradient(135deg, #1D4350, #A43931) !important;
+  box-shadow: 0 4px 12px rgba(29, 67, 80, 0.3);
+}
+.sidebar-pyq:hover, .sidebar-pyq.active {
+  box-shadow: 0 8px 24px rgba(29, 67, 80, 0.5) !important;
+}
+
+/* 7. EXAM PATTERN & SYLLABUS - Vibrant Orange/Red */
+.sidebar-pattern {
+  background: linear-gradient(135deg, #833ab4, #fd1d1d) !important;
+  box-shadow: 0 4px 12px rgba(253, 29, 29, 0.3);
+}
+.sidebar-pattern:hover, .sidebar-pattern.active {
+  box-shadow: 0 8px 24px rgba(253, 29, 29, 0.5) !important;
+}
+
+/* 8. ABOUT US - Deep Slate Blue */
+.sidebar-about {
+  background: linear-gradient(135deg, #141E30, #243B55) !important;
+  box-shadow: 0 4px 12px rgba(20, 30, 48, 0.3);
+}
+.sidebar-about:hover, .sidebar-about.active {
+  box-shadow: 0 8px 24px rgba(20, 30, 48, 0.5) !important;
+}
+
+/* 9. CONTACT US - Intense Dark Red */
+.sidebar-contact {
+  background: linear-gradient(135deg, #870000, #190A05) !important;
+  box-shadow: 0 4px 12px rgba(135, 0, 0, 0.3);
+}
+.sidebar-contact:hover, .sidebar-contact.active {
+  box-shadow: 0 8px 24px rgba(135, 0, 0, 0.5) !important;
+}
+
+
+
+/* --- Sub-Category Pill Button Styling --- */
+.sub-category-btn {
+  border-radius: 12px;
+  padding: 12px 18px;
+  color: #ffffff !important;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  opacity: 0.85;
+}
+
+.sub-category-btn:hover {
+  transform: translateY(-2px) scale(1.03);
+  filter: brightness(1.15);
+  opacity: 1;
+}
+
+.sub-category-btn.active {
+  opacity: 1 !important;
+  border: 2px solid #ffffff !important;
+  transform: translateY(-4px) scale(1.05);
+}
+
+/* Dynamic Gradients and Glows */
+.sub-color-0 {
+  background: linear-gradient(135deg, #4facfe, #00f2fe) !important;
+  box-shadow: 0 4px 12px rgba(79, 172, 254, 0.25);
+}
+.sub-color-0.active, .sub-color-0:hover {
+  box-shadow: 0 8px 24px rgba(79, 172, 254, 0.5) !important;
+}
+
+.sub-color-1 {
+  background: linear-gradient(135deg, #43e97b, #38f9d7) !important;
+  box-shadow: 0 4px 12px rgba(67, 233, 123, 0.25);
+}
+.sub-color-1.active, .sub-color-1:hover {
+  box-shadow: 0 8px 24px rgba(67, 233, 123, 0.5) !important;
+}
+
+.sub-color-2 {
+  background: linear-gradient(135deg, #667eea, #764ba2) !important;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.25);
+}
+.sub-color-2.active, .sub-color-2:hover {
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.5) !important;
+}
+
+.sub-color-3 {
+  background: linear-gradient(135deg, #fa709a, #fee140) !important;
+  box-shadow: 0 4px 12px rgba(250, 112, 154, 0.25);
+}
+.sub-color-3.active, .sub-color-3:hover {
+  box-shadow: 0 8px 24px rgba(250, 112, 154, 0.5) !important;
+}
+
+.sub-color-4 {
+  background: linear-gradient(135deg, #ff758c, #ff7eb3) !important;
+  box-shadow: 0 4px 12px rgba(255, 117, 140, 0.25);
+}
+.sub-color-4.active, .sub-color-4:hover {
+  box-shadow: 0 8px 24px rgba(255, 117, 140, 0.5) !important;
+}
+
+.sub-color-5 {
+  background: linear-gradient(135deg, #00c6fb, #005bea) !important;
+  box-shadow: 0 4px 12px rgba(0, 198, 251, 0.25);
+}
+.sub-color-5.active, .sub-color-5:hover {
+  box-shadow: 0 8px 24px rgba(0, 198, 251, 0.5) !important;
+}
+
+.sub-color-6 {
+  background: linear-gradient(135deg, #f7971e, #ffd200) !important;
+  box-shadow: 0 4px 12px rgba(247, 151, 30, 0.25);
+}
+.sub-color-6.active, .sub-color-6:hover {
+  box-shadow: 0 8px 24px rgba(247, 151, 30, 0.5) !important;
+}
+
+.sub-color-7 {
+  background: linear-gradient(135deg, #8e2de2, #4a00e0) !important;
+  box-shadow: 0 4px 12px rgba(142, 45, 226, 0.25);
+}
+.sub-color-7.active, .sub-color-7:hover {
+  box-shadow: 0 8px 24px rgba(142, 45, 226, 0.5) !important;
+}
+
+.sub-color-8 {
+  background: linear-gradient(135deg, #cb2d3e, #ef473a) !important;
+  box-shadow: 0 4px 12px rgba(203, 45, 62, 0.25);
+}
+.sub-color-8.active, .sub-color-8:hover {
+  box-shadow: 0 8px 24px rgba(203, 45, 62, 0.5) !important;
+}
