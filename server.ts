@@ -4,6 +4,10 @@ import https from "https";
 // Compensation for potential host clock drift (Item 5)
 function syncTime() {
   return new Promise<void>((resolve) => {
+    if (process.env.VERCEL) {
+      console.log("[TimeSync] Skipping clock synchronization in Vercel serverless environment.");
+      return resolve();
+    }
     console.log("[TimeSync] Synchronizing clock with Google...");
     const req = https.request(
       "https://www.google.com",
@@ -73,36 +77,43 @@ import { getFirestore } from "firebase-admin/firestore";
 import cookieParser from "cookie-parser";
 import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
-import sqlite3 from "sqlite3";
+let sqliteDb: any = null;
 
-// Initialize SQLite Database for Mock Question Analysis
-const sqliteDbPath = path.resolve(process.cwd(), "mock_analytics.db");
-const sqliteDb = new sqlite3.Database(sqliteDbPath, (err) => {
-  if (err) {
-    console.error("[SQLite] Error opening database:", err.message);
-  } else {
-    console.log("[SQLite] Connected to mock_analytics database.");
-    sqliteDb.run(`
-      CREATE TABLE IF NOT EXISTS mock_question_analysis (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        student_id TEXT,
-        mock_test_id TEXT,
-        question_id TEXT,
-        selected_answer TEXT,
-        correct_answer TEXT,
-        is_correct INTEGER,
-        time_taken_seconds INTEGER,
-        attempted_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `, (err) => {
+// Initialize SQLite Database ONLY when running locally, never on Vercel (Item 6)
+if (!process.env.VERCEL) {
+  try {
+    const sqlite3 = (await import("sqlite3")).default;
+    const sqliteDbPath = path.resolve(process.cwd(), "mock_analytics.db");
+    sqliteDb = new sqlite3.Database(sqliteDbPath, (err) => {
       if (err) {
-        console.error("[SQLite] Error creating mock_question_analysis table:", err.message);
+        console.error("[SQLite] Error opening database:", err.message);
       } else {
-        console.log("[SQLite] Table mock_question_analysis verified/created successfully.");
+        console.log("[SQLite] Connected to mock_analytics database.");
+        sqliteDb.run(`
+          CREATE TABLE IF NOT EXISTS mock_question_analysis (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            student_id TEXT,
+            mock_test_id TEXT,
+            question_id TEXT,
+            selected_answer TEXT,
+            correct_answer TEXT,
+            is_correct INTEGER,
+            time_taken_seconds INTEGER,
+            attempted_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
+        `, (err) => {
+          if (err) {
+            console.error("[SQLite] Error creating mock_question_analysis table:", err.message);
+          } else {
+            console.log("[SQLite] Table mock_question_analysis verified/created successfully.");
+          }
+        });
       }
     });
+  } catch (err: any) {
+    console.warn("[SQLite] Dynamic sqlite3 import failed. Skipping local database:", err.message);
   }
-});
+}
 
 function insertMockQuestionAnalysis(
   studentId: string,
@@ -113,6 +124,7 @@ function insertMockQuestionAnalysis(
   isCorrect: number,
   timeTakenSeconds: number
 ) {
+  if (!sqliteDb) return;
   sqliteDb.run(`
     INSERT INTO mock_question_analysis (
       student_id,
@@ -123,7 +135,7 @@ function insertMockQuestionAnalysis(
       is_correct,
       time_taken_seconds
     ) VALUES (?, ?, ?, ?, ?, ?, ?)
-  `, [studentId, mockTestId, questionId, selectedAnswer, correctAnswer, isCorrect, timeTakenSeconds], (err) => {
+  `, [studentId, mockTestId, questionId, selectedAnswer, correctAnswer, isCorrect, timeTakenSeconds], (err: any) => {
     if (err) {
       console.error("[SQLite] Error inserting question analysis:", err.message);
     }
