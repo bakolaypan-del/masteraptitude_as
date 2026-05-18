@@ -55,6 +55,7 @@ export default function Dashboard() {
   const [downloadingPDF, setDownloadingPDF] = useState<string | null>(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isCarouselAnimating, setIsCarouselAnimating] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentPopupIndex, setCurrentPopupIndex] = useState(0);
   const tabParam = (searchParams.get('tab') as DashboardTab) || 'home';
@@ -68,15 +69,28 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // Auto-advance carousel — infinite loop for 3+ images
+  // Track mobile vs desktop for carousel visible count
   useEffect(() => {
-    if (carousels.length < 3) return; // 1–2 images: static, nothing to rotate
+    const mq = window.matchMedia('(max-width: 639px)');
+    setIsMobileView(mq.matches);
+    const handler = (e: MediaQueryListEvent) => {
+      setIsMobileView(e.matches);
+      setCurrentSlideIndex(0); // reset position on resize
+    };
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  // Auto-advance carousel — infinite loop when images > visibleCount
+  useEffect(() => {
+    const visibleCount = isMobileView ? 2 : 3;
+    if (carousels.length <= visibleCount) return; // show all statically
     const timer = setInterval(() => {
       setIsCarouselAnimating(true);
       setCurrentSlideIndex(prev => prev + 1);
     }, 3500);
     return () => clearInterval(timer);
-  }, [carousels.length]);
+  }, [carousels.length, isMobileView]);
 
   useEffect(() => {
     setLearnOpen(['video', 'notes', 'affairs', 'practice'].includes(tabParam));
@@ -729,127 +743,90 @@ export default function Dashboard() {
           {/* Welcome & Carousel - Only Show on Home */}
           {activeTab === 'home' && (
             <div className="animate-in fade-in duration-500">
-              {/* ── Hero Banner ─────────────────────────────────────────── */}
-              <div
-                className="mb-6 rounded-3xl relative overflow-hidden text-white shadow-2xl"
-                style={{ background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 55%, #24243e 100%)' }}
-              >
-                {/* ── Background video (full-banner on mobile, right-panel on sm+) ── */}
-                {/*
-                  Layout logic:
-                  • Mobile  → video fills 100% of banner as a dark background layer,
-                              then a heavy gradient overlay keeps left text readable.
-                  • sm+     → video sits in the right 55%; left side has a
-                              colour-gradient + blur-mask blend so it melts into
-                              the cosmic purple with zero hard edge.
-                  Performance:
-                  • preload="none"   – no bytes fetched until autoplay fires
-                  • playsInline      – prevents iOS full-screen hijack
-                  • disablePictureInPicture – no pip button interruption
-                  • 720p sources only – keeps file size small enough for 4G/mobile
-                */}
-                <div className="absolute inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[55%] pointer-events-none">
-                  <video
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    disablePictureInPicture
-                    preload="none"
-                    poster="https://images.unsplash.com/photo-1571260899304-425eee4c7efc?w=800&q=75"
-                    className="w-full h-full object-cover object-center"
-                    style={{ borderRadius: 'inherit' }}
-                  >
-                    {/* aspirant on laptop / online test */}
-                    <source
-                      src="https://videos.pexels.com/video-files/5739876/5739876-hd_1280_720_30fps.mp4"
-                      type="video/mp4"
-                    />
-                    {/* student studying at desk */}
-                    <source
-                      src="https://videos.pexels.com/video-files/5989969/5989969-hd_1280_720_25fps.mp4"
-                      type="video/mp4"
-                    />
-                    {/* group study fallback */}
-                    <source
-                      src="https://videos.pexels.com/video-files/3209979/3209979-hd_1280_720_25fps.mp4"
-                      type="video/mp4"
-                    />
-                  </video>
-
-                  {/* ── MOBILE overlay (sm:hidden) ──
-                      Dark radial + directional gradient so text on the left
-                      stays crisp. No expensive blur on mobile GPU. */}
-                  <div
-                    className="absolute inset-0 sm:hidden"
-                    style={{
-                      background:
-                        'linear-gradient(to right, rgba(15,12,41,0.96) 0%, rgba(48,43,99,0.88) 45%, rgba(36,36,62,0.55) 75%, rgba(15,12,41,0.4) 100%)',
-                    }}
-                  />
-
-                  {/* ── DESKTOP left-edge blend (hidden on mobile) ──
-                      Three layered overlays create the "slowly dissolving blur" effect. */}
-
-                  {/* Layer A – colour anchor: matches banner's cosmic mid-tone */}
-                  <div
-                    className="absolute inset-y-0 left-0 w-[60%] hidden sm:block"
-                    style={{
-                      background:
-                        'linear-gradient(to right, #302b63 0%, rgba(48,43,99,0.97) 18%, rgba(48,43,99,0.78) 45%, rgba(36,36,62,0.3) 78%, transparent 100%)',
-                    }}
-                  />
-
-                  {/* Layer B – frosted-glass blur that fades via mask (desktop only) */}
-                  <div
-                    className="absolute inset-y-0 left-0 w-[50%] hidden sm:block"
-                    style={{
-                      backdropFilter: 'blur(18px)',
-                      WebkitBackdropFilter: 'blur(18px)',
-                      maskImage:
-                        'linear-gradient(to right, black 0%, black 25%, rgba(0,0,0,0.6) 55%, transparent 100%)',
-                      WebkitMaskImage:
-                        'linear-gradient(to right, black 0%, black 25%, rgba(0,0,0,0.6) 55%, transparent 100%)',
-                    }}
-                  />
-
-                  {/* Layer C – top/bottom vignette for clean card edges */}
-                  <div
-                    className="absolute inset-0"
-                    style={{
-                      background:
-                        'linear-gradient(to bottom, rgba(15,12,41,0.45) 0%, transparent 30%, transparent 70%, rgba(15,12,41,0.5) 100%)',
-                    }}
-                  />
-                </div>
-
-                {/* ── Dot-grid texture (left text area only) ── */}
+              {/* ── Hero Banner with animated glow border ──────────────── */}
+              {/* Outer glow-border wrapper: rotating conic gradient */}
+              <div className="relative mb-6 rounded-3xl p-[2.5px] overflow-hidden shadow-2xl">
+                {/* Rotating light sweep — uses Tailwind's built-in @keyframes spin */}
                 <div
-                  className="absolute inset-0 opacity-[0.035] pointer-events-none"
+                  className="absolute pointer-events-none"
                   style={{
-                    backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
-                    backgroundSize: '20px 20px',
+                    inset: '-60%',
+                    background: 'conic-gradient(from 0deg, transparent 0%, transparent 35%, #818cf8 48%, #a78bfa 52%, #e879f9 58%, #f472b6 62%, transparent 75%, transparent 100%)',
+                    animation: 'spin 5s linear infinite',
                   }}
                 />
 
-                {/* ── Welcome text ── */}
-                <div className="relative z-10 p-5 sm:p-6 md:p-8 flex flex-col justify-center min-h-[140px] sm:min-h-[170px] sm:max-w-[48%]">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-                    <span className="text-[9px] sm:text-[10px] font-black text-emerald-400 uppercase tracking-[0.2em]">
-                      Live Dashboard
-                    </span>
+                {/* Actual banner card — sits on top of the rotating gradient */}
+                <div
+                  className="relative rounded-[22px] overflow-hidden text-white"
+                  style={{ background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 55%, #24243e 100%)' }}
+                >
+                  {/* ── Right panel image: online mock test, phone, books & pen ── */}
+                  <div className="absolute inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[55%] pointer-events-none select-none">
+                    <img
+                      src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=900&q=85&auto=format&fit=crop&crop=right"
+                      alt="Student studying with phone, books and pen"
+                      className="w-full h-full object-cover object-right"
+                      loading="eager"
+                      draggable={false}
+                    />
+
+                    {/* Floating icons — visible on all sizes, anchored right side */}
+                    <span className="absolute top-3 right-5 text-xl drop-shadow-lg animate-bounce" style={{ animationDuration: '2.8s' }}>📱</span>
+                    <span className="absolute top-12 right-14 text-base drop-shadow-md animate-bounce" style={{ animationDuration: '3.4s', animationDelay: '0.5s' }}>📚</span>
+                    <span className="absolute bottom-10 right-6 text-lg drop-shadow-md animate-bounce" style={{ animationDuration: '3.1s', animationDelay: '1s' }}>✏️</span>
+                    <span className="absolute bottom-4 right-16 text-base drop-shadow-md animate-bounce" style={{ animationDuration: '2.6s', animationDelay: '0.3s' }}>📝</span>
+                    <span className="absolute top-[40%] right-3 text-sm drop-shadow-md animate-bounce" style={{ animationDuration: '3.7s', animationDelay: '1.4s' }}>🎯</span>
+
+                    {/* Mobile overlay — heavy left gradient, no blur (GPU-safe) */}
+                    <div
+                      className="absolute inset-0 sm:hidden"
+                      style={{ background: 'linear-gradient(to right, rgba(15,12,41,0.97) 0%, rgba(48,43,99,0.92) 42%, rgba(36,36,62,0.65) 70%, rgba(15,12,41,0.30) 100%)' }}
+                    />
+
+                    {/* Desktop Layer A — colour anchor gradient */}
+                    <div
+                      className="absolute inset-y-0 left-0 w-[62%] hidden sm:block"
+                      style={{ background: 'linear-gradient(to right, #302b63 0%, rgba(48,43,99,0.97) 20%, rgba(48,43,99,0.72) 50%, rgba(36,36,62,0.22) 80%, transparent 100%)' }}
+                    />
+
+                    {/* Desktop Layer B — frosted blur with CSS mask fade */}
+                    <div
+                      className="absolute inset-y-0 left-0 w-[50%] hidden sm:block"
+                      style={{
+                        backdropFilter: 'blur(16px)',
+                        WebkitBackdropFilter: 'blur(16px)',
+                        maskImage: 'linear-gradient(to right, black 0%, black 28%, rgba(0,0,0,0.5) 58%, transparent 100%)',
+                        WebkitMaskImage: 'linear-gradient(to right, black 0%, black 28%, rgba(0,0,0,0.5) 58%, transparent 100%)',
+                      }}
+                    />
+
+                    {/* Desktop Layer C — top/bottom vignette */}
+                    <div
+                      className="absolute inset-0"
+                      style={{ background: 'linear-gradient(to bottom, rgba(15,12,41,0.38) 0%, transparent 28%, transparent 68%, rgba(15,12,41,0.48) 100%)' }}
+                    />
                   </div>
-                  <h2 className="text-xl sm:text-2xl md:text-3xl font-black mb-2 tracking-tight leading-tight">
-                    Hello,{' '}
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-300">
-                      {profile?.name?.split(' ')[0] || 'Student'}
-                    </span>
-                    ! 👋
-                  </h2>
-                  <p className="text-xs sm:text-sm font-medium text-white/55 leading-relaxed">
-                    🎯 Every test you attempt brings you one step closer to your dream!
-                  </p>
+
+                  {/* Dot-grid texture overlay */}
+                  <div
+                    className="absolute inset-0 opacity-[0.03] pointer-events-none"
+                    style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '20px 20px' }}
+                  />
+
+                  {/* ── Welcome text ── */}
+                  <div className="relative z-10 p-5 sm:p-6 md:p-8 flex flex-col justify-center min-h-[150px] sm:min-h-[180px] sm:max-w-[50%]">
+                    <h2 className="text-xl sm:text-2xl md:text-3xl font-black mb-2 tracking-tight leading-tight">
+                      Hello,{' '}
+                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-300">
+                        {profile?.name?.split(' ')[0] || 'Student'}
+                      </span>
+                      ! 👋
+                    </h2>
+                    <p className="text-xs sm:text-sm font-medium text-white/60 leading-relaxed">
+                      🎯 Every test you attempt brings you one step closer to your dream!
+                    </p>
+                  </div>
                 </div>
               </div>
               {/* ── End Hero Banner ──────────────────────────────────────── */}
@@ -858,8 +835,9 @@ export default function Dashboard() {
               {carousels.length > 0 && (() => {
                 const sorted = [...carousels].sort((a, b) => (a.priority || 99) - (b.priority || 99));
                 const N = sorted.length;
+                const visibleCount = isMobileView ? 2 : 3; // 2 on mobile, 3 on desktop
 
-                // Renders the corner badge based on admin's choice
+                // Corner badge component
                 const CarouselBadge = ({ badge }: { badge?: string }) => {
                   if (badge === 'live') return (
                     <div className="absolute top-2 right-2 z-10">
@@ -876,20 +854,16 @@ export default function Dashboard() {
                       </span>
                     </div>
                   );
-                  return null; // 'none' or undefined → no badge
+                  return null;
                 };
 
-                // ── Static layout: 1 or 2 images — show all at once, no looping ──
-                if (N <= 2) {
+                // ── Static: fewer images than visible slots — show all side-by-side ──
+                if (N <= visibleCount) {
                   return (
                     <div className="mb-6">
                       <div className="flex gap-2 sm:gap-3">
                         {sorted.map(slide => (
-                          <div
-                            key={slide.id}
-                            className="relative overflow-hidden rounded-xl shadow-sm border border-slate-200/60 h-32 sm:h-40 md:h-48"
-                            style={{ flex: '1 1 0%' }}
-                          >
+                          <div key={slide.id} className="relative overflow-hidden rounded-xl shadow-sm border border-slate-200/60 h-32 sm:h-40 md:h-48" style={{ flex: '1 1 0%' }}>
                             <img src={slide.link} alt="Announcement" className="w-full h-full object-cover" />
                             <CarouselBadge badge={slide.badge} />
                             <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
@@ -900,23 +874,25 @@ export default function Dashboard() {
                   );
                 }
 
-                // ── Infinite loop: 3+ images — show 3 at a time, rotate one-by-one ──
-                const repeated = [...sorted, ...sorted]; // 2 × N for seamless reset
+                // ── Infinite loop: more images than visible slots ──
+                // Double the array so we can silently reset for seamless looping
+                const repeated = [...sorted, ...sorted]; // 2 × N
                 const total = repeated.length;
 
                 return (
                   <div className="mb-6">
-                    {/* Viewport — clips to exactly 3 items */}
+                    {/* Viewport — clips to exactly visibleCount items */}
                     <div className="overflow-hidden rounded-2xl">
-                      {/* Track — wide enough to hold all 2N items */}
+                      {/* Track — wide enough for all 2N items */}
                       <div
                         style={{
                           display: 'flex',
-                          width: `${(total / 3) * 100}%`,
+                          width: `${(total / visibleCount) * 100}%`,
                           transform: `translateX(-${(currentSlideIndex / total) * 100}%)`,
                           transition: isCarouselAnimating ? 'transform 700ms ease-in-out' : 'none',
                         }}
                         onTransitionEnd={() => {
+                          // Silent reset: jump back N steps — visually identical position
                           if (currentSlideIndex >= N) {
                             setCurrentSlideIndex(prev => prev - N);
                           }
@@ -935,16 +911,14 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    {/* Progress dots — one per original image */}
+                    {/* Progress dots */}
                     <div className="flex justify-center gap-1.5 mt-3">
                       {sorted.map((_, i) => (
                         <button
                           key={i}
                           onClick={() => { setIsCarouselAnimating(true); setCurrentSlideIndex(i); }}
                           className={`h-1.5 rounded-full transition-all duration-300 ${
-                            (currentSlideIndex % N) === i
-                              ? 'w-6 bg-indigo-500 shadow-sm'
-                              : 'w-1.5 bg-slate-300 hover:bg-slate-400'
+                            (currentSlideIndex % N) === i ? 'w-6 bg-indigo-500 shadow-sm' : 'w-1.5 bg-slate-300 hover:bg-slate-400'
                           }`}
                         />
                       ))}
@@ -982,7 +956,7 @@ export default function Dashboard() {
                 </button>
 
                 {/* Typing Test */}
-                <button onClick={() => navigate('/typing-tests')} className="group relative overflow-hidden rounded-3xl p-5 bg-white border border-slate-200/80 shadow-sm hover:shadow-xl hover:shadow-emerald-100 transition-all duration-300 hover:-translate-y-1 text-left">
+                <button onClick={() => navigate('/typing-test')} className="group relative overflow-hidden rounded-3xl p-5 bg-white border border-slate-200/80 shadow-sm hover:shadow-xl hover:shadow-emerald-100 transition-all duration-300 hover:-translate-y-1 text-left">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/8 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-[2] transition-transform duration-500"></div>
                   <div className="w-11 h-11 sm:w-14 sm:h-14 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-2xl flex items-center justify-center mb-3 shadow-lg shadow-emerald-200 group-hover:scale-110 transition-transform duration-300">
                     <Keyboard className="w-5 h-5 sm:w-7 sm:h-7" />
@@ -1008,30 +982,23 @@ export default function Dashboard() {
                 </button>
               </div>
 
-              {/* Home Footer CTA */}
-              <div className="mt-10 rounded-3xl relative overflow-hidden text-white shadow-xl" style={{background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e3a5f 100%)'}}>
-                <div className="absolute -top-10 -right-10 w-60 h-60 bg-violet-400/20 rounded-full blur-3xl pointer-events-none"></div>
-                <div className="absolute -bottom-10 -left-10 w-52 h-52 bg-indigo-400/15 rounded-full blur-3xl pointer-events-none"></div>
-                <div className="relative z-10 p-6 md:p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
-                  <div className="text-center sm:text-left">
-                    <div className="flex items-center justify-center sm:justify-start gap-2 mb-2">
-                      <MessageCircle className="w-5 h-5 text-indigo-300" />
-                      <span className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.2em]">Support</span>
-                    </div>
-                    <h3 className="text-xl font-black text-white mb-1">Need Assistance? 🙋</h3>
-                    <p className="text-white/50 text-sm font-medium">Any questions about your studies or the platform?</p>
-                  </div>
-                  <div className="flex flex-col items-center gap-2 shrink-0">
-                    <a
-                      href="tel:8900011708"
-                      className="flex items-center gap-3 bg-white text-indigo-900 px-6 py-3.5 rounded-2xl font-black text-sm hover:bg-indigo-50 transition-all shadow-xl shadow-black/30 hover:scale-[1.03] active:scale-100"
-                    >
-                      📞 Call 8900011708
-                    </a>
-                    <span className="text-white/35 text-[10px] font-bold uppercase tracking-wider">(Shibnath)</span>
-                  </div>
-                </div>
-              </div>
+              {/* ── Single-line Assistant Bar ─────────────────────────── */}
+              <a
+                href="tel:8900011708"
+                className="mt-6 flex items-center gap-3 w-full rounded-2xl px-4 py-3 text-white hover:brightness-110 active:scale-[0.99] transition-all shadow-md"
+                style={{ background: 'linear-gradient(90deg, #312e81 0%, #1e3a5f 100%)' }}
+              >
+                {/* Bot avatar dot */}
+                <span className="w-7 h-7 bg-indigo-400/30 rounded-full flex items-center justify-center shrink-0 text-base">🤖</span>
+                {/* Message */}
+                <span className="flex-1 text-[11px] sm:text-xs font-semibold text-indigo-100 truncate">
+                  Need help? Our assistant is ready — <span className="font-black text-white">Call 8900011708</span>
+                </span>
+                {/* Arrow */}
+                <span className="shrink-0 w-6 h-6 bg-white/10 rounded-full flex items-center justify-center">
+                  <ChevronRight className="w-3.5 h-3.5 text-indigo-200" />
+                </span>
+              </a>
 
             </div>
           )}
@@ -1269,8 +1236,207 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* ── Mock Test Landing (category chooser) ───────────────────── */}
+          {activeTab === 'mock_landing' && (
+            <div className="animate-in fade-in duration-500">
+              {/* Header */}
+              <div className="flex items-center gap-3 mb-8">
+                <button onClick={() => setActiveTab('home')} className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors shadow-sm">
+                  <ArrowLeft className="w-4 h-4 text-slate-600" />
+                </button>
+                <div>
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight">🎯 Mock Tests</h2>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">Choose your test format and start practising</p>
+                </div>
+              </div>
+
+              {/* Category Cards */}
+              <div className="grid grid-cols-1 gap-4">
+
+                {/* Topic Wise */}
+                <button
+                  onClick={() => setActiveTab('mock_topic')}
+                  className="group relative overflow-hidden rounded-3xl p-6 text-left bg-white border border-indigo-100 shadow-sm hover:shadow-xl hover:shadow-indigo-100 hover:-translate-y-1 transition-all duration-300"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 to-violet-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-3xl" />
+                  <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-400/8 rounded-full translate-x-1/4 -translate-y-1/4 group-hover:scale-150 transition-transform duration-500 pointer-events-none" />
+                  <div className="relative flex items-center gap-5">
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-200 group-hover:scale-110 transition-transform duration-300 shrink-0">
+                      <Layers className="w-8 h-8 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-lg font-black text-slate-800 tracking-tight">Topic Wise Mock</h3>
+                        <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">Focused</span>
+                      </div>
+                      <p className="text-sm text-slate-500 font-medium leading-relaxed">Practice chapter-by-chapter. Perfect for targeted revision on specific subjects or topics.</p>
+                      <div className="mt-3 flex items-center gap-1 text-indigo-600 text-[11px] font-black uppercase tracking-wider">
+                        Start Now <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+                  </div>
+                </button>
+
+                {/* Sectional Mock */}
+                <button
+                  onClick={() => setActiveTab('mock_sectional')}
+                  className="group relative overflow-hidden rounded-3xl p-6 text-left bg-white border border-rose-100 shadow-sm hover:shadow-xl hover:shadow-rose-100 hover:-translate-y-1 transition-all duration-300"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-rose-50 to-pink-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-3xl" />
+                  <div className="absolute top-0 right-0 w-40 h-40 bg-rose-400/8 rounded-full translate-x-1/4 -translate-y-1/4 group-hover:scale-150 transition-transform duration-500 pointer-events-none" />
+                  <div className="relative flex items-center gap-5">
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center shadow-lg shadow-rose-200 group-hover:scale-110 transition-transform duration-300 shrink-0">
+                      <CheckSquare className="w-8 h-8 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-lg font-black text-slate-800 tracking-tight">Sectional Mock</h3>
+                        <span className="text-[10px] font-black uppercase tracking-wider text-rose-600 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-full">Section</span>
+                      </div>
+                      <p className="text-sm text-slate-500 font-medium leading-relaxed">Test your knowledge section-by-section. Ideal for identifying weak areas before the full exam.</p>
+                      <div className="mt-3 flex items-center gap-1 text-rose-600 text-[11px] font-black uppercase tracking-wider">
+                        Start Now <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+                  </div>
+                </button>
+
+                {/* Full Mock */}
+                <button
+                  onClick={() => setActiveTab('mock_full')}
+                  className="group relative overflow-hidden rounded-3xl p-6 text-left bg-white border border-amber-100 shadow-sm hover:shadow-xl hover:shadow-amber-100 hover:-translate-y-1 transition-all duration-300"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-amber-50 to-orange-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-3xl" />
+                  <div className="absolute top-0 right-0 w-40 h-40 bg-amber-400/8 rounded-full translate-x-1/4 -translate-y-1/4 group-hover:scale-150 transition-transform duration-500 pointer-events-none" />
+                  <div className="relative flex items-center gap-5">
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-200 group-hover:scale-110 transition-transform duration-300 shrink-0">
+                      <Trophy className="w-8 h-8 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-lg font-black text-slate-800 tracking-tight">Full Mock Test</h3>
+                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-full">Complete</span>
+                      </div>
+                      <p className="text-sm text-slate-500 font-medium leading-relaxed">Full-length exam simulation with real exam timing & pressure. The ultimate test of your preparation.</p>
+                      <div className="mt-3 flex items-center gap-1 text-amber-600 text-[11px] font-black uppercase tracking-wider">
+                        Start Now <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              </div>
+
+              {/* Bottom tip */}
+              <div className="mt-6 flex items-start gap-3 bg-indigo-50 border border-indigo-100 rounded-2xl p-4">
+                <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
+                  <AlertCircle className="w-4 h-4 text-indigo-600" />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-indigo-700 uppercase tracking-wider mb-0.5">Pro Tip</p>
+                  <p className="text-xs text-indigo-600 font-medium leading-relaxed">Start with Topic Wise tests to build a strong base, then move to Sectional and finally Full Mock for complete exam readiness.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Learn Landing (category chooser) ────────────────────────── */}
+          {activeTab === 'learn_landing' && (
+            <div className="animate-in fade-in duration-500">
+              {/* Header */}
+              <div className="flex items-center gap-3 mb-8">
+                <button onClick={() => setActiveTab('home')} className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors shadow-sm">
+                  <ArrowLeft className="w-4 h-4 text-slate-600" />
+                </button>
+                <div>
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight">📚 Learn</h2>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">Choose what you want to study today</p>
+                </div>
+              </div>
+
+              {/* 2-col grid of category cards */}
+              <div className="grid grid-cols-2 gap-4">
+
+                {/* Video Lectures */}
+                <button
+                  onClick={() => setActiveTab('video')}
+                  className="group relative overflow-hidden rounded-3xl p-5 text-left bg-white border border-violet-100 shadow-sm hover:shadow-xl hover:shadow-violet-100 hover:-translate-y-1 transition-all duration-300"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-violet-50 to-purple-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl" />
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-violet-400/10 rounded-full translate-x-1/3 -translate-y-1/3 group-hover:scale-150 transition-transform duration-500" />
+                  <div className="relative">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-200 group-hover:scale-110 transition-transform duration-300 mb-4">
+                      <Play className="w-6 h-6 text-white" />
+                    </div>
+                    <h3 className="font-black text-slate-800 text-sm leading-tight">Video Lectures</h3>
+                    <p className="text-[10px] text-slate-500 font-medium mt-1 leading-relaxed">Recorded classes by experts</p>
+                    <div className="mt-3 flex items-center gap-1 text-violet-600 text-[10px] font-black uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
+                      Watch <ChevronRight className="w-3 h-3" />
+                    </div>
+                  </div>
+                </button>
+
+                {/* Study Notes */}
+                <button
+                  onClick={() => setActiveTab('notes')}
+                  className="group relative overflow-hidden rounded-3xl p-5 text-left bg-white border border-emerald-100 shadow-sm hover:shadow-xl hover:shadow-emerald-100 hover:-translate-y-1 transition-all duration-300"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 to-teal-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl" />
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-400/10 rounded-full translate-x-1/3 -translate-y-1/3 group-hover:scale-150 transition-transform duration-500" />
+                  <div className="relative">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-200 group-hover:scale-110 transition-transform duration-300 mb-4">
+                      <BookOpen className="w-6 h-6 text-white" />
+                    </div>
+                    <h3 className="font-black text-slate-800 text-sm leading-tight">Study Notes</h3>
+                    <p className="text-[10px] text-slate-500 font-medium mt-1 leading-relaxed">PDFs, notes & materials</p>
+                    <div className="mt-3 flex items-center gap-1 text-emerald-600 text-[10px] font-black uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
+                      Read <ChevronRight className="w-3 h-3" />
+                    </div>
+                  </div>
+                </button>
+
+                {/* Current Affairs */}
+                <button
+                  onClick={() => setActiveTab('affairs')}
+                  className="group relative overflow-hidden rounded-3xl p-5 text-left bg-white border border-sky-100 shadow-sm hover:shadow-xl hover:shadow-sky-100 hover:-translate-y-1 transition-all duration-300"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-sky-50 to-cyan-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl" />
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-sky-400/10 rounded-full translate-x-1/3 -translate-y-1/3 group-hover:scale-150 transition-transform duration-500" />
+                  <div className="relative">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-sky-200 group-hover:scale-110 transition-transform duration-300 mb-4">
+                      <Globe className="w-6 h-6 text-white" />
+                    </div>
+                    <h3 className="font-black text-slate-800 text-sm leading-tight">Current Affairs</h3>
+                    <p className="text-[10px] text-slate-500 font-medium mt-1 leading-relaxed">Daily news & updates</p>
+                    <div className="mt-3 flex items-center gap-1 text-sky-600 text-[10px] font-black uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
+                      Explore <ChevronRight className="w-3 h-3" />
+                    </div>
+                  </div>
+                </button>
+
+                {/* Practice Sets */}
+                <button
+                  onClick={() => setActiveTab('practice')}
+                  className="group relative overflow-hidden rounded-3xl p-5 text-left bg-white border border-orange-100 shadow-sm hover:shadow-xl hover:shadow-orange-100 hover:-translate-y-1 transition-all duration-300"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-orange-50 to-amber-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl" />
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-orange-400/10 rounded-full translate-x-1/3 -translate-y-1/3 group-hover:scale-150 transition-transform duration-500" />
+                  <div className="relative">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center shadow-lg shadow-orange-200 group-hover:scale-110 transition-transform duration-300 mb-4">
+                      <NotebookPen className="w-6 h-6 text-white" />
+                    </div>
+                    <h3 className="font-black text-slate-800 text-sm leading-tight">Practice Sets</h3>
+                    <p className="text-[10px] text-slate-500 font-medium mt-1 leading-relaxed">Worksheets & drill exercises</p>
+                    <div className="mt-3 flex items-center gap-1 text-orange-600 text-[10px] font-black uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
+                      Practice <ChevronRight className="w-3 h-3" />
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Dashboard Tab Content */}
-          {activeTab.startsWith('mock') && (
+          {activeTab.startsWith('mock') && activeTab !== 'mock_landing' && (
             <div className="space-y-8 animate-in fade-in duration-700">
 
               <div className="flex flex-col gap-6">
@@ -2165,79 +2331,50 @@ export default function Dashboard() {
         );
       })()}
 
-      {/* Floating Social Popup Notifications */}
+      {/* ── Floating Social Pills (slim, single-line) ─────────────────── */}
       {activeTab === 'home' && (
-        <div className="fixed bottom-6 right-6 z-50 max-w-sm w-full sm:w-[360px] animate-in slide-in-from-bottom-10 fade-in duration-500">
+        <div className="fixed bottom-5 right-4 z-50 flex flex-col items-end gap-1.5 pointer-events-none">
           {currentPopupIndex === 0 && socialLinks.whatsapp && (
-            <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-5 rounded-2xl text-white shadow-2xl shadow-emerald-500/30 border border-white/15 relative overflow-hidden group animate-in slide-in-from-bottom-5 duration-300">
-              <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-700"></div>
-              <div className="flex gap-4">
-                <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center shrink-0 shadow-lg animate-bounce">
-                  <MessageCircle className="w-6 h-6 text-white fill-current" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-extrabold text-[14px] leading-tight mb-1">WhatsApp Community</h4>
-                  <p className="text-white/90 text-[11px] font-semibold leading-snug mb-3">Join for daily practice questions & instant study updates!</p>
-                  <a 
-                    href={socialLinks.whatsapp} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-white text-emerald-700 font-extrabold text-[9px] uppercase tracking-widest rounded-xl hover:bg-emerald-50 transition-all shadow-md active:scale-95"
-                  >
-                    Join WhatsApp
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                </div>
-              </div>
-            </div>
+            <a
+              href={socialLinks.whatsapp}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="pointer-events-auto flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white pl-2.5 pr-3.5 py-1.5 rounded-full shadow-lg shadow-emerald-500/30 text-[11px] font-bold transition-all duration-200 active:scale-95 animate-in slide-in-from-right-4 duration-300"
+            >
+              <span className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center shrink-0">
+                <MessageCircle className="w-3 h-3 fill-current" />
+              </span>
+              Join WhatsApp
+              <ExternalLink className="w-3 h-3 opacity-70" />
+            </a>
           )}
-
           {currentPopupIndex === 1 && socialLinks.telegram && (
-            <div className="bg-gradient-to-r from-sky-500 to-blue-600 p-5 rounded-2xl text-white shadow-2xl shadow-sky-500/30 border border-white/15 relative overflow-hidden group animate-in slide-in-from-bottom-5 duration-300">
-              <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-700"></div>
-              <div className="flex gap-4">
-                <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center shrink-0 shadow-lg animate-bounce">
-                  <Send className="w-6 h-6 text-white fill-current ml-0.5" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-extrabold text-[14px] leading-tight mb-1">Telegram Channel</h4>
-                  <p className="text-white/90 text-[11px] font-semibold leading-snug mb-3">Get standard study notes & instant practice sets free!</p>
-                  <a 
-                    href={socialLinks.telegram} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-white text-sky-700 font-extrabold text-[9px] uppercase tracking-widest rounded-xl hover:bg-sky-50 transition-all shadow-md active:scale-95"
-                  >
-                    Join Telegram
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                </div>
-              </div>
-            </div>
+            <a
+              href={socialLinks.telegram}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="pointer-events-auto flex items-center gap-2 bg-sky-500 hover:bg-sky-600 text-white pl-2.5 pr-3.5 py-1.5 rounded-full shadow-lg shadow-sky-500/30 text-[11px] font-bold transition-all duration-200 active:scale-95 animate-in slide-in-from-right-4 duration-300"
+            >
+              <span className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center shrink-0">
+                <Send className="w-3 h-3 fill-current ml-px" />
+              </span>
+              Join Telegram
+              <ExternalLink className="w-3 h-3 opacity-70" />
+            </a>
           )}
-
           {currentPopupIndex === 2 && socialLinks.youtube && (
-            <div className="bg-gradient-to-r from-rose-500 to-red-600 p-5 rounded-2xl text-white shadow-2xl shadow-rose-500/30 border border-white/15 relative overflow-hidden group animate-in slide-in-from-bottom-5 duration-300">
-              <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-700"></div>
-              <div className="flex gap-4">
-                <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center shrink-0 shadow-lg animate-bounce">
-                  <Youtube className="w-6 h-6 text-white fill-current" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-extrabold text-[14px] leading-tight mb-1">YouTube Classes</h4>
-                  <p className="text-white/90 text-[11px] font-semibold leading-snug mb-3">Subscribe for expert live lessons & complete preparation video series!</p>
-                  <a 
-                    href={socialLinks.youtube} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-white text-rose-700 font-extrabold text-[9px] uppercase tracking-widest rounded-xl hover:bg-rose-50 transition-all shadow-md active:scale-95"
-                  >
-                    Subscribe YouTube
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                </div>
-              </div>
-            </div>
+            <a
+              href={socialLinks.youtube}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="pointer-events-auto flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white pl-2.5 pr-3.5 py-1.5 rounded-full shadow-lg shadow-red-500/30 text-[11px] font-bold transition-all duration-200 active:scale-95 animate-in slide-in-from-right-4 duration-300"
+            >
+              <span className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center shrink-0">
+                <Youtube className="w-3 h-3 fill-current" />
+              </span>
+              Subscribe YouTube
+              <ExternalLink className="w-3 h-3 opacity-70" />
+            </a>
           )}
         </div>
       )}
