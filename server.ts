@@ -68,8 +68,6 @@ function syncTime() {
   });
 }
 
-await syncTime();
-
 import express from "express";
 import path from "path";
 import admin from "firebase-admin";
@@ -80,7 +78,7 @@ import { GoogleGenAI } from "@google/genai";
 let sqliteDb: any = null;
 
 // Initialize SQLite Database ONLY when running locally, never on Vercel (Item 6)
-if (!process.env.VERCEL) {
+async function initLocalSQLite() {
   try {
     const sqlite3 = (await import("sqlite3")).default;
     const sqliteDbPath = path.resolve(process.cwd(), "mock_analytics.db");
@@ -1985,9 +1983,21 @@ async function startVite() {
   }
 }
 
-// Start Vite but don't block
-startVite().catch(err => {
-  console.error("Crash during startVite:", err);
+// Initialize all services asynchronously to avoid top-level await bundler issues (Item 6)
+async function initServer() {
+  if (!process.env.VERCEL) {
+    try {
+      await syncTime();
+      await initLocalSQLite();
+    } catch (err: any) {
+      console.warn("Local services setup failed:", err.message);
+    }
+  }
+  await startVite();
+}
+
+initServer().catch(err => {
+  console.error("Crash during server initialization:", err);
 });
 
 export default app;
