@@ -1632,60 +1632,6 @@ app.use((req, res, next) => {
     }
   });
 
-  // Get all mock results
-  app.get("/api/admin/mock-results", verifyToken, verifyAdmin, async (req, res) => {
-    const currentDb = getDb();
-    if (!currentDb) return res.status(500).json({ error: "Database offline" });
-    try {
-      const snap = await currentDb.collection("results").orderBy("timestamp", "desc").get();
-      const results = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      
-      const userIds = [...new Set(results.map(r => (r as any).userId))];
-      const profilesMap: Record<string, { name: string, email: string }> = {};
-      
-      if (userIds.length > 0) {
-        for (let i = 0; i < userIds.length; i += 10) {
-          const chunk = userIds.slice(i, i + 10);
-          const profilesSnap = await currentDb.collection("profiles").where("__name__", "in", chunk).get();
-          profilesSnap.docs.forEach(p => {
-             const data = p.data();
-             profilesMap[p.id] = {
-               name: data.name || "Unknown Student",
-               email: data.email || data.phoneNumber || "N/A"
-             };
-          });
-        }
-      }
-      
-      const testIds = [...new Set(results.map(r => (r as any).testId))];
-      const testsMap: Record<string, string> = {};
-      if (testIds.length > 0) {
-        for (let i = 0; i < testIds.length; i += 10) {
-          const chunk = testIds.slice(i, i + 10);
-          const testsSnap = await currentDb.collection("tests").where("__name__", "in", chunk).get();
-          testsSnap.docs.forEach(t => {
-             testsMap[t.id] = t.data().category || "GK";
-          });
-        }
-      }
-
-      const enrichedResults = results.map(r => {
-        const profile = profilesMap[(r as any).userId as string] || { name: "Unknown Student", email: "N/A" };
-        return {
-          ...r,
-          studentName: profile.name,
-          studentEmail: profile.email,
-          category: testsMap[(r as any).testId as string] || "GK"
-        };
-      });
-      
-      res.json(enrichedResults);
-    } catch (error) {
-      console.error("[Admin API] Failed to fetch mock results", error);
-      res.status(500).json({ error: "Failed to fetch mock results" });
-    }
-  });
-
   // Seed 15 typing tests
   app.post("/api/admin/seed-typing-tests", verifyToken, verifyAdmin, async (req, res) => {
     const currentDb = getDb();
