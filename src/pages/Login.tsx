@@ -12,7 +12,7 @@ type AuthMode = 'login' | 'register' | 'forgot';
 export default function Login() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
-  
+
   const [mode, setMode] = useState<AuthMode>('login');
   const [isAdminLogin, setIsAdminLogin] = useState(false);
   const [fullName, setFullName] = useState('');
@@ -20,11 +20,11 @@ export default function Login() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  
+
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -39,16 +39,16 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setSuccess('');
-    
+
     // Normalize phone number
     const digitsOnly = phoneNumber.replace(/\D/g, '');
     const cleanPhone = digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
-    
+
     if (!fullName.trim() || !cleanPhone || !password || !confirmPassword || !email.trim()) {
       setError('All fields are mandatory for registration.');
       return;
     }
-    
+
     if (cleanPhone.length < 10) {
       setError('Please enter a valid 10-digit mobile number.');
       return;
@@ -63,7 +63,7 @@ export default function Login() {
       setError('Passwords do not match. Please verify.');
       return;
     }
-    
+
     setLoading(true);
 
     try {
@@ -125,13 +125,13 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setSuccess('');
-    
+
     const digitsOnly = phoneNumber.replace(/\D/g, '');
     const cleanPhone = digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
-    
+
     // Support login via either mobile number or email for complete flexibility
     const targetEmail = isAdminLogin ? email : (phoneNumber.includes('@') ? phoneNumber : getSyntheticEmail(cleanPhone));
-    
+
     if ((isAdminLogin && !email) || (!isAdminLogin && !phoneNumber) || !password) {
       setError('Please provide all credentials.');
       return;
@@ -162,7 +162,7 @@ export default function Login() {
     e.preventDefault();
     const digitsOnly = phoneNumber.replace(/\D/g, '');
     const cleanPhone = digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
-    
+
     if (!cleanPhone || !password) {
       setError('Please provide mobile and new password');
       return;
@@ -181,7 +181,7 @@ export default function Login() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mobile: cleanPhone, newPassword: password })
       });
-      
+
       if (!res.ok) {
         throw new Error('Failed to reset password. Please contact support.');
       }
@@ -200,17 +200,17 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans relative overflow-hidden">
-      
+
       {/* Decorative Premium Grid / Wave Background */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.15),transparent_45%)] pointer-events-none" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(236,72,153,0.08),transparent_50%)] pointer-events-none" />
-      
+
       <div className="sm:mx-auto sm:w-full sm:max-w-md z-10">
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-tr from-indigo-500 to-fuchsia-500 rounded-2xl text-white shadow-lg shadow-indigo-500/30 mb-4 transform -rotate-12 hover:rotate-0 transition-transform duration-300">
             <GraduationCap size={36} />
           </div>
-          
+
           <h1 className="text-4xl md:text-5xl font-black bg-gradient-to-r from-indigo-400 via-purple-300 to-fuchsia-400 bg-clip-text text-transparent tracking-tighter uppercase leading-tight drop-shadow-sm">
             Master Aptitude
           </h1>
@@ -221,21 +221,21 @@ export default function Login() {
       </div>
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md px-2 z-10">
-        
+
         {/* Main Glassmorphic Form Card */}
         <div className="bg-slate-950/40 backdrop-blur-xl py-8 px-6 sm:px-10 rounded-[32px] border border-slate-800 shadow-2xl shadow-black/50">
-          
+
           {/* Header Switcher (Student vs Admin UI) */}
           {!isAdminLogin ? (
             <div className="flex bg-slate-900/60 p-1.5 rounded-2xl mb-8 border border-slate-800/80">
-              <button 
+              <button
                 onClick={() => { setMode('login'); setError(''); setSuccess(''); }}
                 className={`flex-1 flex items-center justify-center py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl transition-all ${mode === 'login' && !isAdminLogin ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md shadow-indigo-600/20' : 'text-slate-400 hover:text-slate-200'}`}
               >
                 <LogIn size={15} className="mr-1.5" />
                 Login
               </button>
-              <button 
+              <button
                 onClick={() => { setMode('register'); setError(''); setSuccess(''); }}
                 className={`flex-1 flex items-center justify-center py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl transition-all ${mode === 'register' ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md shadow-indigo-600/20' : 'text-slate-400 hover:text-slate-200'}`}
               >
@@ -276,7 +276,7 @@ export default function Login() {
               )}
 
               <form className="space-y-5" onSubmit={isAdminLogin ? handleLogin : (mode === 'login' ? handleLogin : mode === 'register' ? handleRegister : handleResetPassword)}>
-                
+
                 {/* 1. STUDENT REGISTRATION TAB */}
                 {!isAdminLogin && mode === 'register' && (
                   <>
@@ -588,10 +588,10 @@ export default function Login() {
           {/* LOWER SECTION: Dedicated Admin Login Trigger */}
           <div className="mt-6 text-center pt-6 border-t border-slate-800/80">
             <button
-              onClick={() => { 
-                setIsAdminLogin(!isAdminLogin); 
-                setError(''); 
-                setSuccess(''); 
+              onClick={() => {
+                setIsAdminLogin(!isAdminLogin);
+                setError('');
+                setSuccess('');
                 setPassword('');
                 setEmail('');
                 setPhoneNumber('');

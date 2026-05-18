@@ -83,7 +83,7 @@ function ProtectedRoute({ children, adminOnly = false }: { children: React.React
   if (loading) return <div className="flex items-center justify-center min-h-screen text-gray-500">Loading...</div>;
   if (!user) return <Navigate to="/login" replace />;
   if (adminOnly && profile?.role !== 'admin') return <Navigate to="/dashboard" replace />;
-  
+
   return <>{children}</>;
 }
 
@@ -95,37 +95,37 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/" element={<Navigate to="/login" replace />} />
-            
+
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <Dashboard />
               </ProtectedRoute>
             } />
-            
+
             <Route path="/test/:testId" element={
               <ProtectedRoute>
                 <TestRunner />
               </ProtectedRoute>
             } />
-            
+
             <Route path="/typing-test" element={
               <ProtectedRoute>
                 <TypingTestList />
               </ProtectedRoute>
             } />
-            
+
             <Route path="/typing-test/:id" element={
               <ProtectedRoute>
                 <TypingTestRunner />
               </ProtectedRoute>
             } />
-            
+
             <Route path="/typing-test/:id/analysis" element={
               <ProtectedRoute>
                 <TypingTestAnalysis />
               </ProtectedRoute>
             } />
-            
+
             <Route path="/admin/*" element={
               <ProtectedRoute adminOnly>
                 <AdminDashboard />

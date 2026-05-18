@@ -5,7 +5,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { LogOut, ArrowLeft, Plus, Pencil, Trash2, FileText, BookOpen, Play, CheckCircle, Clock, X, User as UserIcon, Download, ShieldAlert, ShieldCheck, Key, Edit2, Search, LayoutDashboard, Layers } from 'lucide-react';
+import { LogOut, ArrowLeft, Plus, Pencil, Trash2, FileText, BookOpen, Play, CheckCircle, Clock, X, User as UserIcon, Download, ShieldAlert, ShieldCheck, Key, Edit2, Search, LayoutDashboard, Layers, TrendingUp, Award } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -123,6 +123,18 @@ function AdminHome() {
   const [socialWhatsapp, setSocialWhatsapp] = useState('');
   const [savingSocials, setSavingSocials] = useState(false);
 
+  // Mock Reports State
+  const [mockSubTab, setMockSubTab] = useState<'manage' | 'reports'>('manage');
+  const [mockResults, setMockResults] = useState<any[]>([]);
+  const [loadingMockResults, setLoadingMockResults] = useState(false);
+  const [mockReportsSearch, setMockReportsSearch] = useState('');
+  const [mockReportsFilterTest, setMockReportsFilterTest] = useState('All');
+  const [mockReportsFilterCategory, setMockReportsFilterCategory] = useState('All');
+  const [mockReportsFilterDate, setMockReportsFilterDate] = useState('All');
+  const [selectedMockAttempt, setSelectedMockAttempt] = useState<any | null>(null);
+  const [loadingMockAttemptDetails, setLoadingMockAttemptDetails] = useState(false);
+  const [mockAttemptDetailsQuestions, setMockAttemptDetailsQuestions] = useState<any[]>([]);
+
   const { user, profile } = useAuth();
   const passwordInputRef = useRef<HTMLInputElement>(null);
 
@@ -131,6 +143,56 @@ function AdminHome() {
       passwordInputRef.current.focus();
     }
   }, [editingStudent]);
+
+  // Fetch mock results when under sub-tab reports
+  const fetchMockResults = async () => {
+    if (!user) return;
+    setLoadingMockResults(true);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/admin/mock-results', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMockResults(data || []);
+      }
+    } catch (err) {
+      console.error("Error fetching mock results:", err);
+    } finally {
+      setLoadingMockResults(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'mock' && mockSubTab === 'reports') {
+      fetchMockResults();
+    }
+  }, [activeTab, mockSubTab]);
+
+  // Fetch attempt questions when attempt selected
+  useEffect(() => {
+    if (!selectedMockAttempt) return;
+    async function fetchAttemptDetails() {
+      setLoadingMockAttemptDetails(true);
+      setMockAttemptDetailsQuestions([]);
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        const res = await fetch(`/api/admin/test-attempt-analysis/${selectedMockAttempt.id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setMockAttemptDetailsQuestions(data.questions || []);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingMockAttemptDetails(false);
+      }
+    }
+    fetchAttemptDetails();
+  }, [selectedMockAttempt]);
 
   if (!user || (profile?.role !== 'admin' && user.email?.toLowerCase() !== 'bakolaypan@gmail.com')) {
     return (
@@ -1785,7 +1847,7 @@ function AdminHome() {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
               <span className="w-2 h-8 bg-indigo-600 rounded-full"></span>
-              Mock Test Management
+              Mock Test Panel
             </h2>
             <button 
               onClick={handleUpdateCategoryOrder}
@@ -1796,222 +1858,735 @@ function AdminHome() {
               {isUpdatingOrder ? 'Updating...' : 'Set Category Order'}
             </button>
           </div>
+
+          {/* Sub Navigation */}
+          <div className="flex gap-2 mb-6 border-b border-slate-200 pb-4">
+            <button 
+              onClick={() => setMockSubTab('manage')}
+              className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${mockSubTab === 'manage' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500 hover:bg-slate-100'}`}
+            >
+              Manage Tests
+            </button>
+            <button 
+              onClick={() => setMockSubTab('reports')}
+              className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${mockSubTab === 'reports' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500 hover:bg-slate-100'}`}
+            >
+              Student Reports
+            </button>
+          </div>
           
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
-            <h3 className="text-lg font-bold text-slate-800 mb-6">{editingTestId ? 'Edit Mock Test' : 'Create New Mock Test'}</h3>
-            <form onSubmit={handleCreateTest} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Test Title</label>
-                <input 
-                  type="text" 
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium" 
-                  value={title} onChange={e => setTitle(e.target.value)} 
-                  placeholder="e.g. Physics Section A"
-                />
+          {mockSubTab === 'manage' ? (
+            <>
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
+                <h3 className="text-lg font-bold text-slate-800 mb-6">{editingTestId ? 'Edit Mock Test' : 'Create New Mock Test'}</h3>
+                <form onSubmit={handleCreateTest} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Test Title</label>
+                    <input 
+                      type="text" 
+                      className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium" 
+                      value={title} onChange={e => setTitle(e.target.value)} 
+                      placeholder="e.g. Physics Section A"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Topic Name</label>
+                    <input 
+                      type="text" 
+                      className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium" 
+                      value={topic} onChange={e => setTopic(e.target.value)} 
+                      placeholder="e.g. Mechanics"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Subject Name</label>
+                    <input 
+                      type="text" 
+                      className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium" 
+                      value={subjectName} onChange={e => setSubjectName(e.target.value)} 
+                      placeholder="e.g. Physics"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Category</label>
+                    <select
+                      className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium" 
+                      value={category} onChange={e => setCategory(e.target.value)}
+                    >
+                      <option value="GK">GK</option>
+                      <option value="English">English</option>
+                      <option value="Math">Math</option>
+                      <option value="Reasoning">Reasoning</option>
+                      <option value="Computer">Computer</option>
+                      <option value="Science">Science</option>
+                      <option value="History">History</option>
+                      <option value="Geography">Geography</option>
+                      <option value="Polity">Polity</option>
+                      <option value="Economics">Economics</option>
+                      <option value="Current Affairs">Current Affairs</option>
+                      {customMockCategories.filter(c => c.categoryType === 'mock').map(c => (
+                        <option key={c.id} value={c.categoryName}>{c.categoryName}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Test Type</label>
+                    <select
+                      className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium" 
+                      value={testType} onChange={e => setTestType(e.target.value)}
+                    >
+                      <option value="topic">Topic Wise Mock Test</option>
+                      <option value="sectional">Sectional Mock Test</option>
+                      <option value="full">Full Mock Test</option>
+                    </select>
+                  </div>
+                  <div className="w-full">
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Duration (Mins)</label>
+                    <input 
+                      type="number" 
+                      min="1"
+                      className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium" 
+                      value={duration} onChange={e => setDuration(e.target.value)} 
+                    />
+                  </div>
+                  <div className="w-full">
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Marks (+ve)</label>
+                    <input 
+                      type="number" step="0.1"
+                      className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium" 
+                      value={marksPerCorrect} onChange={e => setMarksPerCorrect(e.target.value)} 
+                    />
+                  </div>
+                  <div className="w-full">
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Negative (-ve)</label>
+                    <input 
+                      type="number" step="0.01"
+                      className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium" 
+                      value={negativeMarks} onChange={e => setNegativeMarks(e.target.value)} 
+                    />
+                  </div>
+                  <div className="md:col-span-4 flex gap-4">
+                    <button type="submit" className="flex-1 bg-indigo-600 text-white px-6 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-indigo-50 flex items-center justify-center gap-2">
+                      <Plus className="w-5 h-5" />
+                      {editingTestId ? 'Update Test' : 'Build Test'}
+                    </button>
+                    {editingTestId && (
+                      <button 
+                        type="button" 
+                        onClick={() => {
+                          setEditingTestId(null);
+                          setTitle('');
+                          setTopic('');
+                          setDuration('30');
+                        }}
+                        className="flex-1 bg-slate-100 text-slate-600 px-6 py-4 rounded-xl hover:bg-slate-200 font-bold transition-all"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </form>
               </div>
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Topic Name</label>
-                <input 
-                  type="text" 
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium" 
-                  value={topic} onChange={e => setTopic(e.target.value)} 
-                  placeholder="e.g. Mechanics"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Subject Name</label>
-                <input 
-                  type="text" 
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium" 
-                  value={subjectName} onChange={e => setSubjectName(e.target.value)} 
-                  placeholder="e.g. Physics"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Category</label>
-                <select
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium" 
-                  value={category} onChange={e => setCategory(e.target.value)}
+
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 mb-4 flex flex-wrap gap-4 items-center">
+                <div className="flex-1 min-w-[200px] relative">
+                  <input 
+                    type="text" 
+                    placeholder="Search mock tests..." 
+                    className="w-full bg-slate-50 border-none rounded-xl p-3 pl-10 text-sm font-medium focus:ring-2 focus:ring-indigo-500"
+                    value={mockSearch}
+                    onChange={e => setMockSearch(e.target.value)}
+                  />
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                </div>
+                <select 
+                  className="bg-slate-50 border-none rounded-xl p-3 text-sm font-bold text-slate-600 focus:ring-2 focus:ring-indigo-500"
+                  value={mockFilterCategory}
+                  onChange={e => setMockFilterCategory(e.target.value)}
                 >
-                  <option value="GK">GK</option>
-                  <option value="English">English</option>
-                  <option value="Math">Math</option>
-                  <option value="Reasoning">Reasoning</option>
-                  <option value="Computer">Computer</option>
-                  <option value="Science">Science</option>
-                  <option value="History">History</option>
-                  <option value="Geography">Geography</option>
-                  <option value="Polity">Polity</option>
-                  <option value="Economics">Economics</option>
-                  <option value="Current Affairs">Current Affairs</option>
-                  {customMockCategories.filter(c => c.categoryType === 'mock').map(c => (
-                    <option key={c.id} value={c.categoryName}>{c.categoryName}</option>
+                  <option value="All">All Categories</option>
+                  {Array.from(new Set(tests.map(t => t.category).filter(Boolean))).map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
-              </div>
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Test Type</label>
-                <select
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium" 
-                  value={testType} onChange={e => setTestType(e.target.value)}
+                <select 
+                  className="bg-slate-50 border-none rounded-xl p-3 text-sm font-bold text-slate-600 focus:ring-2 focus:ring-indigo-500"
+                  value={mockFilterType}
+                  onChange={e => setMockFilterType(e.target.value)}
                 >
-                  <option value="topic">Topic Wise Mock Test</option>
-                  <option value="sectional">Sectional Mock Test</option>
-                  <option value="full">Full Mock Test</option>
+                  <option value="All">All Types</option>
+                  <option value="topic">Topic Wise</option>
+                  <option value="sectional">Sectional</option>
+                  <option value="full">Full Mock</option>
                 </select>
               </div>
-              <div className="w-full">
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Duration (Mins)</label>
-                <input 
-                  type="number" 
-                  min="1"
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium" 
-                  value={duration} onChange={e => setDuration(e.target.value)} 
-                />
-              </div>
-              <div className="w-full">
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Marks (+ve)</label>
-                <input 
-                  type="number" step="0.1"
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium" 
-                  value={marksPerCorrect} onChange={e => setMarksPerCorrect(e.target.value)} 
-                />
-              </div>
-              <div className="w-full">
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Negative (-ve)</label>
-                <input 
-                  type="number" step="0.01"
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium" 
-                  value={negativeMarks} onChange={e => setNegativeMarks(e.target.value)} 
-                />
-              </div>
-              <div className="md:col-span-4 flex gap-4">
-                <button type="submit" className="flex-1 bg-indigo-600 text-white px-6 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-indigo-50 flex items-center justify-center gap-2">
-                  <Plus className="w-5 h-5" />
-                  {editingTestId ? 'Update Test' : 'Build Test'}
-                </button>
-                {editingTestId && (
-                  <button 
-                    type="button" 
-                    onClick={() => {
-                      setEditingTestId(null);
-                      setTitle('');
-                      setTopic('');
-                      setDuration('30');
-                    }}
-                    className="flex-1 bg-slate-100 text-slate-600 px-6 py-4 rounded-xl hover:bg-slate-200 font-bold transition-all"
-                  >
-                    Cancel
-                  </button>
-                )}
-              </div>
-            </form>
-          </div>
 
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 mb-4 flex flex-wrap gap-4 items-center">
-            <div className="flex-1 min-w-[200px] relative">
-              <input 
-                type="text" 
-                placeholder="Search mock tests..." 
-                className="w-full bg-slate-50 border-none rounded-xl p-3 pl-10 text-sm font-medium focus:ring-2 focus:ring-indigo-500"
-                value={mockSearch}
-                onChange={e => setMockSearch(e.target.value)}
-              />
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            </div>
-            <select 
-              className="bg-slate-50 border-none rounded-xl p-3 text-sm font-bold text-slate-600 focus:ring-2 focus:ring-indigo-500"
-              value={mockFilterCategory}
-              onChange={e => setMockFilterCategory(e.target.value)}
-            >
-              <option value="All">All Categories</option>
-              {Array.from(new Set(tests.map(t => t.category).filter(Boolean))).map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-            <select 
-              className="bg-slate-50 border-none rounded-xl p-3 text-sm font-bold text-slate-600 focus:ring-2 focus:ring-indigo-500"
-              value={mockFilterType}
-              onChange={e => setMockFilterType(e.target.value)}
-            >
-              <option value="All">All Types</option>
-              <option value="topic">Topic Wise</option>
-              <option value="sectional">Sectional</option>
-              <option value="full">Full Mock</option>
-            </select>
-          </div>
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                <table className="min-w-full divide-y divide-slate-100">
+                  <thead className="bg-slate-50/50">
+                    <tr>
+                      <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Test Name</th>
+                      <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Topic</th>
+                      <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Time</th>
+                      <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Status</th>
+                      <th className="px-8 py-5 text-right text-xs font-black text-slate-400 uppercase tracking-widest">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-slate-50 relative">
+                    {loading && <tr><td colSpan={5} className="px-8 py-10 text-center text-slate-400 font-bold">Fetching Tests...</td></tr>}
+                    {!loading && filteredTests.map(test => (
+                      <tr key={test.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-8 py-6 whitespace-nowrap text-sm font-bold text-slate-800">{test.title || 'Untitled'}</td>
+                        <td className="px-8 py-6 whitespace-nowrap text-sm font-medium text-slate-500">
+                          <div className="flex flex-col gap-1">
+                            <span className="bg-slate-100 px-3 py-1 rounded-lg text-slate-600 inline-block w-fit">{test.topic || 'No Topic'}</span>
+                            {test.subjectName && <span className="text-xs text-slate-400 font-bold">{test.subjectName}</span>}
+                            <div className="flex gap-2 items-center">
+                              <span className="text-[10px] uppercase font-bold text-indigo-500 tracking-wider">
+                                {test.testType === 'topic' ? 'Topic Wise' : test.testType === 'sectional' ? 'Sectional' : 'Full Mock'}
+                              </span>
+                              {test.category && <span className="text-[10px] uppercase font-black text-emerald-500 bg-emerald-50 px-2 rounded">{test.category}</span>}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-8 py-6 whitespace-nowrap text-sm text-slate-500">
+                          <button onClick={() => updateDuration(test)} className="font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg hover:bg-indigo-100 transition-colors">
+                            {test.duration || 30}m
+                          </button>
+                        </td>
+                        <td className="px-8 py-6 whitespace-nowrap text-sm">
+                          <button 
+                            onClick={() => toggleActive(test)}
+                            className={`px-4 py-1.5 inline-flex text-xs font-black uppercase tracking-widest rounded-full transition-all ${test.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}
+                          >
+                            {test.isActive ? 'Active' : 'Draft'}
+                          </button>
+                        </td>
+                        <td className="px-8 py-6 whitespace-nowrap text-right text-sm font-bold">
+                          <div className="flex justify-end gap-2">
+                            <button 
+                              onClick={() => handleEditTest(test)}
+                              className="text-amber-600 hover:bg-amber-100 px-3 py-1.5 rounded-lg transition-all border border-amber-100 font-bold text-xs"
+                              title="Edit Test Settings (Title, Time)"
+                            >
+                              Settings
+                            </button>
+                            <Link 
+                              to={`/admin/test/${test.id}`} 
+                              className="text-indigo-600 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-all border border-indigo-100 font-bold text-xs"
+                              title="Modify Questions & Solutions"
+                            >
+                              Modify
+                            </Link>
+                            <button 
+                              onClick={() => handleDeleteContent('tests', test.id)} 
+                              className="text-rose-500 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-all border border-rose-100 font-bold text-xs"
+                              title="Delete Test"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {!loading && tests.length === 0 && <tr><td colSpan={5} className="px-8 py-10 text-center text-slate-400 font-bold">No tests created yet.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : (
+            // Student Reports Sub Tab
+            <div className="space-y-8 animate-in fade-in duration-300">
+              {/* Analytics Header Grid */}
+              {(() => {
+                const filteredAttempts = mockResults.filter(r => {
+                  const matchesSearch = (r.studentName || '').toLowerCase().includes(mockReportsSearch.toLowerCase()) ||
+                                        (r.studentEmail || '').toLowerCase().includes(mockReportsSearch.toLowerCase());
+                  const matchesTest = mockReportsFilterTest === 'All' || r.testTitle === mockReportsFilterTest;
+                  const matchesCategory = mockReportsFilterCategory === 'All' || r.category === mockReportsFilterCategory;
+                  
+                  let matchesDate = true;
+                  if (mockReportsFilterDate !== 'All') {
+                    const todayStart = new Date().setHours(0, 0, 0, 0);
+                    const attemptDate = r.timestamp || 0;
+                    if (mockReportsFilterDate === 'Today') {
+                      matchesDate = attemptDate >= todayStart;
+                    } else if (mockReportsFilterDate === '7days') {
+                      matchesDate = attemptDate >= (todayStart - 7 * 24 * 60 * 60 * 1000);
+                    } else if (mockReportsFilterDate === '30days') {
+                      matchesDate = attemptDate >= (todayStart - 30 * 24 * 60 * 60 * 1000);
+                    }
+                  }
+                  return matchesSearch && matchesTest && matchesCategory && matchesDate;
+                });
 
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-            <table className="min-w-full divide-y divide-slate-100">
-              <thead className="bg-slate-50/50">
-                <tr>
-                  <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Test Name</th>
-                  <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Topic</th>
-                  <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Time</th>
-                  <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Status</th>
-                  <th className="px-8 py-5 text-right text-xs font-black text-slate-400 uppercase tracking-widest">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-slate-50 relative">
-                {loading && <tr><td colSpan={5} className="px-8 py-10 text-center text-slate-400 font-bold">Fetching Tests...</td></tr>}
-                {!loading && filteredTests.map(test => (
-                  <tr key={test.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-8 py-6 whitespace-nowrap text-sm font-bold text-slate-800">{test.title || 'Untitled'}</td>
-                    <td className="px-8 py-6 whitespace-nowrap text-sm font-medium text-slate-500">
-                      <div className="flex flex-col gap-1">
-                        <span className="bg-slate-100 px-3 py-1 rounded-lg text-slate-600 inline-block w-fit">{test.topic || 'No Topic'}</span>
-                        {test.subjectName && <span className="text-xs text-slate-400 font-bold">{test.subjectName}</span>}
-                        <div className="flex gap-2 items-center">
-                          <span className="text-[10px] uppercase font-bold text-indigo-500 tracking-wider">
-                            {test.testType === 'topic' ? 'Topic Wise' : test.testType === 'sectional' ? 'Sectional' : 'Full Mock'}
-                          </span>
-                          {test.category && <span className="text-[10px] uppercase font-black text-emerald-500 bg-emerald-50 px-2 rounded">{test.category}</span>}
+                const totalAttempts = filteredAttempts.length;
+                const avgScore = totalAttempts > 0 
+                  ? parseFloat((filteredAttempts.reduce((acc, r) => acc + (r.score || 0), 0) / totalAttempts).toFixed(2)) 
+                  : 0;
+                const highestScore = totalAttempts > 0 
+                  ? Math.max(...filteredAttempts.map(r => r.score || 0)) 
+                  : 0;
+                const lowestScore = totalAttempts > 0 
+                  ? Math.min(...filteredAttempts.map(r => r.score || 0)) 
+                  : 0;
+
+                // Graph calculations
+                const graphData = [...filteredAttempts]
+                  .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+                  .slice(-15);
+                const maxGVal = Math.max(...graphData.map(d => d.score || 0), 100);
+                const minGVal = Math.min(...graphData.map(d => d.score || 0), 0);
+                const gRange = maxGVal - minGVal || 100;
+                const gWidth = 500;
+                const gHeight = 150;
+                const gPadding = 20;
+                const points = graphData.map((d, index) => {
+                  const x = gPadding + (index * (gWidth - gPadding * 2)) / (graphData.length - 1 || 1);
+                  const y = gHeight - gPadding - (((d.score || 0) - minGVal) * (gHeight - gPadding * 2)) / gRange;
+                  return { x, y, score: d.score };
+                });
+                const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+
+                const handleMockCSVExport = () => {
+                  const csvRows = [
+                    ["Student Name", "Student ID / Email", "Mock Test Name", "Exam Category", "Attempted", "Correct", "Wrong", "Skipped", "Marks Obtained", "Accuracy %", "Time Taken", "Date"],
+                    ...filteredAttempts.map(r => [
+                      r.studentName,
+                      r.studentEmail,
+                      r.testTitle,
+                      r.category,
+                      (r.correctAnswers || 0) + (r.wrongAnswers || 0),
+                      r.correctAnswers || 0,
+                      r.wrongAnswers || 0,
+                      r.unattempted || 0,
+                      r.score || 0,
+                      `${r.accuracy || 0}%`,
+                      r.timeTaken || 'N/A',
+                      new Date(r.timestamp).toLocaleString()
+                    ])
+                  ];
+                  const csvContent = "data:text/csv;charset=utf-8," 
+                    + csvRows.map(e => e.map(val => `"${val}"`).join(",")).join("\n");
+                  const encodedUri = encodeURI(csvContent);
+                  const link = document.createElement("a");
+                  link.setAttribute("href", encodedUri);
+                  link.setAttribute("download", `Mock_Test_Reports_${Date.now()}.csv`);
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                };
+
+                const handleMockSinglePDFExport = (attempt: any) => {
+                  setLoadingMockAttemptDetails(true);
+                  // Load attempt details and build PDF
+                  async function fetchAndGenPDF() {
+                    try {
+                      const token = await auth.currentUser?.getIdToken();
+                      const res = await fetch(`/api/admin/test-attempt-analysis/${attempt.id}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                      });
+                      if (res.ok) {
+                        const data = await res.json();
+                        const questions = data.questions || [];
+                        
+                        const doc = new jsPDF();
+                        doc.setFontSize(22);
+                        doc.setTextColor(79, 70, 229);
+                        doc.text(`Master Aptitude Mock Test Performance Report`, 14, 20);
+
+                        doc.setFontSize(11);
+                        doc.setTextColor(100, 116, 139);
+                        doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 27);
+
+                        doc.setFontSize(13);
+                        doc.setTextColor(30, 41, 59);
+                        doc.text(`Attempt Details`, 14, 38);
+                        doc.line(14, 40, 196, 40);
+
+                        doc.setFontSize(11);
+                        doc.text(`Student Name: ${attempt.studentName}`, 14, 48);
+                        doc.text(`Email: ${attempt.studentEmail}`, 14, 55);
+                        doc.text(`Mock Test: ${attempt.testTitle}`, 14, 62);
+                        doc.text(`Category: ${attempt.category}`, 14, 69);
+                        doc.text(`Score Obtained: ${attempt.score}`, 14, 76);
+                        doc.text(`Accuracy: ${attempt.accuracy}%`, 14, 83);
+                        doc.text(`Time Taken: ${attempt.timeTaken}`, 14, 90);
+                        doc.text(`Attempt Date: ${new Date(attempt.timestamp).toLocaleString()}`, 14, 97);
+
+                        if (questions.length > 0) {
+                          doc.setFontSize(13);
+                          doc.text(`Question-Wise Performance Analysis`, 14, 110);
+                          doc.line(14, 112, 196, 112);
+
+                          const headers = [["Q No", "Student Ans", "Correct Ans", "Status", "Time Spent"]];
+                          const tableData = questions.map((q: any) => [
+                            `Q${q.questionNo}`,
+                            q.studentAnswer || '--',
+                            q.correctAnswer,
+                            !q.studentAnswer ? 'Skipped' : q.isCorrect ? 'Correct' : 'Wrong',
+                            `${q.timeTaken || 0}s`
+                          ]);
+
+                          (doc as any).autoTable({
+                            startY: 116,
+                            head: headers,
+                            body: tableData,
+                            theme: 'striped',
+                            headStyles: { fillColor: [79, 70, 229] }
+                          });
+                        }
+
+                        doc.save(`${attempt.studentName}_mock_attempt_${attempt.id}.pdf`);
+                      }
+                    } catch (e) {
+                      console.error("PDF generation failed:", e);
+                    } finally {
+                      setLoadingMockAttemptDetails(false);
+                    }
+                  }
+                  fetchAndGenPDF();
+                };
+
+                return (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
+                        <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center">
+                          <BookOpen className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Attempts</span>
+                          <span className="text-2xl font-black text-slate-800">{totalAttempts}</span>
                         </div>
                       </div>
-                    </td>
-                    <td className="px-8 py-6 whitespace-nowrap text-sm text-slate-500">
-                      <button onClick={() => updateDuration(test)} className="font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg hover:bg-indigo-100 transition-colors">
-                        {test.duration || 30}m
-                      </button>
-                    </td>
-                    <td className="px-8 py-6 whitespace-nowrap text-sm">
-                      <button 
-                        onClick={() => toggleActive(test)}
-                        className={`px-4 py-1.5 inline-flex text-xs font-black uppercase tracking-widest rounded-full transition-all ${test.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}
-                      >
-                        {test.isActive ? 'Active' : 'Draft'}
-                      </button>
-                    </td>
-                    <td className="px-8 py-6 whitespace-nowrap text-right text-sm font-bold">
-                      <div className="flex justify-end gap-2">
-                        <button 
-                          onClick={() => handleEditTest(test)}
-                          className="text-amber-600 hover:bg-amber-100 px-3 py-1.5 rounded-lg transition-all border border-amber-100 font-bold text-xs"
-                          title="Edit Test Settings (Title, Time)"
-                        >
-                          Settings
-                        </button>
-                        <Link 
-                          to={`/admin/test/${test.id}`} 
-                          className="text-indigo-600 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-all border border-indigo-100 font-bold text-xs"
-                          title="Modify Questions & Solutions"
-                        >
-                          Modify
-                        </Link>
-                        <button 
-                          onClick={() => handleDeleteContent('tests', test.id)} 
-                          className="text-rose-500 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-all border border-rose-100 font-bold text-xs"
-                          title="Delete Test"
-                        >
-                          Delete
-                        </button>
+
+                      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
+                        <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center">
+                          <TrendingUp className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Average Score</span>
+                          <span className="text-2xl font-black text-slate-800">{avgScore}</span>
+                        </div>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-                {!loading && tests.length === 0 && <tr><td colSpan={5} className="px-8 py-10 text-center text-slate-400 font-bold">No tests created yet.</td></tr>}
-              </tbody>
-            </table>
+
+                      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
+                        <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center">
+                          <Award className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Highest Score</span>
+                          <span className="text-2xl font-black text-slate-800">{highestScore}</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
+                        <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center">
+                          <Trash2 className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Lowest Score</span>
+                          <span className="text-2xl font-black text-slate-800">{lowestScore}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Overall Performance Graph */}
+                    <div className="bg-slate-900 text-white p-6 rounded-3xl border border-slate-800 space-y-4">
+                      <h5 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-emerald-400 animate-pulse" />
+                        Overall Attempts Score Progression & Performance Graph
+                      </h5>
+                      {graphData.length > 1 ? (
+                        <div className="relative pt-4">
+                          <svg viewBox="0 0 500 150" className="w-full h-40 overflow-visible">
+                            <line x1="20" y1="10" x2="480" y2="10" stroke="#1e293b" strokeDasharray="3,3" />
+                            <line x1="20" y1="50" x2="480" y2="50" stroke="#1e293b" strokeDasharray="3,3" />
+                            <line x1="20" y1="90" x2="480" y2="90" stroke="#1e293b" strokeDasharray="3,3" />
+                            <line x1="20" y1="130" x2="480" y2="130" stroke="#1e293b" />
+
+                            <path d={pathD} fill="none" stroke="url(#indigoGradMock)" strokeWidth="3" strokeLinecap="round" />
+                            {points.map((p, idx) => (
+                              <g key={idx}>
+                                <circle cx={p.x} cy={p.y} r="4" fill="#6366f1" />
+                                <text x={p.x} y={p.y - 10} textAnchor="middle" fill="#a5b4fc" className="text-[8px] font-bold font-mono">
+                                  {p.score}
+                                </text>
+                                <text x={p.x} y="145" textAnchor="middle" fill="#64748b" className="text-[7px] font-medium">
+                                  {new Date(graphData[idx].timestamp).toLocaleDateString()}
+                                </text>
+                              </g>
+                            ))}
+                            <defs>
+                              <linearGradient id="indigoGradMock" x1="0" y1="0" x2="1" y2="0">
+                                <stop offset="0%" stopColor="#818cf8" />
+                                <stop offset="100%" stopColor="#34d399" />
+                              </linearGradient>
+                            </defs>
+                          </svg>
+                        </div>
+                      ) : (
+                        <div className="h-40 flex items-center justify-center border border-slate-800 border-dashed rounded-2xl text-slate-500 text-sm font-bold">
+                          At least 2 attempts are required to plot the performance trend graph.
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Search & Filter bar */}
+                    <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 flex flex-wrap gap-4 items-center">
+                      <div className="flex-1 min-w-[200px] relative">
+                        <input 
+                          type="text" 
+                          placeholder="Search by student name or email..." 
+                          className="w-full bg-slate-50 border-none rounded-xl p-3 pl-10 text-sm font-medium focus:ring-2 focus:ring-indigo-500"
+                          value={mockReportsSearch}
+                          onChange={e => setMockReportsSearch(e.target.value)}
+                        />
+                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      </div>
+                      <select 
+                        className="bg-slate-50 border-none rounded-xl p-3 text-sm font-bold text-slate-600 focus:ring-2 focus:ring-indigo-500"
+                        value={mockReportsFilterTest}
+                        onChange={e => setMockReportsFilterTest(e.target.value)}
+                      >
+                        <option value="All">All Tests</option>
+                        {Array.from(new Set(mockResults.map(r => r.testTitle).filter(Boolean))).map(title => (
+                          <option key={title} value={title}>{title}</option>
+                        ))}
+                      </select>
+                      <select 
+                        className="bg-slate-50 border-none rounded-xl p-3 text-sm font-bold text-slate-600 focus:ring-2 focus:ring-indigo-500"
+                        value={mockReportsFilterCategory}
+                        onChange={e => setMockReportsFilterCategory(e.target.value)}
+                      >
+                        <option value="All">All Categories</option>
+                        {Array.from(new Set(mockResults.map(r => r.category).filter(Boolean))).map(cat => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                      <select 
+                        className="bg-slate-50 border-none rounded-xl p-3 text-sm font-bold text-slate-600 focus:ring-2 focus:ring-indigo-500"
+                        value={mockReportsFilterDate}
+                        onChange={e => setMockReportsFilterDate(e.target.value)}
+                      >
+                        <option value="All">All Time</option>
+                        <option value="Today">Today</option>
+                        <option value="7days">Last 7 Days</option>
+                        <option value="30days">Last 30 Days</option>
+                      </select>
+                      <button 
+                        onClick={handleMockCSVExport}
+                        className="px-4 py-3 bg-emerald-600 hover:bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2"
+                      >
+                        Export Excel/CSV
+                      </button>
+                    </div>
+
+                    {/* Table View */}
+                    <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-slate-100">
+                          <thead className="bg-slate-50/50">
+                            <tr>
+                              <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Student</th>
+                              <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Mock Test</th>
+                              <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Category</th>
+                              <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Attempt Status</th>
+                              <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Score / %</th>
+                              <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Rank</th>
+                              <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Time</th>
+                              <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Attempt Date</th>
+                              <th className="px-6 py-5 text-right text-xs font-black text-slate-400 uppercase tracking-widest">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-slate-50">
+                            {loadingMockResults && (
+                              <tr>
+                                <td colSpan={9} className="px-6 py-12 text-center text-slate-400 font-bold">
+                                  Fetching Student Mock Results...
+                                </td>
+                              </tr>
+                            )}
+                            {!loadingMockResults && filteredAttempts.map(attempt => {
+                              const attempted = (attempt.correctAnswers || 0) + (attempt.wrongAnswers || 0);
+                              const percentage = attempt.totalQuestions > 0 
+                                ? ((attempt.correctAnswers / attempt.totalQuestions) * 100).toFixed(1)
+                                : '0.0';
+
+                              return (
+                                <tr key={attempt.id} className="hover:bg-slate-50/50 transition-colors">
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="flex flex-col">
+                                      <span className="text-sm font-bold text-slate-800">{attempt.studentName}</span>
+                                      <span className="text-xs text-slate-400 font-medium">{attempt.studentEmail}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-800">
+                                    {attempt.testTitle}
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <span className="bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded">
+                                      {attempt.category}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="flex flex-col gap-0.5">
+                                      <div className="flex gap-1.5 text-xs font-bold text-slate-600">
+                                        <span className="text-emerald-600" title="Correct">C: {attempt.correctAnswers || 0}</span>
+                                        <span className="text-rose-500" title="Wrong">W: {attempt.wrongAnswers || 0}</span>
+                                        <span className="text-slate-400" title="Skipped">S: {attempt.unattempted || 0}</span>
+                                      </div>
+                                      <span className="text-[10px] text-slate-400 font-bold">Total: {attempt.totalQuestions || 0} | Attempted: {attempted}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="flex flex-col">
+                                      <span className="text-sm font-black text-indigo-600">{attempt.score || 0} Marks</span>
+                                      <span className="text-[10px] text-emerald-600 font-black">{percentage}% Perf | {attempt.accuracy || 0}% Acc</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-500">
+                                    #{attempt.rank || attempt.globalRank || 'N/A'}
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-xs text-slate-500 font-medium">
+                                    {attempt.timeTaken || 'N/A'}
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-xs text-slate-500 font-medium">
+                                    {new Date(attempt.timestamp).toLocaleString()}
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-bold">
+                                    <div className="flex justify-end gap-2">
+                                      <button 
+                                        onClick={() => setSelectedMockAttempt(attempt)}
+                                        className="text-indigo-600 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-all border border-indigo-100 font-bold text-xs"
+                                        title="View detailed question list report"
+                                      >
+                                        View Report
+                                      </button>
+                                      <button 
+                                        onClick={() => handleMockSinglePDFExport(attempt)}
+                                        className="text-emerald-600 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition-all border border-emerald-100 font-bold text-xs"
+                                        title="Download attempt PDF"
+                                      >
+                                        PDF
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                            {!loadingMockResults && filteredAttempts.length === 0 && (
+                              <tr>
+                                <td colSpan={9} className="px-6 py-12 text-center text-slate-400 font-bold">
+                                  No mock test student reports recorded yet.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Detailed Mock Attempt Report Modal */}
+      {selectedMockAttempt && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl shadow-xl max-w-4xl w-full max-h-[85vh] overflow-hidden flex flex-col border border-slate-100 animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div>
+                <h3 className="text-lg font-black text-slate-800 uppercase tracking-wide">
+                  Detailed Question Analysis
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  Student: {selectedMockAttempt.studentName} ({selectedMockAttempt.studentEmail}) | Test: {selectedMockAttempt.testTitle}
+                </p>
+              </div>
+              <button 
+                onClick={() => setSelectedMockAttempt(null)}
+                className="text-slate-400 hover:text-slate-600 font-bold text-sm bg-white hover:bg-slate-100 w-8 h-8 rounded-full flex items-center justify-center border border-slate-200 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1">
+              {/* Performance summary card */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
+                  <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Score</span>
+                  <span className="text-lg font-black text-indigo-600">{selectedMockAttempt.score}</span>
+                </div>
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
+                  <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Accuracy</span>
+                  <span className="text-lg font-black text-emerald-600">{selectedMockAttempt.accuracy}%</span>
+                </div>
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
+                  <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Time Taken</span>
+                  <span className="text-lg font-black text-slate-700">{selectedMockAttempt.timeTaken}</span>
+                </div>
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
+                  <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</span>
+                  <span className="text-xs font-bold text-slate-600 block mt-1">{new Date(selectedMockAttempt.timestamp).toLocaleDateString()}</span>
+                </div>
+              </div>
+
+              {/* Question table */}
+              {loadingMockAttemptDetails ? (
+                <div className="flex flex-col items-center justify-center py-20">
+                  <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                  <p className="text-slate-500 font-bold text-sm">Loading Response Analysis...</p>
+                </div>
+              ) : mockAttemptDetailsQuestions.length === 0 ? (
+                <div className="text-center py-10 text-slate-400 font-bold text-sm">
+                  No detailed question metrics found for this attempt.
+                </div>
+              ) : (
+                <div className="border border-slate-100 rounded-2xl overflow-hidden shadow-xs">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 text-slate-400 border-b border-slate-100">
+                          <th className="p-4 text-xs font-black uppercase tracking-widest">Q No</th>
+                          <th className="p-4 text-xs font-black uppercase tracking-widest">Subject</th>
+                          <th className="p-4 text-xs font-black uppercase tracking-widest">Your Selected Ans</th>
+                          <th className="p-4 text-xs font-black uppercase tracking-widest">Correct Answer</th>
+                          <th className="p-4 text-xs font-black uppercase tracking-widest">Status</th>
+                          <th className="p-4 text-xs font-black uppercase tracking-widest text-right">Time Spent</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {mockAttemptDetailsQuestions.map((q: any) => (
+                          <tr key={q.questionNo} className="hover:bg-slate-50/50">
+                            <td className="p-4 text-sm font-mono font-bold text-slate-800">Q{q.questionNo}</td>
+                            <td className="p-4 text-xs font-bold text-slate-500">{q.subject}</td>
+                            <td className="p-4 text-sm font-mono font-bold text-slate-500">{q.studentAnswer || '--'}</td>
+                            <td className="p-4 text-sm font-mono font-bold text-emerald-600">{q.correctAnswer}</td>
+                            <td className="p-4">
+                              <span className={`px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-wide ${
+                                !q.studentAnswer ? 'bg-slate-100 text-slate-400' :
+                                q.isCorrect ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
+                              }`}>
+                                {!q.studentAnswer ? 'Skipped' : q.isCorrect ? 'Correct' : 'Wrong'}
+                              </span>
+                            </td>
+                            <td className="p-4 text-right text-xs font-mono font-bold text-slate-500">{q.timeTaken || 0}s</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
