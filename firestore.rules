@@ -116,5 +116,15 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
+
+    match /typing_tests/{testId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /typing_results/{resultId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow write: if isAdmin();
+    }
   }
 }

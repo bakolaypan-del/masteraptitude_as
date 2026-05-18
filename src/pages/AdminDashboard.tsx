@@ -5,7 +5,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { LogOut, ArrowLeft, Plus, Pencil, Trash2, FileText, BookOpen, Play, CheckCircle, Clock, X, User as UserIcon, Download, ShieldAlert, ShieldCheck, Key, Edit2, Search, LayoutDashboard, Layers, TrendingUp } from 'lucide-react';
+import { LogOut, ArrowLeft, Plus, Pencil, Trash2, FileText, BookOpen, Play, CheckCircle, Clock, X, User as UserIcon, Download, ShieldAlert, ShieldCheck, Key, Edit2, Search, LayoutDashboard, Layers, TrendingUp, Link2, Check } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -34,6 +34,14 @@ function AdminHome() {
   const [customMockCategories, setCustomMockCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<AdminTab>('mock');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const copyLink = (url: string, id: string) => {
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
+  };
 
   // Admin Attempts Analyzer state
   const [selectedStudentForAnalysis, setSelectedStudentForAnalysis] = useState<any | null>(null);
@@ -1957,12 +1965,19 @@ function AdminHome() {
                         >
                           Modify
                         </Link>
-                        <button 
-                          onClick={() => handleDeleteContent('tests', test.id)} 
+                        <button
+                          onClick={() => handleDeleteContent('tests', test.id)}
                           className="text-rose-500 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-all border border-rose-100 font-bold text-xs"
                           title="Delete Test"
                         >
                           Delete
+                        </button>
+                        <button
+                          onClick={() => copyLink(`${window.location.origin}/test/${test.id}`, test.id)}
+                          className={`px-3 py-1.5 rounded-lg transition-all border font-bold text-xs flex items-center gap-1 ${copiedId === test.id ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'text-violet-600 hover:bg-violet-100 border-violet-100'}`}
+                          title="Copy shareable link"
+                        >
+                          {copiedId === test.id ? <><Check className="w-3 h-3" /> Copied!</> : <><Link2 className="w-3 h-3" /> Share</>}
                         </button>
                       </div>
                     </td>
@@ -2057,14 +2072,21 @@ function AdminHome() {
             {notes.map(note => (
               <div key={note.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group hover:shadow-md transition-all">
                 <div className="absolute top-4 right-4 flex gap-1">
-                  <button 
-                    onClick={() => handleEditNote(note)} 
+                  <button
+                    onClick={() => copyLink(note.link || note.fileUrl || '', `note-${note.id}`)}
+                    className={`p-2 rounded-xl transition-colors ${copiedId === `note-${note.id}` ? 'text-emerald-600 bg-emerald-50' : 'text-violet-500 hover:bg-violet-50'}`}
+                    title="Copy shareable link"
+                  >
+                    {copiedId === `note-${note.id}` ? <Check className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
+                  </button>
+                  <button
+                    onClick={() => handleEditNote(note)}
                     className="text-indigo-500 hover:bg-indigo-50 p-2 rounded-xl transition-colors"
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
-                  <button 
-                    onClick={() => handleDeleteContent('notes', note.id)} 
+                  <button
+                    onClick={() => handleDeleteContent('notes', note.id)}
                     className="text-rose-500 hover:bg-rose-50 p-2 rounded-xl transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -2135,12 +2157,21 @@ function AdminHome() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {videos.map(video => (
               <div key={video.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group hover:shadow-md transition-all">
-                <button 
-                  onClick={() => handleDeleteContent('videos', video.id)} 
-                  className="absolute top-4 right-4 text-rose-500 hover:bg-rose-50 p-2 rounded-xl"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="absolute top-4 right-4 flex gap-1">
+                  <button
+                    onClick={() => copyLink(video.link || '', `video-${video.id}`)}
+                    className={`p-2 rounded-xl transition-colors ${copiedId === `video-${video.id}` ? 'text-emerald-600 bg-emerald-50' : 'text-violet-500 hover:bg-rose-50'}`}
+                    title="Copy shareable link"
+                  >
+                    {copiedId === `video-${video.id}` ? <Check className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
+                  </button>
+                  <button
+                    onClick={() => handleDeleteContent('videos', video.id)}
+                    className="text-rose-500 hover:bg-rose-50 p-2 rounded-xl"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
                 <div className="w-12 h-12 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-600 mb-4 group-hover:bg-rose-600 group-hover:text-white transition-all">
                   <Play className="w-6 h-6" />
                 </div>
@@ -2237,14 +2268,21 @@ function AdminHome() {
             {pyqs.map(pyq => (
               <div key={pyq.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group hover:shadow-md transition-all">
                 <div className="absolute top-4 right-4 flex gap-1">
-                  <button 
-                    onClick={() => handleEditPyq(pyq)} 
+                  <button
+                    onClick={() => copyLink(pyq.fileUrl || pyq.link || '', `pyq-${pyq.id}`)}
+                    className={`p-2 rounded-xl transition-colors ${copiedId === `pyq-${pyq.id}` ? 'text-emerald-600 bg-emerald-50' : 'text-violet-500 hover:bg-violet-50'}`}
+                    title="Copy shareable link"
+                  >
+                    {copiedId === `pyq-${pyq.id}` ? <Check className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
+                  </button>
+                  <button
+                    onClick={() => handleEditPyq(pyq)}
                     className="text-indigo-500 hover:bg-indigo-50 p-2 rounded-xl transition-colors"
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
-                  <button 
-                    onClick={() => handleDeleteContent('pyqs', pyq.id)} 
+                  <button
+                    onClick={() => handleDeleteContent('pyqs', pyq.id)}
                     className="text-rose-500 hover:bg-rose-50 p-2 rounded-xl transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -2621,12 +2659,21 @@ function AdminHome() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {practiceSets.map(item => (
               <div key={item.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group">
-                <button 
-                  onClick={() => handleDeleteContent('practice_sets', item.id)} 
-                  className="absolute top-4 right-4 text-rose-500 hover:bg-rose-50 p-2 rounded-xl"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="absolute top-4 right-4 flex gap-1">
+                  <button
+                    onClick={() => copyLink(item.fileUrl || item.link || '', `ps-${item.id}`)}
+                    className={`p-2 rounded-xl transition-colors ${copiedId === `ps-${item.id}` ? 'text-emerald-600 bg-emerald-50' : 'text-violet-500 hover:bg-violet-50'}`}
+                    title="Copy shareable link"
+                  >
+                    {copiedId === `ps-${item.id}` ? <Check className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
+                  </button>
+                  <button
+                    onClick={() => handleDeleteContent('practice_sets', item.id)}
+                    className="text-rose-500 hover:bg-rose-50 p-2 rounded-xl"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
                 <FileText className="w-6 h-6 text-teal-600 mb-4" />
                 <h4 className="font-bold text-slate-800 mb-1">{item.title}</h4>
                 <p className="text-xs font-bold text-slate-400 mb-4">{item.subject}</p>

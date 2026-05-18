@@ -1668,6 +1668,20 @@ app.use((req, res, next) => {
 
   // --- Admin APIs ---
 
+  // List ALL typing tests (admin — includes inactive)
+  app.get("/api/admin/typing-tests", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const snap = await currentDb.collection("typing_tests").orderBy("createdAt", "desc").get();
+      const tests = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      res.json(tests);
+    } catch (error) {
+      console.error("[Admin API] Failed to fetch all typing tests", error);
+      res.status(500).json({ error: "Failed to fetch typing tests" });
+    }
+  });
+
   // Add new typing test
   app.post("/api/admin/typing-test", verifyToken, verifyAdmin, async (req, res) => {
     const currentDb = getDb();
@@ -1773,6 +1787,20 @@ app.use((req, res, next) => {
     if (!currentDb) return res.status(500).json({ error: "Database offline" });
     try {
       const dummyTests = [
+        // 1 Minute Easy tests - Set A
+        { title: "Easy Typing Test 1 (1 Min)", duration: 1, difficulty: "Easy", paragraph: "The sun rises every morning and gives light to the world. Birds sing sweet songs in the trees. Children go to school and learn new things every day. Farmers work hard in their fields to grow food for all of us. Clean water and fresh air are gifts of nature. We must take care of our environment and keep it clean." },
+        { title: "Easy Typing Test 2 (1 Min)", duration: 1, difficulty: "Easy", paragraph: "My mother wakes up early and cooks food for the family. My father goes to work every day to earn money. My sister and I go to school by bus. We study, play, and come home in the evening. At night we have dinner together and talk about our day. Family time is very important and makes us happy." },
+        { title: "Easy Typing Test 3 (1 Min)", duration: 1, difficulty: "Easy", paragraph: "Dogs are very loyal animals and love their owners very much. Cats are quiet and clean pets that enjoy sleeping in the sun. Cows give us milk which is good for our health. Elephants are the biggest land animals and are very intelligent. We should be kind to all animals and never harm them in any way." },
+        { title: "Easy Typing Test 4 (1 Min)", duration: 1, difficulty: "Easy", paragraph: "Reading books is a very good habit for everyone. Books teach us many new things about the world around us. A good book can take us to faraway places without leaving our home. Public libraries have thousands of books that we can read for free. Children who read books from a young age do better in school and life." },
+        { title: "Easy Typing Test 5 (1 Min)", duration: 1, difficulty: "Easy", paragraph: "India is a great country with a rich culture and long history. People of many religions and languages live together in peace and harmony. Our national flag has three colors which stand for courage, peace, and growth. We celebrate many festivals like Diwali, Eid, Christmas, and Holi with great joy. Every citizen must love and serve the nation with pride and dedication." },
+
+        // 1 Minute Easy tests - Set B (5 additional)
+        { title: "Easy Typing Test 6 (1 Min)", duration: 1, difficulty: "Easy", paragraph: "Water is the most important thing for all living beings on earth. We should never waste water in our daily life. Rivers, lakes, and ponds are sources of fresh water for us. Rain fills the rivers and keeps our land green and fertile. Every drop of water is precious and we must use it wisely every day." },
+        { title: "Easy Typing Test 7 (1 Min)", duration: 1, difficulty: "Easy", paragraph: "Health is the greatest wealth a person can have in life. We should eat healthy food and drink clean water every day. Exercise keeps our body strong and our mind fresh and active. Sleeping well at night helps our body to rest and grow. We should avoid junk food and eat more fruits and green vegetables daily." },
+        { title: "Easy Typing Test 8 (1 Min)", duration: 1, difficulty: "Easy", paragraph: "Trees give us oxygen, fruits, wood, and shade from the hot sun. They also bring rain and keep the air clean and fresh for us. We should plant more trees and take care of them with love. Cutting trees without reason is very harmful for our environment and all life. A green earth is a healthy earth for all living creatures." },
+        { title: "Easy Typing Test 9 (1 Min)", duration: 1, difficulty: "Easy", paragraph: "The market is a busy place where people buy and sell things every day. Shops sell food, clothes, medicines, and many other useful items. The vegetable market opens very early in the morning with fresh produce. Shopkeepers call out to attract customers and sell their goods at fair prices. A good market helps the local community grow and meet their daily needs." },
+        { title: "Easy Typing Test 10 (1 Min)", duration: 1, difficulty: "Easy", paragraph: "A good teacher is one of the greatest gifts in a student's life. Teachers guide us, correct our mistakes, and help us grow with care and patience. They work hard every day to prepare lessons and explain new topics clearly. A student who respects and listens to the teacher will always do well in life. We should always be thankful to our teachers for all that they do." },
+
         // 1 Minute tests
         { title: "Standard Easy Test (1 Min)", duration: 1, difficulty: "Easy", paragraph: "Technology is becoming a very important part of daily life. People use mobile phones, computers, and the internet for communication, education, shopping, and entertainment. Students can learn new skills online and attend classes from home. Offices use computers to store data and complete work quickly. Doctors use technology to help patients and maintain medical records." },
         { title: "Short Medium Challenge (1 Min)", duration: 1, difficulty: "Medium", paragraph: "Typing tests assess efficiency and visual concentration. To succeed in competitive exams, you must practice key positions daily, minimize spelling mistakes, and build robust finger muscle memory." },
@@ -1808,7 +1836,7 @@ app.use((req, res, next) => {
       });
       await batch.commit();
 
-      res.json({ success: true, message: "Successfully seeded 10 typing tests" });
+      res.json({ success: true, message: "Successfully seeded 20 typing tests" });
     } catch (error) {
       console.error("[Admin API] Failed to seed typing tests", error);
       res.status(500).json({ error: "Failed to seed typing tests" });

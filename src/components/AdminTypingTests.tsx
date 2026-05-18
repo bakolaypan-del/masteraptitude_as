@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, getDocs, doc, deleteDoc, updateDoc, addDoc, serverTimestamp, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from './AuthContext';
-import { Keyboard, Plus, Edit2, Trash2, CheckCircle2, XCircle, Search, BarChart, ChevronDown, ChevronRight, Download, FileText, Filter } from 'lucide-react';
+import { Keyboard, Plus, Edit2, Trash2, CheckCircle2, XCircle, Search, BarChart, ChevronDown, ChevronRight, Download, FileText, Filter, Link2, Check } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -30,6 +29,14 @@ export default function AdminTypingTests() {
   const [language, setLanguage] = useState('English');
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const copyLink = (url: string, id: string) => {
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
+  };
 
   useEffect(() => {
     fetchTests();
@@ -37,13 +44,22 @@ export default function AdminTypingTests() {
   }, [user]);
 
   const fetchTests = async () => {
+    if (!user) return;
     try {
-      const q = query(collection(db, 'typing_tests'), orderBy('createdAt', 'desc'));
-      const snap = await getDocs(q);
-      setTests(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      setLoading(false);
+      const token = await user.getIdToken();
+      const res = await fetch('/api/admin/typing-tests', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTests(data);
+      } else {
+        console.error('[AdminTypingTests] Failed to load tests:', res.status);
+      }
     } catch (err) {
-      console.error(err);
+      console.error('[AdminTypingTests] fetchTests error:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -363,8 +379,10 @@ export default function AdminTypingTests() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredTests.length === 0 ? (
-                    <tr><td colSpan={6} className="p-8 text-center text-slate-500">No matching typing tests found.</td></tr>
+                  {loading ? (
+                    <tr><td colSpan={6} className="p-8 text-center text-fuchsia-500 font-bold">Loading typing tests...</td></tr>
+                  ) : filteredTests.length === 0 ? (
+                    <tr><td colSpan={6} className="p-8 text-center text-slate-500">No matching typing tests found. Add one using the "Add Test" tab or click "Seed Dummy Tests".</td></tr>
                   ) : (
                     filteredTests.map((test) => (
                       <tr key={test.id} className="hover:bg-slate-50 transition-colors">
@@ -383,8 +401,15 @@ export default function AdminTypingTests() {
                           }
                         </td>
                         <td className="p-4 flex items-center justify-end gap-2">
-                          <button onClick={() => handleEdit(test)} className="p-2 text-indigo-500 hover:bg-indigo-55 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>
-                          <button onClick={() => handleDelete(test.id)} className="p-2 text-rose-500 hover:bg-rose-55 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                          <button
+                            onClick={() => copyLink(`${window.location.origin}/typing-test/${test.id}`, test.id)}
+                            className={`p-2 rounded-lg transition-colors ${copiedId === test.id ? 'text-emerald-600 bg-emerald-50' : 'text-violet-500 hover:bg-violet-50'}`}
+                            title="Copy shareable link"
+                          >
+                            {copiedId === test.id ? <Check className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
+                          </button>
+                          <button onClick={() => handleEdit(test)} className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>
+                          <button onClick={() => handleDelete(test.id)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
                         </td>
                       </tr>
                     ))

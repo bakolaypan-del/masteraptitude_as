@@ -1,6 +1,6 @@
 # Master Aptitude — Project Walkthrough
 
-**Last updated:** 2026-05-18 (rev 3)  
+**Last updated:** 2026-05-18 (rev 4)  
 **Stack:** React 19 + Vite (frontend) · Express + Firebase Admin (backend) · Firebase Auth + Firestore (DB) · Vercel (deploy)
 
 ---
@@ -163,6 +163,7 @@
 - **PDF export**: jsPDF + jspdf-autotable; admin can download questions with pass rates
 - **Bulk test creation**: Admin can create multiple tests with placeholder questions at once
 - **Typing WPM formula**: (correct chars / 5) / time in minutes
+- **Shareable links**: Admin panel has 🔗 Share button on every mock test, typing test, note, video, PYQ, and practice set. Mock/typing tests copy `window.location.origin + route`. Materials copy their external link/fileUrl directly. Shows "Copied! ✓" for 2s via `copiedId` state.
 
 ---
 
