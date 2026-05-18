@@ -14,6 +14,7 @@ export default function TestRunner() {
   const [questions, setQuestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isRetrying, setIsRetrying] = useState(false);
   
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -43,16 +44,30 @@ export default function TestRunner() {
   }, [currentIdx]);
 
   useEffect(() => {
-    async function loadTest() {
-      if (!user) return;
-      setLoading(true);
-      setError('');
+    let active = true;
+    
+    async function loadTest(attempt = 1) {
+      if (!user || !active) return;
+      
+      if (attempt === 1) {
+        setLoading(true);
+        setIsRetrying(false);
+        setError('');
+      }
+      
       try {
         const token = await user.getIdToken();
-        console.log(`[TestRunner] Loading test content for: ${testId}`);
+        console.log(`[TestRunner] Loading test content for: ${testId} (Attempt ${attempt})`);
+        
+        // Timeout protection - 15 seconds (Item 11)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        
         const res = await fetch(`/api/test/${testId}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: { 'Authorization': `Bearer ${token}` },
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
         
         const contentType = res.headers.get("content-type");
         if (!res.ok) {
@@ -63,16 +78,16 @@ export default function TestRunner() {
             const text = await res.text();
             console.error("Non-JSON error from server:", text);
             if (res.status === 500) {
-              throw new Error(`Server encountered an internal error (500). This often happens during high traffic or configuration issues. Please try again in a few minutes.`);
+              throw new Error(`Server encountered an internal error (500).`);
             } else if (res.status === 503) {
-              throw new Error(`The database is currently offline or initializing. Please wait a moment and refresh.`);
+              throw new Error(`The database connection is currently offline.`);
             }
-            throw new Error(`Server returned an error (${res.status}). Please contact support if this persists.`);
+            throw new Error(`Server returned an error (${res.status}).`);
           }
         }
         
         if (!contentType || !contentType.includes("application/json")) {
-           throw new Error("The server sent an unexpected response format. Please refresh the page.");
+           throw new Error("Invalid response format received from the server.");
         }
 
         const data = await res.json();
@@ -80,26 +95,58 @@ export default function TestRunner() {
           throw new Error(data.message || 'Failed to initialize test session.');
         }
 
-        setTest(data.test);
-        setQuestions(data.questions || []);
-        setOriginalQuestions(data.questions || []);
-        if (data.questions && data.questions.length > 0) {
-           setVisited(new Set([data.questions[0].id]));
-        } else {
-          setError("This test currently has no questions. Please contact your administrator.");
+        // Safe Response Validation (Item 8)
+        if (!data.questions || !Array.isArray(data.questions)) {
+           throw new Error("Invalid question data received from the server.");
         }
-        
-        // Use test duration from DB, or fallback to 30 mins
-        const durationMins = data.test?.duration || 30;
-        setTimeLeft(Math.floor(durationMins * 60));
+
+        // Prevent Empty Mock Test Crash (Item 9)
+        if (data.questions.length === 0) {
+          throw new Error("No questions available for this test.");
+        }
+
+        if (active) {
+          setTest(data.test);
+          setQuestions(data.questions);
+          setOriginalQuestions(data.questions);
+          setVisited(new Set([data.questions[0].id]));
+          
+          // Use test duration from DB, or fallback to 30 mins
+          const durationMins = data.test?.duration || 30;
+          setTimeLeft(Math.floor(durationMins * 60));
+          setIsRetrying(false);
+          setLoading(false);
+          setError('');
+        }
       } catch (err: any) {
-        console.error("Load test error:", err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
+        console.error(`Load test error (Attempt ${attempt}):`, err);
+        
+        if (!active) return;
+        
+        const friendlyMsg = err.name === 'AbortError' 
+          ? "Server is busy (request timed out). Please wait." 
+          : (err.message || 'Server is temporarily busy. Please try again.');
+
+        // Retry System (Item 7)
+        if (attempt < 5) {
+          setIsRetrying(true);
+          setError(`Server is temporarily busy. Retrying automatically in 3 seconds... (Attempt ${attempt}/5)`);
+          setTimeout(() => {
+            if (active) loadTest(attempt + 1);
+          }, 3000);
+        } else {
+          setError(`Unable to load mock test after multiple attempts. ${friendlyMsg}`);
+          setIsRetrying(false);
+          setLoading(false);
+        }
       }
     }
+    
     loadTest();
+    
+    return () => {
+      active = false;
+    };
   }, [testId, user]);
 
   useEffect(() => {
@@ -283,19 +330,20 @@ export default function TestRunner() {
 
   const t = (en: string, bn: string) => (selectedLang === 'Bengali' ? bn : en);
 
-  if (loading) return <div className="flex justify-center items-center h-screen font-bold text-slate-600 bg-slate-50">
-    <div className="flex flex-col items-center gap-4">
+  if (loading || isRetrying) return <div className="flex justify-center items-center h-screen font-bold text-slate-600 bg-slate-50">
+    <div className="flex flex-col items-center gap-4 text-center px-6">
       <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-      Loading test environment...
+      <p className="text-slate-700 font-extrabold">{isRetrying ? "Server busy. Retrying automatically..." : "Loading test environment..."}</p>
+      {error && <p className="text-xs font-semibold text-rose-500 max-w-sm mt-1 animate-pulse">{error}</p>}
     </div>
   </div>;
 
-  if (error) return <div className="min-h-screen bg-slate-50 flex items-center justify-center p-8">
+  if (error && !isRetrying) return <div className="min-h-screen bg-slate-50 flex items-center justify-center p-8">
      <div className="bg-white p-8 rounded-3xl shadow-xl border border-red-100 text-center max-w-md">
-        <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+        <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4 animate-bounce" />
         <h2 className="text-xl font-bold text-slate-800 mb-2">Failed to Load Test</h2>
         <p className="text-slate-500 mb-6">{error}</p>
-        <button onClick={() => navigate('/dashboard')} className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold uppercase text-xs tracking-widest">Back to Home</button>
+        <button onClick={() => navigate('/dashboard')} className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold uppercase text-xs tracking-widest transition-colors hover:bg-black">Back to Home</button>
      </div>
   </div>;
 
