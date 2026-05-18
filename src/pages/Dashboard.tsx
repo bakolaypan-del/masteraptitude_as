@@ -751,46 +751,55 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* Social Links Box - Single Line */}
-              <div className="mt-8 grid grid-cols-3 gap-2 sm:gap-4">
-                {socialLinks.youtube && (
-                  <a href={socialLinks.youtube} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-2 sm:p-4 bg-rose-50/80 border border-red-200 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
-                    <div className="absolute inset-0 bg-gradient-to-b from-red-100/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <div className="w-8 h-8 sm:w-12 sm:h-12 bg-red-600 text-white rounded-lg sm:rounded-xl flex items-center justify-center mb-2 relative z-10 group-hover:scale-110 transition-transform shadow-lg shadow-red-200">
-                      <Youtube className="w-4 h-4 sm:w-6 sm:h-6" />
-                    </div>
-                    <div className="relative z-10 text-center">
-                      <h4 className="font-bold text-slate-800 text-[9px] sm:text-[13px] leading-tight">YouTube Link</h4>
-                      <p className="text-[7px] sm:text-[10px] text-slate-500 mt-1 leading-relaxed">Subscribe to our channel for free classes.</p>
-                    </div>
-                  </a>
-                )}
-                
-                {socialLinks.whatsapp && (
-                  <a href={socialLinks.whatsapp} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-2 sm:p-4 bg-emerald-50/80 border border-green-200 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
-                    <div className="absolute inset-0 bg-gradient-to-b from-green-100/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <div className="w-8 h-8 sm:w-12 sm:h-12 bg-emerald-600 text-white rounded-lg sm:rounded-xl flex items-center justify-center mb-2 relative z-10 group-hover:scale-110 transition-transform shadow-lg shadow-emerald-200">
-                      <MessageCircle className="w-4 h-4 sm:w-6 sm:h-6" />
-                    </div>
-                    <div className="relative z-10 text-center">
-                      <h4 className="font-bold text-slate-800 text-[9px] sm:text-[13px] leading-tight">WhatsApp Link</h4>
-                      <p className="text-[7px] sm:text-[10px] text-slate-500 mt-1 leading-relaxed">Join our group for daily updates.</p>
-                    </div>
-                  </a>
-                )}
+              {/* Quick Access Tiles */}
+              <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-4">
+                {/* Learn */}
+                <button onClick={() => setActiveTab('learn_landing')} className="flex flex-col items-center justify-center p-3 sm:p-5 bg-violet-50/80 border border-violet-200 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative text-left w-full">
+                  <div className="absolute inset-0 bg-gradient-to-b from-violet-100/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  <div className="w-10 h-10 sm:w-14 sm:h-14 bg-violet-600 text-white rounded-xl flex items-center justify-center mb-2 relative z-10 group-hover:scale-110 transition-transform shadow-lg shadow-violet-200">
+                    <BookOpen className="w-5 h-5 sm:w-7 sm:h-7" />
+                  </div>
+                  <div className="relative z-10 text-center">
+                    <h4 className="font-bold text-slate-800 text-[11px] sm:text-[14px] leading-tight">Learn</h4>
+                    <p className="text-[8px] sm:text-[11px] text-slate-500 mt-1 leading-relaxed">Videos, notes & current affairs.</p>
+                  </div>
+                </button>
 
-                {socialLinks.telegram && (
-                  <a href={socialLinks.telegram} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-2 sm:p-4 bg-sky-50/80 border border-blue-200 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
-                    <div className="absolute inset-0 bg-gradient-to-b from-blue-100/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <div className="w-8 h-8 sm:w-12 sm:h-12 bg-sky-600 text-white rounded-lg sm:rounded-xl flex items-center justify-center mb-2 relative z-10 group-hover:scale-110 transition-transform shadow-lg shadow-sky-200">
-                      <Send className="w-4 h-4 sm:w-6 sm:h-6" />
-                    </div>
-                    <div className="relative z-10 text-center">
-                      <h4 className="font-bold text-slate-800 text-[9px] sm:text-[13px] leading-tight">Telegram Link</h4>
-                      <p className="text-[7px] sm:text-[10px] text-slate-500 mt-1 leading-relaxed">Get notes and practice sets instantly.</p>
-                    </div>
-                  </a>
-                )}
+                {/* Mock Test */}
+                <button onClick={() => setActiveTab('mock_landing')} className="flex flex-col items-center justify-center p-3 sm:p-5 bg-rose-50/80 border border-rose-200 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative text-left w-full">
+                  <div className="absolute inset-0 bg-gradient-to-b from-rose-100/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  <div className="w-10 h-10 sm:w-14 sm:h-14 bg-rose-600 text-white rounded-xl flex items-center justify-center mb-2 relative z-10 group-hover:scale-110 transition-transform shadow-lg shadow-rose-200">
+                    <Target className="w-5 h-5 sm:w-7 sm:h-7" />
+                  </div>
+                  <div className="relative z-10 text-center">
+                    <h4 className="font-bold text-slate-800 text-[11px] sm:text-[14px] leading-tight">Mock Test</h4>
+                    <p className="text-[8px] sm:text-[11px] text-slate-500 mt-1 leading-relaxed">Topic, sectional & full-length tests.</p>
+                  </div>
+                </button>
+
+                {/* Typing Test */}
+                <button onClick={() => navigate('/typing-tests')} className="flex flex-col items-center justify-center p-3 sm:p-5 bg-emerald-50/80 border border-emerald-200 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative text-left w-full">
+                  <div className="absolute inset-0 bg-gradient-to-b from-emerald-100/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  <div className="w-10 h-10 sm:w-14 sm:h-14 bg-emerald-600 text-white rounded-xl flex items-center justify-center mb-2 relative z-10 group-hover:scale-110 transition-transform shadow-lg shadow-emerald-200">
+                    <Keyboard className="w-5 h-5 sm:w-7 sm:h-7" />
+                  </div>
+                  <div className="relative z-10 text-center">
+                    <h4 className="font-bold text-slate-800 text-[11px] sm:text-[14px] leading-tight">Typing Test</h4>
+                    <p className="text-[8px] sm:text-[11px] text-slate-500 mt-1 leading-relaxed">Improve your WPM & accuracy.</p>
+                  </div>
+                </button>
+
+                {/* Previous Year Questions */}
+                <button onClick={() => setActiveTab('pyq')} className="flex flex-col items-center justify-center p-3 sm:p-5 bg-amber-50/80 border border-amber-200 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative text-left w-full">
+                  <div className="absolute inset-0 bg-gradient-to-b from-amber-100/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  <div className="w-10 h-10 sm:w-14 sm:h-14 bg-amber-500 text-white rounded-xl flex items-center justify-center mb-2 relative z-10 group-hover:scale-110 transition-transform shadow-lg shadow-amber-200">
+                    <FileText className="w-5 h-5 sm:w-7 sm:h-7" />
+                  </div>
+                  <div className="relative z-10 text-center">
+                    <h4 className="font-bold text-slate-800 text-[11px] sm:text-[14px] leading-tight">Previous Year Questions</h4>
+                    <p className="text-[8px] sm:text-[11px] text-slate-500 mt-1 leading-relaxed">Practise with past exam papers.</p>
+                  </div>
+                </button>
               </div>
 
               {/* Home Footer Section */}

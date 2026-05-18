@@ -220,10 +220,14 @@ export default function TestRunner() {
     }
     
     try {
-      const payload = questions.map(q => ({
-        id: q.id,
-        selected: answers[q.id] || ''
-      }));
+      // Convert stored index back to ORIGINAL English option text for server comparison
+      const payload = originalQuestions.map(q => {
+        const storedIdx = answers[q.id];
+        const selectedOriginalText = storedIdx !== undefined
+          ? (q.options[parseInt(storedIdx)] || '')
+          : '';
+        return { id: q.id, selected: selectedOriginalText };
+      });
 
       const token = await user.getIdToken();
       console.log("Submitting test...", { testId, questionCount: questions.length });
@@ -274,8 +278,10 @@ export default function TestRunner() {
     }
   };
 
-  const handleSelectOption = (qId: string, opt: string) => {
-    setAnswers(prev => ({ ...prev, [qId]: opt }));
+  // Store option INDEX so correct-answer matching always uses original English text,
+  // regardless of which language the question is currently displayed in.
+  const handleSelectOption = (qId: string, optIndex: number) => {
+    setAnswers(prev => ({ ...prev, [qId]: String(optIndex) }));
     setReview(prev => {
       const next = new Set(prev);
       next.delete(qId);
@@ -509,9 +515,15 @@ export default function TestRunner() {
           <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-[#f8f9fa]">
             <div className="max-w-4xl mx-auto space-y-8 pb-20">
               {questions.map((q, idx) => {
-                const userChoice = answers[q.id] || '';
+                // result.analysis[q.id] holds the original English correct answer text
                 const correctAnswer = result.analysis[q.id];
-                const isCorrect = userChoice === correctAnswer;
+                // answers[q.id] holds the stored index; resolve it to original English text
+                const storedIdx = answers[q.id];
+                const origQ = originalQuestions.find(oq => oq.id === q.id);
+                const userChoice = (storedIdx !== undefined && origQ)
+                  ? (origQ.options[parseInt(storedIdx)] || '')
+                  : '';
+                const isCorrect = !!userChoice && userChoice === correctAnswer;
                 const isUnattempted = !userChoice;
 
                 return (
@@ -555,8 +567,10 @@ export default function TestRunner() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {q.options.map((opt: string, i: number) => {
                           const optionLabel = String.fromCharCode(64 + (i + 1));
-                          const isOptionCorrect = opt === correctAnswer;
-                          const isOptionSelected = opt === userChoice;
+                          // Compare using original English text (correctAnswer & userChoice are always English)
+                          const origOpt = origQ?.options[i] ?? opt;
+                          const isOptionCorrect = origOpt === correctAnswer;
+                          const isOptionSelected = origOpt === userChoice;
 
                           let state: 'default' | 'correct' | 'incorrect' = 'default';
                           if (isOptionCorrect) state = 'correct';
@@ -841,15 +855,16 @@ export default function TestRunner() {
 
             <div className="space-y-3 md:space-y-4">
               {(currentQuestion.options || []).map((opt: string, i: number) => {
-                const isSelected = answers[currentQuestion.id] !== undefined && answers[currentQuestion.id] === opt && opt !== '';
+                // Compare by index so selection highlight works in all languages
+                const isSelected = answers[currentQuestion.id] === String(i);
                 const optionKey = `test-${testId}-q-${currentIdx}-opt-${i}`;
-                const optionLabel = String.fromCharCode(65 + i); 
-                
+                const optionLabel = String.fromCharCode(65 + i);
+
                 return (
-                  <button 
+                  <button
                     key={optionKey}
                     type="button"
-                    onClick={() => handleSelectOption(currentQuestion.id, opt)}
+                    onClick={() => handleSelectOption(currentQuestion.id, i)}
                     className={`w-full flex items-center p-3 md:p-4 rounded-xl border-2 transition-all group relative text-left select-none break-words
                       ${isSelected 
                         ? 'border-indigo-600 bg-indigo-50/50 text-indigo-900 shadow-sm' 
