@@ -199,11 +199,16 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans relative overflow-hidden">
-      
-      {/* Decorative Premium Grid / Wave Background */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.15),transparent_45%)] pointer-events-none" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(236,72,153,0.08),transparent_50%)] pointer-events-none" />
+    <div className="min-h-screen flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans relative overflow-hidden"
+      style={{ background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 55%, #24243e 100%)' }}>
+
+      {/* Floating blur orbs */}
+      <div className="absolute top-1/4 right-0 w-96 h-96 rounded-full blur-3xl pointer-events-none" style={{ background: 'rgba(99,102,241,0.15)' }} />
+      <div className="absolute bottom-1/4 left-0 w-80 h-80 rounded-full blur-3xl pointer-events-none" style={{ background: 'rgba(236,72,153,0.08)' }} />
+      <div className="absolute top-0 left-1/3 w-64 h-64 rounded-full blur-3xl pointer-events-none" style={{ background: 'rgba(124,58,237,0.1)' }} />
+      {/* Dot grid overlay */}
+      <div className="absolute inset-0 pointer-events-none opacity-[0.04]"
+        style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
       
       <div className="sm:mx-auto sm:w-full sm:max-w-md z-10">
         <div className="text-center mb-6">

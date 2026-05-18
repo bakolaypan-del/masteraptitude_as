@@ -70,10 +70,15 @@ export default function TypingTestAnalysis() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white font-sans">
+      <div className="min-h-screen flex items-center justify-center font-sans" style={{ background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 55%, #24243e 100%)' }}>
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-400 font-bold">Loading detailed analysis...</p>
+          <div className="relative mx-auto mb-6 w-16 h-16">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-2xl shadow-indigo-900/50">
+              <BarChart3 className="w-8 h-8 text-white animate-pulse" />
+            </div>
+            <div className="absolute -inset-2 rounded-3xl border-2 border-indigo-500/30 animate-ping" />
+          </div>
+          <p className="text-indigo-200 font-bold tracking-wider animate-pulse">Loading detailed analysis...</p>
         </div>
       </div>
     );
@@ -81,10 +86,10 @@ export default function TypingTestAnalysis() {
 
   if (!currentResult) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white font-sans">
+      <div className="min-h-screen flex items-center justify-center font-sans" style={{ background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 55%, #24243e 100%)' }}>
         <div className="text-center">
-          <p className="text-rose-500 font-bold text-xl">Result Not Found</p>
-          <button onClick={() => navigate('/typing-test')} className="mt-4 bg-indigo-600 px-6 py-2.5 rounded-xl font-bold">
+          <p className="text-rose-400 font-bold text-xl mb-4">Result Not Found</p>
+          <button onClick={() => navigate('/typing-test')} className="bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg hover:from-indigo-500 hover:to-violet-500 transition-all">
             Back to Tests
           </button>
         </div>
@@ -256,19 +261,26 @@ export default function TypingTestAnalysis() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-300 font-sans flex flex-col">
-      <header className="bg-slate-800/50 border-b border-slate-800 px-6 py-4 flex items-center justify-between shadow-sm sticky top-0 z-10 backdrop-blur-sm">
+    <div className="min-h-screen text-slate-300 font-sans flex flex-col" style={{ background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 55%, #24243e 100%)' }}>
+      {/* Fixed blur orbs */}
+      <div className="fixed top-1/4 left-1/4 w-96 h-96 rounded-full blur-3xl pointer-events-none" style={{ background: 'rgba(99,102,241,0.08)' }} />
+      <div className="fixed bottom-1/4 right-1/4 w-64 h-64 rounded-full blur-3xl pointer-events-none" style={{ background: 'rgba(124,58,237,0.06)' }} />
+
+      <header className="sticky top-0 z-10 backdrop-blur-xl border-b border-white/10 px-6 py-4 flex items-center justify-between"
+        style={{ background: 'rgba(15,12,41,0.8)' }}>
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/typing-test')} className="p-2 hover:bg-slate-700 rounded-full transition-colors">
-            <ArrowLeft className="w-5 h-5 text-slate-400" />
+          <button onClick={() => navigate('/typing-test')}
+            className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors border border-white/10">
+            <ArrowLeft className="w-5 h-5 text-slate-300" />
           </button>
           <div>
-            <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">Attempt #{currentResult.attemptNo} Analysis</span>
-            <h1 className="text-lg font-black text-slate-100">{currentResult.testTitle}</h1>
+            <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">Attempt #{currentResult.attemptNo} Analysis</span>
+            <h1 className="text-lg font-black text-white">{currentResult.testTitle}</h1>
           </div>
         </div>
-        
-        <div className="flex items-center gap-2 text-xs text-slate-500 font-bold bg-slate-900/50 px-4 py-2 rounded-xl border border-slate-800">
+
+        <div className="flex items-center gap-2 text-xs text-slate-400 font-bold px-4 py-2 rounded-xl border border-white/10"
+          style={{ background: 'rgba(255,255,255,0.05)' }}>
           <Calendar className="w-4 h-4 text-indigo-400" />
           {new Date(currentResult.timestamp).toLocaleString()}
         </div>
@@ -338,9 +350,10 @@ export default function TypingTestAnalysis() {
             
             <button
               onClick={() => navigate(`/typing-test/${currentResult.testId}`)}
-              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-2xl shadow-lg shadow-indigo-600/20 transition-all mt-6"
+              className="w-full text-white font-bold py-3.5 rounded-2xl shadow-lg transition-all mt-6 hover:opacity-90 active:scale-95"
+              style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}
             >
-              Reattempt This Test
+              ↩ Reattempt This Test
             </button>
           </div>
 

@@ -15,6 +15,224 @@ import { Keyboard } from 'lucide-react';
 
 type AdminTab = 'students' | 'mock' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'student_analysis';
 
+// ─── Image Cropper Modal ─────────────────────────────────────────────────────
+function ImageCropper({
+  src,
+  onCrop,
+  onCancel,
+}: {
+  src: string;
+  onCrop: (blob: Blob) => void;
+  onCancel: () => void;
+}) {
+  const imgRef = useRef<HTMLImageElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [ready, setReady] = useState(false);
+  const [imgNat, setImgNat] = useState({ w: 0, h: 0 });
+  const [imgDisp, setImgDisp] = useState({ w: 0, h: 0 });
+  const [aspect, setAspect] = useState(16 / 9);
+  const [sizePercent, setSizePercent] = useState(82);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const dragging = useRef(false);
+  const origin = useRef({ px: 0, py: 0, ox: 0, oy: 0 });
+
+  // Derived crop dimensions in display px
+  const cropW = (imgDisp.w * sizePercent) / 100;
+  const cropH = cropW / aspect;
+
+  const clamp = (x: number, y: number, w: number, h: number) => ({
+    x: Math.max(0, Math.min(imgDisp.w - w, x)),
+    y: Math.max(0, Math.min(imgDisp.h - h, y)),
+  });
+
+  const onImgLoad = () => {
+    const img = imgRef.current!;
+    setImgNat({ w: img.naturalWidth, h: img.naturalHeight });
+    requestAnimationFrame(() => {
+      const disp = { w: img.offsetWidth, h: img.offsetHeight };
+      setImgDisp(disp);
+      const cw = disp.w * 0.82;
+      const ch = cw / (16 / 9);
+      setPos({ x: (disp.w - cw) / 2, y: Math.max(0, (disp.h - ch) / 2) });
+      setReady(true);
+    });
+  };
+
+  // Re-centre when aspect/size changes
+  useEffect(() => {
+    if (!ready) return;
+    const cw = (imgDisp.w * sizePercent) / 100;
+    const ch = cw / aspect;
+    setPos(prev => clamp(prev.x + (cropW - cw) / 2, prev.y + (cropH - ch) / 2, cw, ch));
+  }, [aspect, sizePercent, ready]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Pointer drag (works on mouse & touch)
+  const onPointerDown = (e: React.PointerEvent) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragging.current = true;
+    origin.current = { px: e.clientX, py: e.clientY, ox: pos.x, oy: pos.y };
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!dragging.current) return;
+    const dx = e.clientX - origin.current.px;
+    const dy = e.clientY - origin.current.py;
+    setPos(clamp(origin.current.ox + dx, origin.current.oy + dy, cropW, cropH));
+  };
+  const onPointerUp = () => { dragging.current = false; };
+
+  const applyCrop = () => {
+    const img = imgRef.current!;
+    const scaleX = imgNat.w / imgDisp.w;
+    const scaleY = imgNat.h / imgDisp.h;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(cropW * scaleX);
+    canvas.height = Math.round(cropH * scaleY);
+    const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(
+      img,
+      pos.x * scaleX, pos.y * scaleY, cropW * scaleX, cropH * scaleY,
+      0, 0, canvas.width, canvas.height,
+    );
+    canvas.toBlob(blob => { if (blob) onCrop(blob); }, 'image/jpeg', 0.92);
+  };
+
+  const RATIOS: [string, number, string][] = [
+    ['16 : 9', 16 / 9, 'Best for wide carousel banners'],
+    ['4 : 3',  4 / 3,  'Classic landscape'],
+    ['1 : 1',  1,      'Square'],
+  ];
+
+  return (
+    <div
+      className="fixed inset-0 z-[500] flex items-center justify-center bg-black/70 p-3 backdrop-blur-sm"
+      onClick={onCancel}
+    >
+      <div
+        className="bg-white rounded-3xl overflow-hidden w-full max-w-xl shadow-2xl flex flex-col"
+        style={{ maxHeight: '95vh' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+          <div>
+            <h3 className="font-black text-slate-800 text-base">✂️ Crop Before Upload</h3>
+            <p className="text-[11px] text-slate-400 mt-0.5">Drag the box to reposition · Slider to resize · Pick ratio</p>
+          </div>
+          <button onClick={onCancel} className="p-2 rounded-xl hover:bg-slate-100 text-slate-500 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Aspect ratio pills */}
+        <div className="px-5 pt-4 flex items-center gap-2 shrink-0 flex-wrap">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-1">Ratio</span>
+          {RATIOS.map(([lbl, r, tip]) => (
+            <button
+              key={lbl}
+              title={tip}
+              onClick={() => setAspect(r)}
+              className={`px-3 py-1 rounded-lg text-xs font-bold border-2 transition-all ${
+                Math.abs(aspect - r) < 0.01
+                  ? 'bg-fuchsia-600 border-fuchsia-600 text-white shadow-sm'
+                  : 'border-slate-200 text-slate-500 hover:border-fuchsia-300 hover:text-fuchsia-600'
+              }`}
+            >
+              {lbl}
+              {lbl === '16 : 9' && <span className="ml-1 text-[9px] opacity-70">(rec.)</span>}
+            </button>
+          ))}
+        </div>
+
+        {/* Crop canvas */}
+        <div
+          ref={containerRef}
+          className="relative mx-5 my-4 bg-slate-900 rounded-2xl overflow-hidden select-none shrink-0"
+          style={{ maxHeight: 320 }}
+        >
+          <img
+            ref={imgRef}
+            src={src}
+            onLoad={onImgLoad}
+            draggable={false}
+            crossOrigin="anonymous"
+            alt="Crop preview"
+            className="block w-full object-contain"
+            style={{ maxHeight: 320 }}
+          />
+
+          {ready && (
+            <>
+              {/* Dark mask — 4 rectangles around the bright crop window */}
+              <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute top-0 left-0 right-0 bg-black/55" style={{ height: pos.y }} />
+                <div className="absolute left-0 right-0 bg-black/55" style={{ top: pos.y + cropH, bottom: 0 }} />
+                <div className="absolute bg-black/55" style={{ top: pos.y, left: 0, width: pos.x, height: cropH }} />
+                <div className="absolute bg-black/55" style={{ top: pos.y, left: pos.x + cropW, right: 0, height: cropH }} />
+              </div>
+
+              {/* Draggable crop box */}
+              <div
+                className="absolute border-2 border-white cursor-move touch-none"
+                style={{ left: pos.x, top: pos.y, width: cropW, height: cropH }}
+                onPointerDown={onPointerDown}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerUp}
+                onPointerLeave={onPointerUp}
+              >
+                {/* Rule-of-thirds guides */}
+                <div className="absolute inset-0 pointer-events-none">
+                  <div className="absolute top-1/3 left-0 right-0 border-t border-white/25" />
+                  <div className="absolute top-2/3 left-0 right-0 border-t border-white/25" />
+                  <div className="absolute left-1/3 top-0 bottom-0 border-l border-white/25" />
+                  <div className="absolute left-2/3 top-0 bottom-0 border-l border-white/25" />
+                </div>
+                {/* Corner handles */}
+                {['-top-1 -left-1', '-top-1 -right-1', '-bottom-1 -left-1', '-bottom-1 -right-1'].map(cls => (
+                  <div key={cls} className={`absolute w-3 h-3 bg-white rounded-sm shadow-md ${cls}`} />
+                ))}
+                {/* Centre label */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <span className="text-white/50 text-[10px] font-bold tracking-wider uppercase select-none">drag to move</span>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Size slider */}
+        <div className="px-5 pb-4 shrink-0">
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest w-10 shrink-0">Size</span>
+            <input
+              type="range" min={30} max={100} value={sizePercent}
+              onChange={e => setSizePercent(parseInt(e.target.value))}
+              className="flex-1 accent-fuchsia-600 h-2 cursor-pointer"
+            />
+            <span className="text-xs font-bold text-fuchsia-600 w-10 text-right shrink-0">{sizePercent}%</span>
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div className="px-5 pb-5 flex gap-3 shrink-0 border-t border-slate-100 pt-4">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-3 border-2 border-slate-200 rounded-2xl font-bold text-slate-600 hover:bg-slate-50 transition-colors text-sm"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={applyCrop}
+            className="flex-[2] py-3 bg-fuchsia-600 hover:bg-fuchsia-700 text-white rounded-2xl font-bold transition-colors shadow-lg shadow-fuchsia-100 flex items-center justify-center gap-2 text-sm"
+          >
+            <Check className="w-4 h-4" /> Apply Crop & Continue
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 function AdminHome() {
   const [students, setStudents] = useState<any[]>([]);
   const [studentSearch, setStudentSearch] = useState('');
@@ -108,8 +326,13 @@ function AdminHome() {
   // Carousel Form
   const [carouselFile, setCarouselFile] = useState<File | null>(null);
   const [carouselPriority, setCarouselPriority] = useState('1');
+  const [carouselBadge, setCarouselBadge] = useState<'none' | 'live' | 'new'>('none');
   const [uploadingCarousel, setUploadingCarousel] = useState(false);
   const [clearingCarousel, setClearingCarousel] = useState(false);
+  // Crop modal
+  const [cropSrc, setCropSrc] = useState('');
+  const [showCropModal, setShowCropModal] = useState(false);
+  const [croppedPreviewUrl, setCroppedPreviewUrl] = useState('');
   const [clearingTests, setClearingTests] = useState(false);
   const [savingTest, setSavingTest] = useState(false);
   
@@ -692,12 +915,16 @@ function AdminHome() {
       await addDoc(collection(db, 'carousel'), {
         link: link,
         priority: parseInt(carouselPriority) || 1,
+        badge: carouselBadge, // 'none' | 'live' | 'new'
         createdAt: serverTimestamp(),
         authorId: user.uid
       });
       console.log('Carousel item added successfully');
       setCarouselFile(null);
+      setCroppedPreviewUrl('');
+      setCropSrc('');
       setCarouselPriority('1');
+      setCarouselBadge('none');
       const fileInput = document.getElementById('carousel-file-input') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
       alert('Carousel Image Added!');
@@ -2390,61 +2617,181 @@ function AdminHome() {
 
       {activeTab === 'carousel' && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+
+          {/* Crop modal */}
+          {showCropModal && (
+            <ImageCropper
+              src={cropSrc}
+              onCrop={blob => {
+                const file = new File([blob], 'carousel-cropped.jpg', { type: 'image/jpeg' });
+                setCarouselFile(file);
+                setCroppedPreviewUrl(URL.createObjectURL(blob));
+                setShowCropModal(false);
+              }}
+              onCancel={() => setShowCropModal(false)}
+            />
+          )}
+
           <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-2">
             <span className="w-2 h-8 bg-fuchsia-600 rounded-full"></span>
             Carousel Management
           </h2>
-          
+
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h3 className="text-lg font-bold text-slate-800 mb-1">Upload Carousel Image</h3>
                 <p className="text-sm text-slate-500">
-                  You can have up to <span className="font-bold text-fuchsia-600">3 images</span> in the home carousel. 
-                  To <span className="font-bold text-slate-700">replace</span> an image, delete an existing one first.
+                  Up to <span className="font-bold text-fuchsia-600">3 images</span> in the home carousel.
+                  Images are cropped before upload so they display perfectly.
                 </p>
               </div>
-              <button 
+              <button
                 disabled={clearingCarousel || carousels.length === 0}
                 onClick={handleBulkClearCarousel}
                 className="bg-rose-50 text-rose-600 px-4 py-2 rounded-xl font-bold text-xs hover:bg-rose-600 hover:text-white transition-all disabled:opacity-50 flex items-center gap-2 border border-rose-100"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                {clearingCarousel ? 'Clearing...' : 'Clear All Images'}
+                {clearingCarousel ? 'Clearing...' : 'Clear All'}
               </button>
             </div>
-            
-            <form onSubmit={handleAddCarousel} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-              <div className="md:col-span-3">
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Select New Image</label>
-                <input 
-                  id="carousel-file-input"
-                  type="file" accept="image/*" required
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-fuchsia-50 file:text-fuchsia-700 hover:file:bg-fuchsia-100" 
-                  onChange={e => {
-                    if (e.target.files && e.target.files[0]) {
-                      setCarouselFile(e.target.files[0]);
-                    }
-                  }} 
-                />
+
+            <form onSubmit={handleAddCarousel} className="space-y-5">
+              {/* File picker + crop preview row */}
+              <div className="flex flex-col sm:flex-row gap-4 items-start">
+                {/* Left: file input */}
+                <div className="flex-1">
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
+                    1 · Choose Image from Gallery
+                  </label>
+                  <input
+                    id="carousel-file-input"
+                    type="file"
+                    accept="image/*"
+                    className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-fuchsia-50 file:text-fuchsia-700 hover:file:bg-fuchsia-100"
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      // Reset any previous crop
+                      setCarouselFile(null);
+                      setCroppedPreviewUrl('');
+                      // Read as data URL → open crop modal
+                      const reader = new FileReader();
+                      reader.onload = ev => {
+                        setCropSrc(ev.target?.result as string);
+                        setShowCropModal(true);
+                      };
+                      reader.readAsDataURL(file);
+                      // Reset input so same file can be re-selected
+                      e.target.value = '';
+                    }}
+                  />
+                  {!croppedPreviewUrl && (
+                    <p className="mt-2 text-[11px] text-slate-400 font-medium">
+                      After choosing, a crop tool will open so you can frame it perfectly.
+                    </p>
+                  )}
+                </div>
+
+                {/* Right: cropped preview */}
+                {croppedPreviewUrl && (
+                  <div className="shrink-0">
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
+                      2 · Cropped Preview
+                    </label>
+                    <div className="relative w-48 h-28 rounded-xl overflow-hidden border-2 border-fuchsia-300 shadow-md">
+                      <img src={croppedPreviewUrl} alt="Cropped preview" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
+                        <button
+                          type="button"
+                          onClick={() => { setCroppedPreviewUrl(''); setCarouselFile(null); }}
+                          className="text-white bg-rose-500 rounded-lg px-3 py-1 text-xs font-bold shadow"
+                        >
+                          Re-crop
+                        </button>
+                      </div>
+                    </div>
+                    <p className="mt-1 text-[10px] text-emerald-600 font-bold flex items-center gap-1">
+                      <Check className="w-3 h-3" /> Ready to upload
+                    </p>
+                  </div>
+                )}
               </div>
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Priority (1-10)</label>
-                <input 
-                  type="number" required min="1" max="10"
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium focus:border-fuchsia-500" 
-                  value={carouselPriority} onChange={e => setCarouselPriority(e.target.value)} 
-                />
+
+              {/* Priority + Badge + submit */}
+              <div className="flex flex-col sm:flex-row gap-4 items-end">
+                <div className="sm:w-40">
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
+                    3 · Display Order
+                  </label>
+                  <input
+                    type="number" required min="1" max="10"
+                    className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium focus:border-fuchsia-500"
+                    value={carouselPriority} onChange={e => setCarouselPriority(e.target.value)}
+                    placeholder="1"
+                  />
+                </div>
+
+                {/* Badge selector */}
+                <div className="sm:w-56">
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
+                    4 · Corner Badge
+                  </label>
+                  <div className="flex gap-2">
+                    {/* None */}
+                    <button
+                      type="button"
+                      onClick={() => setCarouselBadge('none')}
+                      className={`flex-1 py-2.5 rounded-xl text-xs font-black border-2 transition-all ${
+                        carouselBadge === 'none'
+                          ? 'border-slate-400 bg-slate-100 text-slate-700 shadow-sm'
+                          : 'border-slate-200 bg-white text-slate-400 hover:border-slate-300'
+                      }`}
+                    >
+                      None
+                    </button>
+                    {/* LIVE */}
+                    <button
+                      type="button"
+                      onClick={() => setCarouselBadge('live')}
+                      className={`flex-1 py-2.5 rounded-xl text-xs font-black border-2 transition-all ${
+                        carouselBadge === 'live'
+                          ? 'border-red-500 bg-red-500 text-white shadow-md shadow-red-200'
+                          : 'border-red-200 bg-red-50 text-red-500 hover:border-red-400'
+                      }`}
+                    >
+                      🔴 LIVE
+                    </button>
+                    {/* NEW */}
+                    <button
+                      type="button"
+                      onClick={() => setCarouselBadge('new')}
+                      className={`flex-1 py-2.5 rounded-xl text-xs font-black border-2 transition-all ${
+                        carouselBadge === 'new'
+                          ? 'border-green-500 bg-green-500 text-white shadow-md shadow-green-200'
+                          : 'border-green-200 bg-green-50 text-green-600 hover:border-green-400'
+                      }`}
+                    >
+                      🟢 NEW
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  disabled={uploadingCarousel || carousels.length >= 3 || !carouselFile}
+                  type="submit"
+                  className="flex-1 bg-fuchsia-600 disabled:opacity-40 disabled:cursor-not-allowed text-white px-6 py-3.5 rounded-xl hover:bg-fuchsia-700 font-bold transition-all shadow-lg shadow-fuchsia-100 flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-5 h-5" />
+                  {uploadingCarousel ? 'Uploading…' : !carouselFile ? 'Choose & Crop Image First' : 'Upload Cropped Image'}
+                </button>
               </div>
-              <button disabled={uploadingCarousel || carousels.length >= 3} type="submit" className="bg-fuchsia-600 disabled:opacity-50 disabled:bg-slate-300 text-white px-6 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-fuchsia-50 flex items-center justify-center gap-2">
-                <Plus className="w-5 h-5" />
-                {uploadingCarousel ? 'Uploading...' : 'Add Image'}
-              </button>
             </form>
+
             {carousels.length >= 3 && (
               <p className="mt-4 text-xs text-rose-500 font-bold bg-rose-50 p-3 rounded-lg border border-rose-100 flex items-center gap-2">
                 <X className="w-4 h-4" />
-                Limit reached! Delete one image below to add a new one.
+                Limit reached (3/3). Delete an existing image below to add a new one.
               </p>
             )}
           </div>

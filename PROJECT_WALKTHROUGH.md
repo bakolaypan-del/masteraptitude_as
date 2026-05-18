@@ -1,6 +1,6 @@
 # Master Aptitude — Project Walkthrough
 
-**Last updated:** 2026-05-18 (rev 4)  
+**Last updated:** 2026-05-18 (rev 5)  
 **Stack:** React 19 + Vite (frontend) · Express + Firebase Admin (backend) · Firebase Auth + Firestore (DB) · Vercel (deploy)
 
 ---

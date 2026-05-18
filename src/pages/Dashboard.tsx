@@ -5,7 +5,7 @@ import { signOut, updatePassword } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ArrowLeft, ExternalLink, Menu, X, Youtube, MessageCircle, Send, LayoutDashboard, History, ChevronDown, ArrowRight, User, Info, Phone, Download, Printer, AlertCircle, BarChart3, Keyboard, Globe, Layers, CheckSquare, Volume2, VolumeX, Maximize, NotebookPen } from 'lucide-react';
+import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ChevronLeft, ArrowLeft, ExternalLink, Menu, X, Youtube, MessageCircle, Send, LayoutDashboard, History, ChevronDown, ArrowRight, User, Info, Phone, Download, Printer, AlertCircle, BarChart3, Keyboard, Globe, Layers, CheckSquare, Volume2, VolumeX, Maximize, NotebookPen } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -54,6 +54,7 @@ export default function Dashboard() {
   const [selectedResult, setSelectedResult] = useState<any>(null);
   const [downloadingPDF, setDownloadingPDF] = useState<string | null>(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const [isCarouselAnimating, setIsCarouselAnimating] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentPopupIndex, setCurrentPopupIndex] = useState(0);
   const tabParam = (searchParams.get('tab') as DashboardTab) || 'home';
@@ -66,6 +67,16 @@ export default function Dashboard() {
     }, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  // Auto-advance carousel — infinite loop for 3+ images
+  useEffect(() => {
+    if (carousels.length < 3) return; // 1–2 images: static, nothing to rotate
+    const timer = setInterval(() => {
+      setIsCarouselAnimating(true);
+      setCurrentSlideIndex(prev => prev + 1);
+    }, 3500);
+    return () => clearInterval(timer);
+  }, [carousels.length]);
 
   useEffect(() => {
     setLearnOpen(['video', 'notes', 'affairs', 'practice'].includes(tabParam));
@@ -467,16 +478,24 @@ export default function Dashboard() {
   };
 
   if (loading) return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-      <div className="flex flex-col items-center">
-        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Syncing Dashboard...</p>
+    <div className="min-h-screen flex items-center justify-center" style={{background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)'}}>
+      <div className="flex flex-col items-center gap-5">
+        <div className="relative">
+          <div className="w-20 h-20 bg-gradient-to-br from-indigo-400 to-violet-500 rounded-3xl flex items-center justify-center shadow-2xl shadow-indigo-900/60">
+            <Trophy className="w-10 h-10 text-white" />
+          </div>
+          <div className="absolute inset-0 w-20 h-20 border-2 border-indigo-400/60 border-t-transparent rounded-3xl animate-spin"></div>
+        </div>
+        <div className="text-center">
+          <p className="text-white font-black text-lg tracking-tight">Master Aptitude</p>
+          <p className="text-white/40 font-bold uppercase tracking-[0.3em] text-[9px] mt-1">Loading your dashboard...</p>
+        </div>
       </div>
     </div>
   );
 
   return (
-    <div className="flex h-screen bg-[#f8f9fa] font-sans text-slate-900 overflow-hidden">
+    <div className="flex h-screen font-sans text-slate-900 overflow-hidden" style={{background: 'linear-gradient(135deg, #eef2ff 0%, #f5f3ff 50%, #eff6ff 100%)'}}>
       
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
@@ -488,12 +507,17 @@ export default function Dashboard() {
 
       {/* Dark Left Sidebar */}
       <aside className={`fixed inset-y-0 left-0 bg-[#1c2128] text-slate-300 flex flex-col w-64 h-full shrink-0 shadow-xl z-50 transform transition-transform duration-300 md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="h-16 flex items-center justify-between px-6 shrink-0 bg-[#15191e]">
-          <button onClick={() => { setActiveTab('home'); setIsSidebarOpen(false); }} className="flex items-center hover:bg-[#1a1f26] transition-colors w-full text-left">
-            <Target className="w-6 h-6 text-cyan-400 mr-2 shrink-0" />
-            <span className="text-xl font-bold text-white tracking-tight uppercase truncate">Master Aptitude</span>
+        <div className="flex items-center justify-between px-5 py-4 shrink-0 border-b border-white/10" style={{background: 'linear-gradient(135deg, rgba(99,102,241,0.3) 0%, rgba(139,92,246,0.2) 100%)'}}>
+          <button onClick={() => { setActiveTab('home'); setIsSidebarOpen(false); }} className="flex items-center gap-3 hover:opacity-90 transition-opacity text-left flex-1 min-w-0">
+            <div className="w-10 h-10 bg-gradient-to-br from-indigo-400 to-violet-500 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-900/50 shrink-0">
+              <Trophy className="w-5 h-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[13px] font-black text-white tracking-tight leading-tight truncate">Master Aptitude</div>
+              <div className="text-[9px] font-bold text-indigo-300 uppercase tracking-[0.18em]">by Suman Sir</div>
+            </div>
           </button>
-          <button 
+          <button
             className="md:hidden text-slate-400 hover:text-white shrink-0 ml-2"
             onClick={() => setIsSidebarOpen(false)}
           >
@@ -659,30 +683,39 @@ export default function Dashboard() {
       <div className="flex-1 flex flex-col h-full relative overflow-y-auto w-full md:w-auto">
         
         {/* Top Header */}
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-8 shrink-0 sticky top-0 z-10 w-full">
-          <div className="flex items-center flex-1 max-w-xl">
-             <button
-               onClick={() => setIsSidebarOpen(true)}
-               className="md:hidden p-2 mr-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-xl"
-             >
-               <Menu className="w-6 h-6" />
-             </button>
-             {/* Left side empty for now as search is removed */}
-          </div>
-          <div className="flex items-center gap-6 ml-4">
-            <div className="hidden sm:flex flex-col text-right">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Student Profile</span>
-              <span className="text-xs font-bold text-slate-800">{profile?.name || 'Loading...'}</span>
-              <span className="text-[10px] font-medium text-slate-500">{profile?.phoneNumber || ''}</span>
+        <header className="h-16 bg-white/75 backdrop-blur-xl border-b border-slate-200/60 flex items-center justify-between px-4 sm:px-8 shrink-0 sticky top-0 z-10 w-full shadow-sm">
+          <div className="flex items-center flex-1">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="md:hidden p-2 mr-3 -ml-1 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+            <div className="hidden md:flex items-center gap-2">
+              <span className="text-[11px] font-black text-slate-400 uppercase tracking-[0.18em]">
+                {activeTab === 'home' ? '🏠 Dashboard' : activeTab === 'profile' ? '👤 My Profile' : activeTab.startsWith('mock') ? '🎯 Mock Tests' : activeTab === 'notes' ? '📚 Study Notes' : activeTab === 'video' ? '🎬 Video Lectures' : activeTab === 'pyq' ? '📄 Previous Year Q.' : activeTab === 'affairs' ? '📰 Current Affairs' : activeTab === 'practice' ? '✅ Practice Sets' : activeTab === 'pattern' ? '📋 Exam Pattern' : activeTab === 'about' ? 'ℹ️ About Us' : activeTab === 'contact' ? '📞 Contact' : 'Dashboard'}
+              </span>
             </div>
+          </div>
+          <div className="flex items-center gap-3">
             {profile?.role === 'admin' && (
-              <Link to="/admin" className="text-[10px] font-black bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-slate-900 transition-all shadow-md shadow-indigo-100 uppercase tracking-widest">
+              <Link to="/admin" className="hidden sm:flex items-center gap-1.5 text-[10px] font-black bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-4 py-2 rounded-xl hover:opacity-90 transition-all shadow-md shadow-indigo-200 uppercase tracking-widest">
+                <LayoutDashboard className="w-3 h-3" />
                 Admin Panel
               </Link>
             )}
-            <button 
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-full flex items-center justify-center text-white text-sm font-black shadow-lg shadow-indigo-200 shrink-0 select-none border-2 border-white">
+                {(profile?.name || 'S').charAt(0).toUpperCase()}
+              </div>
+              <div className="hidden sm:flex flex-col">
+                <span className="text-xs font-bold text-slate-800 leading-tight">{profile?.name || 'Student'}</span>
+                <span className="text-[9px] font-medium text-slate-400">{profile?.phoneNumber || ''}</span>
+              </div>
+            </div>
+            <button
               onClick={handleLogout}
-              className="w-10 h-10 flex items-center justify-center bg-slate-100 text-slate-500 hover:bg-rose-50 hover:text-rose-600 rounded-xl transition-all"
+              className="w-9 h-9 flex items-center justify-center bg-slate-100 text-slate-500 hover:bg-rose-50 hover:text-rose-600 rounded-xl transition-all"
               title="Log out"
             >
               <LogOut className="w-4 h-4" />
@@ -691,127 +724,311 @@ export default function Dashboard() {
         </header>
 
         {/* Scrollable Main Content */}
-        <main className="p-6 md:p-10 w-full animate-in fade-in duration-500">
+        <main className="p-5 md:p-8 w-full animate-in fade-in duration-500">
           
           {/* Welcome & Carousel - Only Show on Home */}
           {activeTab === 'home' && (
             <div className="animate-in fade-in duration-500">
-              {/* Welcome & Motivation Section */}
-              <div className="mb-6 bg-[#004d00] rounded-2xl p-4 md:p-6 text-white shadow-lg relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-4">
-                {/* Background images - more visible now */}
-                <div className="absolute inset-0 opacity-60 mix-blend-overlay pointer-events-none">
-                  <div className="absolute inset-0 flex gap-2 p-1">
-                    <img src="https://images.unsplash.com/photo-1544377193-33dcf4d68fb5?auto=format&fit=crop&q=80&w=400" className="w-1/2 h-full object-cover" alt="Studying Boy" referrerPolicy="no-referrer" />
-                    <img src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&q=80&w=400" className="w-1/2 h-full object-cover" alt="Studying Girl" referrerPolicy="no-referrer" />
-                  </div>
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-r from-[#004d00]/80 via-[#004d00]/60 to-transparent pointer-events-none"></div>
+              {/* ── Hero Banner ─────────────────────────────────────────── */}
+              <div
+                className="mb-6 rounded-3xl relative overflow-hidden text-white shadow-2xl"
+                style={{ background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 55%, #24243e 100%)' }}
+              >
+                {/* ── Background video (full-banner on mobile, right-panel on sm+) ── */}
+                {/*
+                  Layout logic:
+                  • Mobile  → video fills 100% of banner as a dark background layer,
+                              then a heavy gradient overlay keeps left text readable.
+                  • sm+     → video sits in the right 55%; left side has a
+                              colour-gradient + blur-mask blend so it melts into
+                              the cosmic purple with zero hard edge.
+                  Performance:
+                  • preload="none"   – no bytes fetched until autoplay fires
+                  • playsInline      – prevents iOS full-screen hijack
+                  • disablePictureInPicture – no pip button interruption
+                  • 720p sources only – keeps file size small enough for 4G/mobile
+                */}
+                <div className="absolute inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[55%] pointer-events-none">
+                  <video
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    disablePictureInPicture
+                    preload="none"
+                    poster="https://images.unsplash.com/photo-1571260899304-425eee4c7efc?w=800&q=75"
+                    className="w-full h-full object-cover object-center"
+                    style={{ borderRadius: 'inherit' }}
+                  >
+                    {/* aspirant on laptop / online test */}
+                    <source
+                      src="https://videos.pexels.com/video-files/5739876/5739876-hd_1280_720_30fps.mp4"
+                      type="video/mp4"
+                    />
+                    {/* student studying at desk */}
+                    <source
+                      src="https://videos.pexels.com/video-files/5989969/5989969-hd_1280_720_25fps.mp4"
+                      type="video/mp4"
+                    />
+                    {/* group study fallback */}
+                    <source
+                      src="https://videos.pexels.com/video-files/3209979/3209979-hd_1280_720_25fps.mp4"
+                      type="video/mp4"
+                    />
+                  </video>
 
-                <div className="relative z-10 w-full text-center md:text-left">
-                  <h2 className="text-lg md:text-2xl font-black mb-1 tracking-tight">
-                    Welcome, <span className="text-yellow-400">{profile?.name || 'Student'}</span>
+                  {/* ── MOBILE overlay (sm:hidden) ──
+                      Dark radial + directional gradient so text on the left
+                      stays crisp. No expensive blur on mobile GPU. */}
+                  <div
+                    className="absolute inset-0 sm:hidden"
+                    style={{
+                      background:
+                        'linear-gradient(to right, rgba(15,12,41,0.96) 0%, rgba(48,43,99,0.88) 45%, rgba(36,36,62,0.55) 75%, rgba(15,12,41,0.4) 100%)',
+                    }}
+                  />
+
+                  {/* ── DESKTOP left-edge blend (hidden on mobile) ──
+                      Three layered overlays create the "slowly dissolving blur" effect. */}
+
+                  {/* Layer A – colour anchor: matches banner's cosmic mid-tone */}
+                  <div
+                    className="absolute inset-y-0 left-0 w-[60%] hidden sm:block"
+                    style={{
+                      background:
+                        'linear-gradient(to right, #302b63 0%, rgba(48,43,99,0.97) 18%, rgba(48,43,99,0.78) 45%, rgba(36,36,62,0.3) 78%, transparent 100%)',
+                    }}
+                  />
+
+                  {/* Layer B – frosted-glass blur that fades via mask (desktop only) */}
+                  <div
+                    className="absolute inset-y-0 left-0 w-[50%] hidden sm:block"
+                    style={{
+                      backdropFilter: 'blur(18px)',
+                      WebkitBackdropFilter: 'blur(18px)',
+                      maskImage:
+                        'linear-gradient(to right, black 0%, black 25%, rgba(0,0,0,0.6) 55%, transparent 100%)',
+                      WebkitMaskImage:
+                        'linear-gradient(to right, black 0%, black 25%, rgba(0,0,0,0.6) 55%, transparent 100%)',
+                    }}
+                  />
+
+                  {/* Layer C – top/bottom vignette for clean card edges */}
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      background:
+                        'linear-gradient(to bottom, rgba(15,12,41,0.45) 0%, transparent 30%, transparent 70%, rgba(15,12,41,0.5) 100%)',
+                    }}
+                  />
+                </div>
+
+                {/* ── Dot-grid texture (left text area only) ── */}
+                <div
+                  className="absolute inset-0 opacity-[0.035] pointer-events-none"
+                  style={{
+                    backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
+                    backgroundSize: '20px 20px',
+                  }}
+                />
+
+                {/* ── Welcome text ── */}
+                <div className="relative z-10 p-5 sm:p-6 md:p-8 flex flex-col justify-center min-h-[140px] sm:min-h-[170px] sm:max-w-[48%]">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+                    <span className="text-[9px] sm:text-[10px] font-black text-emerald-400 uppercase tracking-[0.2em]">
+                      Live Dashboard
+                    </span>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl md:text-3xl font-black mb-2 tracking-tight leading-tight">
+                    Hello,{' '}
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-300">
+                      {profile?.name?.split(' ')[0] || 'Student'}
+                    </span>
+                    ! 👋
                   </h2>
-                  <p className="text-xs md:text-sm font-bold text-white/95 drop-shadow-sm">
-                    Master Aptitude: Your Journey to Success Begins Today!
+                  <p className="text-xs sm:text-sm font-medium text-white/55 leading-relaxed">
+                    🎯 Every test you attempt brings you one step closer to your dream!
                   </p>
                 </div>
               </div>
+              {/* ── End Hero Banner ──────────────────────────────────────── */}
 
-              {/* Image Carousel */}
-              {carousels.length > 0 && (
-                <div className="mb-8 w-full h-44 sm:h-56 md:h-72 lg:h-96 relative rounded-3xl overflow-hidden shadow-lg border-2 border-slate-200">
-                   <div 
-                     className="w-full h-full flex transition-transform duration-1000 ease-in-out"
-                     style={{ transform: `translateX(-${currentSlideIndex * 100}%)` }}
-                   >
-                     {carousels.map((slide) => (
-                       <div key={slide.id} className="w-full h-full shrink-0 relative">
-                          <img src={slide.link} alt="Slide Informational" className="w-full h-full object-cover" />
-                          <div className="absolute top-4 right-4 z-30">
-                            <div className="bg-red-600 text-white text-[10px] sm:text-xs font-black px-3 py-1 rounded-full shadow-lg border border-white/20 animate-fast-blink">
-                              NEW
+              {/* ── Image Carousel ─────────────────────────────────────────── */}
+              {carousels.length > 0 && (() => {
+                const sorted = [...carousels].sort((a, b) => (a.priority || 99) - (b.priority || 99));
+                const N = sorted.length;
+
+                // Renders the corner badge based on admin's choice
+                const CarouselBadge = ({ badge }: { badge?: string }) => {
+                  if (badge === 'live') return (
+                    <div className="absolute top-2 right-2 z-10">
+                      <span className="bg-red-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-lg animate-fast-blink tracking-wider flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-white inline-block" />
+                        LIVE
+                      </span>
+                    </div>
+                  );
+                  if (badge === 'new') return (
+                    <div className="absolute top-2 right-2 z-10">
+                      <span className="bg-green-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-lg animate-fast-blink tracking-wider">
+                        NEW
+                      </span>
+                    </div>
+                  );
+                  return null; // 'none' or undefined → no badge
+                };
+
+                // ── Static layout: 1 or 2 images — show all at once, no looping ──
+                if (N <= 2) {
+                  return (
+                    <div className="mb-6">
+                      <div className="flex gap-2 sm:gap-3">
+                        {sorted.map(slide => (
+                          <div
+                            key={slide.id}
+                            className="relative overflow-hidden rounded-xl shadow-sm border border-slate-200/60 h-32 sm:h-40 md:h-48"
+                            style={{ flex: '1 1 0%' }}
+                          >
+                            <img src={slide.link} alt="Announcement" className="w-full h-full object-cover" />
+                            <CarouselBadge badge={slide.badge} />
+                            <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+
+                // ── Infinite loop: 3+ images — show 3 at a time, rotate one-by-one ──
+                const repeated = [...sorted, ...sorted]; // 2 × N for seamless reset
+                const total = repeated.length;
+
+                return (
+                  <div className="mb-6">
+                    {/* Viewport — clips to exactly 3 items */}
+                    <div className="overflow-hidden rounded-2xl">
+                      {/* Track — wide enough to hold all 2N items */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          width: `${(total / 3) * 100}%`,
+                          transform: `translateX(-${(currentSlideIndex / total) * 100}%)`,
+                          transition: isCarouselAnimating ? 'transform 700ms ease-in-out' : 'none',
+                        }}
+                        onTransitionEnd={() => {
+                          if (currentSlideIndex >= N) {
+                            setCurrentSlideIndex(prev => prev - N);
+                          }
+                          setIsCarouselAnimating(false);
+                        }}
+                      >
+                        {repeated.map((slide, idx) => (
+                          <div key={idx} style={{ width: `${100 / total}%` }} className="px-1 first:pl-0 last:pr-0">
+                            <div className="relative overflow-hidden rounded-xl h-32 sm:h-40 md:h-48 shadow-sm border border-slate-200/60">
+                              <img src={slide.link} alt="Announcement" className="w-full h-full object-cover" />
+                              <CarouselBadge badge={slide.badge} />
+                              <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
                             </div>
                           </div>
-                       </div>
-                     ))}
-                   </div>
-                   
-                   {/* Controls */}
-                   {carousels.length > 1 && (
-                     <div className="absolute bottom-4 left-0 right-0 z-20 flex justify-center gap-2">
-                       {carousels.map((_, idx) => (
-                         <button 
-                           key={idx}
-                           onClick={() => setCurrentSlideIndex(idx)}
-                           className={`w-2.5 h-2.5 rounded-full transition-all ${idx === currentSlideIndex ? 'bg-white scale-125 shadow-sm' : 'bg-white/50 hover:bg-white/80'}`}
-                         />
-                       ))}
-                     </div>
-                   )}
-                </div>
-              )}
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Progress dots — one per original image */}
+                    <div className="flex justify-center gap-1.5 mt-3">
+                      {sorted.map((_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => { setIsCarouselAnimating(true); setCurrentSlideIndex(i); }}
+                          className={`h-1.5 rounded-full transition-all duration-300 ${
+                            (currentSlideIndex % N) === i
+                              ? 'w-6 bg-indigo-500 shadow-sm'
+                              : 'w-1.5 bg-slate-300 hover:bg-slate-400'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Quick Access Tiles */}
-              <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-4">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 {/* Learn */}
-                <button onClick={() => setActiveTab('learn_landing')} className="flex flex-col items-center justify-center p-3 sm:p-5 bg-violet-50/80 border border-violet-200 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative text-left w-full">
-                  <div className="absolute inset-0 bg-gradient-to-b from-violet-100/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                  <div className="w-10 h-10 sm:w-14 sm:h-14 bg-violet-600 text-white rounded-xl flex items-center justify-center mb-2 relative z-10 group-hover:scale-110 transition-transform shadow-lg shadow-violet-200">
+                <button onClick={() => setActiveTab('learn_landing')} className="group relative overflow-hidden rounded-3xl p-5 bg-white border border-slate-200/80 shadow-sm hover:shadow-xl hover:shadow-violet-100 transition-all duration-300 hover:-translate-y-1 text-left">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-violet-500/8 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-[2] transition-transform duration-500"></div>
+                  <div className="w-11 h-11 sm:w-14 sm:h-14 bg-gradient-to-br from-violet-500 to-indigo-600 text-white rounded-2xl flex items-center justify-center mb-3 shadow-lg shadow-violet-200 group-hover:scale-110 transition-transform duration-300">
                     <BookOpen className="w-5 h-5 sm:w-7 sm:h-7" />
                   </div>
-                  <div className="relative z-10 text-center">
-                    <h4 className="font-bold text-slate-800 text-[11px] sm:text-[14px] leading-tight">Learn</h4>
-                    <p className="text-[8px] sm:text-[11px] text-slate-500 mt-1 leading-relaxed">Videos, notes & current affairs.</p>
+                  <h4 className="font-black text-slate-800 text-sm sm:text-base leading-tight">📚 Learn</h4>
+                  <p className="text-[10px] sm:text-[11px] text-slate-500 mt-1 leading-relaxed font-medium">Videos, notes & current affairs</p>
+                  <div className="mt-3 flex items-center gap-1 text-violet-600 text-[10px] font-black uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
+                    Explore <ChevronRight className="w-3 h-3" />
                   </div>
                 </button>
 
                 {/* Mock Test */}
-                <button onClick={() => setActiveTab('mock_landing')} className="flex flex-col items-center justify-center p-3 sm:p-5 bg-rose-50/80 border border-rose-200 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative text-left w-full">
-                  <div className="absolute inset-0 bg-gradient-to-b from-rose-100/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                  <div className="w-10 h-10 sm:w-14 sm:h-14 bg-rose-600 text-white rounded-xl flex items-center justify-center mb-2 relative z-10 group-hover:scale-110 transition-transform shadow-lg shadow-rose-200">
+                <button onClick={() => setActiveTab('mock_landing')} className="group relative overflow-hidden rounded-3xl p-5 bg-white border border-slate-200/80 shadow-sm hover:shadow-xl hover:shadow-rose-100 transition-all duration-300 hover:-translate-y-1 text-left">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/8 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-[2] transition-transform duration-500"></div>
+                  <div className="w-11 h-11 sm:w-14 sm:h-14 bg-gradient-to-br from-rose-500 to-pink-600 text-white rounded-2xl flex items-center justify-center mb-3 shadow-lg shadow-rose-200 group-hover:scale-110 transition-transform duration-300">
                     <Target className="w-5 h-5 sm:w-7 sm:h-7" />
                   </div>
-                  <div className="relative z-10 text-center">
-                    <h4 className="font-bold text-slate-800 text-[11px] sm:text-[14px] leading-tight">Mock Test</h4>
-                    <p className="text-[8px] sm:text-[11px] text-slate-500 mt-1 leading-relaxed">Topic, sectional & full-length tests.</p>
+                  <h4 className="font-black text-slate-800 text-sm sm:text-base leading-tight">🎯 Mock Test</h4>
+                  <p className="text-[10px] sm:text-[11px] text-slate-500 mt-1 leading-relaxed font-medium">Topic, sectional & full-length</p>
+                  <div className="mt-3 flex items-center gap-1 text-rose-600 text-[10px] font-black uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
+                    Attempt <ChevronRight className="w-3 h-3" />
                   </div>
                 </button>
 
                 {/* Typing Test */}
-                <button onClick={() => navigate('/typing-tests')} className="flex flex-col items-center justify-center p-3 sm:p-5 bg-emerald-50/80 border border-emerald-200 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative text-left w-full">
-                  <div className="absolute inset-0 bg-gradient-to-b from-emerald-100/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                  <div className="w-10 h-10 sm:w-14 sm:h-14 bg-emerald-600 text-white rounded-xl flex items-center justify-center mb-2 relative z-10 group-hover:scale-110 transition-transform shadow-lg shadow-emerald-200">
+                <button onClick={() => navigate('/typing-tests')} className="group relative overflow-hidden rounded-3xl p-5 bg-white border border-slate-200/80 shadow-sm hover:shadow-xl hover:shadow-emerald-100 transition-all duration-300 hover:-translate-y-1 text-left">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/8 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-[2] transition-transform duration-500"></div>
+                  <div className="w-11 h-11 sm:w-14 sm:h-14 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-2xl flex items-center justify-center mb-3 shadow-lg shadow-emerald-200 group-hover:scale-110 transition-transform duration-300">
                     <Keyboard className="w-5 h-5 sm:w-7 sm:h-7" />
                   </div>
-                  <div className="relative z-10 text-center">
-                    <h4 className="font-bold text-slate-800 text-[11px] sm:text-[14px] leading-tight">Typing Test</h4>
-                    <p className="text-[8px] sm:text-[11px] text-slate-500 mt-1 leading-relaxed">Improve your WPM & accuracy.</p>
+                  <h4 className="font-black text-slate-800 text-sm sm:text-base leading-tight">⌨️ Typing Test</h4>
+                  <p className="text-[10px] sm:text-[11px] text-slate-500 mt-1 leading-relaxed font-medium">Improve your WPM & accuracy</p>
+                  <div className="mt-3 flex items-center gap-1 text-emerald-600 text-[10px] font-black uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
+                    Practice <ChevronRight className="w-3 h-3" />
                   </div>
                 </button>
 
                 {/* Previous Year Questions */}
-                <button onClick={() => setActiveTab('pyq')} className="flex flex-col items-center justify-center p-3 sm:p-5 bg-amber-50/80 border border-amber-200 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative text-left w-full">
-                  <div className="absolute inset-0 bg-gradient-to-b from-amber-100/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                  <div className="w-10 h-10 sm:w-14 sm:h-14 bg-amber-500 text-white rounded-xl flex items-center justify-center mb-2 relative z-10 group-hover:scale-110 transition-transform shadow-lg shadow-amber-200">
+                <button onClick={() => setActiveTab('pyq')} className="group relative overflow-hidden rounded-3xl p-5 bg-white border border-slate-200/80 shadow-sm hover:shadow-xl hover:shadow-amber-100 transition-all duration-300 hover:-translate-y-1 text-left">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/8 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-[2] transition-transform duration-500"></div>
+                  <div className="w-11 h-11 sm:w-14 sm:h-14 bg-gradient-to-br from-amber-500 to-orange-600 text-white rounded-2xl flex items-center justify-center mb-3 shadow-lg shadow-amber-200 group-hover:scale-110 transition-transform duration-300">
                     <FileText className="w-5 h-5 sm:w-7 sm:h-7" />
                   </div>
-                  <div className="relative z-10 text-center">
-                    <h4 className="font-bold text-slate-800 text-[11px] sm:text-[14px] leading-tight">Previous Year Questions</h4>
-                    <p className="text-[8px] sm:text-[11px] text-slate-500 mt-1 leading-relaxed">Practise with past exam papers.</p>
+                  <h4 className="font-black text-slate-800 text-sm sm:text-base leading-tight">📄 Previous Year Q.</h4>
+                  <p className="text-[10px] sm:text-[11px] text-slate-500 mt-1 leading-relaxed font-medium">Practice with past exam papers</p>
+                  <div className="mt-3 flex items-center gap-1 text-amber-600 text-[10px] font-black uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
+                    Download <ChevronRight className="w-3 h-3" />
                   </div>
                 </button>
               </div>
 
-              {/* Home Footer Section */}
-              <div className="mt-16 pt-8 border-t border-slate-200">
-                <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm flex flex-col items-center text-center">
-                  <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-4">
-                    <MessageCircle className="w-6 h-6" />
+              {/* Home Footer CTA */}
+              <div className="mt-10 rounded-3xl relative overflow-hidden text-white shadow-xl" style={{background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e3a5f 100%)'}}>
+                <div className="absolute -top-10 -right-10 w-60 h-60 bg-violet-400/20 rounded-full blur-3xl pointer-events-none"></div>
+                <div className="absolute -bottom-10 -left-10 w-52 h-52 bg-indigo-400/15 rounded-full blur-3xl pointer-events-none"></div>
+                <div className="relative z-10 p-6 md:p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
+                  <div className="text-center sm:text-left">
+                    <div className="flex items-center justify-center sm:justify-start gap-2 mb-2">
+                      <MessageCircle className="w-5 h-5 text-indigo-300" />
+                      <span className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.2em]">Support</span>
+                    </div>
+                    <h3 className="text-xl font-black text-white mb-1">Need Assistance? 🙋</h3>
+                    <p className="text-white/50 text-sm font-medium">Any questions about your studies or the platform?</p>
                   </div>
-                  <h3 className="text-xl font-black text-slate-800 mb-2">Need Assistance?</h3>
-                  <p className="text-slate-500 font-medium mb-6">If you have any questions regarding your studies or the platform, feel free to contact us.</p>
-                  <div className="text-white px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest bg-gradient-to-r from-red-600 to-rose-700 shadow-xl shadow-red-500/20 flex items-center gap-3 hover:scale-[1.02] transition-transform">
-                    Any Query Call - <a href="tel:8900011708" className="hover:underline">8900011708</a> (Shibnath)
+                  <div className="flex flex-col items-center gap-2 shrink-0">
+                    <a
+                      href="tel:8900011708"
+                      className="flex items-center gap-3 bg-white text-indigo-900 px-6 py-3.5 rounded-2xl font-black text-sm hover:bg-indigo-50 transition-all shadow-xl shadow-black/30 hover:scale-[1.03] active:scale-100"
+                    >
+                      📞 Call 8900011708
+                    </a>
+                    <span className="text-white/35 text-[10px] font-bold uppercase tracking-wider">(Shibnath)</span>
                   </div>
                 </div>
               </div>
@@ -921,21 +1138,23 @@ export default function Dashboard() {
 
           {/* Affairs Tab Content */}
           {activeTab === 'affairs' && (
-            <div className="space-y-8 animate-in fade-in duration-700">
-              <h2 className="text-xl font-black text-slate-900 tracking-tight">
-                Current Affairs
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="space-y-6 animate-in fade-in duration-700">
+              <div className="flex items-center gap-3">
+                <div className="w-1.5 h-8 bg-gradient-to-b from-blue-500 to-indigo-600 rounded-full"></div>
+                <h2 className="text-xl font-black text-slate-900 tracking-tight">📰 Current Affairs</h2>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 {affairs.map(item => (
-                  <div key={item.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs relative group hover:shadow-lg transition-all">
-                    <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 mb-4 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                  <div key={item.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group hover:shadow-xl hover:shadow-blue-50 hover:-translate-y-1 transition-all duration-300 overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full translate-x-1/2 -translate-y-1/2 group-hover:scale-150 transition-transform duration-500 pointer-events-none"></div>
+                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center text-white mb-4 shadow-lg shadow-blue-200 group-hover:scale-110 transition-transform duration-300">
                       <FileText className="w-6 h-6" />
                     </div>
-                    <h4 className="font-bold text-slate-800 text-lg mb-2 tracking-tight">{item.title}</h4>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">{item.date || 'Latest'}</p>
-                    <a 
+                    <h4 className="font-black text-slate-800 text-base mb-1 tracking-tight line-clamp-2">{item.title}</h4>
+                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-5 bg-blue-50 inline-block px-2 py-0.5 rounded-md">{item.date || 'Latest'}</p>
+                    <a
                       href={item.link} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center justify-between w-full text-blue-600 font-bold text-xs uppercase tracking-wider bg-blue-50 px-4 py-2.5 rounded-lg hover:bg-blue-600 hover:text-white transition-all"
+                      className="flex items-center justify-between w-full text-blue-700 font-bold text-xs uppercase tracking-wider bg-blue-50 border border-blue-100 px-4 py-2.5 rounded-xl hover:bg-blue-600 hover:text-white hover:border-transparent transition-all"
                     >
                       Read Now
                       <ExternalLink className="w-4 h-4" />
@@ -943,9 +1162,11 @@ export default function Dashboard() {
                   </div>
                 ))}
                 {affairs.length === 0 && (
-                  <div className="col-span-full bg-white rounded-3xl p-16 border border-slate-200 text-center">
-                    <FileText className="w-12 h-12 mx-auto mb-4 text-slate-200" />
-                    <p className="font-bold text-sm uppercase tracking-widest text-slate-500 mb-2">No Current Affairs uploaded yet.</p>
+                  <div className="col-span-full bg-white rounded-3xl p-16 border border-slate-100 text-center shadow-sm">
+                    <div className="w-16 h-16 bg-blue-50 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                      <FileText className="w-8 h-8 text-blue-200" />
+                    </div>
+                    <p className="font-black text-sm uppercase tracking-widest text-slate-400">No Current Affairs uploaded yet.</p>
                   </div>
                 )}
               </div>
@@ -954,31 +1175,35 @@ export default function Dashboard() {
 
           {/* Practice Set Tab Content */}
           {activeTab === 'practice' && (
-            <div className="space-y-8 animate-in fade-in duration-700">
-              <h2 className="text-xl font-black text-slate-900 tracking-tight">
-                Practice Sets
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="space-y-6 animate-in fade-in duration-700">
+              <div className="flex items-center gap-3">
+                <div className="w-1.5 h-8 bg-gradient-to-b from-teal-500 to-emerald-600 rounded-full"></div>
+                <h2 className="text-xl font-black text-slate-900 tracking-tight">✅ Practice Sets</h2>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 {practiceSets.map(item => (
-                  <div key={item.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs relative group hover:shadow-lg transition-all">
-                    <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 mb-4 group-hover:bg-emerald-600 group-hover:text-white transition-all">
+                  <div key={item.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group hover:shadow-xl hover:shadow-teal-50 hover:-translate-y-1 transition-all duration-300 overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/5 rounded-full translate-x-1/2 -translate-y-1/2 group-hover:scale-150 transition-transform duration-500 pointer-events-none"></div>
+                    <div className="w-12 h-12 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-2xl flex items-center justify-center text-white mb-4 shadow-lg shadow-teal-200 group-hover:scale-110 transition-transform duration-300">
                       <CheckCircle className="w-6 h-6" />
                     </div>
-                    <h4 className="font-bold text-slate-800 text-lg mb-2 tracking-tight">{item.title}</h4>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">{item.subject || 'Practice'}</p>
-                    <a 
+                    <h4 className="font-black text-slate-800 text-base mb-1 tracking-tight line-clamp-2">{item.title}</h4>
+                    <p className="text-[10px] font-black text-teal-600 uppercase tracking-widest mb-5 bg-teal-50 inline-block px-2 py-0.5 rounded-md">{item.subject || 'Practice'}</p>
+                    <a
                       href={item.link} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center justify-between w-full text-emerald-600 font-bold text-xs uppercase tracking-wider bg-emerald-50 px-4 py-2.5 rounded-lg hover:bg-emerald-600 hover:text-white transition-all"
+                      className="flex items-center justify-between w-full text-teal-700 font-bold text-xs uppercase tracking-wider bg-teal-50 border border-teal-100 px-4 py-2.5 rounded-xl hover:bg-teal-600 hover:text-white hover:border-transparent transition-all"
                     >
                       Download PDF
-                      <Download className="w-4 h-4" />
+                      <Download className="w-3.5 h-3.5" />
                     </a>
                   </div>
                 ))}
                 {practiceSets.length === 0 && (
-                  <div className="col-span-full bg-white rounded-3xl p-16 border border-slate-200 text-center">
-                    <CheckCircle className="w-12 h-12 mx-auto mb-4 text-slate-200" />
-                    <p className="font-bold text-sm uppercase tracking-widest text-slate-500 mb-2">No Practice Sets uploaded yet.</p>
+                  <div className="col-span-full bg-white rounded-3xl p-16 border border-slate-100 text-center shadow-sm">
+                    <div className="w-16 h-16 bg-teal-50 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                      <CheckCircle className="w-8 h-8 text-teal-200" />
+                    </div>
+                    <p className="font-black text-sm uppercase tracking-widest text-slate-400">No Practice Sets uploaded yet.</p>
                   </div>
                 )}
               </div>
@@ -1047,11 +1272,12 @@ export default function Dashboard() {
           {/* Dashboard Tab Content */}
           {activeTab.startsWith('mock') && (
             <div className="space-y-8 animate-in fade-in duration-700">
-              
+
               <div className="flex flex-col gap-6">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-1.5 h-8 bg-gradient-to-b from-indigo-500 to-violet-600 rounded-full"></div>
                   <h2 className="text-xl font-black text-slate-900 tracking-tight">
-                    Your <span className="text-indigo-600">{activeTab === 'mock_topic' ? 'Topic Wise' : activeTab === 'mock_sectional' ? 'Sectional' : 'Full'} Test Series</span>
+                    🎯 <span className="text-indigo-600">{activeTab === 'mock_topic' ? 'Topic Wise' : activeTab === 'mock_sectional' ? 'Sectional' : 'Full'}</span> Test Series
                   </h2>
                 </div>
 
@@ -1112,10 +1338,10 @@ export default function Dashboard() {
                       }).map(test => {
                         const isTaken = pastResults.some(r => r.testId === test.id);
                         return (
-                          <div key={test.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm transition-all hover:bg-slate-50/50 hover:shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+                          <div key={test.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm transition-all hover:shadow-md hover:-translate-y-px hover:border-indigo-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
                             {/* LEFT SIDE: Mock Test Name */}
                             <div className="flex items-center gap-3 min-w-[200px] flex-1">
-                              <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center shrink-0">
+                              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-600 text-white rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-indigo-200">
                                 <Target className="w-5 h-5" />
                               </div>
                               <div>
@@ -1256,31 +1482,35 @@ export default function Dashboard() {
           )}
 
           {activeTab === 'notes' && (
-            <div className="space-y-8 animate-in fade-in duration-700">
-              <h2 className="text-xl font-black text-slate-900 tracking-tight">
-                Study Materials
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="space-y-6 animate-in fade-in duration-700">
+              <div className="flex items-center gap-3">
+                <div className="w-1.5 h-8 bg-gradient-to-b from-emerald-500 to-teal-600 rounded-full"></div>
+                <h2 className="text-xl font-black text-slate-900 tracking-tight">📚 Study Materials</h2>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 {notes.map(note => (
-                  <div key={note.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs relative group hover:shadow-lg transition-all">
-                    <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 mb-4 group-hover:bg-emerald-600 group-hover:text-white transition-all">
+                  <div key={note.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group hover:shadow-xl hover:shadow-emerald-50 hover:-translate-y-1 transition-all duration-300 overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full translate-x-1/2 -translate-y-1/2 group-hover:scale-150 transition-transform duration-500 pointer-events-none"></div>
+                    <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center text-white mb-4 shadow-lg shadow-emerald-200 group-hover:scale-110 transition-transform duration-300">
                       <BookOpen className="w-6 h-6" />
                     </div>
-                    <h4 className="font-bold text-slate-800 text-lg mb-2 tracking-tight">{note.title}</h4>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">{note.subject}</p>
-                    <a 
+                    <h4 className="font-black text-slate-800 text-base mb-1 tracking-tight line-clamp-2">{note.title}</h4>
+                    <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-5 bg-emerald-50 inline-block px-2 py-0.5 rounded-md">{note.subject || 'Notes'}</p>
+                    <a
                       href={note.link} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center justify-between w-full text-emerald-600 font-bold text-xs uppercase tracking-wider bg-emerald-50 px-4 py-2.5 rounded-lg hover:bg-emerald-600 hover:text-white transition-all"
+                      className="flex items-center justify-between w-full text-emerald-700 font-bold text-xs uppercase tracking-wider bg-emerald-50 border border-emerald-100 px-4 py-2.5 rounded-xl hover:bg-emerald-600 hover:text-white hover:border-transparent transition-all"
                     >
                       Open Resource
-                      <ExternalLink className="w-4 h-4" />
+                      <ExternalLink className="w-3.5 h-3.5" />
                     </a>
                   </div>
                 ))}
                 {notes.length === 0 && (
-                  <div className="col-span-full bg-white rounded-3xl p-16 border border-slate-200 text-center">
-                    <BookOpen className="w-12 h-12 mx-auto mb-4 text-slate-200" />
-                    <p className="font-bold text-sm uppercase tracking-widest text-slate-500 mb-2">Knowledge Base is Empty</p>
+                  <div className="col-span-full bg-white rounded-3xl p-16 border border-slate-100 text-center shadow-sm">
+                    <div className="w-16 h-16 bg-emerald-50 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                      <BookOpen className="w-8 h-8 text-emerald-200" />
+                    </div>
+                    <p className="font-black text-sm uppercase tracking-widest text-slate-400">Knowledge Base is Empty</p>
                   </div>
                 )}
               </div>
@@ -1327,31 +1557,35 @@ export default function Dashboard() {
           )}
 
           {activeTab === 'pyq' && (
-            <div className="space-y-8 animate-in fade-in duration-700">
-              <h2 className="text-xl font-black text-slate-900 tracking-tight">
-                Previous Year Questions
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="space-y-6 animate-in fade-in duration-700">
+              <div className="flex items-center gap-3">
+                <div className="w-1.5 h-8 bg-gradient-to-b from-amber-500 to-orange-600 rounded-full"></div>
+                <h2 className="text-xl font-black text-slate-900 tracking-tight">📄 Previous Year Questions</h2>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 {pyqs.map(pyq => (
-                  <div key={pyq.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs relative group hover:shadow-lg transition-all">
-                    <div className="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 mb-4 group-hover:bg-amber-600 group-hover:text-white transition-all">
+                  <div key={pyq.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group hover:shadow-xl hover:shadow-amber-50 hover:-translate-y-1 transition-all duration-300 overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full translate-x-1/2 -translate-y-1/2 group-hover:scale-150 transition-transform duration-500 pointer-events-none"></div>
+                    <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center text-white mb-4 shadow-lg shadow-amber-200 group-hover:scale-110 transition-transform duration-300">
                       <FileText className="w-6 h-6" />
                     </div>
-                    <h4 className="font-bold text-slate-800 text-lg mb-2 tracking-tight">{pyq.title}</h4>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">{pyq.subject}</p>
-                    <a 
+                    <h4 className="font-black text-slate-800 text-base mb-1 tracking-tight line-clamp-2">{pyq.title}</h4>
+                    <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-5 bg-amber-50 inline-block px-2 py-0.5 rounded-md">{pyq.subject || 'PYQ'}</p>
+                    <a
                       href={pyq.link} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center justify-between w-full text-amber-600 font-bold text-xs uppercase tracking-wider bg-amber-50 px-4 py-2.5 rounded-lg hover:bg-amber-600 hover:text-white transition-all"
+                      className="flex items-center justify-between w-full text-amber-700 font-bold text-xs uppercase tracking-wider bg-amber-50 border border-amber-100 px-4 py-2.5 rounded-xl hover:bg-amber-500 hover:text-white hover:border-transparent transition-all"
                     >
                       Open Document
-                      <ExternalLink className="w-4 h-4" />
+                      <Download className="w-3.5 h-3.5" />
                     </a>
                   </div>
                 ))}
                 {pyqs.length === 0 && (
-                  <div className="col-span-full bg-white rounded-3xl p-16 border border-slate-200 text-center">
-                    <FileText className="w-12 h-12 mx-auto mb-4 text-slate-200" />
-                    <p className="font-bold text-sm uppercase tracking-widest text-slate-500 mb-2">No PYQs uploaded yet.</p>
+                  <div className="col-span-full bg-white rounded-3xl p-16 border border-slate-100 text-center shadow-sm">
+                    <div className="w-16 h-16 bg-amber-50 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                      <FileText className="w-8 h-8 text-amber-200" />
+                    </div>
+                    <p className="font-black text-sm uppercase tracking-widest text-slate-400">No PYQs uploaded yet.</p>
                   </div>
                 )}
               </div>

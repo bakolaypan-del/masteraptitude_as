@@ -13,8 +13,14 @@
     -ms-user-select: none;
     user-select: none;
     -webkit-touch-callout: none;
-    background-color: #f8fafc;
+    background-color: #f0f4ff;
   }
+
+  /* Premium scrollbar */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.25); border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.5); }
 
   /* Allow selection in inputs and textareas for usability */
   input, textarea {
