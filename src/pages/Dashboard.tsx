@@ -8,7 +8,6 @@ import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ArrowLeft, ExternalLink, Menu, X, Youtube, MessageCircle, Send, LayoutDashboard, History, ChevronDown, ArrowRight, User, Info, Phone, Download, Printer, AlertCircle, BarChart3, Keyboard, Globe, Layers, CheckSquare, Volume2, VolumeX, Maximize, NotebookPen } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { MathRenderer } from '../components/MathRenderer';
 
 type DashboardTab = 'home' | 'profile' | 'mock_topic' | 'mock_sectional' | 'mock_full' | 'notes' | 'video' | 'pyq' | 'pattern' | 'affairs' | 'practice' | 'about' | 'contact' | 'learn_landing' | 'mock_landing';
 
@@ -752,161 +751,58 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* Premium Mobile Responsive Category Grid (2 Rows x 3 Columns) */}
-              <div className="mt-8 grid grid-cols-3 gap-2.5 sm:gap-4">
+              {/* Social Links Box - Single Line */}
+              <div className="mt-8 grid grid-cols-3 gap-2 sm:gap-4">
+                {socialLinks.youtube && (
+                  <a href={socialLinks.youtube} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-2 sm:p-4 bg-rose-50/80 border border-red-200 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
+                    <div className="absolute inset-0 bg-gradient-to-b from-red-100/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="w-8 h-8 sm:w-12 sm:h-12 bg-red-600 text-white rounded-lg sm:rounded-xl flex items-center justify-center mb-2 relative z-10 group-hover:scale-110 transition-transform shadow-lg shadow-red-200">
+                      <Youtube className="w-4 h-4 sm:w-6 sm:h-6" />
+                    </div>
+                    <div className="relative z-10 text-center">
+                      <h4 className="font-bold text-slate-800 text-[9px] sm:text-[13px] leading-tight">YouTube Link</h4>
+                      <p className="text-[7px] sm:text-[10px] text-slate-500 mt-1 leading-relaxed">Subscribe to our channel for free classes.</p>
+                    </div>
+                  </a>
+                )}
                 
-                {/* 1. LEARN */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLearnOpen(true);
-                    setMockOpen(false);
-                    setActiveTab('video');
-                  }}
-                  className="relative overflow-hidden rounded-[14px] p-2 sm:p-4 h-20 sm:h-28 flex flex-col items-center justify-center text-center text-white bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 shadow-md hover:shadow-lg hover:scale-[1.03] active:scale-[0.97] transition-all group select-none duration-250 cursor-pointer border border-emerald-400/20"
-                >
-                  <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                  <div className="mb-1.5 sm:mb-2 text-white shrink-0">
-                    <BookOpen className="w-5 h-5 sm:w-7 sm:h-7 drop-shadow-sm" />
-                  </div>
-                  <span className="font-black text-[9px] sm:text-xs tracking-wider uppercase leading-tight">
-                    LEARN
-                  </span>
-                </button>
+                {socialLinks.whatsapp && (
+                  <a href={socialLinks.whatsapp} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-2 sm:p-4 bg-emerald-50/80 border border-green-200 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
+                    <div className="absolute inset-0 bg-gradient-to-b from-green-100/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="w-8 h-8 sm:w-12 sm:h-12 bg-emerald-600 text-white rounded-lg sm:rounded-xl flex items-center justify-center mb-2 relative z-10 group-hover:scale-110 transition-transform shadow-lg shadow-emerald-200">
+                      <MessageCircle className="w-4 h-4 sm:w-6 sm:h-6" />
+                    </div>
+                    <div className="relative z-10 text-center">
+                      <h4 className="font-bold text-slate-800 text-[9px] sm:text-[13px] leading-tight">WhatsApp Link</h4>
+                      <p className="text-[7px] sm:text-[10px] text-slate-500 mt-1 leading-relaxed">Join our group for daily updates.</p>
+                    </div>
+                  </a>
+                )}
 
-                {/* 2. MOCK TEST */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMockOpen(true);
-                    setLearnOpen(false);
-                    setActiveTab('mock_topic');
-                  }}
-                  className="relative overflow-hidden rounded-[14px] p-2 sm:p-4 h-20 sm:h-28 flex flex-col items-center justify-center text-center text-white bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-600 shadow-md hover:shadow-lg hover:scale-[1.03] active:scale-[0.97] transition-all group select-none duration-250 cursor-pointer border border-indigo-400/20"
-                >
-                  <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                  <div className="mb-1.5 sm:mb-2 text-white shrink-0">
-                    <Target className="w-5 h-5 sm:w-7 sm:h-7 drop-shadow-sm" />
-                  </div>
-                  <span className="font-black text-[9px] sm:text-xs tracking-wider uppercase leading-tight">
-                    MOCK TEST
-                  </span>
-                </button>
-
-                {/* 3. TYPING TEST */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigate('/typing-test');
-                  }}
-                  className="relative overflow-hidden rounded-[14px] p-2 sm:p-4 h-20 sm:h-28 flex flex-col items-center justify-center text-center text-white bg-gradient-to-br from-amber-500 via-orange-500 to-red-600 shadow-md hover:shadow-lg hover:scale-[1.03] active:scale-[0.97] transition-all group select-none duration-250 cursor-pointer border border-amber-400/20"
-                >
-                  <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                  <div className="mb-1.5 sm:mb-2 text-white shrink-0">
-                    <Keyboard className="w-5 h-5 sm:w-7 sm:h-7 drop-shadow-sm" />
-                  </div>
-                  <span className="font-black text-[9px] sm:text-xs tracking-wider uppercase leading-tight">
-                    TYPING TEST
-                  </span>
-                </button>
-
-                {/* 4. PREVIOUS YEAR PAPERS */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('pyq');
-                    setLearnOpen(false);
-                    setMockOpen(false);
-                  }}
-                  className="relative overflow-hidden rounded-[14px] p-2 sm:p-4 h-20 sm:h-28 flex flex-col items-center justify-center text-center text-white bg-gradient-to-br from-sky-500 via-blue-500 to-indigo-600 shadow-md hover:shadow-lg hover:scale-[1.03] active:scale-[0.97] transition-all group select-none duration-250 cursor-pointer border border-sky-400/20"
-                >
-                  <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                  <div className="mb-1.5 sm:mb-2 text-white shrink-0">
-                    <Layers className="w-5 h-5 sm:w-7 sm:h-7 drop-shadow-sm" />
-                  </div>
-                  <span className="font-black text-[8px] sm:text-xs tracking-wider uppercase leading-tight">
-                    PYQ
-                  </span>
-                </button>
-
-                {/* 5. EXAM PATTERN & SYLLABUS */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('pattern');
-                    setLearnOpen(false);
-                    setMockOpen(false);
-                  }}
-                  className="relative overflow-hidden rounded-[14px] p-2 sm:p-4 h-20 sm:h-28 flex flex-col items-center justify-center text-center text-white bg-gradient-to-br from-violet-500 via-fuchsia-500 to-rose-600 shadow-md hover:shadow-lg hover:scale-[1.03] active:scale-[0.97] transition-all group select-none duration-250 cursor-pointer border border-violet-400/20"
-                >
-                  <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                  <div className="mb-1.5 sm:mb-2 text-white shrink-0">
-                    <Clock className="w-5 h-5 sm:w-7 sm:h-7 drop-shadow-sm" />
-                  </div>
-                  <span className="font-black text-[8px] sm:text-[11px] tracking-wider uppercase leading-tight">
-                    SYLLABUS
-                  </span>
-                </button>
-
-                {/* 6. PROFILE */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('profile');
-                    setLearnOpen(false);
-                    setMockOpen(false);
-                  }}
-                  className="relative overflow-hidden rounded-[14px] p-2 sm:p-4 h-20 sm:h-28 flex flex-col items-center justify-center text-center text-white bg-gradient-to-br from-slate-600 via-slate-700 to-slate-800 shadow-md hover:shadow-lg hover:scale-[1.03] active:scale-[0.97] transition-all group select-none duration-250 cursor-pointer border border-slate-500/20"
-                >
-                  <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                  <div className="mb-1.5 sm:mb-2 text-white shrink-0">
-                    <User className="w-5 h-5 sm:w-7 sm:h-7 drop-shadow-sm" />
-                  </div>
-                  <span className="font-black text-[9px] sm:text-xs tracking-wider uppercase leading-tight">
-                    PROFILE
-                  </span>
-                </button>
-
+                {socialLinks.telegram && (
+                  <a href={socialLinks.telegram} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-2 sm:p-4 bg-sky-50/80 border border-blue-200 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
+                    <div className="absolute inset-0 bg-gradient-to-b from-blue-100/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="w-8 h-8 sm:w-12 sm:h-12 bg-sky-600 text-white rounded-lg sm:rounded-xl flex items-center justify-center mb-2 relative z-10 group-hover:scale-110 transition-transform shadow-lg shadow-sky-200">
+                      <Send className="w-4 h-4 sm:w-6 sm:h-6" />
+                    </div>
+                    <div className="relative z-10 text-center">
+                      <h4 className="font-bold text-slate-800 text-[9px] sm:text-[13px] leading-tight">Telegram Link</h4>
+                      <p className="text-[7px] sm:text-[10px] text-slate-500 mt-1 leading-relaxed">Get notes and practice sets instantly.</p>
+                    </div>
+                  </a>
+                )}
               </div>
 
-              {/* Home Footer Section - Need Assistance compact bar */}
-              <div className="mt-12 pt-6 border-t border-slate-200">
-                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center shadow-xs shrink-0">
-                      <MessageCircle className="w-5 h-5" />
-                    </div>
-                    <span className="text-slate-800 font-black text-sm sm:text-base tracking-tight">Need Assistance?</span>
+              {/* Home Footer Section */}
+              <div className="mt-16 pt-8 border-t border-slate-200">
+                <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm flex flex-col items-center text-center">
+                  <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-4">
+                    <MessageCircle className="w-6 h-6" />
                   </div>
-                  
-                  <div className="flex flex-wrap items-center gap-2.5">
-                    {/* CHAT SUPPORT */}
-                    <a 
-                      href={socialLinks.telegram || "#"} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-extrabold text-[10px] sm:text-xs uppercase tracking-widest rounded-xl transition-all shadow-xs hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
-                    >
-                      CHAT SUPPORT
-                    </a>
-                    
-                    {/* CALL */}
-                    <a 
-                      href="tel:8900011708"
-                      className="px-4 py-2 bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white font-extrabold text-[10px] sm:text-xs uppercase tracking-widest rounded-xl transition-all shadow-xs hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
-                    >
-                      CALL
-                    </a>
-
-                    {/* WHATSAPP */}
-                    <a 
-                      href={socialLinks.whatsapp || "https://wa.me/918900011708"} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-extrabold text-[10px] sm:text-xs uppercase tracking-widest rounded-xl transition-all shadow-xs hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
-                    >
-                      WHATSAPP
-                    </a>
+                  <h3 className="text-xl font-black text-slate-800 mb-2">Need Assistance?</h3>
+                  <p className="text-slate-500 font-medium mb-6">If you have any questions regarding your studies or the platform, feel free to contact us.</p>
+                  <div className="text-white px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest bg-gradient-to-r from-red-600 to-rose-700 shadow-xl shadow-red-500/20 flex items-center gap-3 hover:scale-[1.02] transition-transform">
+                    Any Query Call - <a href="tel:8900011708" className="hover:underline">8900011708</a> (Shibnath)
                   </div>
                 </div>
               </div>
@@ -1642,29 +1538,13 @@ export default function Dashboard() {
                             </div>
                           </div>
 
-                          <h4 className="font-bold text-slate-800 text-xl mb-4 leading-relaxed px-2">{q.questionText}</h4>
-
-                          {/* Display Order: 2. Question Equation (LaTeX) */}
-                          {q.questionEquation && (
-                            <div className="mb-4 p-4 bg-indigo-50/20 border border-indigo-50/50 rounded-xl text-center mx-2">
-                              <MathRenderer text={q.questionEquation} className="text-lg text-indigo-900 font-extrabold" displayMode={true} />
-                            </div>
-                          )}
-
-                          {/* Display Order: 3. Question Image / Diagram */}
-                          {q.questionImage && (
-                            <div className="mb-6 rounded-xl overflow-hidden border border-slate-200 bg-white flex items-center justify-center p-2 shadow-xs max-h-72 w-fit max-w-full mx-2">
-                              <img src={q.questionImage} alt="Diagram" className="max-h-64 object-contain rounded-lg" />
-                            </div>
-                          )}
+                          <h4 className="font-bold text-slate-800 text-xl mb-10 leading-relaxed px-2">{q.questionText}</h4>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                             {q.options.map((opt: string, i: number) => {
                               const label = String.fromCharCode(65 + i);
                               const isThisCorrect = opt === correctAnswerRaw;
                               const isThisUserAns = opt === userAnsRaw;
-                              const optEq = q.optionEquations?.[i];
-                              const optImg = q.optionImages?.[i];
                               
                               let state: 'default' | 'correct' | 'incorrect' = 'default';
                               if (isThisCorrect) state = 'correct';
@@ -1673,7 +1553,7 @@ export default function Dashboard() {
                               return (
                                 <div 
                                   key={i} 
-                                  className={`p-5 rounded-2xl border-2 flex flex-col gap-3 transition-all relative
+                                  className={`p-5 rounded-2xl border-2 flex items-center gap-4 transition-all relative
                                     ${state === 'correct' 
                                       ? 'bg-emerald-50 border-emerald-500 text-emerald-900 shadow-md shadow-emerald-100 ring-2 ring-emerald-500/10' 
                                       : state === 'incorrect'
@@ -1681,36 +1561,20 @@ export default function Dashboard() {
                                       : 'bg-white border-slate-100 text-slate-600 hover:border-slate-300'
                                     }`}
                                 >
-                                  <div className="flex items-center gap-4">
-                                    <span className={`w-9 h-9 shrink-0 rounded-xl flex items-center justify-center font-black text-sm
-                                      ${state === 'correct' ? 'bg-emerald-500 text-white shadow-md' : state === 'incorrect' ? 'bg-rose-500 text-white shadow-md' : 'bg-slate-100 text-slate-400'}`}>
-                                      {label}
-                                    </span>
-                                    <span className="font-bold text-sm md:text-base leading-tight pr-6">{opt}</span>
-                                    
-                                    {state === 'correct' && (
-                                      <div className="absolute right-4 top-5 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm">
-                                        <CheckCircle className="w-3.5 h-3.5 text-white" />
-                                      </div>
-                                    )}
-                                    {state === 'incorrect' && (
-                                      <div className="absolute right-4 top-5 w-6 h-6 bg-rose-500 rounded-full flex items-center justify-center shadow-sm">
-                                        <X className="w-3.5 h-3.5 text-white" />
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  {/* Option LaTeX rendering */}
-                                  {optEq && (
-                                    <div className="pl-13 text-indigo-700 font-extrabold text-xs md:text-sm">
-                                      <MathRenderer text={optEq} />
+                                  <span className={`w-9 h-9 shrink-0 rounded-xl flex items-center justify-center font-black text-sm
+                                    ${state === 'correct' ? 'bg-emerald-500 text-white shadow-md' : state === 'incorrect' ? 'bg-rose-500 text-white shadow-md' : 'bg-slate-100 text-slate-400'}`}>
+                                    {label}
+                                  </span>
+                                  <span className="font-bold text-sm md:text-base leading-tight pr-6">{opt}</span>
+                                  
+                                  {state === 'correct' && (
+                                    <div className="absolute right-4 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm">
+                                      <CheckCircle className="w-3.5 h-3.5 text-white" />
                                     </div>
                                   )}
-
-                                  {/* Option Image rendering */}
-                                  {optImg && (
-                                    <div className="pl-13">
-                                      <img src={optImg} alt="Option diagram" className="max-w-[150px] max-h-24 object-contain rounded border border-slate-200 p-0.5 bg-white shadow-xs" />
+                                  {state === 'incorrect' && (
+                                    <div className="absolute right-4 w-6 h-6 bg-rose-500 rounded-full flex items-center justify-center shadow-sm">
+                                      <X className="w-3.5 h-3.5 text-white" />
                                     </div>
                                   )}
                                 </div>
@@ -2065,7 +1929,7 @@ export default function Dashboard() {
             <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-5 rounded-2xl text-white shadow-2xl shadow-emerald-500/30 border border-white/15 relative overflow-hidden group animate-in slide-in-from-bottom-5 duration-300">
               <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-700"></div>
               <div className="flex gap-4">
-                <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center shrink-0 shadow-lg">
+                <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center shrink-0 shadow-lg animate-bounce">
                   <MessageCircle className="w-6 h-6 text-white fill-current" />
                 </div>
                 <div className="flex-1">
@@ -2089,7 +1953,7 @@ export default function Dashboard() {
             <div className="bg-gradient-to-r from-sky-500 to-blue-600 p-5 rounded-2xl text-white shadow-2xl shadow-sky-500/30 border border-white/15 relative overflow-hidden group animate-in slide-in-from-bottom-5 duration-300">
               <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-700"></div>
               <div className="flex gap-4">
-                <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center shrink-0 shadow-lg">
+                <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center shrink-0 shadow-lg animate-bounce">
                   <Send className="w-6 h-6 text-white fill-current ml-0.5" />
                 </div>
                 <div className="flex-1">
@@ -2113,7 +1977,7 @@ export default function Dashboard() {
             <div className="bg-gradient-to-r from-rose-500 to-red-600 p-5 rounded-2xl text-white shadow-2xl shadow-rose-500/30 border border-white/15 relative overflow-hidden group animate-in slide-in-from-bottom-5 duration-300">
               <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-700"></div>
               <div className="flex gap-4">
-                <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center shrink-0 shadow-lg">
+                <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center shrink-0 shadow-lg animate-bounce">
                   <Youtube className="w-6 h-6 text-white fill-current" />
                 </div>
                 <div className="flex-1">

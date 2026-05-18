@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthContext';
 import { Clock, AlertTriangle, CheckCircle, ChevronRight, ChevronLeft, Flag, Info, Globe, Play, Menu, X, Target } from 'lucide-react';
 import { translateQuestions } from '../services/translationService';
-import { MathRenderer } from '../components/MathRenderer';
 
 export default function TestRunner() {
   const { testId } = useParams();
@@ -836,75 +835,40 @@ export default function TestRunner() {
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 md:p-8 flex-1 flex flex-col">
-            {/* Display Order: 1. Question Text */}
-            <h2 className="text-base md:text-xl font-bold leading-relaxed mb-4 text-slate-800">
+            <h2 className="text-base md:text-xl font-medium leading-relaxed mb-6 md:mb-8 text-slate-800">
               {currentQuestion.questionText}
             </h2>
 
-            {/* Display Order: 2. Question Equation (LaTeX) */}
-            {currentQuestion.questionEquation && (
-              <div className="mb-4 p-4 bg-indigo-50/20 border border-indigo-50/50 rounded-xl text-center">
-                <MathRenderer text={currentQuestion.questionEquation} className="text-base md:text-lg text-indigo-900 font-extrabold" displayMode={true} />
-              </div>
-            )}
-
-            {/* Display Order: 3. Question Image / Diagram */}
-            {currentQuestion.questionImage && (
-              <div className="mb-6 rounded-xl overflow-hidden border border-slate-200 bg-white flex items-center justify-center p-2 shadow-xs max-h-72 w-fit max-w-full">
-                <img src={currentQuestion.questionImage} alt="Geometry diagram / visual asset" className="max-h-64 object-contain rounded-lg" />
-              </div>
-            )}
-
-            {/* Display Order: 4. Options Grid & 5. Option Images/Equations */}
             <div className="space-y-3 md:space-y-4">
               {(currentQuestion.options || []).map((opt: string, i: number) => {
                 const isSelected = answers[currentQuestion.id] !== undefined && answers[currentQuestion.id] === opt && opt !== '';
                 const optionKey = `test-${testId}-q-${currentIdx}-opt-${i}`;
                 const optionLabel = String.fromCharCode(65 + i); 
-                const optEq = currentQuestion.optionEquations?.[i];
-                const optImg = currentQuestion.optionImages?.[i];
                 
                 return (
                   <button 
                     key={optionKey}
                     type="button"
                     onClick={() => handleSelectOption(currentQuestion.id, opt)}
-                    className={`w-full flex flex-col p-3 md:p-4 rounded-xl border-2 transition-all group relative text-left select-none gap-2
+                    className={`w-full flex items-center p-3 md:p-4 rounded-xl border-2 transition-all group relative text-left select-none break-words
                       ${isSelected 
                         ? 'border-indigo-600 bg-indigo-50/50 text-indigo-900 shadow-sm' 
                         : 'border-slate-100 hover:border-slate-300 hover:bg-slate-50 text-slate-700'
                       }`}
                   >
-                    <div className="flex items-center w-full">
-                      <span 
-                        className={`w-7 h-7 md:w-8 md:h-8 shrink-0 rounded border flex items-center justify-center font-bold mr-3 md:mr-4 transition-colors text-xs md:text-sm
-                          ${isSelected 
-                            ? 'border-indigo-600 bg-indigo-600 text-white' 
-                            : 'border-slate-300 group-hover:border-slate-400 text-slate-500'
-                          }`}
-                      >
-                        {optionLabel}
-                      </span>
-                      <span className="font-medium text-sm md:text-base pr-6">{opt}</span>
-                      
-                      {isSelected && (
-                        <div className="absolute right-3 md:right-4 w-4 h-4 md:w-5 md:h-5 bg-indigo-600 rounded-full flex items-center justify-center shrink-0">
-                           <CheckCircle className="w-2.5 h-2.5 md:w-3 md:h-3 text-white" />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Option LaTeX Equation */}
-                    {optEq && (
-                      <div className="pl-10 md:pl-12 text-indigo-700 font-extrabold text-xs md:text-sm">
-                        <MathRenderer text={optEq} />
-                      </div>
-                    )}
-
-                    {/* Option Diagram Image */}
-                    {optImg && (
-                      <div className="pl-10 md:pl-12">
-                        <img src={optImg} alt="Option visualization" className="max-w-[150px] max-h-24 object-contain rounded border border-slate-200 p-0.5 bg-white shadow-xs" />
+                    <span 
+                      className={`w-7 h-7 md:w-8 md:h-8 shrink-0 rounded border flex items-center justify-center font-bold mr-3 md:mr-4 transition-colors text-xs md:text-sm
+                        ${isSelected 
+                          ? 'border-indigo-600 bg-indigo-600 text-white' 
+                          : 'border-slate-300 group-hover:border-slate-400 text-slate-500'
+                        }`}
+                    >
+                      {optionLabel}
+                    </span>
+                    <span className="font-medium text-sm md:text-base pr-6">{opt}</span>
+                    {isSelected && (
+                      <div className="absolute right-3 md:right-4 w-4 h-4 md:w-5 md:h-5 bg-indigo-600 rounded-full flex items-center justify-center shrink-0">
+                         <CheckCircle className="w-2.5 h-2.5 md:w-3 md:h-3 text-white" />
                       </div>
                     )}
                   </button>
