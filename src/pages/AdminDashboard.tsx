@@ -13,7 +13,7 @@ import 'jspdf-autotable';
 import AdminTypingTests from '../components/AdminTypingTests';
 import { Keyboard } from 'lucide-react';
 
-type AdminTab = 'students' | 'mock' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'student_analysis' | 'live_test';
+type AdminTab = 'students' | 'mock' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'student_analysis';
 
 // ─── Image Cropper Modal ─────────────────────────────────────────────────────
 function ImageCropper({
@@ -279,16 +279,9 @@ function AdminHome() {
   const [duration, setDuration] = useState('30');
   const [testType, setTestType] = useState('topic');
   const [isPaid, setIsPaid] = useState(false);
-
-  // Live Test Form
-  const [liveTests, setLiveTests] = useState<any[]>([]);
-  const [liveTitle, setLiveTitle] = useState('');
-  const [liveDescription, setLiveDescription] = useState('');
+  const [isLive, setIsLive] = useState(false);
   const [liveStartDate, setLiveStartDate] = useState('');
   const [liveEndDate, setLiveEndDate] = useState('');
-  const [liveIsActive, setLiveIsActive] = useState(true);
-  const [editingLiveId, setEditingLiveId] = useState<string | null>(null);
-  const [savingLive, setSavingLive] = useState(false);
   
   // Note Form
   const [noteTitle, setNoteTitle] = useState('');
@@ -474,12 +467,6 @@ function AdminHome() {
           setCustomMockCategories(catsData.categories || []);
         }
 
-        // Fetch Live Tests
-        const liveRes = await fetch('/api/live-tests');
-        if (liveRes.ok) {
-          const liveData = await liveRes.json();
-          setLiveTests(liveData.tests || []);
-        }
       } catch (err) {
         console.error('Stats fetch failed:', err);
       }
@@ -577,7 +564,10 @@ function AdminHome() {
           marksPerCorrect: parseFloat(marksPerCorrect) || 1,
           negativeMarks: parseFloat(negativeMarks) || 0,
           isActive: true,
-          isPaid
+          isPaid,
+          isLive,
+          liveStartDate,
+          liveEndDate
         })
       });
       if (res.ok) {
@@ -587,6 +577,9 @@ function AdminHome() {
         setCategory('GK');
         setDuration('30');
         setIsPaid(false);
+        setIsLive(false);
+        setLiveStartDate('');
+        setLiveEndDate('');
         setEditingTestId(null);
         alert(editingTestId ? 'Test updated successfully!' : 'Test created successfully!');
       } else alert(await res.text());
@@ -646,51 +639,12 @@ function AdminHome() {
     setMarksPerCorrect(test.marksPerCorrect?.toString() || '1');
     setNegativeMarks(test.negativeMarks?.toString() || '0.25');
     setIsPaid(test.isPaid || false);
+    setIsLive(test.isLive || false);
+    setLiveStartDate(test.liveStartDate || '');
+    setLiveEndDate(test.liveEndDate || '');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSaveLiveTest = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user || !liveTitle || !liveStartDate || !liveEndDate) {
-      alert('Title, Start Date and End Date are required');
-      return;
-    }
-    setSavingLive(true);
-    try {
-      const token = await user.getIdToken();
-      const method = editingLiveId ? 'PUT' : 'POST';
-      const url = editingLiveId ? `/api/admin/live-tests/${editingLiveId}` : '/api/admin/live-tests';
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ title: liveTitle, description: liveDescription, startDate: liveStartDate, endDate: liveEndDate, isActive: liveIsActive })
-      });
-      if (res.ok) {
-        setLiveTitle(''); setLiveDescription(''); setLiveStartDate(''); setLiveEndDate(''); setLiveIsActive(true); setEditingLiveId(null);
-        const liveRes = await fetch('/api/live-tests');
-        if (liveRes.ok) setLiveTests((await liveRes.json()).tests || []);
-        alert(editingLiveId ? 'Live test updated!' : 'Live test created!');
-      } else alert(await res.text());
-    } catch (err) { alert('Error saving live test'); }
-    finally { setSavingLive(false); }
-  };
-
-  const handleDeleteLiveTest = async (id: string) => {
-    if (!confirm('Delete this live test?') || !user) return;
-    const token = await user.getIdToken();
-    await fetch(`/api/admin/live-tests/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
-    setLiveTests(prev => prev.filter(t => t.id !== id));
-  };
-
-  const handleEditLiveTest = (t: any) => {
-    setEditingLiveId(t.id);
-    setLiveTitle(t.title || '');
-    setLiveDescription(t.description || '');
-    setLiveStartDate(t.startDate || '');
-    setLiveEndDate(t.endDate || '');
-    setLiveIsActive(t.isActive !== false);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
 
   const handleAddNote = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1475,17 +1429,6 @@ function AdminHome() {
           <UserIcon className="w-4 h-4" />
           STUDENT ANALYSIS
         </button>
-        <button
-          onClick={() => setActiveTab('live_test')}
-          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all
-            ${activeTab === 'live_test' ? 'bg-rose-600 text-white shadow-md shadow-rose-100' : 'text-slate-500 hover:text-rose-600 hover:bg-rose-50'}`}
-        >
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
-          </span>
-          Live Tests
-        </button>
       </div>
 
       {activeTab === 'student_analysis' && (() => {
@@ -2155,13 +2098,47 @@ function AdminHome() {
                   </button>
                 </div>
               </div>
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Live Test</label>
+                <button
+                  type="button"
+                  onClick={() => setIsLive(v => !v)}
+                  className={`w-full py-3 rounded-xl border-2 text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${isLive ? 'bg-rose-500 border-rose-500 text-white' : 'bg-white border-slate-200 text-slate-400 hover:border-rose-300'}`}
+                >
+                  <span className={`relative flex h-2.5 w-2.5 ${isLive ? '' : 'opacity-40'}`}>
+                    {isLive && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />}
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-current" />
+                  </span>
+                  {isLive ? 'Live — Set Dates Below' : 'Mark as Live Test'}
+                </button>
+              </div>
+              {isLive && (
+                <>
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Live Start Date & Time</label>
+                    <input
+                      type="datetime-local"
+                      className="w-full rounded-xl border-rose-200 border-2 p-3 focus:ring-2 focus:ring-rose-400 outline-hidden font-medium"
+                      value={liveStartDate} onChange={e => setLiveStartDate(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Live End Date & Time</label>
+                    <input
+                      type="datetime-local"
+                      className="w-full rounded-xl border-rose-200 border-2 p-3 focus:ring-2 focus:ring-rose-400 outline-hidden font-medium"
+                      value={liveEndDate} onChange={e => setLiveEndDate(e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
               <div className="w-full">
                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Duration (Mins)</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   min="1"
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium" 
-                  value={duration} onChange={e => setDuration(e.target.value)} 
+                  className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium"
+                  value={duration} onChange={e => setDuration(e.target.value)}
                 />
               </div>
               <div className="w-full">
@@ -2292,6 +2269,16 @@ function AdminHome() {
                                       ? <span className="text-[8px] font-black uppercase tracking-widest bg-rose-100 text-rose-600 px-2 py-0.5 rounded-full border border-rose-200">Paid</span>
                                       : <span className="text-[8px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full border border-emerald-200">Free</span>
                                     }
+                                    {test.isLive && (() => {
+                                      const now = new Date();
+                                      const started = test.liveStartDate && new Date(test.liveStartDate) <= now;
+                                      const ended = test.liveEndDate && new Date(test.liveEndDate) < now;
+                                      return ended
+                                        ? <span className="text-[8px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full border border-slate-200">Past Live</span>
+                                        : started
+                                          ? <span className="text-[8px] font-black uppercase tracking-widest bg-rose-100 text-rose-600 px-2 py-0.5 rounded-full border border-rose-200 flex items-center gap-1"><span className="w-1 h-1 rounded-full bg-rose-500 animate-ping" />Live Now</span>
+                                          : <span className="text-[8px] font-black uppercase tracking-widest bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full border border-amber-200">Upcoming Live</span>;
+                                    })()}
                                   </div>
                                   <div className="flex flex-wrap gap-2 mt-1 items-center">
                                     <span className="text-[10px] uppercase font-bold text-indigo-500 tracking-wider">
@@ -3202,105 +3189,6 @@ function AdminHome() {
                 {savingInfo ? 'Saving...' : 'Update Information'}
               </button>
             </form>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'live_test' && (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-black text-slate-800 flex items-center gap-3">
-              <span className="w-2 h-8 bg-rose-500 rounded-full"></span>
-              Live Test Management
-            </h2>
-          </div>
-
-          {/* Create / Edit form */}
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
-            <h3 className="text-lg font-bold text-slate-800 mb-6">{editingLiveId ? 'Edit Live Test' : 'Create New Live Test'}</h3>
-            <form onSubmit={handleSaveLiveTest} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="md:col-span-2">
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Test Title</label>
-                <input type="text" required className="w-full rounded-xl border-slate-200 border-2 p-3 font-medium focus:ring-2 focus:ring-rose-400 outline-hidden"
-                  value={liveTitle} onChange={e => setLiveTitle(e.target.value)} placeholder="e.g. SSC CGL Live Mock Test 2025" />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Description (optional)</label>
-                <textarea className="w-full rounded-xl border-slate-200 border-2 p-3 font-medium focus:ring-2 focus:ring-rose-400 outline-hidden min-h-[80px]"
-                  value={liveDescription} onChange={e => setLiveDescription(e.target.value)} placeholder="Brief description of this live test..." />
-              </div>
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Start Date & Time</label>
-                <input type="datetime-local" required className="w-full rounded-xl border-slate-200 border-2 p-3 font-medium focus:ring-2 focus:ring-rose-400 outline-hidden"
-                  value={liveStartDate} onChange={e => setLiveStartDate(e.target.value)} />
-              </div>
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">End Date & Time</label>
-                <input type="datetime-local" required className="w-full rounded-xl border-slate-200 border-2 p-3 font-medium focus:ring-2 focus:ring-rose-400 outline-hidden"
-                  value={liveEndDate} onChange={e => setLiveEndDate(e.target.value)} />
-              </div>
-              <div className="md:col-span-2 flex gap-4 items-center">
-                <label className="flex items-center gap-3 cursor-pointer select-none">
-                  <div className={`w-11 h-6 rounded-full transition-colors relative ${liveIsActive ? 'bg-emerald-500' : 'bg-slate-200'}`}
-                    onClick={() => setLiveIsActive(v => !v)}>
-                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${liveIsActive ? 'translate-x-5' : ''}`} />
-                  </div>
-                  <span className="text-sm font-black text-slate-600 uppercase tracking-widest">{liveIsActive ? 'Active' : 'Inactive'}</span>
-                </label>
-                <button type="submit" disabled={savingLive}
-                  className="flex-1 bg-rose-500 text-white px-6 py-3.5 rounded-xl hover:bg-rose-600 font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50">
-                  <Plus className="w-5 h-5" />
-                  {savingLive ? 'Saving...' : editingLiveId ? 'Update Live Test' : 'Create Live Test'}
-                </button>
-                {editingLiveId && (
-                  <button type="button" onClick={() => { setEditingLiveId(null); setLiveTitle(''); setLiveDescription(''); setLiveStartDate(''); setLiveEndDate(''); setLiveIsActive(true); }}
-                    className="px-6 py-3.5 rounded-xl bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 transition-all">
-                    Cancel
-                  </button>
-                )}
-              </div>
-            </form>
-          </div>
-
-          {/* Live test list */}
-          <div className="flex flex-col gap-4">
-            {liveTests.length === 0 && (
-              <div className="bg-white rounded-3xl border border-slate-100 p-12 text-center text-slate-400 font-bold">No live tests created yet.</div>
-            )}
-            {liveTests.map(t => {
-              const now = new Date();
-              const start = new Date(t.startDate);
-              const end = new Date(t.endDate);
-              const isLive = now >= start && now <= end && t.isActive;
-              const isPast = now > end;
-              return (
-                <div key={t.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col md:flex-row md:items-center gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 flex-wrap mb-1">
-                      <h4 className="font-black text-slate-800 text-base">{t.title}</h4>
-                      {isLive && (
-                        <span className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest bg-rose-100 text-rose-600 px-2.5 py-1 rounded-full">
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                          Live Now
-                        </span>
-                      )}
-                      {isPast && <span className="text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">Past</span>}
-                      {!isLive && !isPast && t.isActive && <span className="text-[9px] font-black uppercase tracking-widest bg-amber-100 text-amber-600 px-2.5 py-1 rounded-full">Upcoming</span>}
-                      {!t.isActive && <span className="text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-400 px-2.5 py-1 rounded-full">Inactive</span>}
-                    </div>
-                    {t.description && <p className="text-xs text-slate-500 font-medium mb-2">{t.description}</p>}
-                    <div className="flex gap-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                      <span>Start: {new Date(t.startDate).toLocaleString()}</span>
-                      <span>End: {new Date(t.endDate).toLocaleString()}</span>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 shrink-0">
-                    <button onClick={() => handleEditLiveTest(t)} className="text-amber-600 hover:bg-amber-100 px-3 py-1.5 rounded-lg border border-amber-100 font-bold text-xs transition-all">Edit</button>
-                    <button onClick={() => handleDeleteLiveTest(t.id)} className="text-rose-500 hover:bg-rose-100 px-3 py-1.5 rounded-lg border border-rose-100 font-bold text-xs transition-all">Delete</button>
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </div>
       )}

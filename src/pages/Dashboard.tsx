@@ -175,14 +175,9 @@ export default function Dashboard() {
         // Fetch Active Tests (ordered by creation — first added = first shown)
         const testsQuery = query(collection(db, 'tests'), where('isActive', '==', true), orderBy('createdAt', 'asc'));
         const testsSnap = await getDocs(testsQuery);
-        setActiveTests(testsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-
-        // Fetch Live Tests
-        const liveRes = await fetch('/api/live-tests');
-        if (liveRes.ok) {
-          const liveData = await liveRes.json();
-          setLiveTests(liveData.tests || []);
-        }
+        const allTests = testsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setActiveTests(allTests);
+        setLiveTests(allTests.filter((t: any) => t.isLive));
         
         // Fetch Notes
         const notesSnap = await getDocs(query(collection(db, 'notes'), orderBy('createdAt', 'desc')));
@@ -953,7 +948,7 @@ export default function Dashboard() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h4 className="font-black text-slate-800 text-sm sm:text-base leading-tight">🔴 Live Test</h4>
-                        {liveTests.some(t => { const now = new Date(); return new Date(t.startDate) <= now && new Date(t.endDate) >= now && t.isActive; }) && (
+                        {liveTests.some(t => { const now = new Date(); return new Date(t.liveStartDate) <= now && new Date(t.liveEndDate) >= now && t.isActive; }) && (
                           <span className="text-[8px] font-black uppercase tracking-widest bg-rose-100 text-rose-600 px-2 py-0.5 rounded-full border border-rose-200 animate-pulse">Live Now</span>
                         )}
                       </div>
@@ -1472,9 +1467,9 @@ export default function Dashboard() {
           {/* Live Test Tab */}
           {activeTab === 'live_test' && (() => {
             const now = new Date();
-            const activeLive = liveTests.filter(t => t.isActive && new Date(t.startDate) <= now && new Date(t.endDate) >= now);
-            const upcomingLive = liveTests.filter(t => t.isActive && new Date(t.startDate) > now);
-            const pastLive = liveTests.filter(t => new Date(t.endDate) < now || !t.isActive);
+            const activeLive = liveTests.filter(t => t.isActive && new Date(t.liveStartDate) <= now && new Date(t.liveEndDate) >= now);
+            const upcomingLive = liveTests.filter(t => t.isActive && new Date(t.liveStartDate) > now);
+            const pastLive = liveTests.filter(t => new Date(t.liveEndDate) < now || !t.isActive);
 
             const LiveCard = ({ t, badge }: { key?: any; t: any; badge: 'live' | 'upcoming' | 'past' }) => (
               <div className={`bg-white rounded-2xl border shadow-sm p-5 flex flex-col gap-3 transition-all hover:shadow-md ${badge === 'live' ? 'border-rose-200 shadow-rose-50' : 'border-slate-100'}`}>
@@ -1498,8 +1493,8 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <div className="flex gap-4 text-[10px] font-black text-slate-400 uppercase tracking-widest border-t border-slate-50 pt-3">
-                  <span>Start: {new Date(t.startDate).toLocaleString()}</span>
-                  <span>End: {new Date(t.endDate).toLocaleString()}</span>
+                  <span>Start: {new Date(t.liveStartDate).toLocaleString()}</span>
+                  <span>End: {new Date(t.liveEndDate).toLocaleString()}</span>
                 </div>
               </div>
             );
