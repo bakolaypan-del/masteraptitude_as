@@ -939,6 +939,30 @@ export default function Dashboard() {
 
               {/* Quick Access Tiles */}
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                {/* Live Test — FIRST */}
+                <button onClick={() => setActiveTab('live_test')} className="group relative overflow-hidden rounded-3xl p-5 bg-white border border-rose-200/60 shadow-sm hover:shadow-xl hover:shadow-rose-100 transition-all duration-300 hover:-translate-y-1 text-left col-span-2">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/6 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-[2] transition-transform duration-500"></div>
+                  <div className="flex items-center gap-4">
+                    <div className="w-11 h-11 sm:w-14 sm:h-14 bg-gradient-to-br from-rose-500 to-pink-600 text-white rounded-2xl flex items-center justify-center shrink-0 shadow-lg shadow-rose-200 group-hover:scale-110 transition-transform duration-300 relative">
+                      <BarChart3 className="w-5 h-5 sm:w-7 sm:h-7" />
+                      <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-black text-slate-800 text-sm sm:text-base leading-tight">🔴 Live Test</h4>
+                        {liveTests.some(t => { const now = new Date(); return new Date(t.startDate) <= now && new Date(t.endDate) >= now && t.isActive; }) && (
+                          <span className="text-[8px] font-black uppercase tracking-widest bg-rose-100 text-rose-600 px-2 py-0.5 rounded-full border border-rose-200 animate-pulse">Live Now</span>
+                        )}
+                      </div>
+                      <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 leading-relaxed font-medium">Scheduled live exams & past live tests</p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-rose-400 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </button>
+
                 {/* Learn */}
                 <button onClick={() => setActiveTab('learn_landing')} className="group relative overflow-hidden rounded-3xl p-5 bg-white border border-slate-200/80 shadow-sm hover:shadow-xl hover:shadow-violet-100 transition-all duration-300 hover:-translate-y-1 text-left">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-violet-500/8 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-[2] transition-transform duration-500"></div>
@@ -988,30 +1012,6 @@ export default function Dashboard() {
                   <p className="text-[10px] sm:text-[11px] text-slate-500 mt-1 leading-relaxed font-medium">Practice with past exam papers</p>
                   <div className="mt-3 flex items-center gap-1 text-amber-600 text-[10px] font-black uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
                     Download <ChevronRight className="w-3 h-3" />
-                  </div>
-                </button>
-
-                {/* Live Test */}
-                <button onClick={() => setActiveTab('live_test')} className="group relative overflow-hidden rounded-3xl p-5 bg-white border border-rose-200/60 shadow-sm hover:shadow-xl hover:shadow-rose-100 transition-all duration-300 hover:-translate-y-1 text-left col-span-2">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/6 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-[2] transition-transform duration-500"></div>
-                  <div className="flex items-center gap-4">
-                    <div className="w-11 h-11 sm:w-14 sm:h-14 bg-gradient-to-br from-rose-500 to-pink-600 text-white rounded-2xl flex items-center justify-center shrink-0 shadow-lg shadow-rose-200 group-hover:scale-110 transition-transform duration-300 relative">
-                      <BarChart3 className="w-5 h-5 sm:w-7 sm:h-7" />
-                      <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="font-black text-slate-800 text-sm sm:text-base leading-tight">🔴 Live Test</h4>
-                        {liveTests.some(t => { const now = new Date(); return new Date(t.startDate) <= now && new Date(t.endDate) >= now && t.isActive; }) && (
-                          <span className="text-[8px] font-black uppercase tracking-widest bg-rose-100 text-rose-600 px-2 py-0.5 rounded-full border border-rose-200 animate-pulse">Live Now</span>
-                        )}
-                      </div>
-                      <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 leading-relaxed font-medium">Scheduled live exams & past live tests</p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-rose-400 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                 </button>
               </div>
