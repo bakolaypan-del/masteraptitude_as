@@ -31,6 +31,9 @@ export default function TestRunner() {
   const [showInstructions, setShowInstructions] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  const [leaderboard, setLeaderboard] = useState<{ topRankers: { rank: number; name: string; score: number }[]; myRank: number; totalParticipants: number } | null>(null);
+  const leaderboardPollRef = useRef<any>(null);
+
   const isSubmittingRef = useRef(false);
   const timerRef = useRef<any>(null);
   const currentIdxRef = useRef(currentIdx);
@@ -79,9 +82,23 @@ export default function TestRunner() {
         }
 
         const data = await res.json();
-        if (data.success === false) throw new Error(data.message || 'Failed to initialize test session.');
+        if (data.success === false) {
+          const msg = data.error || data.message || '';
+          if (msg.toLowerCase().includes('no questions') || msg.toLowerCase().includes('not been added')) {
+            setError('This test has no questions added yet. Please contact the admin.');
+            setIsRetrying(false);
+            setLoading(false);
+            return;
+          }
+          throw new Error(msg || 'Failed to initialize test session.');
+        }
         if (!data.questions || !Array.isArray(data.questions)) throw new Error("Invalid question data received from the server.");
-        if (data.questions.length === 0) throw new Error("No questions available for this test.");
+        if (data.questions.length === 0) {
+          setError('This test has no questions added yet. Please contact the admin.');
+          setIsRetrying(false);
+          setLoading(false);
+          return;
+        }
 
         if (active) {
           setTest(data.test);
@@ -114,7 +131,10 @@ export default function TestRunner() {
     }
 
     loadTest();
-    return () => { active = false; };
+    return () => {
+      active = false;
+      if (leaderboardPollRef.current) clearInterval(leaderboardPollRef.current);
+    };
   }, [testId, user]);
 
   useEffect(() => {
@@ -207,6 +227,23 @@ export default function TestRunner() {
 
       const responseData = await res.json();
       setResult(responseData);
+
+      // Fetch leaderboard and start polling for real-time rank updates.
+      // Pass myScore so the endpoint can include this submission even if Firestore
+      // hasn't propagated it yet (brief replication lag after submit).
+      const submittedScore = parseFloat(responseData.score);
+      const fetchLeaderboard = async () => {
+        try {
+          const tk = await user.getIdToken();
+          const lbRes = await fetch(
+            `/api/test-leaderboard/${testId}?myScore=${encodeURIComponent(submittedScore)}`,
+            { headers: { 'Authorization': `Bearer ${tk}` } }
+          );
+          if (lbRes.ok) setLeaderboard(await lbRes.json());
+        } catch {}
+      };
+      fetchLeaderboard();
+      leaderboardPollRef.current = setInterval(fetchLeaderboard, 10000);
     } catch (err: any) {
       console.error("Client submission error:", err);
       isSubmittingRef.current = false;
@@ -547,6 +584,15 @@ export default function TestRunner() {
 
   // ─── Result Summary Screen ────────────────────────────────────────────────────
   if (result) {
+    // Show '...' until the test-specific leaderboard loads — result.rank is the
+    // global cumulative rank which is unrelated to this test's participant count.
+    const rankDisplay = leaderboard
+      ? `${leaderboard.myRank}/${leaderboard.totalParticipants}`
+      : '...';
+    const accuracy = result.totalQuestions > 0
+      ? ((result.correctAnswers / result.totalQuestions) * 100).toFixed(1)
+      : result.accuracy ?? 0;
+
     return (
       <div className="min-h-screen flex items-center justify-center p-4"
         style={{ background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 55%, #24243e 100%)' }}>
@@ -554,50 +600,109 @@ export default function TestRunner() {
         <div className="fixed top-1/4 left-1/4 w-96 h-96 rounded-full blur-3xl pointer-events-none" style={{ background: 'rgba(99,102,241,0.12)' }} />
         <div className="fixed bottom-1/4 right-1/4 w-64 h-64 rounded-full blur-3xl pointer-events-none" style={{ background: 'rgba(16,185,129,0.08)' }} />
 
-        <div className="max-w-xl w-full rounded-3xl border border-white/10 overflow-hidden shadow-2xl relative"
-          style={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(30px)' }}>
+        <div className="w-full max-w-4xl flex flex-col lg:flex-row gap-6 items-start">
 
-          {/* Top gradient bar */}
-          <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-violet-500 to-emerald-500" />
+          {/* ── Left: result card ── */}
+          <div className="flex-1 rounded-3xl border border-white/10 overflow-hidden shadow-2xl"
+            style={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(30px)' }}>
 
-          {/* Trophy section */}
-          <div className="p-10 text-center">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-500/20 to-indigo-500/20 border-2 border-emerald-400/30 flex items-center justify-center mx-auto mb-6 shadow-2xl hover:scale-110 transition-transform duration-500">
-              <Trophy className="w-12 h-12 text-yellow-400" />
-            </div>
-            <h2 className="text-4xl font-black text-white mb-2 tracking-tight">Test Completed! 🎉</h2>
-            <p className="text-slate-400 font-medium">Your performance has been evaluated and recorded globally.</p>
-          </div>
+            <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-violet-500 to-emerald-500" />
 
-          {/* Stats */}
-          <div className="px-8 pb-8 grid grid-cols-2 gap-4">
-            {[
-              { label: 'Your Score', value: result.score, color: 'from-indigo-500 to-violet-600', textColor: 'text-indigo-300', border: 'border-indigo-500/20' },
-              { label: 'Global Rank', value: `#${result.rank || '-'}`, color: 'from-amber-500 to-orange-500', textColor: 'text-amber-300', border: 'border-amber-500/20' },
-              { label: 'Correct', value: result.correctAnswers, color: 'from-emerald-500 to-teal-600', textColor: 'text-emerald-300', border: 'border-emerald-500/20' },
-              { label: 'Wrong', value: result.wrongAnswers, color: 'from-rose-500 to-pink-600', textColor: 'text-rose-300', border: 'border-rose-500/20' },
-            ].map((stat) => (
-              <div key={stat.label} className={`rounded-2xl border p-5 text-center transition-all hover:-translate-y-1 hover:shadow-lg ${stat.border}`}
-                style={{ background: 'rgba(255,255,255,0.04)' }}>
-                <p className={`text-[10px] font-black uppercase tracking-widest mb-2 ${stat.textColor}`}>{stat.label}</p>
-                <p className={`text-4xl font-black ${stat.textColor}`}>{stat.value}</p>
+            <div className="p-8 text-center">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-500/20 to-indigo-500/20 border-2 border-emerald-400/30 flex items-center justify-center mx-auto mb-4 shadow-2xl hover:scale-110 transition-transform duration-500">
+                <Trophy className="w-10 h-10 text-yellow-400" />
               </div>
-            ))}
+              <h2 className="text-3xl font-black text-white mb-1 tracking-tight">Test Completed! 🎉</h2>
+              <p className="text-slate-400 text-sm font-medium">Your performance has been evaluated and recorded.</p>
+            </div>
+
+            <div className="px-6 pb-6 grid grid-cols-2 gap-3">
+              {[
+                { label: 'Your Score', value: result.score, textColor: 'text-indigo-300', border: 'border-indigo-500/20' },
+                { label: 'Your Rank', value: leaderboard ? `Rank-${rankDisplay}` : '...', textColor: 'text-amber-300', border: 'border-amber-500/20' },
+                { label: 'Accuracy', value: `${accuracy}%`, textColor: 'text-emerald-300', border: 'border-emerald-500/20' },
+                { label: 'Correct', value: result.correctAnswers, textColor: 'text-teal-300', border: 'border-teal-500/20' },
+                { label: 'Wrong', value: result.wrongAnswers, textColor: 'text-rose-300', border: 'border-rose-500/20' },
+                { label: 'Skipped', value: result.unattempted, textColor: 'text-slate-400', border: 'border-slate-500/20' },
+              ].map((stat) => (
+                <div key={stat.label} className={`rounded-2xl border p-4 text-center ${stat.border}`}
+                  style={{ background: 'rgba(255,255,255,0.04)' }}>
+                  <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${stat.textColor}`}>{stat.label}</p>
+                  <p className={`text-3xl font-black ${stat.textColor}`}>{stat.value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="px-6 pb-6 flex flex-col gap-3">
+              <button onClick={() => { setShowAnalysis(true); window.scrollTo(0, 0); }}
+                className="w-full py-4 text-white font-black rounded-2xl flex items-center justify-center gap-3 shadow-xl uppercase tracking-widest text-sm transition-all hover:opacity-90 active:scale-95"
+                style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}>
+                Analyze Your Performance <ChevronRight className="w-5 h-5" />
+              </button>
+              <button onClick={handleExit}
+                className="w-full py-4 text-slate-400 font-black rounded-2xl border border-white/10 hover:bg-white/5 transition-all uppercase tracking-widest text-sm"
+                style={{ background: 'rgba(255,255,255,0.03)' }}>
+                Back to Dashboard
+              </button>
+            </div>
           </div>
 
-          {/* Buttons */}
-          <div className="px-8 pb-8 flex flex-col gap-3">
-            <button onClick={() => { setShowAnalysis(true); window.scrollTo(0, 0); }}
-              className="w-full py-4 text-white font-black rounded-2xl flex items-center justify-center gap-3 shadow-xl uppercase tracking-widest text-sm transition-all hover:opacity-90 active:scale-95"
-              style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}>
-              Analyze Your Performance <ChevronRight className="w-5 h-5" />
-            </button>
-            <button onClick={handleExit}
-              className="w-full py-4 text-slate-400 font-black rounded-2xl border border-white/10 hover:bg-white/5 transition-all uppercase tracking-widest text-sm"
-              style={{ background: 'rgba(255,255,255,0.03)' }}>
-              Back to Dashboard
-            </button>
+          {/* ── Right: live leaderboard ── */}
+          <div className="w-full lg:w-72 rounded-3xl border border-white/10 overflow-hidden shadow-2xl shrink-0"
+            style={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(30px)' }}>
+
+            <div className="h-1.5 bg-gradient-to-r from-amber-400 via-orange-400 to-rose-400" />
+
+            <div className="p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">
+                  <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+                  Live Rankings
+                </h3>
+                <span className="text-[10px] text-slate-400 font-bold">{leaderboard ? `${leaderboard.totalParticipants} student${leaderboard.totalParticipants !== 1 ? 's' : ''}` : '...'}</span>
+              </div>
+
+              {!leaderboard ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-6 h-6 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : leaderboard.topRankers.length === 0 ? (
+                <p className="text-slate-500 text-xs text-center py-6">No rankings yet</p>
+              ) : (
+                <div className="space-y-2">
+                  {leaderboard.topRankers.map((r) => {
+                    const medal = r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : null;
+                    const isMe = (r as any).isCurrentUser === true;
+                    return (
+                      <div key={r.rank}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${isMe ? 'border border-amber-400/40' : 'border border-white/5'}`}
+                        style={{ background: isMe ? 'rgba(251,191,36,0.1)' : 'rgba(255,255,255,0.03)' }}>
+                        <span className="text-sm font-black text-slate-400 w-5 text-center">
+                          {medal || `${r.rank}`}
+                        </span>
+                        <span className={`flex-1 text-sm font-bold truncate ${isMe ? 'text-amber-300' : 'text-slate-200'}`}>
+                          {r.name}{isMe ? ' (You)' : ''}
+                        </span>
+                        <span className="text-xs font-black text-slate-400">{r.score}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {leaderboard && leaderboard.myRank > 10 && (
+                <div className="mt-3 pt-3 border-t border-white/10">
+                  <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-amber-400/40"
+                    style={{ background: 'rgba(251,191,36,0.1)' }}>
+                    <span className="text-sm font-black text-amber-400 w-5 text-center">{leaderboard.myRank}</span>
+                    <span className="flex-1 text-sm font-bold text-amber-300 truncate">You</span>
+                    <span className="text-xs font-black text-slate-400">{result.score}</span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
+
         </div>
       </div>
     );

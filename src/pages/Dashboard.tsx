@@ -1488,15 +1488,44 @@ export default function Dashboard() {
                     </div>
                     <h4 className="font-black text-slate-800 text-base leading-snug">{t.title}</h4>
                     {t.description && <p className="text-xs text-slate-500 font-medium mt-1">{t.description}</p>}
+                    <div className="flex gap-3 mt-1.5 text-[10px] font-bold text-slate-400">
+                      {t.duration && <span>⏱ {t.duration} min</span>}
+                      {t.totalQuestions && <span>📝 {t.totalQuestions} Qs</span>}
+                    </div>
                   </div>
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-md ${badge === 'live' ? 'bg-gradient-to-br from-rose-500 to-pink-600 shadow-rose-200' : badge === 'upcoming' ? 'bg-gradient-to-br from-amber-500 to-orange-500 shadow-amber-200' : 'bg-gradient-to-br from-slate-400 to-slate-500 shadow-slate-200'}`}>
                     <BarChart3 className="w-6 h-6 text-white" />
                   </div>
                 </div>
+
                 <div className="flex gap-4 text-[10px] font-black text-slate-400 uppercase tracking-widest border-t border-slate-50 pt-3">
                   <span>Start: {new Date(t.liveStartDate).toLocaleString()}</span>
                   <span>End: {new Date(t.liveEndDate).toLocaleString()}</span>
                 </div>
+
+                {/* Attempt button — only for live and past tests (past = review allowed) */}
+                {badge !== 'upcoming' && (
+                  <button
+                    onClick={() => navigate(`/test/${t.id}`)}
+                    className={`w-full py-3 rounded-xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm ${
+                      badge === 'live'
+                        ? 'bg-gradient-to-r from-rose-500 to-pink-600 text-white hover:from-rose-600 hover:to-pink-700 shadow-rose-200'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {badge === 'live' ? (
+                      <><Play className="w-4 h-4" /> Attempt Now</>
+                    ) : (
+                      <><Play className="w-4 h-4" /> Attempt / Review</>
+                    )}
+                  </button>
+                )}
+
+                {badge === 'upcoming' && (
+                  <div className="w-full py-3 rounded-xl bg-amber-50 border border-amber-100 text-amber-600 font-black text-xs uppercase tracking-widest text-center">
+                    Opens on {new Date(t.liveStartDate).toLocaleString()}
+                  </div>
+                )}
               </div>
             );
 

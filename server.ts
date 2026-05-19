@@ -616,6 +616,71 @@ app.use((req, res, next) => {
     }
   });
 
+  // Test-specific leaderboard for real-time rank display after submission
+  app.get("/api/test-leaderboard/:testId", verifyToken, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(503).json({ error: "Database offline" });
+    const { testId } = req.params;
+    const user = (req as any).user;
+    // myScore is passed by the client right after submission to handle brief Firestore replication lag
+    const myScoreParam = req.query.myScore !== undefined ? parseFloat(req.query.myScore as string) : null;
+
+    try {
+      // No orderBy — avoids requiring a composite Firestore index; sort in memory instead
+      const resultsSnap = await currentDb.collection("results")
+        .where("testId", "==", testId)
+        .get();
+
+      // Best score per user
+      const bestByUser = new Map<string, { userId: string; score: number }>();
+      resultsSnap.docs.forEach(doc => {
+        const data = doc.data();
+        const uid = data.userId as string;
+        const sc = typeof data.score === "number" ? data.score : 0;
+        const existing = bestByUser.get(uid);
+        if (!existing || sc > existing.score) {
+          bestByUser.set(uid, { userId: uid, score: sc });
+        }
+      });
+
+      // Inject current user's score if not yet visible (Firestore replication lag)
+      if (myScoreParam !== null && !isNaN(myScoreParam)) {
+        const existing = bestByUser.get(user.uid);
+        if (!existing || myScoreParam > existing.score) {
+          bestByUser.set(user.uid, { userId: user.uid, score: myScoreParam });
+        }
+      }
+
+      const sorted = Array.from(bestByUser.values()).sort((a, b) => b.score - a.score);
+      const totalParticipants = sorted.length;
+
+      // Rank = position in sorted list (ties share the same rank number)
+      let rank = 1;
+      let myRank = totalParticipants;
+      for (let i = 0; i < sorted.length; i++) {
+        if (i > 0 && sorted[i].score < sorted[i - 1].score) rank = i + 1;
+        if (sorted[i].userId === user.uid) { myRank = rank; break; }
+      }
+
+      const top10 = sorted.slice(0, 10);
+      const profileSnaps = await Promise.all(
+        top10.map(r => currentDb.collection("profiles").doc(r.userId).get())
+      );
+
+      const topRankers = top10.map((r, idx) => ({
+        rank: idx + 1,
+        name: profileSnaps[idx].exists ? (profileSnaps[idx].data()?.name || 'Student') : 'Student',
+        score: r.score,
+        isCurrentUser: r.userId === user.uid
+      }));
+
+      return res.json({ topRankers, myRank, totalParticipants });
+    } catch (error: any) {
+      console.error("[test-leaderboard] failed:", error);
+      return res.status(500).json({ error: "Failed to fetch leaderboard" });
+    }
+  });
+
   // Demo endpoint to become an admin
   app.post("/api/become-admin", verifyToken, async (req, res) => {
     const currentDb = getDb();
@@ -775,16 +840,17 @@ app.use((req, res, next) => {
     const currentDb = getDb();
     if (!currentDb) return res.status(500).json({ error: "Database offline" });
     const { studentId } = req.params;
-    const { name, phoneNumber, status, password } = req.body;
-    
+    const { name, phoneNumber, status, password, batch } = req.body;
+
     if (!studentId) return res.status(400).json({ error: "Missing student ID" });
 
     try {
-      const updateData: any = { 
-        name, 
-        phoneNumber, 
-        status: status || 'active', 
-        updatedAt: Date.now() 
+      const updateData: any = {
+        name,
+        phoneNumber,
+        status: status || 'active',
+        batch: batch || '',
+        updatedAt: Date.now()
       };
       
       // Update Firestore profile
@@ -798,21 +864,18 @@ app.use((req, res, next) => {
         await profileRef.update(updateData);
       }
       
-      // Update Firebase Auth if password or mobile changed (mobile is used for pseudo-email)
-      const authUpdates: any = {};
+      // Update Firebase Auth — only password change is critical; email/name update is best-effort
       if (password && password.trim().length >= 6) {
-        authUpdates.password = password;
+        await admin.auth().updateUser(studentId, { password: password.trim() });
+        console.log(`[Admin] Password updated for ${studentId}`);
       }
       if (phoneNumber) {
-        authUpdates.email = `${phoneNumber}@students.myapp.com`;
-        authUpdates.displayName = name;
+        admin.auth().updateUser(studentId, {
+          email: `${phoneNumber}@students.myapp.com`,
+          displayName: name
+        }).catch((e: any) => console.warn(`[Admin] Auth email update skipped for ${studentId}:`, e.message));
       }
-      
-      if (Object.keys(authUpdates).length > 0) {
-        await admin.auth().updateUser(studentId, authUpdates);
-        console.log(`[Admin] Updated Auth records for ${studentId}`);
-      }
-      
+
       res.json({ success: true, message: "Student record updated" });
     } catch (error: any) {
       console.error(`[Admin] Update failed for ${studentId}:`, error);

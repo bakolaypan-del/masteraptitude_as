@@ -238,6 +238,7 @@ function AdminHome() {
   const [students, setStudents] = useState<any[]>([]);
   const [studentSearch, setStudentSearch] = useState('');
   const [studentFilter, setStudentFilter] = useState('all'); // all, active, blocked
+  const [batchFilter, setBatchFilter] = useState('all');
   const [stats, setStats] = useState({ total: 0, active: 0, blocked: 0, today: 0 });
   const [editingStudent, setEditingStudent] = useState<any>(null);
   const [savingStudent, setSavingStudent] = useState(false);
@@ -1228,7 +1229,8 @@ function AdminHome() {
           name: editingStudent.name,
           phoneNumber: editingStudent.phoneNumber,
           status: editingStudent.status,
-          password: editingStudent.newPassword // Optional
+          batch: editingStudent.batch || '',
+          password: editingStudent.newPassword
         })
       });
       if (res.ok) {
@@ -3326,7 +3328,7 @@ function AdminHome() {
               Student Database
             </h2>
             <div className="flex flex-wrap gap-4 items-center">
-              <select 
+              <select
                 value={studentFilter}
                 onChange={e => setStudentFilter(e.target.value)}
                 className="px-4 py-2.5 rounded-xl border-2 border-slate-200 focus:border-indigo-600 outline-hidden font-bold text-sm bg-white"
@@ -3335,12 +3337,23 @@ function AdminHome() {
                 <option value="active">Active Only</option>
                 <option value="blocked">Blocked Only</option>
               </select>
-              
+
+              <select
+                value={batchFilter}
+                onChange={e => setBatchFilter(e.target.value)}
+                className="px-4 py-2.5 rounded-xl border-2 border-slate-200 focus:border-indigo-600 outline-hidden font-bold text-sm bg-white"
+              >
+                <option value="all">All Batches</option>
+                <option value="MANZIL 1.0">MANZIL 1.0</option>
+                <option value="MANZIL 2.0">MANZIL 2.0</option>
+                <option value="MANZIL 3.0">MANZIL 3.0</option>
+              </select>
+
               <div className="relative">
                 <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                <input 
+                <input
                   type="text"
-                  placeholder="Search name or ID..."
+                  placeholder="Search name, mobile or ID..."
                   className="pl-11 pr-4 py-2.5 rounded-xl border-2 border-slate-200 focus:border-indigo-600 outline-hidden w-full md:w-64 font-medium text-sm"
                   value={studentSearch}
                   onChange={e => setStudentSearch(e.target.value)}
@@ -3363,6 +3376,7 @@ function AdminHome() {
                 <tr>
                   <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Name</th>
                   <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Mobile Number</th>
+                  <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Batch</th>
                   <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Registration Date</th>
                   <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Status</th>
                   <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Last Login</th>
@@ -3372,13 +3386,14 @@ function AdminHome() {
               <tbody className="bg-white divide-y divide-slate-50">
                 {students
                   .filter(s => {
-                    const matchesSearch = (s.name || '').toLowerCase().includes(studentSearch.toLowerCase()) || 
+                    const matchesSearch = (s.name || '').toLowerCase().includes(studentSearch.toLowerCase()) ||
                                         (s.phoneNumber || '').includes(studentSearch) ||
                                         (s.id || '').includes(studentSearch);
-                    const matchesFilter = studentFilter === 'all' ? true : 
-                                       studentFilter === 'blocked' ? s.status === 'blocked' : 
+                    const matchesFilter = studentFilter === 'all' ? true :
+                                       studentFilter === 'blocked' ? s.status === 'blocked' :
                                        s.status !== 'blocked';
-                    return matchesSearch && matchesFilter;
+                    const matchesBatch = batchFilter === 'all' ? true : (s.batch || '') === batchFilter;
+                    return matchesSearch && matchesFilter && matchesBatch;
                   })
                   .map(student => (
                   <tr key={student.id} className="hover:bg-slate-50 transition-colors">
@@ -3392,6 +3407,15 @@ function AdminHome() {
                     </td>
                     <td className="px-8 py-6 whitespace-nowrap">
                       <span className="text-sm font-medium text-slate-600">{student.phoneNumber}</span>
+                    </td>
+                    <td className="px-8 py-6 whitespace-nowrap">
+                      {student.batch ? (
+                        <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${student.batch === 'Paid' ? 'bg-amber-100 text-amber-700' : 'bg-violet-100 text-violet-700'}`}>
+                          {student.batch}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-300 font-medium">—</span>
+                      )}
                     </td>
                     <td className="px-8 py-6 whitespace-nowrap">
                       <span className="text-sm text-slate-500 font-medium">
@@ -3411,7 +3435,7 @@ function AdminHome() {
                     <td className="px-8 py-6 whitespace-nowrap text-right">
                       <div className="flex justify-end gap-2">
                         <button 
-                          onClick={() => setEditingStudent({ ...student, focusPassword: false, newPassword: '' })}
+                          onClick={() => setEditingStudent({ ...student, focusPassword: false, newPassword: '', batch: student.batch || '' })}
                           className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all"
                           title="Edit Name/Mobile"
                         >
@@ -3428,7 +3452,7 @@ function AdminHome() {
                           <LayoutDashboard className="w-4 h-4" />
                         </button>
                         <button 
-                          onClick={() => setEditingStudent({ ...student, focusPassword: true, newPassword: '' })}
+                          onClick={() => setEditingStudent({ ...student, focusPassword: true, newPassword: '', batch: student.batch || '' })}
                           className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
                           title="Reset Password"
                         >
@@ -3493,10 +3517,23 @@ function AdminHome() {
                   onChange={e => setEditingStudent({...editingStudent, phoneNumber: e.target.value})}
                 />
               </div>
+              <div className={`${editingStudent.focusPassword ? 'opacity-50 pointer-events-none' : ''}`}>
+                <label className="block text-xs font-black text-amber-600 uppercase tracking-widest mb-2">Batch / Category</label>
+                <select
+                  className="w-full rounded-2xl border-slate-200 border-2 p-4 outline-hidden font-bold focus:border-amber-500"
+                  value={editingStudent.batch || ''}
+                  onChange={e => setEditingStudent({...editingStudent, batch: e.target.value})}
+                >
+                  <option value="">None (General)</option>
+                  <option value="MANZIL 1.0">MANZIL 1.0</option>
+                  <option value="MANZIL 2.0">MANZIL 2.0</option>
+                  <option value="MANZIL 3.0">MANZIL 3.0</option>
+                </select>
+              </div>
               <div className="grid grid-cols-2 gap-4 text-left">
                 <div className={editingStudent.focusPassword ? 'opacity-50 pointer-events-none' : ''}>
                   <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Account Status</label>
-                  <select 
+                  <select
                     className="w-full rounded-2xl border-slate-200 border-2 p-4 outline-hidden font-bold focus:border-indigo-600"
                     value={editingStudent.status || 'active'}
                     onChange={e => setEditingStudent({...editingStudent, status: e.target.value})}
@@ -3509,7 +3546,7 @@ function AdminHome() {
                   <label className="block text-xs font-black text-indigo-600 uppercase tracking-widest mb-2">
                     {editingStudent.focusPassword ? 'Set New Password' : 'New Password (Optional)'}
                   </label>
-                  <input 
+                  <input
                     ref={passwordInputRef}
                     type="password"
                     placeholder="••••••••"
