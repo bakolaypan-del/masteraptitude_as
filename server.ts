@@ -389,220 +389,56 @@ app.use((req, res, next) => {
   });
 
   // Get test and questions (without correct answer)
-  // Helper function to serve high-quality Sandbox practice test
-  function serveFallbackData(res: any, testId: string) {
-    const fallbackTest = {
-      id: testId,
-      title: "Master Aptitude General Assessment Test (Sandbox Practice)",
-      topic: "Quantitative & Analytical Reasoning",
-      category: "GK",
-      duration: 30,
-      marksPerCorrect: 1,
-      negativeMarks: 0.25,
-      testType: "topic"
-    };
-
-    const fallbackQuestions = [
-      {
-        id: "q1",
-        qNo: 1,
-        question: "A train running at the speed of 60 km/hr crosses a pole in 9 seconds. What is the length of the train?",
-        options: ["120 meters", "150 meters", "324 meters", "180 meters"],
-        subjectName: "Quantitative Aptitude"
-      },
-      {
-        id: "q2",
-        qNo: 2,
-        question: "Find the odd number out in the following series: 3, 5, 11, 14, 17, 21",
-        options: ["14", "17", "21", "11"],
-        subjectName: "Logical Reasoning"
-      },
-      {
-        id: "q3",
-        qNo: 3,
-        question: "The average of 20 numbers is zero. Of them, at the most, how many may be greater than zero?",
-        options: ["0", "1", "10", "19"],
-        subjectName: "Quantitative Aptitude"
-      },
-      {
-        id: "q4",
-        qNo: 4,
-        question: "If A + B means A is the brother of B; A - B means A is the sister of B; and A x B means A is the father of B. Which of the following means C is the son of M?",
-        options: ["M - N x C + F", "F - C + N x M", "N + M - F x C", "M x N - C + F"],
-        subjectName: "Logical Reasoning"
-      },
-      {
-        id: "q5",
-        qNo: 5,
-        question: "A sum of money at simple interest amounts to Rs. 815 in 3 years and to Rs. 854 in 4 years. What is the sum?",
-        options: ["Rs. 650", "Rs. 690", "Rs. 698", "Rs. 700"],
-        subjectName: "Quantitative Aptitude"
-      }
-    ];
-
-    return res.status(200).json({
-      success: true,
-      isSandboxFallback: true,
-      test: fallbackTest,
-      questions: fallbackQuestions
-    });
-  }
-
   // Get test and questions (without correct answer)
   app.get("/api/test/:testId", verifyToken, async (req, res) => {
     const { testId } = req.params;
     console.log(`[API] Loading test: ${testId}`);
 
     const currentDb = getDb();
-    
-    // Check if we need to fall back because of missing/offline database
     if (!currentDb) {
-      console.warn("[API] DB connection is null. Serving Sandbox fallback data.");
-      return serveFallbackData(res, testId);
+      return res.status(503).json({ success: false, error: "Database is currently offline. Please try again shortly." });
     }
-    
+
     try {
-      // Fetch test (Item 1 & 2)
       const testSnap = await currentDb.collection("tests").doc(testId).get();
-      
-      // If the test doc doesn't exist, try to fall back
       if (!testSnap.exists) {
-        console.warn(`[API] Test ID ${testId} not found in DB. Serving Sandbox fallback data.`);
-        return serveFallbackData(res, testId);
+        return res.status(404).json({ success: false, error: "Test not found." });
       }
-      
       const testData = testSnap.data();
       if (!testData) {
-        console.warn(`[API] Test ID ${testId} has invalid doc data. Serving Sandbox fallback data.`);
-        return serveFallbackData(res, testId);
+        return res.status(404).json({ success: false, error: "Test data is unavailable." });
       }
-      
       const testObj = { id: testSnap.id, ...testData };
 
-      // Fetch questions with limit 100 to optimize heavy database query (Item 4)
       const questionsSnap = await currentDb.collection("questions")
         .where("testId", "==", testId)
-        .limit(100) 
+        .limit(200)
         .get();
-        
+
       const questions = questionsSnap.docs.map(doc => {
         const data = doc.data();
         const { correctAnswer, ...safeData } = data;
         return { id: doc.id, ...safeData };
       });
-      
-      // If no questions found, serve fallback practice questions
-      if (!Array.isArray(questions) || questions.length === 0) {
-        console.warn(`[API] No questions found in DB for test ${testId}. Serving Sandbox fallback data.`);
-        return serveFallbackData(res, testId);
+
+      questions.sort((a: any, b: any) => (a.qNo || 0) - (b.qNo || 0));
+
+      if (questions.length === 0) {
+        return res.status(404).json({ success: false, error: "No questions have been added to this test yet." });
       }
-      
-      console.log(`[API] Successfully loaded ${questions.length} questions from Firestore for test ${testId}`);
-      
-      return res.status(200).json({ 
-        success: true, 
-        test: testObj, 
-        questions 
-      });
+
+      console.log(`[API] Loaded ${questions.length} questions for test ${testId}`);
+      return res.status(200).json({ success: true, test: testObj, questions });
     } catch (error: any) {
-      console.error("[API] Error fetching test from Firestore:", error);
-      console.warn("[API] Serving Sandbox fallback data due to Firestore fetch exception.");
-      return serveFallbackData(res, testId);
+      console.error("[API] Error fetching test:", error);
+      return res.status(500).json({ success: false, error: "Failed to load test. Please try again." });
     }
   });
 
   // Helper function to serve submit fallback scoring locally
-  function serveSubmitFallback(req: any, res: any, testId: string, answers: any[], timeTaken: any) {
-    console.warn(`[API] Serving submit fallback score locally for test: ${testId}`);
-    const user = (req as any).user;
-    
-    // Sandbox correct answers
-    const sandboxAnswers: Record<string, string> = {
-      "q1": "150 meters",
-      "q2": "14",
-      "q3": "19",
-      "q4": "M x N - C + F",
-      "q5": "Rs. 698"
-    };
-
-    let correct = 0;
-    let wrong = 0;
-    let unattempted = 0;
-    let score = 0;
-    const userAnswers: Record<string, string> = {};
-    const correctAnswersMap: Record<string, string> = {};
-
-    answers.forEach((ans: { id: string, selected: string }) => {
-      const actual = sandboxAnswers[ans.id] || "Option A"; // Default mock answer if real test
-      userAnswers[ans.id] = ans.selected || "";
-      correctAnswersMap[ans.id] = actual;
-
-      if (!ans.selected) {
-        unattempted++;
-      } else if (actual === ans.selected) {
-        correct++;
-        score += 1;
-      } else {
-        wrong++;
-        score -= 0.25;
-      }
-    });
-
-    const totalQuestions = answers.length || 5;
-    const accuracy = totalQuestions > 0 ? ((correct / (correct + wrong || 1)) * 100).toFixed(1) : 0;
-    const questionTimes = req.body.questionTimes || {};
-
-    const resultData = {
-      timestamp: Date.now(),
-      userId: user.uid,
-      testId: testId,
-      testTitle: "Master Aptitude General Assessment Test (Sandbox Practice)",
-      score: parseFloat(score.toFixed(2)),
-      correctAnswers: correct,
-      wrongAnswers: wrong,
-      unattempted: unattempted,
-      totalQuestions: totalQuestions,
-      accuracy: parseFloat(accuracy.toString()),
-      timeTaken: timeTaken || "N/A",
-      userAnswers,
-      correctAnswersMap,
-      questionTimes,
-      status: "completed"
-    };
-
-    // Save to SQLite for local tracking
-    try {
-      answers.forEach((ans: { id: string, selected: string }) => {
-        const qId = ans.id;
-        const selected = ans.selected || "";
-        const correctAns = sandboxAnswers[qId] || "Option A";
-        const isCorr = selected === correctAns;
-        const timeSpent = questionTimes[qId] || 0;
-
-        insertMockQuestionAnalysis(
-          user.uid,
-          testId,
-          qId,
-          selected,
-          correctAns,
-          isCorr ? 1 : 0,
-          timeSpent
-        );
-      });
-    } catch (sqliteErr) {
-      console.error("[SQLite] Error saving question analysis on submit fallback:", sqliteErr);
-    }
-
-    return res.status(200).json({
-      ...resultData,
-      rank: 1,
-      analysis: correctAnswersMap
-    });
-  }
-
   // Submit test and score it
   app.post("/api/submit-test", verifyToken, async (req, res) => {
-    const { testId, answers, timeTaken } = req.body; 
+    const { testId, answers, timeTaken } = req.body;
     const user = (req as any).user;
 
     if (!testId || !answers || !Array.isArray(answers)) {
@@ -611,27 +447,22 @@ app.use((req, res, next) => {
 
     const currentDb = getDb();
     if (!currentDb) {
-      console.warn("[API] DB is null during submit. Serving submit fallback.");
-      return serveSubmitFallback(req, res, testId, answers, timeTaken);
+      return res.status(503).json({ error: "Database is currently offline. Please try again shortly." });
     }
-    
+
     try {
       const testSnap = await currentDb.collection("tests").doc(testId).get();
       if (!testSnap.exists) {
-        console.warn(`[API] Test ID ${testId} not found during submit. Serving submit fallback.`);
-        return serveSubmitFallback(req, res, testId, answers, timeTaken);
+        return res.status(404).json({ error: "Test not found." });
       }
-      
+
       const testData = testSnap.data();
       const posMarks = testData?.marksPerCorrect || 1;
       const negMarks = testData?.negativeMarks || 0.25;
 
       const questionsSnap = await currentDb.collection("questions").where("testId", "==", testId).get();
-      
-      // If questions query is empty, serve submit fallback
       if (questionsSnap.empty) {
-        console.warn(`[API] Questions empty for test ${testId} during submit. Serving submit fallback.`);
-        return serveSubmitFallback(req, res, testId, answers, timeTaken);
+        return res.status(404).json({ error: "No questions found for this test." });
       }
 
       const actualAnswers = new Map();
@@ -780,8 +611,8 @@ app.use((req, res, next) => {
 
       return res.json({ ...resultData, rank, analysis });
     } catch (error: any) {
-      console.error("[API] Failed to submit test to Firestore. Serving submit fallback:", error);
-      return serveSubmitFallback(req, res, testId, answers, timeTaken);
+      console.error("[API] Failed to submit test:", error);
+      return res.status(500).json({ error: "Failed to submit test. Please try again." });
     }
   });
 

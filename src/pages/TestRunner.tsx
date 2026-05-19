@@ -2,8 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthContext';
 import { RenderMathText } from '../components/MathRenderer';
-import { Clock, AlertTriangle, CheckCircle, ChevronRight, ChevronLeft, Flag, Info, Globe, Play, Menu, X, Target, Trophy, Zap, BookOpen, Shield } from 'lucide-react';
-import { translateQuestions } from '../services/translationService';
+import { Clock, AlertTriangle, CheckCircle, ChevronRight, ChevronLeft, Flag, Info, Play, Menu, X, Target, Trophy, Zap, BookOpen, Shield } from 'lucide-react';
 
 export default function TestRunner() {
   const { testId } = useParams();
@@ -30,9 +29,6 @@ export default function TestRunner() {
   const [questionTimes, setQuestionTimes] = useState<Record<string, number>>({});
 
   const [showInstructions, setShowInstructions] = useState(true);
-  const [selectedLang, setSelectedLang] = useState('English');
-  const [translating, setTranslating] = useState(false);
-  const [originalQuestions, setOriginalQuestions] = useState<any[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const isSubmittingRef = useRef(false);
@@ -90,7 +86,6 @@ export default function TestRunner() {
         if (active) {
           setTest(data.test);
           setQuestions(data.questions);
-          setOriginalQuestions(data.questions);
           setVisited(new Set([data.questions[0].id]));
           const durationMins = data.test?.duration || 30;
           setTimeLeft(Math.floor(durationMins * 60));
@@ -178,7 +173,7 @@ export default function TestRunner() {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
 
     try {
-      const payload = originalQuestions.map(q => {
+      const payload = questions.map(q => {
         const storedIdx = answers[q.id];
         const selectedOriginalText = storedIdx !== undefined ? (q.options[parseInt(storedIdx)] || '') : '';
         return { id: q.id, selected: selectedOriginalText };
@@ -243,24 +238,9 @@ export default function TestRunner() {
     }
   };
 
-  const handleStartTest = async () => {
-    if (selectedLang === 'Bengali') {
-      setTranslating(true);
-      try {
-        const translated = await translateQuestions(originalQuestions, 'Bengali', user);
-        setQuestions(translated);
-      } catch (err) {
-        console.error("Translation error:", err);
-      } finally {
-        setTranslating(false);
-      }
-    } else {
-      setQuestions(originalQuestions);
-    }
+  const handleStartTest = () => {
     setShowInstructions(false);
   };
-
-  const t = (en: string, bn: string) => (selectedLang === 'Bengali' ? bn : en);
 
   // ─── Loading Screen ──────────────────────────────────────────────────────────
   if (loading || isRetrying) return (
@@ -310,164 +290,75 @@ export default function TestRunner() {
 
   // ─── Instructions Screen ──────────────────────────────────────────────────────
   if (showInstructions) {
-    const rules = [
-      { icon: Shield, color: 'text-rose-400', text: t("You cannot switch tabs or minimize the browser window during the test.", "আপনি ট্যাব পরিবর্তন বা ব্রাউজার উইন্ডো ছোট করতে পারবেন না।") },
-      { icon: Clock, color: 'text-amber-400', text: t("The timer starts immediately when you click Start Test.", "স্টার্ট বাটনে ক্লিক করার সাথে সাথেই টাইমার শুরু হবে।") },
-      { icon: Flag, color: 'text-violet-400', text: t("You can mark questions for review and revisit them later.", "আপনি প্রশ্নগুলো রিভিউ করতে চিহ্নিত করতে পারেন।") },
-      { icon: Zap, color: 'text-emerald-400', text: t("Your progress is saved automatically as you navigate.", "আপনার অগ্রগতি স্বয়ংক্রিয়ভাবে সংরক্ষিত হয়।") },
-      { icon: Target, color: 'text-sky-400', text: t("Ensure you have a stable internet connection.", "আপনার ইন্টারনেট সংযোগ স্থিতিশীল আছে কিনা নিশ্চিত করুন।") },
-    ];
-
     return (
       <div className="min-h-screen flex items-center justify-center p-4"
         style={{ background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 55%, #24243e 100%)' }}>
-        {/* Blur orbs */}
-        <div className="fixed top-1/4 left-1/4 w-96 h-96 rounded-full blur-3xl pointer-events-none"
-          style={{ background: 'rgba(99,102,241,0.12)' }} />
-        <div className="fixed bottom-1/4 right-1/4 w-64 h-64 rounded-full blur-3xl pointer-events-none"
-          style={{ background: 'rgba(124,58,237,0.1)' }} />
+        <div className="fixed top-1/4 left-1/4 w-80 h-80 rounded-full blur-3xl pointer-events-none" style={{ background: 'rgba(99,102,241,0.1)' }} />
 
-        <div className="max-w-3xl w-full rounded-3xl overflow-hidden border border-white/10 shadow-2xl relative"
+        <div className="w-full max-w-sm rounded-3xl overflow-hidden border border-white/10 shadow-2xl"
           style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(30px)' }}>
 
-          {/* Header */}
-          <div className="relative p-8 md:p-10 overflow-hidden"
-            style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}>
-            <div className="absolute top-0 right-0 w-48 h-48 rounded-full blur-3xl"
-              style={{ background: 'rgba(255,255,255,0.07)' }} />
-            <div className="absolute bottom-0 left-1/3 w-32 h-32 rounded-full blur-2xl"
-              style={{ background: 'rgba(165,180,252,0.1)' }} />
-            <div className="relative flex items-start gap-5">
-              <div className="w-14 h-14 rounded-2xl bg-white/20 border border-white/30 flex items-center justify-center shrink-0 shadow-xl">
-                <BookOpen className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight mb-1">
-                  {t("Test Instructions", "পরীক্ষার নির্দেশাবলী")}
-                </h2>
-                <p className="text-indigo-200 font-medium text-sm">
-                  {t("Please read carefully before starting.", "শুরু করার আগে মনোযোগ দিয়ে পড়ুন।")}
-                </p>
-              </div>
+          {/* Top colour bar */}
+          <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-violet-500 to-emerald-500" />
+
+          {/* Icon + test name */}
+          <div className="flex flex-col items-center pt-8 pb-5 px-6 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-xl mb-4">
+              <BookOpen className="w-7 h-7 text-white" />
+            </div>
+            <h2 className="text-lg font-black text-white leading-tight mb-1">{test?.title}</h2>
+            {test?.topic && <p className="text-xs text-indigo-300 font-semibold">{test.topic}</p>}
+          </div>
+
+          {/* Key stats grid */}
+          <div className="grid grid-cols-2 gap-3 px-6 pb-5">
+            <div className="rounded-2xl border border-white/10 p-4 text-center" style={{ background: 'rgba(255,255,255,0.05)' }}>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Questions</p>
+              <p className="text-2xl font-black text-white">{questions.length}</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 p-4 text-center" style={{ background: 'rgba(255,255,255,0.05)' }}>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Time</p>
+              <p className="text-2xl font-black text-white">{test?.duration || 30}<span className="text-sm text-slate-400 ml-1">min</span></p>
+            </div>
+            <div className="rounded-2xl border border-emerald-500/20 p-4 text-center" style={{ background: 'rgba(16,185,129,0.07)' }}>
+              <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">Correct</p>
+              <p className="text-2xl font-black text-emerald-400">+{test?.marksPerCorrect || 1.0}</p>
+            </div>
+            <div className="rounded-2xl border border-rose-500/20 p-4 text-center" style={{ background: 'rgba(239,68,68,0.07)' }}>
+              <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-1">Negative</p>
+              <p className="text-2xl font-black text-rose-400">-{test?.negativeMarks || 0.25}</p>
             </div>
           </div>
 
-          <div className="p-6 md:p-8 space-y-6 overflow-y-auto max-h-[60vh]">
-
-            {/* Test Details + Marks grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="rounded-2xl border border-white/10 p-5"
-                style={{ background: 'rgba(255,255,255,0.05)' }}>
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                  <Info className="w-3 h-3 text-indigo-400" />
-                  {t("Test Details", "পরীক্ষার বিবরণ")}
-                </h3>
-                <div className="space-y-3">
-                  {[
-                    [t("Test Name", "পরীক্ষার নাম"), test?.title],
-                    [t("Topic", "বিষয়"), test?.topic],
-                    [t("Total Questions", "মোট প্রশ্ন"), `${originalQuestions.length} ${t("Items", "টি")}`],
-                    [t("Total Time", "মোট সময়"), `${test?.duration || 30} ${t("Minutes", "মিনিট")}`],
-                  ].map(([label, value]) => (
-                    <div key={label} className="flex justify-between items-center text-sm">
-                      <span className="text-slate-400 font-medium">{label}</span>
-                      <span className="font-black text-white text-right ml-2 text-indigo-300">{value}</span>
-                    </div>
-                  ))}
-                </div>
+          {/* Rules */}
+          <div className="px-6 pb-5 space-y-2">
+            {[
+              { icon: Shield, color: 'text-rose-400', text: 'No tab switching — auto-submit on violation.' },
+              { icon: Flag, color: 'text-violet-400', text: 'Flag questions to revisit before submitting.' },
+              { icon: Zap, color: 'text-emerald-400', text: 'Your answers auto-save as you navigate.' },
+            ].map(({ icon: Icon, color, text }, i) => (
+              <div key={i} className="flex items-start gap-3 p-3 rounded-xl border border-white/5" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                <Icon className={`w-3.5 h-3.5 ${color} shrink-0 mt-0.5`} />
+                <p className="text-xs text-slate-300 font-medium leading-snug">{text}</p>
               </div>
-
-              <div className="rounded-2xl border border-white/10 p-5"
-                style={{ background: 'rgba(255,255,255,0.05)' }}>
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                  <Flag className="w-3 h-3 text-violet-400" />
-                  {t("Marking Scheme", "নম্বর বিভাজন")}
-                </h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                    <span className="text-emerald-400 font-bold text-sm">{t("Correct Answer", "সঠিক উত্তর")}</span>
-                    <span className="font-black text-emerald-400 text-lg">+{test?.marksPerCorrect || 1.0}</span>
-                  </div>
-                  <div className="flex justify-between items-center p-3 rounded-xl bg-rose-500/10 border border-rose-500/20">
-                    <span className="text-rose-400 font-bold text-sm">{t("Wrong Answer", "ভুল উত্তর")}</span>
-                    <span className="font-black text-rose-400 text-lg">-{test?.negativeMarks || 0.25}</span>
-                  </div>
-                  <div className="flex justify-between items-center p-3 rounded-xl bg-white/5 border border-white/10">
-                    <span className="text-slate-400 font-bold text-sm">{t("Unattempted", "চেষ্টা করা হয়নি")}</span>
-                    <span className="font-black text-slate-400 text-lg">0.0</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Rules */}
-            <div>
-              <h3 className="text-xs font-black text-white uppercase tracking-wider mb-3">
-                {t("General Rules:", "সাধারণ নিয়মাবলী:")}
-              </h3>
-              <div className="space-y-2">
-                {rules.map((rule, i) => (
-                  <div key={i} className="flex items-start gap-3 p-3 rounded-xl border border-white/5"
-                    style={{ background: 'rgba(255,255,255,0.03)' }}>
-                    <rule.icon className={`w-4 h-4 ${rule.color} shrink-0 mt-0.5`} />
-                    <p className="text-sm text-slate-300 font-medium leading-snug">{rule.text}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Language selector */}
-            <div className="border-t border-white/10 pt-5">
-              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <Globe className="w-3 h-3 text-sky-400" />
-                {t("Select Test Language", "পরীক্ষার ভাষা নির্বাচন করুন")}
-              </h3>
-              <div className="flex gap-3">
-                {['English', 'Bengali'].map(lang => (
-                  <button
-                    key={lang}
-                    onClick={() => setSelectedLang(lang)}
-                    className={`flex-1 py-3 rounded-2xl border-2 font-black text-sm uppercase tracking-widest transition-all
-                      ${selectedLang === lang
-                        ? 'border-indigo-500 text-indigo-300 shadow-lg shadow-indigo-900/30'
-                        : 'border-white/10 text-slate-500 hover:border-white/20 hover:text-slate-400'}
-                    `}
-                    style={selectedLang === lang
-                      ? { background: 'rgba(99,102,241,0.15)' }
-                      : { background: 'rgba(255,255,255,0.03)' }}>
-                    {lang === 'Bengali' ? 'বাংলা' : 'English'}
-                  </button>
-                ))}
-              </div>
-              <p className="mt-3 text-[10px] text-slate-500 font-bold uppercase tracking-tight text-center">
-                {t("Questions and Options will be automatically translated if Bengali is selected.", "বাংলা সিলেক্ট করলে প্রশ্ন ও অপশনগুলো স্বয়ংক্রিয়ভাবে অনুবাদ করা হবে।")}
-              </p>
+            ))}
+            <div className="pt-1 text-center">
+              <p className="text-[10px] text-slate-500 font-semibold">After submission you'll see full result &amp; per-question analysis.</p>
             </div>
           </div>
 
-          {/* CTA buttons */}
-          <div className="p-6 md:p-8 border-t border-white/10 flex flex-col sm:flex-row gap-3">
-            <button onClick={() => navigate('/dashboard')}
-              className="flex-1 py-4 border border-white/10 text-slate-400 font-black rounded-2xl hover:bg-white/5 transition-colors uppercase tracking-widest text-xs"
-              style={{ background: 'rgba(255,255,255,0.03)' }}>
-              {t("Back to Dashboard", "ড্যাশবোর্ডে ফিরে যান")}
-            </button>
-            <button
-              disabled={translating}
-              onClick={handleStartTest}
-              className="flex-[2] py-4 text-white font-black rounded-2xl transition-all shadow-xl flex items-center justify-center gap-3 uppercase tracking-widest text-xs disabled:opacity-50"
+          {/* CTA */}
+          <div className="px-6 pb-7 flex flex-col gap-3">
+            <button onClick={handleStartTest}
+              className="w-full py-4 text-white font-black rounded-2xl transition-all shadow-xl flex items-center justify-center gap-3 uppercase tracking-widest text-sm active:scale-95"
               style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}>
-              {translating ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  {t("Translating Questions...", "প্রশ্ন অনুবাদ করা হচ্ছে...")}
-                </>
-              ) : (
-                <>
-                  <Play className="w-5 h-5 fill-current" />
-                  {t("Start Test Now", "এখনই পরীক্ষা শুরু করুন")}
-                </>
-              )}
+              <Play className="w-5 h-5 fill-current" />
+              Start Test Now
+            </button>
+            <button onClick={() => navigate('/dashboard')}
+              className="w-full py-3 border border-white/10 text-slate-400 font-bold rounded-2xl hover:bg-white/5 transition-colors text-xs uppercase tracking-widest"
+              style={{ background: 'rgba(255,255,255,0.03)' }}>
+              Back to Dashboard
             </button>
           </div>
         </div>
@@ -504,7 +395,7 @@ export default function TestRunner() {
             {questions.map((q, idx) => {
               const correctAnswer = result.analysis[q.id];
               const storedIdx = answers[q.id];
-              const origQ = originalQuestions.find((oq: any) => oq.id === q.id);
+              const origQ = questions.find((oq: any) => oq.id === q.id);
               const userChoice = (storedIdx !== undefined && origQ) ? (origQ.options[parseInt(storedIdx)] || '') : '';
               const isCorrect = !!userChoice && userChoice === correctAnswer;
               const isUnattempted = !userChoice;
@@ -589,22 +480,36 @@ export default function TestRunner() {
                       })}
                     </div>
 
-                    <div className="mt-8 pt-8 border-t border-slate-100 flex items-center justify-between text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                      <div className="flex items-center gap-2">
-                        <Target className="w-3.5 h-3.5 text-indigo-400" />
-                        <span>Topic: {q.topic || 'General'}</span>
+                    <div className="mt-8 pt-6 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                      <div className="flex items-center gap-4 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <Target className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>{q.topic || 'General'}</span>
+                        </div>
+                        {(() => {
+                          const secs = questionTimes[q.id] || 0;
+                          const mm = Math.floor(secs / 60);
+                          const ss = secs % 60;
+                          const timeStr = mm > 0 ? `${mm}m ${ss}s` : `${ss}s`;
+                          return (
+                            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-lg border border-indigo-100">
+                              <Clock className="w-3 h-3" />
+                              <span>Time: {timeStr}</span>
+                            </div>
+                          );
+                        })()}
                       </div>
                       {isCorrect ? (
                         <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100">
-                          <span>+{test?.marksPerCorrect || 1.0} MARKS</span>
+                          <span>+{test?.marksPerCorrect || 1.0} Marks</span>
                         </div>
                       ) : isUnattempted ? (
                         <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 text-slate-400 rounded-lg border border-slate-200">
-                          <span>0.0 MARKS</span>
+                          <span>0.0 Marks</span>
                         </div>
                       ) : (
                         <div className="flex items-center gap-2 px-3 py-1 bg-rose-50 text-rose-600 rounded-lg border border-rose-100">
-                          <span>-{test?.negativeMarks || 0.25} MARKS</span>
+                          <span>-{test?.negativeMarks || 0.25} Marks</span>
                         </div>
                       )}
                     </div>
@@ -755,7 +660,7 @@ export default function TestRunner() {
           <button onClick={handleExit}
             className="flex items-center gap-1.5 px-2 md:px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-all text-[10px] md:text-sm font-bold group">
             <ChevronLeft className="w-3 h-3 md:w-4 md:h-4 group-hover:-translate-x-0.5 transition-transform" />
-            <span className="hidden sm:inline">{t("Exit Test", "পরীক্ষা শেষ")}</span>
+            <span className="hidden sm:inline">Exit Test</span>
           </button>
           <div className="hidden xs:flex w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 items-center justify-center text-white font-black text-xs shrink-0">M</div>
           <h1 className="text-xs md:text-base font-bold tracking-tight text-slate-800 truncate max-w-[120px] sm:max-w-none">
@@ -793,8 +698,8 @@ export default function TestRunner() {
       <div className="bg-amber-50 border-b border-amber-200 px-4 md:px-6 py-1.5 flex items-center gap-2 text-[9px] md:text-xs font-medium text-amber-800 shrink-0">
         <AlertTriangle className="w-3 h-3 md:w-3.5 md:h-3.5 shrink-0 text-amber-500" />
         <span className="truncate">
-          {t("Warning: Tab switching or minimizing window will result in automatic submission.", "সতর্কতা: ট্যাব পরিবর্তন বা উইন্ডো ছোট করলে স্বয়ংক্রিয়ভাবে সাবমিট হয়ে যাবে।")}
-          {warnings > 0 && <span className="text-red-600 font-bold ml-2">({warnings} {t("Warnings Recorded", "টি সতর্কতা")})</span>}
+          Warning: Tab switching or minimizing window will result in automatic submission.
+          {warnings > 0 && <span className="text-red-600 font-bold ml-2">({warnings} Warnings Recorded)</span>}
         </span>
       </div>
 
@@ -810,11 +715,11 @@ export default function TestRunner() {
           {/* Progress row */}
           <div className="flex items-center justify-between mb-4">
             <span className="px-3 py-1 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest">
-              {t("Question", "প্রশ্ন")} {currentIdx + 1} / {questions.length}
+              Q {currentIdx + 1} / {questions.length}
             </span>
             <div className="flex gap-3 text-[9px] md:text-[10px] font-black">
-              <span className="px-2 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100">+{test?.marksPerCorrect || 1.0} {t("Correct", "সঠিক")}</span>
-              <span className="px-2 py-1 bg-rose-50 text-rose-700 rounded-full border border-rose-100">-{test?.negativeMarks || 0.25} {t("Negative", "ভুল")}</span>
+              <span className="px-2 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100">+{test?.marksPerCorrect || 1.0} Correct</span>
+              <span className="px-2 py-1 bg-rose-50 text-rose-700 rounded-full border border-rose-100">-{test?.negativeMarks || 0.25} Negative</span>
             </div>
           </div>
 
@@ -870,20 +775,20 @@ export default function TestRunner() {
                 <button onClick={handlePrev} disabled={currentIdx === 0}
                   className="flex-1 sm:flex-none px-4 md:px-6 py-2 md:py-2.5 rounded-xl border border-slate-300 text-slate-600 font-bold text-xs md:text-sm flex items-center justify-center gap-2 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                   <ChevronLeft className="w-4 h-4" />
-                  <span className="hidden xs:inline">{t("Previous", "আগেরটি")}</span>
-                  <span className="xs:hidden">{t("Prev", "আগের")}</span>
+                  <span className="hidden xs:inline">Previous</span>
+                  <span className="xs:hidden">Prev</span>
                 </button>
                 <button onClick={handleNext} disabled={currentIdx === questions.length - 1}
                   className="flex-1 sm:flex-none px-4 md:px-6 py-2 md:py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-xs md:text-sm flex items-center justify-center gap-2 hover:from-indigo-700 hover:to-violet-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md shadow-indigo-100">
-                  <span className="hidden xs:inline">{t("Save & Next", "সংরক্ষণ ও পরেরটি")}</span>
-                  <span className="xs:hidden">{t("Next", "পরেরটি")}</span>
+                  <span className="hidden xs:inline">Save &amp; Next</span>
+                  <span className="xs:hidden">Next</span>
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
               <div className="flex gap-2 w-full sm:w-auto justify-center">
                 <button onClick={() => clearResponse(currentQuestion.id)}
                   className="px-3 md:px-4 py-2 md:py-2.5 rounded-xl border border-slate-200 text-slate-500 font-bold text-[10px] md:text-sm hover:bg-slate-50 transition-colors whitespace-nowrap">
-                  {t("Clear Response", "পরিষ্কার করুন")}
+                  Clear
                 </button>
                 <button onClick={() => toggleReview(currentQuestion.id)}
                   className={`px-3 md:px-4 py-2 md:py-2.5 rounded-xl border font-bold text-[10px] md:text-sm flex items-center gap-2 transition-colors whitespace-nowrap
@@ -891,7 +796,7 @@ export default function TestRunner() {
                       ? 'bg-amber-100 border-amber-400 text-amber-800 hover:bg-amber-200'
                       : 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50'}`}>
                   <Flag className="w-3 h-3 md:w-4 md:h-4 shrink-0" />
-                  {t("Mark for Review", "রিভিউ করুন")}
+                  Review
                 </button>
               </div>
             </div>
@@ -901,7 +806,7 @@ export default function TestRunner() {
         {/* Right Sidebar */}
         <aside className={`fixed md:relative inset-y-0 right-0 w-72 md:w-80 bg-white border-l border-slate-200 flex flex-col shrink-0 p-5 md:p-6 overflow-y-auto z-[80] transform transition-transform duration-300 md:translate-x-0 ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : 'translate-x-full md:translate-x-0'}`}>
           <div className="flex md:hidden items-center justify-between mb-5">
-            <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">{t("Test Progress", "পরীক্ষার অগ্রগতি")}</h3>
+            <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Questions</h3>
             <button onClick={() => setIsSidebarOpen(false)} className="p-1 hover:bg-slate-100 rounded-lg">
               <X className="w-5 h-5 text-slate-400" />
             </button>
@@ -909,7 +814,7 @@ export default function TestRunner() {
 
           {/* Progress */}
           <div className="mb-5">
-            <h3 className="hidden md:block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">{t("Test Progress", "পরীক্ষার অগ্রগতি")}</h3>
+            <h3 className="hidden md:block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Progress</h3>
             <div className="flex items-center gap-3 mb-1.5">
               <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
                 <div className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full transition-all duration-500"
@@ -921,7 +826,7 @@ export default function TestRunner() {
 
           {/* Question palette */}
           <div className="flex-1">
-            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">{t("Question Palette", "প্রশ্ন প্যালেট")}</h3>
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Question Palette</h3>
             <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
               {questions.map((q, idx) => {
                 const isCurrent = idx === currentIdx;
@@ -950,10 +855,10 @@ export default function TestRunner() {
           {/* Legend + Submit */}
           <div className="mt-auto pt-5 border-t border-slate-100 space-y-4 sticky bottom-0 bg-white pb-2">
             <div className="grid grid-cols-2 gap-y-2.5 gap-x-2 text-[9px] md:text-[10px] font-bold uppercase text-slate-600">
-              <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 bg-emerald-500 rounded-sm" /> {t("Answered", "উত্তর দেওয়া")}</div>
-              <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 bg-amber-400 rounded-sm" /> {t("Review", "পর্যালোচনা")}</div>
-              <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 bg-slate-200 rounded-sm border border-slate-300" /> {t("Unvisited", "দেখা হয়নি")}</div>
-              <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 bg-rose-400 rounded-sm" /> {t("Skipped", "বাদ দেওয়া")}</div>
+              <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 bg-emerald-500 rounded-sm" /> Answered</div>
+              <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 bg-amber-400 rounded-sm" /> Review</div>
+              <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 bg-slate-200 rounded-sm border border-slate-300" /> Unvisited</div>
+              <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 bg-rose-400 rounded-sm" /> Skipped</div>
             </div>
             <button onClick={() => handleSubmission(false)} disabled={submitting}
               className={`w-full py-3 md:py-4 text-white rounded-xl font-black uppercase tracking-widest text-xs md:text-sm transition-all flex items-center justify-center shadow-lg active:scale-95
@@ -962,9 +867,9 @@ export default function TestRunner() {
               {submitting ? (
                 <>
                   <div className="w-4 h-4 md:w-5 md:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-3" />
-                  {t("Submitting", "সাবমিট হচ্ছে")}
+                  Submitting...
                 </>
-              ) : t("Submit Test", "সাবমিট করুন")}
+              ) : 'Submit Test'}
             </button>
           </div>
         </aside>
