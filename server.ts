@@ -1047,7 +1047,7 @@ app.use((req, res, next) => {
     const currentDb = getDb();
     if (!currentDb) return res.status(500).json({ error: "Database offline" });
     try {
-      const { title, topic, isActive, duration, testType, subjectName, category, marksPerCorrect, negativeMarks } = req.body;
+      const { title, topic, isActive, duration, testType, subjectName, category, marksPerCorrect, negativeMarks, isPaid } = req.body;
       const ref = currentDb.collection("tests").doc();
       await ref.set({
         title,
@@ -1055,10 +1055,11 @@ app.use((req, res, next) => {
         subjectName: subjectName || "",
         category: category || "",
         testType: testType || 'topic',
-        duration: duration || 30, 
+        duration: duration || 30,
         marksPerCorrect: marksPerCorrect || 1,
         negativeMarks: negativeMarks || 0,
         isActive: !!isActive,
+        isPaid: !!isPaid,
         createdAt: Date.now()
       });
       res.json({ id: ref.id, title, topic, testType, isActive, duration, subjectName, category });
@@ -1112,7 +1113,7 @@ app.use((req, res, next) => {
     if (!currentDb) return res.status(500).json({ error: "Database offline" });
     try {
       const { testId } = req.params;
-      const { title, topic, isActive, duration, testType, subjectName, category, marksPerCorrect, negativeMarks } = req.body;
+      const { title, topic, isActive, duration, testType, subjectName, category, marksPerCorrect, negativeMarks, isPaid } = req.body;
       const updateData: any = {
         title,
         topic,
@@ -1121,7 +1122,8 @@ app.use((req, res, next) => {
         duration: duration || 30,
         marksPerCorrect: marksPerCorrect || 1,
         negativeMarks: negativeMarks || 0,
-        isActive: !!isActive
+        isActive: !!isActive,
+        isPaid: !!isPaid
       };
       if (testType) updateData.testType = testType;
       await currentDb.collection("tests").doc(testId).update(updateData);
@@ -1862,6 +1864,73 @@ app.use((req, res, next) => {
        res.status(500).json({ success: false, error: "Internal Server Error", message: "A server-side error occurred." });
     } else {
        next(err);
+    }
+  });
+
+  // ── Live Tests ────────────────────────────────────────────────────────────
+  app.get("/api/live-tests", async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const snap = await currentDb.collection("live_tests").orderBy("createdAt", "asc").get();
+      const tests = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      res.json({ tests });
+    } catch (err) {
+      console.error("[API] live-tests fetch failed", err);
+      res.status(500).json({ error: "Failed to fetch live tests" });
+    }
+  });
+
+  app.post("/api/admin/live-tests", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const { title, description, startDate, endDate, isActive } = req.body;
+      if (!title || !startDate || !endDate) return res.status(400).json({ error: "title, startDate and endDate are required" });
+      const ref = currentDb.collection("live_tests").doc();
+      await ref.set({
+        title,
+        description: description || "",
+        startDate,
+        endDate,
+        isActive: isActive !== false,
+        createdAt: Date.now()
+      });
+      res.json({ id: ref.id });
+    } catch (err) {
+      console.error("[Admin] live-tests create failed", err);
+      res.status(500).json({ error: "Failed to create live test" });
+    }
+  });
+
+  app.put("/api/admin/live-tests/:id", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const { title, description, startDate, endDate, isActive } = req.body;
+      await currentDb.collection("live_tests").doc(req.params.id).update({
+        title,
+        description: description || "",
+        startDate,
+        endDate,
+        isActive: !!isActive
+      });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("[Admin] live-tests update failed", err);
+      res.status(500).json({ error: "Failed to update live test" });
+    }
+  });
+
+  app.delete("/api/admin/live-tests/:id", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      await currentDb.collection("live_tests").doc(req.params.id).delete();
+      res.json({ success: true });
+    } catch (err) {
+      console.error("[Admin] live-tests delete failed", err);
+      res.status(500).json({ error: "Failed to delete live test" });
     }
   });
 

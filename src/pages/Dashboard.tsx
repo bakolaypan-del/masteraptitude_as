@@ -9,7 +9,7 @@ import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, C
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-type DashboardTab = 'home' | 'profile' | 'mock_topic' | 'mock_sectional' | 'mock_full' | 'notes' | 'video' | 'pyq' | 'pattern' | 'affairs' | 'practice' | 'about' | 'contact' | 'learn_landing' | 'mock_landing';
+type DashboardTab = 'home' | 'profile' | 'mock_topic' | 'mock_sectional' | 'mock_full' | 'notes' | 'video' | 'pyq' | 'pattern' | 'affairs' | 'practice' | 'about' | 'contact' | 'learn_landing' | 'mock_landing' | 'live_test';
 
 export default function Dashboard() {
   const { user, profile } = useAuth();
@@ -17,6 +17,7 @@ export default function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   
   const [activeTests, setActiveTests] = useState<any[]>([]);
+  const [liveTests, setLiveTests] = useState<any[]>([]);
   const [pastResults, setPastResults] = useState<any[]>([]);
   const [notes, setNotes] = useState<any[]>([]);
   const [videos, setVideos] = useState<any[]>([]);
@@ -171,10 +172,17 @@ export default function Dashboard() {
       try {
         console.log("Fetching student data...");
         
-        // Fetch Active Tests
-        const testsQuery = query(collection(db, 'tests'), where('isActive', '==', true));
+        // Fetch Active Tests (ordered by creation — first added = first shown)
+        const testsQuery = query(collection(db, 'tests'), where('isActive', '==', true), orderBy('createdAt', 'asc'));
         const testsSnap = await getDocs(testsQuery);
         setActiveTests(testsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
+        // Fetch Live Tests
+        const liveRes = await fetch('/api/live-tests');
+        if (liveRes.ok) {
+          const liveData = await liveRes.json();
+          setLiveTests(liveData.tests || []);
+        }
         
         // Fetch Notes
         const notesSnap = await getDocs(query(collection(db, 'notes'), orderBy('createdAt', 'desc')));
@@ -709,7 +717,7 @@ export default function Dashboard() {
             </button>
             <div className="hidden md:flex items-center gap-2">
               <span className="text-[11px] font-black text-slate-400 uppercase tracking-[0.18em]">
-                {activeTab === 'home' ? '🏠 Dashboard' : activeTab === 'profile' ? '👤 My Profile' : activeTab.startsWith('mock') ? '🎯 Mock Tests' : activeTab === 'notes' ? '📚 Study Notes' : activeTab === 'video' ? '🎬 Video Lectures' : activeTab === 'pyq' ? '📄 Previous Year Q.' : activeTab === 'affairs' ? '📰 Current Affairs' : activeTab === 'practice' ? '✅ Practice Sets' : activeTab === 'pattern' ? '📋 Exam Pattern' : activeTab === 'about' ? 'ℹ️ About Us' : activeTab === 'contact' ? '📞 Contact' : 'Dashboard'}
+                {activeTab === 'home' ? '🏠 Dashboard' : activeTab === 'profile' ? '👤 My Profile' : activeTab.startsWith('mock') ? '🎯 Mock Tests' : activeTab === 'live_test' ? '🔴 Live Tests' : activeTab === 'notes' ? '📚 Study Notes' : activeTab === 'video' ? '🎬 Video Lectures' : activeTab === 'pyq' ? '📄 Previous Year Q.' : activeTab === 'affairs' ? '📰 Current Affairs' : activeTab === 'practice' ? '✅ Practice Sets' : activeTab === 'pattern' ? '📋 Exam Pattern' : activeTab === 'about' ? 'ℹ️ About Us' : activeTab === 'contact' ? '📞 Contact' : 'Dashboard'}
               </span>
             </div>
           </div>
@@ -980,6 +988,30 @@ export default function Dashboard() {
                   <p className="text-[10px] sm:text-[11px] text-slate-500 mt-1 leading-relaxed font-medium">Practice with past exam papers</p>
                   <div className="mt-3 flex items-center gap-1 text-amber-600 text-[10px] font-black uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
                     Download <ChevronRight className="w-3 h-3" />
+                  </div>
+                </button>
+
+                {/* Live Test */}
+                <button onClick={() => setActiveTab('live_test')} className="group relative overflow-hidden rounded-3xl p-5 bg-white border border-rose-200/60 shadow-sm hover:shadow-xl hover:shadow-rose-100 transition-all duration-300 hover:-translate-y-1 text-left col-span-2">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/6 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-[2] transition-transform duration-500"></div>
+                  <div className="flex items-center gap-4">
+                    <div className="w-11 h-11 sm:w-14 sm:h-14 bg-gradient-to-br from-rose-500 to-pink-600 text-white rounded-2xl flex items-center justify-center shrink-0 shadow-lg shadow-rose-200 group-hover:scale-110 transition-transform duration-300 relative">
+                      <BarChart3 className="w-5 h-5 sm:w-7 sm:h-7" />
+                      <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-black text-slate-800 text-sm sm:text-base leading-tight">🔴 Live Test</h4>
+                        {liveTests.some(t => { const now = new Date(); return new Date(t.startDate) <= now && new Date(t.endDate) >= now && t.isActive; }) && (
+                          <span className="text-[8px] font-black uppercase tracking-widest bg-rose-100 text-rose-600 px-2 py-0.5 rounded-full border border-rose-200 animate-pulse">Live Now</span>
+                        )}
+                      </div>
+                      <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 leading-relaxed font-medium">Scheduled live exams & past live tests</p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-rose-400 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                 </button>
               </div>
@@ -1437,6 +1469,83 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* Live Test Tab */}
+          {activeTab === 'live_test' && (() => {
+            const now = new Date();
+            const activeLive = liveTests.filter(t => t.isActive && new Date(t.startDate) <= now && new Date(t.endDate) >= now);
+            const upcomingLive = liveTests.filter(t => t.isActive && new Date(t.startDate) > now);
+            const pastLive = liveTests.filter(t => new Date(t.endDate) < now || !t.isActive);
+
+            const LiveCard = ({ t, badge }: { key?: any; t: any; badge: 'live' | 'upcoming' | 'past' }) => (
+              <div className={`bg-white rounded-2xl border shadow-sm p-5 flex flex-col gap-3 transition-all hover:shadow-md ${badge === 'live' ? 'border-rose-200 shadow-rose-50' : 'border-slate-100'}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      {badge === 'live' && (
+                        <span className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest bg-rose-100 text-rose-600 px-2.5 py-1 rounded-full">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
+                          Live Now
+                        </span>
+                      )}
+                      {badge === 'upcoming' && <span className="text-[9px] font-black uppercase tracking-widest bg-amber-100 text-amber-600 px-2.5 py-1 rounded-full">Upcoming</span>}
+                      {badge === 'past' && <span className="text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">Past Live Test</span>}
+                    </div>
+                    <h4 className="font-black text-slate-800 text-base leading-snug">{t.title}</h4>
+                    {t.description && <p className="text-xs text-slate-500 font-medium mt-1">{t.description}</p>}
+                  </div>
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-md ${badge === 'live' ? 'bg-gradient-to-br from-rose-500 to-pink-600 shadow-rose-200' : badge === 'upcoming' ? 'bg-gradient-to-br from-amber-500 to-orange-500 shadow-amber-200' : 'bg-gradient-to-br from-slate-400 to-slate-500 shadow-slate-200'}`}>
+                    <BarChart3 className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+                <div className="flex gap-4 text-[10px] font-black text-slate-400 uppercase tracking-widest border-t border-slate-50 pt-3">
+                  <span>Start: {new Date(t.startDate).toLocaleString()}</span>
+                  <span>End: {new Date(t.endDate).toLocaleString()}</span>
+                </div>
+              </div>
+            );
+
+            return (
+              <div className="space-y-8 animate-in fade-in duration-700">
+                <div className="flex items-center gap-3">
+                  <div className="w-1.5 h-8 bg-gradient-to-b from-rose-500 to-pink-600 rounded-full" />
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight">🔴 Live Tests</h2>
+                </div>
+
+                {liveTests.length === 0 && (
+                  <div className="bg-white rounded-3xl p-16 border border-slate-200 text-center text-slate-400 shadow-sm flex flex-col items-center">
+                    <BarChart3 className="w-12 h-12 mb-4 text-slate-200" />
+                    <h3 className="font-black text-slate-700 text-lg mb-1">No Live Tests Yet</h3>
+                    <p className="text-sm font-medium">Live tests will appear here when scheduled. Check back soon!</p>
+                  </div>
+                )}
+
+                {activeLive.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-black text-rose-600 uppercase tracking-widest flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping inline-block" />
+                      Happening Now
+                    </h3>
+                    {activeLive.map(t => <LiveCard key={t.id} t={t} badge="live" />)}
+                  </div>
+                )}
+
+                {upcomingLive.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-black text-amber-600 uppercase tracking-widest">Upcoming</h3>
+                    {upcomingLive.map(t => <LiveCard key={t.id} t={t} badge="upcoming" />)}
+                  </div>
+                )}
+
+                {pastLive.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Past Live Tests</h3>
+                    {pastLive.map(t => <LiveCard key={t.id} t={t} badge="past" />)}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           {/* Dashboard Tab Content */}
           {activeTab.startsWith('mock') && activeTab !== 'mock_landing' && (
             <div className="space-y-8 animate-in fade-in duration-700">
@@ -1613,9 +1722,13 @@ export default function Dashboard() {
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <h4 className="font-extrabold text-slate-800 text-sm md:text-base leading-snug">{test.title}</h4>
+                                  {test.isPaid
+                                    ? <span className="px-1.5 py-0.5 bg-rose-100 text-rose-600 text-[8px] font-black uppercase tracking-widest rounded-full border border-rose-200 shrink-0">Paid</span>
+                                    : <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded-full border border-emerald-100 shrink-0">Free</span>
+                                  }
                                   {test.isActive && (
-                                    <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded border border-emerald-100 flex items-center gap-0.5 shrink-0">
-                                      <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+                                    <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 text-[8px] font-black uppercase tracking-widest rounded border border-indigo-100 flex items-center gap-0.5 shrink-0">
+                                      <span className="w-1 h-1 rounded-full bg-indigo-500 animate-pulse" />
                                       Live
                                     </span>
                                   )}
@@ -1637,7 +1750,7 @@ export default function Dashboard() {
 
                             {/* RIGHT: Actions */}
                             <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
-                              {isTaken && (
+                              {!test.isPaid && isTaken && (
                                 <>
                                   <button
                                     onClick={() => handleDownloadPDF(test.id, test.title, test.category || 'N/A', test.testType || 'N/A')}
@@ -1663,13 +1776,19 @@ export default function Dashboard() {
                                   </button>
                                 </>
                               )}
-                              <Link
-                                to={`/test/${test.id}`}
-                                className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-black text-[9px] uppercase tracking-widest rounded-xl hover:from-slate-900 hover:to-slate-900 transition-all shadow-md shadow-indigo-200 hover:shadow-lg flex items-center gap-1 active:scale-95"
-                              >
-                                {isTaken ? 'Reattempt' : 'Attempt Mock'}
-                                <ChevronRight className="w-3.5 h-3.5" />
-                              </Link>
+                              {test.isPaid ? (
+                                <span className="px-5 py-2.5 bg-rose-100 text-rose-600 font-black text-[9px] uppercase tracking-widest rounded-xl border border-rose-200 flex items-center gap-1.5 cursor-not-allowed">
+                                  🔒 Purchase Required
+                                </span>
+                              ) : (
+                                <Link
+                                  to={`/test/${test.id}`}
+                                  className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-black text-[9px] uppercase tracking-widest rounded-xl hover:from-slate-900 hover:to-slate-900 transition-all shadow-md shadow-indigo-200 hover:shadow-lg flex items-center gap-1 active:scale-95"
+                                >
+                                  {isTaken ? 'Reattempt' : 'Attempt Mock'}
+                                  <ChevronRight className="w-3.5 h-3.5" />
+                                </Link>
+                              )}
                             </div>
                           </div>
                         );
