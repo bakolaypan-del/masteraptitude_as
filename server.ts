@@ -1146,10 +1146,10 @@ app.use((req, res, next) => {
     const currentDb = getDb();
     if (!currentDb) return res.status(500).json({ error: "Database offline" });
     try {
-      const { testId, topic, qNo, questionText, options, correctAnswer, solution } = req.body;
+      const { testId, topic, qNo, questionText, options, correctAnswer, solution, imageUrl } = req.body;
       const ref = currentDb.collection("questions").doc();
       await ref.set({
-        testId, topic, qNo, questionText, options, correctAnswer, solution: solution || ""
+        testId, topic, qNo, questionText, options, correctAnswer, solution: solution || "", imageUrl: imageUrl || ""
       });
       res.json({ id: ref.id });
     } catch (error) {
@@ -1163,9 +1163,9 @@ app.use((req, res, next) => {
     if (!currentDb) return res.status(500).json({ error: "Database offline" });
     try {
       const { questionId } = req.params;
-      const { topic, questionText, options, correctAnswer, solution } = req.body;
+      const { topic, questionText, options, correctAnswer, solution, imageUrl } = req.body;
       await currentDb.collection("questions").doc(questionId).update({
-        topic, questionText, options, correctAnswer, solution: solution || ""
+        topic, questionText, options, correctAnswer, solution: solution || "", imageUrl: imageUrl || ""
       });
       res.json({ success: true });
     } catch (error) {

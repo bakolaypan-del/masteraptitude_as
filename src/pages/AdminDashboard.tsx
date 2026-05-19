@@ -3888,6 +3888,10 @@ function QuestionManager() {
   const [qOptions, setQOptions] = useState(['', '', '', '']);
   const [qCorrect, setQCorrect] = useState('');
   const [qSolution, setQSolution] = useState('');
+  const [qImageFile, setQImageFile] = useState<File | null>(null);
+  const [qImagePreview, setQImagePreview] = useState<string>('');
+  const [qImageUrl, setQImageUrl] = useState<string>('');
+  const [uploadingQImage, setUploadingQImage] = useState(false);
 
   useEffect(() => {
     if (!testId) return;
@@ -3911,33 +3915,47 @@ function QuestionManager() {
     if (!qCorrect) return alert('Select a correct answer');
 
     try {
+      let finalImageUrl = qImageUrl;
+      if (qImageFile) {
+        setUploadingQImage(true);
+        const randomId = Math.random().toString(36).substring(2, 8);
+        const fileName = `${Date.now()}_${randomId}_${qImageFile.name}`;
+        const fileRef = ref(storage, `question_images/${fileName}`);
+        const snapshot = await uploadBytes(fileRef, qImageFile);
+        finalImageUrl = await getDownloadURL(snapshot.ref);
+        setUploadingQImage(false);
+      }
+
       const token = await user.getIdToken();
       const method = editingQuestionId ? 'PUT' : 'POST';
       const url = editingQuestionId ? `/api/admin/questions/${editingQuestionId}` : '/api/admin/questions';
-      
+
       const res = await fetch(url, {
         method: method,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ 
-          testId, 
-          topic: qTopic, 
-          qNo: editingQuestionId ? undefined : questions.length + 1, 
-          questionText: qText, 
-          options: qOptions, 
+        body: JSON.stringify({
+          testId,
+          topic: qTopic,
+          qNo: editingQuestionId ? undefined : questions.length + 1,
+          questionText: qText,
+          options: qOptions,
           correctAnswer: qCorrect,
-          solution: qSolution
+          solution: qSolution,
+          imageUrl: finalImageUrl
         })
       });
       if (res.ok) {
         setQText(''); setQTopic(''); setQOptions(['', '', '', '']); setQCorrect(''); setQSolution('');
+        setQImageFile(null); setQImagePreview(''); setQImageUrl('');
         setEditingQuestionId(null);
         alert(editingQuestionId ? 'Question updated!' : 'Question added!');
       } else alert(await res.text());
     } catch (error) {
       console.error(error);
+      setUploadingQImage(false);
       alert('Failed to process question');
     }
   };
@@ -3949,6 +3967,9 @@ function QuestionManager() {
     setQOptions([...q.options]);
     setQCorrect(q.correctAnswer);
     setQSolution(q.solution || '');
+    setQImageUrl(q.imageUrl || '');
+    setQImageFile(null);
+    setQImagePreview(q.imageUrl || '');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -3999,13 +4020,55 @@ function QuestionManager() {
          <form onSubmit={handleAddQuestion} className="space-y-6">
            <div>
              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Question Description</label>
-             <textarea 
+             <textarea
                className="w-full rounded-2xl border-slate-200 border-2 p-4 outline-hidden font-medium"
-               rows={3} value={qText} onChange={e => setQText(e.target.value)} required 
+               rows={3} value={qText} onChange={e => setQText(e.target.value)} required
                placeholder="Write the question here..."
              />
            </div>
-           
+
+           <div>
+             <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Question Image <span className="text-slate-300 normal-case font-normal">(optional — for equations, diagrams, figures)</span></label>
+             <div
+               className={`relative border-2 border-dashed rounded-2xl transition-all ${qImagePreview ? 'border-indigo-200 bg-indigo-50/30' : 'border-slate-200 bg-slate-50 hover:border-indigo-300 hover:bg-indigo-50/20'}`}
+               onDragOver={e => e.preventDefault()}
+               onDrop={e => {
+                 e.preventDefault();
+                 const file = e.dataTransfer.files[0];
+                 if (file && file.type.startsWith('image/')) {
+                   setQImageFile(file);
+                   setQImagePreview(URL.createObjectURL(file));
+                   setQImageUrl('');
+                 }
+               }}
+             >
+               {qImagePreview ? (
+                 <div className="p-4">
+                   <img src={qImagePreview} alt="Question" className="max-h-48 mx-auto rounded-xl object-contain" />
+                   <button
+                     type="button"
+                     onClick={() => { setQImageFile(null); setQImagePreview(''); setQImageUrl(''); }}
+                     className="mt-3 mx-auto flex items-center gap-1.5 text-xs font-bold text-rose-500 hover:text-rose-700 px-3 py-1.5 rounded-lg hover:bg-rose-50 border border-rose-100 transition-all"
+                   >
+                     <X className="w-3 h-3" /> Remove Image
+                   </button>
+                 </div>
+               ) : (
+                 <label className="flex flex-col items-center justify-center gap-2 p-8 cursor-pointer">
+                   <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center">
+                     <FileText className="w-6 h-6 text-slate-400" />
+                   </div>
+                   <span className="text-sm font-bold text-slate-500">Click to upload or drag &amp; drop</span>
+                   <span className="text-xs text-slate-400">PNG, JPG, GIF, SVG supported</span>
+                   <input type="file" accept="image/*" className="hidden" onChange={e => {
+                     const file = e.target.files?.[0];
+                     if (file) { setQImageFile(file); setQImagePreview(URL.createObjectURL(file)); setQImageUrl(''); }
+                   }} />
+                 </label>
+               )}
+             </div>
+           </div>
+
            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
              {qOptions.map((opt, i) => (
                <div key={i}>
@@ -4062,14 +4125,15 @@ function QuestionManager() {
                  onClick={() => {
                    setEditingQuestionId(null);
                    setQText(''); setQTopic(''); setQOptions(['', '', '', '']); setQCorrect(''); setQSolution('');
+                   setQImageFile(null); setQImagePreview(''); setQImageUrl('');
                  }}
                  className="bg-slate-100 text-slate-600 px-8 py-4 rounded-xl hover:bg-slate-200 font-bold transition-all"
                >
                  Cancel
                </button>
              )}
-             <button type="submit" className="bg-indigo-600 text-white px-8 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-indigo-50 flex items-center gap-2">
-               <Plus className="w-5 h-5" /> {editingQuestionId ? 'Update Question' : 'Add Question to Test'}
+             <button type="submit" disabled={uploadingQImage} className="bg-indigo-600 text-white px-8 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-indigo-50 flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed">
+               {uploadingQImage ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Uploading Image...</> : <><Plus className="w-5 h-5" /> {editingQuestionId ? 'Update Question' : 'Add Question to Test'}</>}
              </button>
            </div>
          </form>
@@ -4095,12 +4159,17 @@ function QuestionManager() {
                  Delete
                </button>
              </div>
-             <div className="flex items-start mb-6">
+             <div className="flex items-start mb-4">
                 <span className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 font-black mr-4 shrink-0">
                   {i+1}
                 </span>
                 <h4 className="font-bold text-slate-800 text-lg pr-20 leading-tight">{q.questionText}</h4>
              </div>
+             {q.imageUrl && (
+               <div className="mb-5 ml-14">
+                 <img src={q.imageUrl} alt="Question figure" className="max-h-48 rounded-xl object-contain border border-slate-100 bg-slate-50" />
+               </div>
+             )}
              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                {q.options.map((opt: string, j: number) => (
                  <div key={j} className={`p-4 rounded-2xl border-2 transition-all flex items-center justify-between

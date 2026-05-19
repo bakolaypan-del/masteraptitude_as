@@ -2149,7 +2149,12 @@ export default function Dashboard() {
                             </div>
                           </div>
 
-                          <h4 className="font-bold text-slate-800 text-xl mb-10 leading-relaxed px-2">{q.questionText}</h4>
+                          <h4 className="font-bold text-slate-800 text-xl mb-4 leading-relaxed px-2">{q.questionText}</h4>
+                          {q.imageUrl && (
+                            <div className="mb-8 px-2 flex justify-center">
+                              <img src={q.imageUrl} alt="Question figure" className="max-h-52 rounded-xl object-contain border border-slate-100 bg-slate-50" />
+                            </div>
+                          )}
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                             {q.options.map((opt: string, i: number) => {

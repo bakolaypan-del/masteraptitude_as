@@ -541,7 +541,12 @@ export default function TestRunner() {
                       </div>
                     </div>
 
-                    <h3 className="text-xl font-bold text-slate-800 mb-10 leading-relaxed px-2">{q.questionText}</h3>
+                    <h3 className="text-xl font-bold text-slate-800 mb-4 leading-relaxed px-2">{q.questionText}</h3>
+                    {q.imageUrl && (
+                      <div className="mb-8 px-2 flex justify-center">
+                        <img src={q.imageUrl} alt="Question figure" className="max-h-52 rounded-xl object-contain border border-slate-100 bg-slate-50" />
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {q.options.map((opt: string, i: number) => {
@@ -809,9 +814,14 @@ export default function TestRunner() {
 
           {/* Question card */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 md:p-8 flex-1 flex flex-col" style={{ borderLeft: '4px solid #4f46e5' }}>
-            <h2 className="text-base md:text-xl font-semibold leading-relaxed mb-6 md:mb-8 text-slate-800">
+            <h2 className="text-base md:text-xl font-semibold leading-relaxed mb-4 md:mb-6 text-slate-800">
               {currentQuestion.questionText}
             </h2>
+            {currentQuestion.imageUrl && (
+              <div className="mb-6 md:mb-8 flex justify-center">
+                <img src={currentQuestion.imageUrl} alt="Question figure" className="max-h-52 rounded-xl object-contain border border-slate-100 bg-slate-50" />
+              </div>
+            )}
 
             <div className="space-y-3 md:space-y-4">
               {(currentQuestion.options || []).map((opt: string, i: number) => {
