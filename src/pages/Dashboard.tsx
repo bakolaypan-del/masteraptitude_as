@@ -5,6 +5,7 @@ import { signOut, updatePassword } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
+import { RenderMathText } from '../components/MathRenderer';
 import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ChevronLeft, ArrowLeft, ExternalLink, Menu, X, Youtube, MessageCircle, Send, LayoutDashboard, History, ChevronDown, ArrowRight, User, Info, Phone, Download, Printer, AlertCircle, BarChart3, Keyboard, Globe, Layers, CheckSquare, Volume2, VolumeX, Maximize, NotebookPen } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -2149,7 +2150,12 @@ export default function Dashboard() {
                             </div>
                           </div>
 
-                          <h4 className="font-bold text-slate-800 text-xl mb-4 leading-relaxed px-2">{q.questionText}</h4>
+                          <h4 className="font-bold text-slate-800 text-xl mb-4 leading-relaxed px-2"><RenderMathText text={q.questionText} /></h4>
+                          {q.equationLatex && (
+                            <div className="mb-6 px-2 p-4 bg-indigo-50 border border-indigo-100 rounded-xl text-center text-xl overflow-x-auto">
+                              <RenderMathText text={`$$${q.equationLatex}$$`} />
+                            </div>
+                          )}
                           {q.imageUrl && (
                             <div className="mb-8 px-2 flex justify-center">
                               <img src={q.imageUrl} alt="Question figure" className="max-h-52 rounded-xl object-contain border border-slate-100 bg-slate-50" />

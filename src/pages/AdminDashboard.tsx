@@ -12,6 +12,7 @@ import 'jspdf-autotable';
 
 import AdminTypingTests from '../components/AdminTypingTests';
 import { Keyboard } from 'lucide-react';
+import { RenderMathText } from '../components/MathRenderer';
 
 type AdminTab = 'students' | 'mock' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'student_analysis';
 
@@ -3892,6 +3893,7 @@ function QuestionManager() {
   const [qImagePreview, setQImagePreview] = useState<string>('');
   const [qImageUrl, setQImageUrl] = useState<string>('');
   const [uploadingQImage, setUploadingQImage] = useState(false);
+  const [qEquation, setQEquation] = useState('');
 
   useEffect(() => {
     if (!testId) return;
@@ -3944,12 +3946,14 @@ function QuestionManager() {
           options: qOptions,
           correctAnswer: qCorrect,
           solution: qSolution,
-          imageUrl: finalImageUrl
+          imageUrl: finalImageUrl,
+          equationLatex: qEquation
         })
       });
       if (res.ok) {
         setQText(''); setQTopic(''); setQOptions(['', '', '', '']); setQCorrect(''); setQSolution('');
         setQImageFile(null); setQImagePreview(''); setQImageUrl('');
+        setQEquation('');
         setEditingQuestionId(null);
         alert(editingQuestionId ? 'Question updated!' : 'Question added!');
       } else alert(await res.text());
@@ -3970,6 +3974,7 @@ function QuestionManager() {
     setQImageUrl(q.imageUrl || '');
     setQImageFile(null);
     setQImagePreview(q.imageUrl || '');
+    setQEquation(q.equationLatex || '');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -4110,8 +4115,49 @@ function QuestionManager() {
            </div>
 
            <div>
+             <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
+               Math / Equation <span className="text-slate-300 normal-case font-normal">(optional — use LaTeX syntax, e.g. \frac{'{'}{'{'}a{'}'}{'}'}{'{'}{'{'}b{'}'}{'}'} or x^2+y^2=r^2)</span>
+             </label>
+             <textarea
+               className="w-full rounded-2xl border-slate-200 border-2 p-4 outline-hidden font-medium font-mono text-sm"
+               rows={2} value={qEquation} onChange={e => setQEquation(e.target.value)}
+               placeholder="e.g.  \frac{a}{b} = c   or   x^2 + y^2 = r^2   or   \sqrt{a^2+b^2}"
+             />
+             {qEquation.trim() && (
+               <div className="mt-2 p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
+                 <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">Live Preview</p>
+                 <div className="text-center text-lg overflow-x-auto">
+                   <RenderMathText text={`$$${qEquation}$$`} />
+                 </div>
+               </div>
+             )}
+             <div className="mt-2 flex flex-wrap gap-1.5">
+               {[
+                 { label: 'Fraction', latex: '\\frac{a}{b}' },
+                 { label: 'Square Root', latex: '\\sqrt{x}' },
+                 { label: 'Power', latex: 'x^{2}' },
+                 { label: 'Subscript', latex: 'x_{n}' },
+                 { label: 'Sum Σ', latex: '\\sum_{i=1}^{n} x_i' },
+                 { label: 'Integral ∫', latex: '\\int_{a}^{b} f(x)dx' },
+                 { label: 'Pi π', latex: '\\pi' },
+                 { label: 'Alpha α', latex: '\\alpha' },
+                 { label: 'Theta θ', latex: '\\theta' },
+                 { label: '≥ / ≤', latex: '\\geq \\leq' },
+                 { label: '±', latex: '\\pm' },
+                 { label: 'Times ×', latex: '\\times' },
+               ].map(({ label, latex }) => (
+                 <button
+                   key={label} type="button"
+                   onClick={() => setQEquation(prev => prev ? `${prev} ${latex}` : latex)}
+                   className="px-2.5 py-1 text-[10px] font-bold bg-slate-100 hover:bg-indigo-100 hover:text-indigo-700 text-slate-500 rounded-lg border border-slate-200 hover:border-indigo-200 transition-all"
+                 >{label}</button>
+               ))}
+             </div>
+           </div>
+
+           <div>
              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Solution / More Details</label>
-             <textarea 
+             <textarea
                className="w-full rounded-2xl border-slate-200 border-2 p-4 outline-hidden font-medium"
                rows={3} value={qSolution} onChange={e => setQSolution(e.target.value)}
                placeholder="Explain the logic or provide the step-by-step solution..."
@@ -4126,6 +4172,7 @@ function QuestionManager() {
                    setEditingQuestionId(null);
                    setQText(''); setQTopic(''); setQOptions(['', '', '', '']); setQCorrect(''); setQSolution('');
                    setQImageFile(null); setQImagePreview(''); setQImageUrl('');
+                   setQEquation('');
                  }}
                  className="bg-slate-100 text-slate-600 px-8 py-4 rounded-xl hover:bg-slate-200 font-bold transition-all"
                >
@@ -4165,6 +4212,11 @@ function QuestionManager() {
                 </span>
                 <h4 className="font-bold text-slate-800 text-lg pr-20 leading-tight">{q.questionText}</h4>
              </div>
+             {q.equationLatex && (
+               <div className="mb-4 ml-14 p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-center text-lg overflow-x-auto">
+                 <RenderMathText text={`$$${q.equationLatex}$$`} />
+               </div>
+             )}
              {q.imageUrl && (
                <div className="mb-5 ml-14">
                  <img src={q.imageUrl} alt="Question figure" className="max-h-48 rounded-xl object-contain border border-slate-100 bg-slate-50" />

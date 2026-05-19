@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthContext';
+import { RenderMathText } from '../components/MathRenderer';
 import { Clock, AlertTriangle, CheckCircle, ChevronRight, ChevronLeft, Flag, Info, Globe, Play, Menu, X, Target, Trophy, Zap, BookOpen, Shield } from 'lucide-react';
 import { translateQuestions } from '../services/translationService';
 
@@ -541,7 +542,12 @@ export default function TestRunner() {
                       </div>
                     </div>
 
-                    <h3 className="text-xl font-bold text-slate-800 mb-4 leading-relaxed px-2">{q.questionText}</h3>
+                    <h3 className="text-xl font-bold text-slate-800 mb-4 leading-relaxed px-2"><RenderMathText text={q.questionText} /></h3>
+                    {q.equationLatex && (
+                      <div className="mb-6 px-2 p-4 bg-indigo-50 border border-indigo-100 rounded-xl text-center text-xl overflow-x-auto">
+                        <RenderMathText text={`$$${q.equationLatex}$$`} />
+                      </div>
+                    )}
                     {q.imageUrl && (
                       <div className="mb-8 px-2 flex justify-center">
                         <img src={q.imageUrl} alt="Question figure" className="max-h-52 rounded-xl object-contain border border-slate-100 bg-slate-50" />
@@ -815,8 +821,13 @@ export default function TestRunner() {
           {/* Question card */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 md:p-8 flex-1 flex flex-col" style={{ borderLeft: '4px solid #4f46e5' }}>
             <h2 className="text-base md:text-xl font-semibold leading-relaxed mb-4 md:mb-6 text-slate-800">
-              {currentQuestion.questionText}
+              <RenderMathText text={currentQuestion.questionText} />
             </h2>
+            {currentQuestion.equationLatex && (
+              <div className="mb-4 md:mb-6 p-4 bg-indigo-50 border border-indigo-100 rounded-xl text-center text-xl overflow-x-auto">
+                <RenderMathText text={`$$${currentQuestion.equationLatex}$$`} />
+              </div>
+            )}
             {currentQuestion.imageUrl && (
               <div className="mb-6 md:mb-8 flex justify-center">
                 <img src={currentQuestion.imageUrl} alt="Question figure" className="max-h-52 rounded-xl object-contain border border-slate-100 bg-slate-50" />
