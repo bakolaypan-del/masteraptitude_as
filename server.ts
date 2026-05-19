@@ -1047,12 +1047,13 @@ app.use((req, res, next) => {
     const currentDb = getDb();
     if (!currentDb) return res.status(500).json({ error: "Database offline" });
     try {
-      const { title, topic, isActive, duration, testType, subjectName, category, marksPerCorrect, negativeMarks, isPaid, isLive, liveStartDate, liveEndDate } = req.body;
+      const { title, topic, isActive, duration, testType, subjectName, category, marksPerCorrect, negativeMarks, isPaid, isLive, liveStartDate, liveEndDate, description } = req.body;
       const ref = currentDb.collection("tests").doc();
       await ref.set({
         title,
         topic,
         subjectName: subjectName || "",
+        description: description || "",
         category: category || "",
         testType: testType || 'topic',
         duration: duration || 30,
@@ -1116,11 +1117,12 @@ app.use((req, res, next) => {
     if (!currentDb) return res.status(500).json({ error: "Database offline" });
     try {
       const { testId } = req.params;
-      const { title, topic, isActive, duration, testType, subjectName, category, marksPerCorrect, negativeMarks, isPaid, isLive, liveStartDate, liveEndDate } = req.body;
+      const { title, topic, isActive, duration, testType, subjectName, category, marksPerCorrect, negativeMarks, isPaid, isLive, liveStartDate, liveEndDate, description } = req.body;
       const updateData: any = {
         title,
         topic,
         subjectName: subjectName || "",
+        description: description || "",
         category: category || "",
         duration: duration || 30,
         marksPerCorrect: marksPerCorrect || 1,

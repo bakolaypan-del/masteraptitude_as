@@ -250,6 +250,7 @@ function AdminHome() {
   const [siteInfo, setSiteInfo] = useState({ content: '', contact: '' });
   const [carousels, setCarousels] = useState<any[]>([]);
   const [customMockCategories, setCustomMockCategories] = useState<any[]>([]);
+  const [customTestTypes, setCustomTestTypes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<AdminTab>('mock');
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -282,7 +283,12 @@ function AdminHome() {
   const [isLive, setIsLive] = useState(false);
   const [liveStartDate, setLiveStartDate] = useState('');
   const [liveEndDate, setLiveEndDate] = useState('');
-  
+  const [description, setDescription] = useState('');
+  const [newCategoryInput, setNewCategoryInput] = useState('');
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [newTestTypeInput, setNewTestTypeInput] = useState('');
+  const [addingTestType, setAddingTestType] = useState(false);
+
   // Note Form
   const [noteTitle, setNoteTitle] = useState('');
   const [noteLink, setNoteLink] = useState('');
@@ -460,11 +466,13 @@ function AdminHome() {
           setCategoryOrder(orderData.order || []);
         }
 
-        // Fetch Custom Categories
+        // Fetch Custom Categories and Test Types
         const catsRes = await fetch('/api/custom-categories');
         if (catsRes.ok) {
           const catsData = await catsRes.json();
-          setCustomMockCategories(catsData.categories || []);
+          const allCats = catsData.categories || [];
+          setCustomMockCategories(allCats.filter((c: any) => c.categoryType === 'mock' || !c.categoryType));
+          setCustomTestTypes(allCats.filter((c: any) => c.categoryType === 'testtype'));
         }
 
       } catch (err) {
@@ -560,6 +568,7 @@ function AdminHome() {
           subjectName,
           category,
           testType,
+          description,
           duration: parseInt(duration) || 30,
           marksPerCorrect: parseFloat(marksPerCorrect) || 1,
           negativeMarks: parseFloat(negativeMarks) || 0,
@@ -580,6 +589,7 @@ function AdminHome() {
         setIsLive(false);
         setLiveStartDate('');
         setLiveEndDate('');
+        setDescription('');
         setEditingTestId(null);
         alert(editingTestId ? 'Test updated successfully!' : 'Test created successfully!');
       } else alert(await res.text());
@@ -642,6 +652,7 @@ function AdminHome() {
     setIsLive(test.isLive || false);
     setLiveStartDate(test.liveStartDate || '');
     setLiveEndDate(test.liveEndDate || '');
+    setDescription(test.description || '');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -2047,8 +2058,11 @@ function AdminHome() {
               <div>
                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Category</label>
                 <select
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium" 
-                  value={category} onChange={e => setCategory(e.target.value)}
+                  className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium"
+                  value={category} onChange={e => {
+                    if (e.target.value === '__add_new__') { setAddingCategory(true); }
+                    else setCategory(e.target.value);
+                  }}
                 >
                   <option value="GK">GK</option>
                   <option value="English">English</option>
@@ -2061,21 +2075,106 @@ function AdminHome() {
                   <option value="Polity">Polity</option>
                   <option value="Economics">Economics</option>
                   <option value="Current Affairs">Current Affairs</option>
-                  {customMockCategories.filter(c => c.categoryType === 'mock').map(c => (
+                  {customMockCategories.map(c => (
                     <option key={c.id} value={c.categoryName}>{c.categoryName}</option>
                   ))}
+                  <option value="__add_new__">+ Add New Category</option>
                 </select>
+                {addingCategory && (
+                  <div className="flex gap-2 mt-2">
+                    <input
+                      type="text"
+                      className="flex-1 rounded-xl border-slate-200 border-2 p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden"
+                      placeholder="New category name"
+                      value={newCategoryInput}
+                      onChange={e => setNewCategoryInput(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && e.preventDefault()}
+                    />
+                    <button
+                      type="button"
+                      className="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700"
+                      onClick={async () => {
+                        const name = newCategoryInput.trim();
+                        if (!name) return;
+                        const token = await user?.getIdToken();
+                        const r = await fetch('/api/admin/custom-categories', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                          body: JSON.stringify({ categoryName: name, categoryType: 'mock' })
+                        });
+                        if (r.ok) {
+                          const data = await r.json();
+                          setCustomMockCategories(prev => [...prev, { id: data.id, categoryName: name, categoryType: 'mock' }]);
+                          setCategory(name);
+                          setNewCategoryInput('');
+                          setAddingCategory(false);
+                        } else alert('Failed to add category');
+                      }}
+                    >Save</button>
+                    <button type="button" className="px-3 py-2 text-slate-400 text-sm font-bold rounded-xl border-2 border-slate-200 hover:bg-slate-50" onClick={() => { setAddingCategory(false); setNewCategoryInput(''); }}>✕</button>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Test Type</label>
                 <select
                   className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium"
-                  value={testType} onChange={e => setTestType(e.target.value)}
+                  value={testType} onChange={e => {
+                    if (e.target.value === '__add_type__') { setAddingTestType(true); }
+                    else setTestType(e.target.value);
+                  }}
                 >
                   <option value="topic">Topic Wise Mock Test</option>
                   <option value="sectional">Sectional Mock Test</option>
                   <option value="full">Full Mock Test</option>
+                  {customTestTypes.map(c => (
+                    <option key={c.id} value={c.categoryName}>{c.categoryName}</option>
+                  ))}
+                  <option value="__add_type__">+ Add New Type</option>
                 </select>
+                {addingTestType && (
+                  <div className="flex gap-2 mt-2">
+                    <input
+                      type="text"
+                      className="flex-1 rounded-xl border-slate-200 border-2 p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden"
+                      placeholder="New test type name"
+                      value={newTestTypeInput}
+                      onChange={e => setNewTestTypeInput(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && e.preventDefault()}
+                    />
+                    <button
+                      type="button"
+                      className="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700"
+                      onClick={async () => {
+                        const name = newTestTypeInput.trim();
+                        if (!name) return;
+                        const token = await user?.getIdToken();
+                        const r = await fetch('/api/admin/custom-categories', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                          body: JSON.stringify({ categoryName: name, categoryType: 'testtype' })
+                        });
+                        if (r.ok) {
+                          const data = await r.json();
+                          setCustomTestTypes(prev => [...prev, { id: data.id, categoryName: name, categoryType: 'testtype' }]);
+                          setTestType(name);
+                          setNewTestTypeInput('');
+                          setAddingTestType(false);
+                        } else alert('Failed to add test type');
+                      }}
+                    >Save</button>
+                    <button type="button" className="px-3 py-2 text-slate-400 text-sm font-bold rounded-xl border-2 border-slate-200 hover:bg-slate-50" onClick={() => { setAddingTestType(false); setNewTestTypeInput(''); }}>✕</button>
+                  </div>
+                )}
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Short Description <span className="text-slate-300 normal-case font-normal">(optional)</span></label>
+                <textarea
+                  className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium resize-none"
+                  rows={2}
+                  placeholder="Brief description students will see before starting the test..."
+                  value={description} onChange={e => setDescription(e.target.value)}
+                />
               </div>
               <div>
                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Access</label>
@@ -2170,6 +2269,11 @@ function AdminHome() {
                       setTitle('');
                       setTopic('');
                       setDuration('30');
+                      setDescription('');
+                      setAddingCategory(false);
+                      setNewCategoryInput('');
+                      setAddingTestType(false);
+                      setNewTestTypeInput('');
                     }}
                     className="flex-1 bg-slate-100 text-slate-600 px-6 py-4 rounded-xl hover:bg-slate-200 font-bold transition-all"
                   >
