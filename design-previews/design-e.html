@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Design E – Premium Light Pro</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f6fa;color:#1e293b;min-height:100vh;display:flex}
+
+  /* Sidebar */
+  .sidebar{width:256px;background:#fff;border-right:1px solid #e8ecf3;min-height:100vh;display:flex;flex-direction:column;flex-shrink:0;position:fixed;top:0;left:0}
+  .sidebar-header{padding:26px 22px 20px;border-bottom:1px solid #f1f5f9}
+  .logo-mark{width:38px;height:38px;background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px;color:#fff;box-shadow:0 4px 14px rgba(79,70,229,.3)}
+  .logo-text{font-weight:800;font-size:16px;color:#1e293b;letter-spacing:-.3px}
+  .logo-text span{color:#4f46e5}
+  .nav-section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#94a3b8;padding:20px 22px 8px}
+  .nav-item{display:flex;align-items:center;gap:11px;padding:10px 14px;margin:1px 8px;border-radius:10px;font-size:13.5px;font-weight:600;color:#64748b;cursor:pointer;transition:all .15s}
+  .nav-item:hover{background:#f8fafc;color:#1e293b}
+  .nav-item.active{background:linear-gradient(135deg,#ede9fe,#e0e7ff);color:#4f46e5}
+  .nav-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;background:#f8fafc}
+  .nav-item.active .nav-icon{background:rgba(79,70,229,.08)}
+  .sidebar-footer{padding:16px 12px;border-top:1px solid #f1f5f9;margin-top:auto}
+  .user-card{background:#f8fafc;border:1px solid #e8ecf3;border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px}
+  .user-avatar{width:36px;height:36px;background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;flex-shrink:0}
+  .batch-badge{background:#fef3c7;border:1px solid #fde68a;color:#92400e;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;padding:2px 8px;border-radius:999px;display:inline-block;margin-top:3px}
+
+  /* Main */
+  .main{margin-left:256px;flex:1;padding:32px 36px}
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
+  .greeting{font-size:20px;font-weight:800;color:#1e293b;letter-spacing:-.4px}
+  .greeting span{color:#4f46e5}
+  .date-text{font-size:12px;color:#94a3b8;font-weight:500;margin-top:3px}
+  .chip{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #e8ecf3;border-radius:12px;padding:9px 16px;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+  .chip-val{font-size:14px;font-weight:800;color:#1e293b}
+  .chip-label{font-size:11px;color:#94a3b8;font-weight:500}
+
+  /* Hero */
+  .hero{background:linear-gradient(135deg,#4338ca 0%,#4f46e5 45%,#7c3aed 100%);border-radius:22px;padding:32px 36px;margin-bottom:22px;position:relative;overflow:hidden;box-shadow:0 8px 40px rgba(79,70,229,.25)}
+  .hero::before{content:'';position:absolute;top:-80px;right:-80px;width:320px;height:320px;background:rgba(255,255,255,.05);border-radius:50%;pointer-events:none}
+  .hero::after{content:'';position:absolute;bottom:-60px;right:200px;width:200px;height:200px;background:rgba(255,255,255,.03);border-radius:50%;pointer-events:none}
+  .hero-label{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);color:#e0e7ff;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:5px 14px;border-radius:999px;margin-bottom:14px}
+  .hero-title{font-size:28px;font-weight:900;color:#fff;letter-spacing:-.5px;line-height:1.25;margin-bottom:8px}
+  .hero-sub{font-size:13.5px;color:#c7d2fe;font-weight:500;line-height:1.6;margin-bottom:22px;max-width:420px}
+  .btn-white{background:#fff;color:#4f46e5;border:none;padding:12px 22px;border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.15);transition:all .2s}
+  .btn-white:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,0,0,.2)}
+  .btn-outline-white{background:transparent;border:1.5px solid rgba(255,255,255,.4);color:#fff;padding:12px 20px;border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s}
+  .btn-outline-white:hover{background:rgba(255,255,255,.1)}
+  .stat-mini{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:16px 20px;text-align:center;min-width:90px}
+  .stat-mini-val{font-size:24px;font-weight:900;color:#fff;line-height:1}
+  .stat-mini-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#c7d2fe;margin-top:6px}
+
+  /* Cards */
+  .card{background:#fff;border:1px solid #e8ecf3;border-radius:18px;box-shadow:0 1px 8px rgba(0,0,0,.04)}
+
+  /* Live */
+  .live-banner{background:#fff;border:1px solid #fecaca;border-radius:16px;padding:18px 22px;display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;box-shadow:0 2px 12px rgba(239,68,68,.08)}
+  .live-dot{width:8px;height:8px;border-radius:50%;background:#ef4444;box-shadow:0 0 8px rgba(239,68,68,.6);animation:livepulse 1.5s infinite;flex-shrink:0}
+  @keyframes livepulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .live-indicator{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#dc2626;margin-bottom:4px}
+  .live-title{font-size:15px;font-weight:800;color:#1e293b;letter-spacing:-.2px}
+  .live-meta{font-size:12px;color:#94a3b8;font-weight:500;margin-top:3px}
+  .btn-join{background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;border:none;padding:11px 22px;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;letter-spacing:.05em;text-transform:uppercase;box-shadow:0 4px 14px rgba(239,68,68,.25);transition:all .2s;white-space:nowrap}
+  .btn-join:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(239,68,68,.35)}
+
+  /* Cat cards */
+  .cat-card{background:#fff;border:1px solid #e8ecf3;border-radius:16px;padding:20px;cursor:pointer;transition:all .2s;box-shadow:0 1px 6px rgba(0,0,0,.04)}
+  .cat-card:hover{border-color:#c7d2fe;transform:translateY(-2px);box-shadow:0 8px 30px rgba(79,70,229,.1)}
+  .cat-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:14px}
+  .cat-title{font-size:14px;font-weight:800;color:#1e293b;margin-bottom:3px}
+  .cat-count{font-size:12px;color:#94a3b8;font-weight:500;margin-bottom:14px}
+  .progress-bar{height:5px;border-radius:999px;background:#f1f5f9;overflow:hidden}
+  .progress-fill{height:100%;border-radius:999px}
+  .cat-pct{font-size:11px;font-weight:700;margin-top:8px}
+
+  /* Resource */
+  .res-card{background:#fff;border:1px solid #e8ecf3;border-radius:14px;padding:17px 20px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:all .2s;box-shadow:0 1px 4px rgba(0,0,0,.03)}
+  .res-card:hover{border-color:#c7d2fe;box-shadow:0 4px 16px rgba(79,70,229,.08)}
+  .res-icon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+  .res-title{font-size:13.5px;font-weight:700;color:#1e293b}
+  .res-sub{font-size:11.5px;color:#94a3b8;font-weight:500;margin-top:2px}
+  .arrow{margin-left:auto;color:#cbd5e1;font-size:20px;font-weight:300}
+  .section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#94a3b8;margin-bottom:14px}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="logo-mark">M</div>
+      <div class="logo-text">Master<span>Aptitude</span></div>
+    </div>
+  </div>
+
+  <div class="nav-section-label">Menu</div>
+  <div class="nav-item active"><div class="nav-icon">🏠</div> Dashboard</div>
+  <div class="nav-item"><div class="nav-icon">📝</div> Mock Tests</div>
+  <div class="nav-item"><div class="nav-icon">🔴</div> Live Tests</div>
+  <div class="nav-item"><div class="nav-icon">📊</div> My Results</div>
+  <div class="nav-item"><div class="nav-icon">🏆</div> Leaderboard</div>
+
+  <div class="nav-section-label">Resources</div>
+  <div class="nav-item"><div class="nav-icon">📚</div> Study Notes</div>
+  <div class="nav-item"><div class="nav-icon">🎬</div> Video Lectures</div>
+  <div class="nav-item"><div class="nav-icon">📰</div> Current Affairs</div>
+
+  <div class="sidebar-footer">
+    <div class="user-card">
+      <div class="user-avatar">R</div>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#1e293b">Rahul Singh</div>
+        <div class="batch-badge">MANZIL 2.0</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div>
+      <div class="greeting">Good morning, <span>Rahul!</span> 👋</div>
+      <div class="date-text">Tuesday, 20 May 2026 — 3 live tests available today</div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <div class="chip">
+        <span style="font-size:18px">🔥</span>
+        <div>
+          <div class="chip-val">12 Days</div>
+          <div class="chip-label">Streak</div>
+        </div>
+      </div>
+      <div class="chip" style="border-color:#fde68a">
+        <span style="font-size:18px">🏆</span>
+        <div>
+          <div class="chip-val" style="color:#d97706">Rank #24</div>
+          <div class="chip-label">+8 this week</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div style="display:flex;gap:40px;align-items:center;position:relative;z-index:1">
+      <div style="flex:1">
+        <div class="hero-label">🎯 Daily Target: 2 of 3 tests done</div>
+        <h1 class="hero-title">You're on fire,<br/>Rahul!</h1>
+        <p class="hero-sub">Your rank jumped <strong style="color:#fff">+8 positions</strong> this week. One more live test and you could crack the top 20. Don't stop now!</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn-white">⚡ Attempt Live Test</button>
+          <button class="btn-outline-white">View Analysis</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;flex-shrink:0">
+        <div class="stat-mini">
+          <div class="stat-mini-val">47</div>
+          <div class="stat-mini-label">Tests<br/>Done</div>
+        </div>
+        <div class="stat-mini">
+          <div class="stat-mini-val">78%</div>
+          <div class="stat-mini-label">Avg<br/>Score</div>
+        </div>
+        <div class="stat-mini">
+          <div class="stat-mini-val">#24</div>
+          <div class="stat-mini-label">My<br/>Rank</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIVE BANNER -->
+  <div class="live-banner">
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="width:48px;height:48px;background:#fff5f5;border:1px solid #fecaca;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🔴</div>
+      <div>
+        <div class="live-indicator"><span class="live-dot"></span> Live Right Now</div>
+        <div class="live-title">SSC CGL Full Mock – 2026 Series</div>
+        <div class="live-meta">200 students attempting &nbsp;·&nbsp; Closes in 1h 24m</div>
+      </div>
+    </div>
+    <button class="btn-join">Join Now →</button>
+  </div>
+
+  <!-- CATEGORY GRID -->
+  <div class="section-label">Test Categories</div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px">
+    <div class="cat-card">
+      <div class="cat-icon" style="background:#eef2ff">🎯</div>
+      <div class="cat-title">Topic Wise</div>
+      <div class="cat-count">128 tests</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:65%;background:linear-gradient(90deg,#4f46e5,#7c3aed)"></div></div>
+      <div class="cat-pct" style="color:#4f46e5">65% done</div>
+    </div>
+    <div class="cat-card">
+      <div class="cat-icon" style="background:#ecfdf5">📊</div>
+      <div class="cat-title">Sectional</div>
+      <div class="cat-count">64 tests</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:40%;background:linear-gradient(90deg,#059669,#10b981)"></div></div>
+      <div class="cat-pct" style="color:#059669">40% done</div>
+    </div>
+    <div class="cat-card">
+      <div class="cat-icon" style="background:#fffbeb">📋</div>
+      <div class="cat-title">Full Mock</div>
+      <div class="cat-count">32 tests</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:20%;background:linear-gradient(90deg,#d97706,#f59e0b)"></div></div>
+      <div class="cat-pct" style="color:#d97706">20% done</div>
+    </div>
+    <div class="cat-card">
+      <div class="cat-icon" style="background:#fff1f2">🔴</div>
+      <div class="cat-title">Live Tests</div>
+      <div class="cat-count">3 active now</div>
+      <div class="progress-bar"><div class="progress-fill animate-pulse" style="width:100%;background:linear-gradient(90deg,#dc2626,#ef4444)"></div></div>
+      <div class="cat-pct" style="color:#dc2626">Active</div>
+    </div>
+  </div>
+
+  <!-- RESOURCES -->
+  <div class="section-label">Study Resources</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+    <div class="res-card">
+      <div class="res-icon" style="background:#eef2ff">📚</div>
+      <div>
+        <div class="res-title">Study Notes</div>
+        <div class="res-sub">85 PDFs available</div>
+      </div>
+      <div class="arrow">›</div>
+    </div>
+    <div class="res-card">
+      <div class="res-icon" style="background:#f5f3ff">🎬</div>
+      <div>
+        <div class="res-title">Video Lectures</div>
+        <div class="res-sub">42 videos</div>
+      </div>
+      <div class="arrow">›</div>
+    </div>
+    <div class="res-card">
+      <div class="res-icon" style="background:#fffbeb">📰</div>
+      <div>
+        <div class="res-title">Current Affairs</div>
+        <div class="res-sub">Updated daily</div>
+      </div>
+      <div class="arrow">›</div>
+    </div>
+  </div>
+
+</main>
+</body>
+</html>

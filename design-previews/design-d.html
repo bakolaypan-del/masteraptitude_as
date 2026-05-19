@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Design D – Premium Dark Pro</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Plus Jakarta Sans',sans-serif;background:#0d0e14;color:#e2e8f0;min-height:100vh;display:flex}
+
+  /* Sidebar */
+  .sidebar{width:260px;background:#13151e;border-right:1px solid rgba(255,255,255,.05);min-height:100vh;display:flex;flex-direction:column;flex-shrink:0}
+  .sidebar-header{padding:28px 24px 20px;border-bottom:1px solid rgba(255,255,255,.05)}
+  .logo-mark{width:38px;height:38px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px;color:#fff;box-shadow:0 4px 16px rgba(99,102,241,.4)}
+  .logo-text{font-weight:800;font-size:17px;color:#fff;letter-spacing:-.3px}
+  .logo-text span{color:#818cf8}
+  .nav-section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#4b5563;padding:20px 24px 8px}
+  .nav-item{display:flex;align-items:center;gap:12px;padding:10px 16px;margin:1px 8px;border-radius:10px;font-size:13.5px;font-weight:600;color:#6b7280;cursor:pointer;transition:all .15s}
+  .nav-item:hover{background:rgba(255,255,255,.04);color:#d1d5db}
+  .nav-item.active{background:linear-gradient(135deg,rgba(99,102,241,.2),rgba(139,92,246,.1));color:#a5b4fc;border:1px solid rgba(99,102,241,.2)}
+  .nav-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+  .nav-item.active .nav-icon{background:rgba(99,102,241,.15)}
+  .nav-item:hover .nav-icon{background:rgba(255,255,255,.04)}
+  .sidebar-footer{padding:20px 16px;border-top:1px solid rgba(255,255,255,.05);margin-top:auto}
+  .user-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px}
+  .user-avatar{width:36px;height:36px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;flex-shrink:0}
+  .batch-badge{background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.2);color:#fbbf24;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;padding:2px 8px;border-radius:999px;display:inline-block;margin-top:3px}
+
+  /* Main */
+  .main{flex:1;overflow-x:hidden;padding:32px}
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:32px}
+  .greeting{font-size:22px;font-weight:800;color:#f1f5f9;letter-spacing:-.3px}
+  .greeting span{color:#818cf8}
+  .date-text{font-size:12px;color:#6b7280;font-weight:500;margin-top:2px}
+
+  /* Stat chips */
+  .chip{display:flex;align-items:center;gap:8px;background:#13151e;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:10px 16px}
+  .chip-icon{font-size:18px}
+  .chip-val{font-size:14px;font-weight:800;color:#f1f5f9}
+  .chip-label{font-size:11px;color:#6b7280;font-weight:500}
+
+  /* Cards */
+  .card{background:#13151e;border:1px solid rgba(255,255,255,.06);border-radius:16px}
+
+  /* Hero */
+  .hero{background:linear-gradient(125deg,#1e1f2e 0%,#16213e 50%,#0f3460 100%);border:1px solid rgba(99,102,241,.15);border-radius:20px;padding:32px;position:relative;overflow:hidden;margin-bottom:24px}
+  .hero::before{content:'';position:absolute;top:-60px;right:-60px;width:300px;height:300px;background:radial-gradient(circle,rgba(99,102,241,.15) 0%,transparent 70%);pointer-events:none}
+  .hero::after{content:'';position:absolute;bottom:-80px;left:30%;width:200px;height:200px;background:radial-gradient(circle,rgba(139,92,246,.1) 0%,transparent 70%);pointer-events:none}
+  .hero-label{display:inline-flex;align-items:center;gap:6px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.25);color:#a5b4fc;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:5px 12px;border-radius:999px;margin-bottom:16px}
+  .hero-title{font-size:28px;font-weight:900;color:#f1f5f9;letter-spacing:-.5px;line-height:1.2;margin-bottom:8px}
+  .hero-sub{font-size:13.5px;color:#94a3b8;font-weight:500;margin-bottom:24px;line-height:1.6}
+  .btn-primary{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;padding:12px 24px;border-radius:12px;font-size:13px;font-weight:800;cursor:pointer;letter-spacing:.02em;box-shadow:0 4px 20px rgba(99,102,241,.35);transition:all .2s;display:inline-flex;align-items:center;gap:8px}
+  .btn-primary:hover{transform:translateY(-1px);box-shadow:0 8px 30px rgba(99,102,241,.4)}
+  .btn-secondary{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:#cbd5e1;padding:12px 20px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s}
+  .btn-secondary:hover{background:rgba(255,255,255,.08)}
+
+  /* Stat mini */
+  .stat-mini{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:16px 20px;text-align:center}
+  .stat-mini-val{font-size:24px;font-weight:900;line-height:1}
+  .stat-mini-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#6b7280;margin-top:6px}
+
+  /* Live banner */
+  .live-banner{background:#13151e;border:1px solid rgba(239,68,68,.2);border-radius:16px;padding:20px 24px;display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;position:relative;overflow:hidden}
+  .live-banner::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(239,68,68,.06) 0%,transparent 60%);pointer-events:none}
+  .live-indicator{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#f87171}
+  .live-dot{width:8px;height:8px;border-radius:50%;background:#ef4444;box-shadow:0 0 8px rgba(239,68,68,.8);animation:livepulse 1.5s infinite}
+  @keyframes livepulse{0%,100%{opacity:1}50%{opacity:.5}}
+  .live-title{font-size:16px;font-weight:800;color:#f1f5f9;margin-top:4px;letter-spacing:-.2px}
+  .live-meta{font-size:12px;color:#94a3b8;margin-top:4px;font-weight:500}
+  .btn-join{background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;border:none;padding:11px 22px;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;letter-spacing:.05em;text-transform:uppercase;box-shadow:0 4px 16px rgba(239,68,68,.3);transition:all .2s;white-space:nowrap}
+  .btn-join:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(239,68,68,.4)}
+
+  /* Category cards */
+  .cat-card{background:#13151e;border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:20px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
+  .cat-card:hover{border-color:rgba(99,102,241,.3);transform:translateY(-2px)}
+  .cat-card::after{content:'';position:absolute;top:0;right:0;width:80px;height:80px;border-radius:50%;opacity:.06;transform:translate(20px,-20px)}
+  .cat-card.c1::after{background:#6366f1}
+  .cat-card.c2::after{background:#10b981}
+  .cat-card.c3::after{background:#f59e0b}
+  .cat-card.c4::after{background:#ef4444}
+  .cat-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:16px}
+  .c1 .cat-icon{background:rgba(99,102,241,.12)}
+  .c2 .cat-icon{background:rgba(16,185,129,.12)}
+  .c3 .cat-icon{background:rgba(245,158,11,.12)}
+  .c4 .cat-icon{background:rgba(239,68,68,.12)}
+  .cat-title{font-size:14px;font-weight:800;color:#f1f5f9;margin-bottom:4px}
+  .cat-count{font-size:12px;color:#6b7280;font-weight:500;margin-bottom:14px}
+  .progress-bar{height:4px;border-radius:999px;background:rgba(255,255,255,.06);overflow:hidden}
+  .progress-fill{height:100%;border-radius:999px}
+  .c1 .progress-fill{background:linear-gradient(90deg,#6366f1,#8b5cf6)}
+  .c2 .progress-fill{background:linear-gradient(90deg,#10b981,#34d399)}
+  .c3 .progress-fill{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
+  .c4 .progress-fill{background:linear-gradient(90deg,#ef4444,#f87171)}
+  .cat-pct{font-size:11px;font-weight:700;margin-top:8px}
+  .c1 .cat-pct{color:#818cf8}
+  .c2 .cat-pct{color:#34d399}
+  .c3 .cat-pct{color:#fbbf24}
+  .c4 .cat-pct{color:#f87171}
+
+  /* Resource cards */
+  .res-card{background:#13151e;border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:18px 20px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:all .2s}
+  .res-card:hover{border-color:rgba(99,102,241,.2);background:#161822}
+  .res-icon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+  .res-title{font-size:13.5px;font-weight:700;color:#e2e8f0}
+  .res-sub{font-size:11.5px;color:#6b7280;font-weight:500;margin-top:2px}
+  .arrow{margin-left:auto;color:#374151;font-size:18px}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="logo-mark">M</div>
+      <div class="logo-text">Master<span>Aptitude</span></div>
+    </div>
+  </div>
+
+  <div class="nav-section-label">Menu</div>
+  <div class="nav-item active"><div class="nav-icon">🏠</div> Dashboard</div>
+  <div class="nav-item"><div class="nav-icon">📝</div> Mock Tests</div>
+  <div class="nav-item"><div class="nav-icon">🔴</div> Live Tests</div>
+  <div class="nav-item"><div class="nav-icon">📊</div> My Results</div>
+  <div class="nav-item"><div class="nav-icon">🏆</div> Leaderboard</div>
+
+  <div class="nav-section-label">Resources</div>
+  <div class="nav-item"><div class="nav-icon">📚</div> Study Notes</div>
+  <div class="nav-item"><div class="nav-icon">🎬</div> Video Lectures</div>
+  <div class="nav-item"><div class="nav-icon">📰</div> Current Affairs</div>
+
+  <div class="sidebar-footer">
+    <div class="user-card">
+      <div class="user-avatar">R</div>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#e2e8f0">Rahul Singh</div>
+        <div class="batch-badge">MANZIL 2.0</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN CONTENT -->
+<main class="main">
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div>
+      <div class="greeting">Good morning, <span>Rahul!</span> 👋</div>
+      <div class="date-text">Tuesday, 20 May 2026 — 3 live tests available today</div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <div class="chip">
+        <span class="chip-icon">🔥</span>
+        <div>
+          <div class="chip-val">12 Days</div>
+          <div class="chip-label">Streak</div>
+        </div>
+      </div>
+      <div class="chip" style="border-color:rgba(251,191,36,.2)">
+        <span class="chip-icon">🏆</span>
+        <div>
+          <div class="chip-val" style="color:#fbbf24">Rank #24</div>
+          <div class="chip-label">+8 this week</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div style="display:flex;gap:48px;align-items:center;position:relative;z-index:1">
+      <div style="flex:1">
+        <div class="hero-label">🎯 Daily Target: 2 of 3 tests done</div>
+        <h1 class="hero-title">Ready to climb<br/>the leaderboard?</h1>
+        <p class="hero-sub">Your rank improved by <strong style="color:#a5b4fc">+8 positions</strong> this week. Keep the momentum going — attempt today's live test before it closes.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn-primary">⚡ Attempt Live Test</button>
+          <button class="btn-secondary">View My Analysis</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;flex-shrink:0">
+        <div class="stat-mini">
+          <div class="stat-mini-val" style="color:#818cf8">47</div>
+          <div class="stat-mini-label">Tests<br/>Attempted</div>
+        </div>
+        <div class="stat-mini">
+          <div class="stat-mini-val" style="color:#34d399">78%</div>
+          <div class="stat-mini-label">Average<br/>Score</div>
+        </div>
+        <div class="stat-mini">
+          <div class="stat-mini-val" style="color:#fbbf24">#24</div>
+          <div class="stat-mini-label">Current<br/>Rank</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIVE BANNER -->
+  <div class="live-banner">
+    <div style="display:flex;align-items:center;gap:16px;position:relative;z-index:1">
+      <div style="width:48px;height:48px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🔴</div>
+      <div>
+        <div class="live-indicator"><span class="live-dot"></span> Live Right Now</div>
+        <div class="live-title">SSC CGL Full Mock – 2026 Series</div>
+        <div class="live-meta">200 students attempting &nbsp;·&nbsp; Closes in 1h 24m</div>
+      </div>
+    </div>
+    <button class="btn-join">Join Now →</button>
+  </div>
+
+  <!-- GRID -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px">
+    <div class="cat-card c1">
+      <div class="cat-icon">🎯</div>
+      <div class="cat-title">Topic Wise</div>
+      <div class="cat-count">128 tests available</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:65%"></div></div>
+      <div class="cat-pct">65% completed</div>
+    </div>
+    <div class="cat-card c2">
+      <div class="cat-icon">📊</div>
+      <div class="cat-title">Sectional</div>
+      <div class="cat-count">64 tests available</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:40%"></div></div>
+      <div class="cat-pct">40% completed</div>
+    </div>
+    <div class="cat-card c3">
+      <div class="cat-icon">📋</div>
+      <div class="cat-title">Full Mock</div>
+      <div class="cat-count">32 tests available</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:20%"></div></div>
+      <div class="cat-pct">20% completed</div>
+    </div>
+    <div class="cat-card c4">
+      <div class="cat-icon">🔴</div>
+      <div class="cat-title">Live Tests</div>
+      <div class="cat-count">3 active now</div>
+      <div class="progress-bar"><div class="progress-fill animate-pulse" style="width:100%"></div></div>
+      <div class="cat-pct">Active</div>
+    </div>
+  </div>
+
+  <!-- RESOURCES -->
+  <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#4b5563;margin-bottom:12px">Study Resources</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+    <div class="res-card">
+      <div class="res-icon" style="background:rgba(99,102,241,.1)">📚</div>
+      <div>
+        <div class="res-title">Study Notes</div>
+        <div class="res-sub">85 PDFs available</div>
+      </div>
+      <div class="arrow">›</div>
+    </div>
+    <div class="res-card">
+      <div class="res-icon" style="background:rgba(139,92,246,.1)">🎬</div>
+      <div>
+        <div class="res-title">Video Lectures</div>
+        <div class="res-sub">42 videos</div>
+      </div>
+      <div class="arrow">›</div>
+    </div>
+    <div class="res-card">
+      <div class="res-icon" style="background:rgba(245,158,11,.1)">📰</div>
+      <div>
+        <div class="res-title">Current Affairs</div>
+        <div class="res-sub">Updated daily</div>
+      </div>
+      <div class="arrow">›</div>
+    </div>
+  </div>
+
+</main>
+</body>
+</html>

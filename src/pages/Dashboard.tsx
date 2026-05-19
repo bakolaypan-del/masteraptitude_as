@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { collection, query, where, getDocs, orderBy, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { signOut, updatePassword } from 'firebase/auth';
@@ -56,6 +56,7 @@ export default function Dashboard() {
   // Analysis State
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
   const [selectedResult, setSelectedResult] = useState<any>(null);
+  const [analysisLiveRank, setAnalysisLiveRank] = useState<{ myRank: number; totalParticipants: number } | null>(null);
   const [downloadingPDF, setDownloadingPDF] = useState<string | null>(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isCarouselAnimating, setIsCarouselAnimating] = useState(false);
@@ -515,58 +516,60 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="flex h-screen font-sans text-slate-900 overflow-hidden" style={{background: 'linear-gradient(135deg, #eef2ff 0%, #f5f3ff 50%, #eff6ff 100%)'}}>
-      
+    <div className="flex h-screen font-sans text-slate-900 overflow-hidden" style={{background: '#f0f4ff'}}>
+
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-slate-900/50 z-40 md:hidden transition-opacity"
+        <div
+          className="fixed inset-0 bg-black/60 z-40 md:hidden transition-opacity"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
       {/* Dark Left Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 bg-[#1c2128] text-slate-300 flex flex-col w-64 h-full shrink-0 shadow-xl z-50 transform transition-transform duration-300 md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="flex items-center justify-between px-5 py-4 shrink-0 border-b border-white/10" style={{background: 'linear-gradient(135deg, rgba(99,102,241,0.3) 0%, rgba(139,92,246,0.2) 100%)'}}>
+      <aside className={`fixed inset-y-0 left-0 bg-white text-slate-700 flex flex-col w-64 h-full shrink-0 z-50 transform transition-transform duration-300 md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`} style={{borderRight: '1px solid #e8ecf3'}}>
+        <div className="flex items-center justify-between px-5 py-4 shrink-0" style={{borderBottom: '1px solid #f1f5f9'}}>
           <button onClick={() => { setActiveTab('home'); setIsSidebarOpen(false); }} className="flex items-center gap-3 hover:opacity-90 transition-opacity text-left flex-1 min-w-0">
-            <div className="w-10 h-10 bg-gradient-to-br from-indigo-400 to-violet-500 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-900/50 shrink-0">
+            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center shadow-lg shrink-0" style={{boxShadow: '0 4px 16px rgba(99,102,241,0.4)'}}>
               <Trophy className="w-5 h-5 text-white" />
             </div>
             <div className="min-w-0">
-              <div className="text-[13px] font-black text-white tracking-tight leading-tight truncate">Master Aptitude</div>
-              <div className="text-[9px] font-bold text-indigo-300 uppercase tracking-[0.18em]">by Suman Sir</div>
+              <div className="text-[13px] font-black tracking-tight leading-tight truncate" style={{color: '#1e293b'}}>Master<span style={{color: '#4f46e5'}}>Aptitude</span></div>
+              <div className="text-[9px] font-semibold uppercase tracking-[0.18em]" style={{color: '#94a3b8'}}>by Suman Sir</div>
             </div>
           </button>
           <button
-            className="md:hidden text-slate-400 hover:text-white shrink-0 ml-2"
+            className="md:hidden shrink-0 ml-2"
+            style={{color: '#94a3b8'}}
             onClick={() => setIsSidebarOpen(false)}
           >
             <X className="w-5 h-5" />
           </button>
         </div>
         
-        <div className="flex-1 overflow-y-auto py-6 space-y-4 px-3">
+        <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+          <div className="px-3 pb-1 pt-2" style={{fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#94a3b8'}}>Menu</div>
           {/* HOME */}
-          <button 
-            onClick={() => { setActiveTab('home'); setIsSidebarOpen(false); }} 
+          <button
+            onClick={() => { setActiveTab('home'); setIsSidebarOpen(false); }}
             className={`w-full sidebar-btn sidebar-home ${activeTab === 'home' ? 'active' : ''}`}
           >
-            <Target className="w-5 h-5 shrink-0" />
-            <span>HOME</span>
+            <Target className="w-4 h-4 shrink-0" />
+            <span>Dashboard</span>
           </button>
 
           {/* PROFILE */}
-          <button 
-            onClick={() => { setActiveTab('profile'); setIsSidebarOpen(false); }} 
+          <button
+            onClick={() => { setActiveTab('profile'); setIsSidebarOpen(false); }}
             className={`w-full sidebar-btn sidebar-profile ${activeTab === 'profile' ? 'active' : ''}`}
           >
-            <User className="w-5 h-5 shrink-0" />
-            <span>PROFILE</span>
+            <User className="w-4 h-4 shrink-0" />
+            <span>My Profile</span>
           </button>
 
           {/* LEARN SECTION */}
           <div className="space-y-1">
-            <button 
+            <button
               onClick={() => {
                 const newState = !learnOpen;
                 setLearnOpen(newState);
@@ -575,8 +578,8 @@ export default function Dashboard() {
               className={`w-full sidebar-btn sidebar-learn ${['video', 'notes', 'affairs', 'practice'].includes(activeTab) ? 'active' : ''}`}
             >
               <div className="flex items-center gap-3">
-                <BookOpen className="w-5 h-5 shrink-0" />
-                <span>LEARN</span>
+                <BookOpen className="w-4 h-4 shrink-0" />
+                <span>Learn</span>
               </div>
               <ChevronRight className={`w-4 h-4 transition-transform ${learnOpen ? 'rotate-90' : ''}`} />
             </button>
@@ -613,7 +616,7 @@ export default function Dashboard() {
 
           {/* MOCK TEST SECTION */}
           <div className="space-y-1">
-            <button 
+            <button
               onClick={() => {
                 const newState = !mockOpen;
                 setMockOpen(newState);
@@ -622,8 +625,8 @@ export default function Dashboard() {
               className={`w-full sidebar-btn sidebar-mock ${activeTab.startsWith('mock') ? 'active' : ''}`}
             >
               <div className="flex items-center gap-3">
-                <FileText className="w-5 h-5 shrink-0" />
-                <span>MOCK TEST</span>
+                <FileText className="w-4 h-4 shrink-0" />
+                <span>Mock Tests</span>
               </div>
               <ChevronRight className={`w-4 h-4 transition-transform ${mockOpen ? 'rotate-90' : ''}`} />
             </button>
@@ -653,49 +656,68 @@ export default function Dashboard() {
           </div>
 
           {/* TYPING TEST LINK */}
-          <button 
-            onClick={() => { navigate('/typing-test'); setIsSidebarOpen(false); }} 
+          <button
+            onClick={() => { navigate('/typing-test'); setIsSidebarOpen(false); }}
             className="w-full sidebar-btn sidebar-typing"
           >
-            <Keyboard className="w-5 h-5 shrink-0" />
-            <span className="text-[10px] sm:text-xs text-left leading-tight font-black">TYPING TEST [NTPC/CLERK/GROUP C/CGL]</span>
+            <Keyboard className="w-4 h-4 shrink-0" />
+            <span>Typing Test</span>
           </button>
-          
+
+          <div className="px-3 pb-1 pt-3" style={{fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#374151'}}>Resources</div>
+
           {/* PREVIOUS YEAR PAPERS */}
-          <button 
-            onClick={() => { setActiveTab('pyq'); setIsSidebarOpen(false); }} 
+          <button
+            onClick={() => { setActiveTab('pyq'); setIsSidebarOpen(false); }}
             className={`w-full sidebar-btn sidebar-pyq ${activeTab === 'pyq' ? 'active' : ''}`}
           >
-            <FileText className="w-5 h-5 shrink-0" />
-            <span>PREVIOUS YEAR QUESTION</span>
+            <FileText className="w-4 h-4 shrink-0" />
+            <span>Previous Year Q.</span>
           </button>
 
           {/* EXAM PATTERN & SYLLABUS */}
-          <button 
-            onClick={() => { setActiveTab('pattern'); setIsSidebarOpen(false); }} 
+          <button
+            onClick={() => { setActiveTab('pattern'); setIsSidebarOpen(false); }}
             className={`w-full sidebar-btn sidebar-pattern ${activeTab === 'pattern' ? 'active' : ''}`}
           >
-            <Clock className="w-5 h-5 shrink-0" />
-            <span>EXAM PATTERN & SYLLABUS</span>
+            <Clock className="w-4 h-4 shrink-0" />
+            <span>Exam Pattern</span>
           </button>
 
           {/* ABOUT US */}
-          <button 
-            onClick={() => { setActiveTab('about'); setIsSidebarOpen(false); }} 
+          <button
+            onClick={() => { setActiveTab('about'); setIsSidebarOpen(false); }}
             className={`w-full sidebar-btn sidebar-about ${activeTab === 'about' ? 'active' : ''}`}
           >
-            <Info className="w-5 h-5 shrink-0" />
-            <span>ABOUT US</span>
+            <Info className="w-4 h-4 shrink-0" />
+            <span>About Us</span>
           </button>
 
           {/* CONTACT US */}
-          <button 
-            onClick={() => { setActiveTab('contact'); setIsSidebarOpen(false); }} 
+          <button
+            onClick={() => { setActiveTab('contact'); setIsSidebarOpen(false); }}
             className={`w-full sidebar-btn sidebar-contact ${activeTab === 'contact' ? 'active' : ''}`}
           >
-            <Phone className="w-5 h-5 shrink-0" />
-            <span>CONTACT US</span>
+            <Phone className="w-4 h-4 shrink-0" />
+            <span>Contact Us</span>
           </button>
+        </div>
+
+        {/* Sidebar Footer: User card */}
+        <div className="p-3 shrink-0" style={{borderTop: '1px solid #f1f5f9'}}>
+          <div className="flex items-center gap-3 rounded-xl px-3 py-3" style={{background: '#f8fafc', border: '1px solid #e8ecf3'}}>
+            <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-lg flex items-center justify-center text-white text-sm font-black shrink-0">
+              {(profile?.name || 'S').charAt(0).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-bold truncate" style={{color: '#1e293b'}}>{profile?.name || 'Student'}</div>
+              {profile?.batch ? (
+                <div className="text-[9px] font-bold uppercase tracking-wide mt-0.5 px-1.5 py-0.5 rounded inline-block" style={{background: '#fef3c7', border: '1px solid #fde68a', color: '#92400e'}}>{profile.batch}</div>
+              ) : (
+                <div className="text-[10px] font-medium" style={{color: '#94a3b8'}}>{profile?.phoneNumber || ''}</div>
+              )}
+            </div>
+          </div>
         </div>
       </aside>
 
@@ -703,39 +725,41 @@ export default function Dashboard() {
       <div className="flex-1 flex flex-col h-full relative overflow-y-auto w-full md:w-auto">
         
         {/* Top Header */}
-        <header className="h-16 bg-white/75 backdrop-blur-xl border-b border-slate-200/60 flex items-center justify-between px-4 sm:px-8 shrink-0 sticky top-0 z-10 w-full shadow-sm">
+        <header className="h-16 backdrop-blur-xl flex items-center justify-between px-4 sm:px-8 shrink-0 sticky top-0 z-10 w-full" style={{background: 'rgba(255,255,255,0.9)', borderBottom: '1px solid #e8ecf3', boxShadow: '0 1px 8px rgba(0,0,0,0.04)'}}>
           <div className="flex items-center flex-1">
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className="md:hidden p-2 mr-3 -ml-1 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
+              className="md:hidden p-2 mr-3 -ml-1 rounded-xl transition-colors"
+              style={{color: '#64748b'}}
             >
               <Menu className="w-6 h-6" />
             </button>
             <div className="hidden md:flex items-center gap-2">
-              <span className="text-[11px] font-black text-slate-400 uppercase tracking-[0.18em]">
+              <span className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{color: '#94a3b8'}}>
                 {activeTab === 'home' ? '🏠 Dashboard' : activeTab === 'profile' ? '👤 My Profile' : activeTab.startsWith('mock') ? '🎯 Mock Tests' : activeTab === 'live_test' ? '🔴 Live Tests' : activeTab === 'notes' ? '📚 Study Notes' : activeTab === 'video' ? '🎬 Video Lectures' : activeTab === 'pyq' ? '📄 Previous Year Q.' : activeTab === 'affairs' ? '📰 Current Affairs' : activeTab === 'practice' ? '✅ Practice Sets' : activeTab === 'pattern' ? '📋 Exam Pattern' : activeTab === 'about' ? 'ℹ️ About Us' : activeTab === 'contact' ? '📞 Contact' : 'Dashboard'}
               </span>
             </div>
           </div>
           <div className="flex items-center gap-3">
             {profile?.role === 'admin' && (
-              <Link to="/admin" className="hidden sm:flex items-center gap-1.5 text-[10px] font-black bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-4 py-2 rounded-xl hover:opacity-90 transition-all shadow-md shadow-indigo-200 uppercase tracking-widest">
+              <Link to="/admin" className="hidden sm:flex items-center gap-1.5 text-[10px] font-black bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-4 py-2 rounded-xl hover:opacity-90 transition-all" style={{boxShadow: '0 2px 12px rgba(99,102,241,0.3)'}} >
                 <LayoutDashboard className="w-3 h-3" />
                 Admin Panel
               </Link>
             )}
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-full flex items-center justify-center text-white text-sm font-black shadow-lg shadow-indigo-200 shrink-0 select-none border-2 border-white">
+            <div className="hidden sm:flex items-center gap-2.5">
+              <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-lg flex items-center justify-center text-white text-sm font-black shrink-0 select-none" style={{boxShadow: '0 2px 10px rgba(99,102,241,0.3)'}}>
                 {(profile?.name || 'S').charAt(0).toUpperCase()}
               </div>
-              <div className="hidden sm:flex flex-col">
-                <span className="text-xs font-bold text-slate-800 leading-tight">{profile?.name || 'Student'}</span>
-                <span className="text-[9px] font-medium text-slate-400">{profile?.phoneNumber || ''}</span>
+              <div className="flex flex-col">
+                <span className="text-xs font-bold leading-tight" style={{color: '#1e293b'}}>{profile?.name || 'Student'}</span>
+                <span className="text-[9px] font-medium" style={{color: '#94a3b8'}}>{profile?.phoneNumber || ''}</span>
               </div>
             </div>
             <button
               onClick={handleLogout}
-              className="w-9 h-9 flex items-center justify-center bg-slate-100 text-slate-500 hover:bg-rose-50 hover:text-rose-600 rounded-xl transition-all"
+              className="w-9 h-9 flex items-center justify-center rounded-xl transition-all"
+              style={{background: '#f1f5f9', color: '#64748b'}}
               title="Log out"
             >
               <LogOut className="w-4 h-4" />
@@ -746,12 +770,276 @@ export default function Dashboard() {
         {/* Scrollable Main Content */}
         <main className="p-5 md:p-8 w-full animate-in fade-in duration-500">
           
-          {/* Welcome & Carousel - Only Show on Home */}
+          {/* Home Tab – Design D */}
           {activeTab === 'home' && (
-            <div className="animate-in fade-in duration-500">
-              {/* ── Hero Banner with animated glow border ──────────────── */}
-              {/* Outer glow-border wrapper: rotating conic gradient */}
-              <div className="relative mb-6 rounded-3xl p-[2.5px] overflow-hidden shadow-2xl">
+            <div className="animate-in fade-in duration-500 space-y-5">
+              {/* ── Design D: Greeting + Stats chips ── */}
+              <div className="flex items-start md:items-center justify-between gap-4 flex-wrap">
+                <div>
+                  <h1 className="text-xl md:text-2xl font-black tracking-tight" style={{color: '#1e293b'}}>
+                    Good morning, <span style={{color: '#4f46e5'}}>{profile?.name?.split(' ')[0] || 'Student'}!</span> 👋
+                  </h1>
+                  <p className="text-sm font-medium mt-1" style={{color: '#64748b'}}>
+                    {new Date().toLocaleDateString('en-IN', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'})}
+                  </p>
+                </div>
+                <div className="flex gap-3 flex-wrap">
+                  <div className="flex items-center gap-2 rounded-xl px-4 py-2.5" style={{background: '#fff', border: '1px solid #e8ecf3', boxShadow: '0 1px 4px rgba(0,0,0,0.04)'}}>
+                    <span className="text-lg">📝</span>
+                    <div>
+                      <div className="text-sm font-black" style={{color: '#1e293b'}}>{performanceStats.totalTests}</div>
+                      <div className="text-[10px] font-medium" style={{color: '#94a3b8'}}>Tests Done</div>
+                    </div>
+                  </div>
+                  {performanceStats.totalTests > 0 && (
+                    <div className="flex items-center gap-2 rounded-xl px-4 py-2.5" style={{background: '#fff', border: '1px solid #e8ecf3', boxShadow: '0 1px 4px rgba(0,0,0,0.04)'}}>
+                      <span className="text-lg">📈</span>
+                      <div>
+                        <div className="text-sm font-black" style={{color: '#059669'}}>{performanceStats.avgScore}%</div>
+                        <div className="text-[10px] font-medium" style={{color: '#94a3b8'}}>Avg Score</div>
+                      </div>
+                    </div>
+                  )}
+                  {profile?.batch && (
+                    <div className="flex items-center gap-2 rounded-xl px-4 py-2.5" style={{background: '#fffbeb', border: '1px solid #fde68a', boxShadow: '0 1px 4px rgba(0,0,0,0.04)'}}>
+                      <span className="text-lg">🏆</span>
+                      <div>
+                        <div className="text-sm font-black" style={{color: '#92400e'}}>{profile.batch}</div>
+                        <div className="text-[10px] font-medium" style={{color: '#94a3b8'}}>Batch</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ── Hero Banner ── */}
+              <div className="rounded-[20px] p-6 md:p-8 relative overflow-hidden" style={{background: 'linear-gradient(125deg, #1e1f2e 0%, #16213e 50%, #0f3460 100%)', border: '1px solid rgba(99,102,241,0.15)'}}>
+                <div className="absolute top-0 right-0 pointer-events-none" style={{width: 280, height: 280, background: 'radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%)', transform: 'translate(40px, -40px)'}} />
+                <div className="absolute pointer-events-none" style={{bottom: 0, left: '40%', width: 200, height: 200, background: 'radial-gradient(circle, rgba(139,92,246,0.1) 0%, transparent 70%)', transform: 'translate(0, 40px)'}} />
+                <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-6">
+                  <div className="flex-1">
+                    <div className="inline-flex items-center gap-2 mb-4 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider" style={{background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.25)', color: '#a5b4fc'}}>
+                      🎯 Master every topic — one test at a time
+                    </div>
+                    <h2 className="text-2xl md:text-3xl font-black leading-tight tracking-tight mb-2" style={{color: '#f1f5f9'}}>
+                      Ready to climb<br className="hidden md:block"/>the leaderboard?
+                    </h2>
+                    <p className="text-sm font-medium leading-relaxed mb-6 max-w-md" style={{color: '#94a3b8'}}>
+                      Attempt live tests, review your performance, and stay ahead of the competition.
+                    </p>
+                    <div className="flex gap-3 flex-wrap">
+                      <button onClick={() => setActiveTab('live_test')} className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-all hover:opacity-90" style={{background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', boxShadow: '0 4px 20px rgba(99,102,241,0.35)'}}>
+                        ⚡ Attempt Live Test
+                      </button>
+                      <button onClick={() => setActiveTab('mock_landing')} className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all hover:bg-white/10" style={{background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#cbd5e1'}}>
+                        View Mock Tests
+                      </button>
+                    </div>
+                  </div>
+                  <div className="hidden md:flex gap-3 flex-shrink-0">
+                    <div className="text-center p-4 rounded-2xl" style={{background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)'}}>
+                      <div className="text-2xl font-black" style={{color: '#818cf8'}}>{performanceStats.totalTests}</div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider mt-1.5" style={{color: '#6b7280'}}>Tests<br/>Done</div>
+                    </div>
+                    <div className="text-center p-4 rounded-2xl" style={{background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)'}}>
+                      <div className="text-2xl font-black" style={{color: '#34d399'}}>{performanceStats.totalTests > 0 ? performanceStats.avgScore + '%' : '–'}</div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider mt-1.5" style={{color: '#6b7280'}}>Avg<br/>Score</div>
+                    </div>
+                    <div className="text-center p-4 rounded-2xl" style={{background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)'}}>
+                      <div className="text-2xl font-black" style={{color: '#fbbf24'}}>{performanceStats.bestScore > 0 ? performanceStats.bestScore + '%' : '–'}</div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider mt-1.5" style={{color: '#6b7280'}}>Best<br/>Score</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Live Test Banner (only when a test is actually live) ── */}
+              {(() => {
+                const now = new Date();
+                const activeLive = liveTests.find(t => new Date(t.liveStartDate) <= now && new Date(t.liveEndDate) >= now && t.isActive);
+                if (!activeLive) return null;
+                return (
+                  <div className="rounded-2xl p-4 md:p-5 flex items-center justify-between gap-4 flex-wrap" style={{background: '#fff', border: '1px solid #fecaca', boxShadow: '0 2px 12px rgba(239,68,68,0.08)'}}>
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0" style={{background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)'}}>🔴</div>
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                          <span className="text-[10px] font-black uppercase tracking-widest" style={{color: '#f87171'}}>Live Right Now</span>
+                        </div>
+                        <p className="font-black text-sm leading-tight" style={{color: '#1e293b'}}>{activeLive.title}</p>
+                      </div>
+                    </div>
+                    <button onClick={() => setActiveTab('live_test')} className="flex-shrink-0 px-5 py-2.5 rounded-xl font-black text-sm text-white uppercase tracking-wide transition-all hover:opacity-90" style={{background: 'linear-gradient(135deg, #dc2626, #ef4444)', boxShadow: '0 4px 16px rgba(239,68,68,0.3)'}}>
+                      Join Now →
+                    </button>
+                  </div>
+                );
+              })()}
+
+              {/* ── Carousel (dark-themed) ── */}
+              {carousels.length > 0 && (() => {
+                const sorted = [...carousels].sort((a, b) => (a.priority || 99) - (b.priority || 99));
+                const N = sorted.length;
+                const visibleCount = isMobileView ? 2 : 3;
+
+                const CarouselBadge = ({ badge }: { badge?: string }) => {
+                  if (badge === 'live') return (
+                    <div className="absolute top-2 right-2 z-10">
+                      <span className="bg-red-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-lg animate-fast-blink tracking-wider flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-white inline-block" />
+                        LIVE
+                      </span>
+                    </div>
+                  );
+                  if (badge === 'new') return (
+                    <div className="absolute top-2 right-2 z-10">
+                      <span className="bg-green-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-lg animate-fast-blink tracking-wider">NEW</span>
+                    </div>
+                  );
+                  return null;
+                };
+
+                if (N <= visibleCount) {
+                  return (
+                    <div>
+                      <div className="flex gap-2 sm:gap-3">
+                        {sorted.map(slide => (
+                          <div key={slide.id} className="relative overflow-hidden rounded-xl h-32 sm:h-40 md:h-44" style={{flex: '1 1 0%', border: '1px solid rgba(255,255,255,0.06)'}}>
+                            <img src={slide.link} alt="Announcement" className="w-full h-full object-cover" />
+                            <CarouselBadge badge={slide.badge} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+
+                const repeated = [...sorted, ...sorted];
+                const total = repeated.length;
+                return (
+                  <div>
+                    <div className="overflow-hidden rounded-2xl">
+                      <div
+                        style={{display: 'flex', width: `${(total / visibleCount) * 100}%`, transform: `translateX(-${(currentSlideIndex / total) * 100}%)`, transition: isCarouselAnimating ? 'transform 700ms ease-in-out' : 'none'}}
+                        onTransitionEnd={() => {
+                          if (currentSlideIndex >= N) setCurrentSlideIndex(prev => prev - N);
+                          setIsCarouselAnimating(false);
+                        }}
+                      >
+                        {repeated.map((slide, idx) => (
+                          <div key={idx} style={{width: `${100 / total}%`}} className="px-1 first:pl-0 last:pr-0">
+                            <div className="relative overflow-hidden rounded-xl h-32 sm:h-40 md:h-44" style={{border: '1px solid rgba(255,255,255,0.06)'}}>
+                              <img src={slide.link} alt="Announcement" className="w-full h-full object-cover" />
+                              <CarouselBadge badge={slide.badge} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex justify-center gap-1.5 mt-3">
+                      {sorted.map((_, i) => (
+                        <button key={i} onClick={() => { setIsCarouselAnimating(true); setCurrentSlideIndex(i); }}
+                          className={`h-1.5 rounded-full transition-all duration-300 ${(currentSlideIndex % N) === i ? 'w-6 bg-indigo-500' : 'w-1.5 bg-slate-700 hover:bg-slate-600'}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ── Quick Access Grid ── */}
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{color: '#94a3b8'}}>Quick Access</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+
+                  <button onClick={() => setActiveTab('live_test')} className="rounded-2xl p-5 text-left transition-all hover:-translate-y-0.5 relative overflow-hidden" style={{background: '#fff', border: '1px solid #e8ecf3', boxShadow: '0 1px 6px rgba(0,0,0,0.04)'}}>
+                    <div className="absolute top-0 right-0 rounded-full pointer-events-none" style={{width: 80, height: 80, background: 'rgba(239,68,68,0.06)', transform: 'translate(20px,-20px)'}} />
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl mb-4" style={{background: 'rgba(239,68,68,0.12)'}}>🔴</div>
+                    <p className="font-black text-sm" style={{color: '#1e293b'}}>Live Tests</p>
+                    <p className="text-xs font-medium mt-1 mb-3" style={{color: '#94a3b8'}}>{liveTests.length} tests</p>
+                    <div className="h-1 rounded-full overflow-hidden" style={{background: 'rgba(255,255,255,0.06)'}}><div className="h-full rounded-full animate-pulse" style={{width: '100%', background: 'linear-gradient(90deg,#ef4444,#f87171)'}} /></div>
+                    <p className="text-xs font-bold mt-2" style={{color: '#f87171'}}>Active</p>
+                  </button>
+
+                  <button onClick={() => setActiveTab('mock_landing')} className="rounded-2xl p-5 text-left transition-all hover:-translate-y-0.5 relative overflow-hidden" style={{background: '#fff', border: '1px solid #e8ecf3', boxShadow: '0 1px 6px rgba(0,0,0,0.04)'}}>
+                    <div className="absolute top-0 right-0 rounded-full pointer-events-none" style={{width: 80, height: 80, background: 'rgba(99,102,241,0.06)', transform: 'translate(20px,-20px)'}} />
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl mb-4" style={{background: 'rgba(99,102,241,0.12)'}}>🎯</div>
+                    <p className="font-black text-sm" style={{color: '#1e293b'}}>Mock Tests</p>
+                    <p className="text-xs font-medium mt-1 mb-3" style={{color: '#94a3b8'}}>{activeTests.length} tests</p>
+                    <div className="h-1 rounded-full overflow-hidden" style={{background: 'rgba(255,255,255,0.06)'}}><div className="h-full rounded-full" style={{width: `${Math.min(100, performanceStats.totalTests > 0 ? Math.round((performanceStats.totalTests / Math.max(activeTests.length, 1)) * 100) : 0)}%`, background: 'linear-gradient(90deg,#6366f1,#8b5cf6)'}} /></div>
+                    <p className="text-xs font-bold mt-2" style={{color: '#818cf8'}}>{performanceStats.totalTests > 0 ? Math.round((performanceStats.totalTests / Math.max(activeTests.length, 1)) * 100) + '% done' : 'Not started'}</p>
+                  </button>
+
+                  <button onClick={() => setActiveTab('learn_landing')} className="rounded-2xl p-5 text-left transition-all hover:-translate-y-0.5 relative overflow-hidden" style={{background: '#fff', border: '1px solid #e8ecf3', boxShadow: '0 1px 6px rgba(0,0,0,0.04)'}}>
+                    <div className="absolute top-0 right-0 rounded-full pointer-events-none" style={{width: 80, height: 80, background: 'rgba(16,185,129,0.06)', transform: 'translate(20px,-20px)'}} />
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl mb-4" style={{background: 'rgba(16,185,129,0.12)'}}>📚</div>
+                    <p className="font-black text-sm" style={{color: '#1e293b'}}>Learn</p>
+                    <p className="text-xs font-medium mt-1 mb-3" style={{color: '#94a3b8'}}>{notes.length + videos.length} resources</p>
+                    <div className="h-1 rounded-full overflow-hidden" style={{background: 'rgba(255,255,255,0.06)'}}><div className="h-full rounded-full" style={{width: '60%', background: 'linear-gradient(90deg,#10b981,#34d399)'}} /></div>
+                    <p className="text-xs font-bold mt-2" style={{color: '#34d399'}}>Explore</p>
+                  </button>
+
+                  <button onClick={() => navigate('/typing-test')} className="rounded-2xl p-5 text-left transition-all hover:-translate-y-0.5 relative overflow-hidden" style={{background: '#fff', border: '1px solid #e8ecf3', boxShadow: '0 1px 6px rgba(0,0,0,0.04)'}}>
+                    <div className="absolute top-0 right-0 rounded-full pointer-events-none" style={{width: 80, height: 80, background: 'rgba(245,158,11,0.06)', transform: 'translate(20px,-20px)'}} />
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl mb-4" style={{background: 'rgba(245,158,11,0.12)'}}>⌨️</div>
+                    <p className="font-black text-sm" style={{color: '#1e293b'}}>Typing Test</p>
+                    <p className="text-xs font-medium mt-1 mb-3" style={{color: '#94a3b8'}}>NTPC / CLERK / CGL</p>
+                    <div className="h-1 rounded-full overflow-hidden" style={{background: 'rgba(255,255,255,0.06)'}}><div className="h-full rounded-full" style={{width: '45%', background: 'linear-gradient(90deg,#f59e0b,#fbbf24)'}} /></div>
+                    <p className="text-xs font-bold mt-2" style={{color: '#fbbf24'}}>Practice</p>
+                  </button>
+
+                </div>
+              </div>
+
+              {/* ── Study Resources ── */}
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{color: '#94a3b8'}}>Study Resources</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+
+                  <button onClick={() => setActiveTab('notes')} className="rounded-2xl p-4 md:p-5 flex items-center gap-4 text-left transition-all hover:-translate-y-0.5" style={{background: '#fff', border: '1px solid #e8ecf3', boxShadow: '0 1px 4px rgba(0,0,0,0.03)'}}>
+                    <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{background: '#eef2ff'}}>📚</div>
+                    <div className="flex-1">
+                      <p className="font-black text-sm" style={{color: '#1e293b'}}>Study Notes</p>
+                      <p className="text-xs font-medium mt-0.5" style={{color: '#94a3b8'}}>{notes.length} PDFs available</p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 flex-shrink-0" style={{color: '#cbd5e1'}} />
+                  </button>
+
+                  <button onClick={() => setActiveTab('video')} className="rounded-2xl p-4 md:p-5 flex items-center gap-4 text-left transition-all hover:-translate-y-0.5" style={{background: '#fff', border: '1px solid #e8ecf3', boxShadow: '0 1px 4px rgba(0,0,0,0.03)'}}>
+                    <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{background: '#f5f3ff'}}>🎬</div>
+                    <div className="flex-1">
+                      <p className="font-black text-sm" style={{color: '#1e293b'}}>Video Lectures</p>
+                      <p className="text-xs font-medium mt-0.5" style={{color: '#94a3b8'}}>{videos.length} videos</p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 flex-shrink-0" style={{color: '#cbd5e1'}} />
+                  </button>
+
+                  <button onClick={() => setActiveTab('affairs')} className="rounded-2xl p-4 md:p-5 flex items-center gap-4 text-left transition-all hover:-translate-y-0.5" style={{background: '#fff', border: '1px solid #e8ecf3', boxShadow: '0 1px 4px rgba(0,0,0,0.03)'}}>
+                    <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{background: '#fffbeb'}}>📰</div>
+                    <div className="flex-1">
+                      <p className="font-black text-sm" style={{color: '#1e293b'}}>Current Affairs</p>
+                      <p className="text-xs font-medium mt-0.5" style={{color: '#94a3b8'}}>Updated daily</p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 flex-shrink-0" style={{color: '#cbd5e1'}} />
+                  </button>
+
+                </div>
+              </div>
+
+              {/* ── Assistant Bar ── */}
+              <a href="tel:8900011708" className="flex items-center gap-3 w-full rounded-2xl px-4 py-3 text-white hover:brightness-110 active:scale-[0.99] transition-all" style={{background: 'linear-gradient(90deg,#1e1b4b 0%,#1e3a5f 100%)', border: '1px solid rgba(99,102,241,0.15)'}}>
+                <span className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-base" style={{background: 'rgba(99,102,241,0.3)'}}>🤖</span>
+                <span className="flex-1 text-[11px] sm:text-xs font-semibold truncate" style={{color: 'rgba(165,180,252,0.9)'}}>
+                  Need help? Our assistant is ready — <span className="font-black text-white">Call 8900011708</span>
+                </span>
+                <span className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center" style={{background: 'rgba(255,255,255,0.1)'}}>
+                  <ChevronRight className="w-3.5 h-3.5" style={{color: 'rgba(165,180,252,0.7)'}} />
+                </span>
+              </a>
+
+              {/* ── old hero removed ── */}
+              <div style={{display:'none'}}>
                 {/* Rotating light sweep — uses Tailwind's built-in @keyframes spin */}
                 <div
                   className="absolute pointer-events-none"
@@ -835,200 +1123,6 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
-              {/* ── End Hero Banner ──────────────────────────────────────── */}
-
-              {/* ── Image Carousel ─────────────────────────────────────────── */}
-              {carousels.length > 0 && (() => {
-                const sorted = [...carousels].sort((a, b) => (a.priority || 99) - (b.priority || 99));
-                const N = sorted.length;
-                const visibleCount = isMobileView ? 2 : 3; // 2 on mobile, 3 on desktop
-
-                // Corner badge component
-                const CarouselBadge = ({ badge }: { badge?: string }) => {
-                  if (badge === 'live') return (
-                    <div className="absolute top-2 right-2 z-10">
-                      <span className="bg-red-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-lg animate-fast-blink tracking-wider flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-white inline-block" />
-                        LIVE
-                      </span>
-                    </div>
-                  );
-                  if (badge === 'new') return (
-                    <div className="absolute top-2 right-2 z-10">
-                      <span className="bg-green-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-lg animate-fast-blink tracking-wider">
-                        NEW
-                      </span>
-                    </div>
-                  );
-                  return null;
-                };
-
-                // ── Static: fewer images than visible slots — show all side-by-side ──
-                if (N <= visibleCount) {
-                  return (
-                    <div className="mb-6">
-                      <div className="flex gap-2 sm:gap-3">
-                        {sorted.map(slide => (
-                          <div key={slide.id} className="relative overflow-hidden rounded-xl shadow-sm border border-slate-200/60 h-32 sm:h-40 md:h-48" style={{ flex: '1 1 0%' }}>
-                            <img src={slide.link} alt="Announcement" className="w-full h-full object-cover" />
-                            <CarouselBadge badge={slide.badge} />
-                            <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                }
-
-                // ── Infinite loop: more images than visible slots ──
-                // Double the array so we can silently reset for seamless looping
-                const repeated = [...sorted, ...sorted]; // 2 × N
-                const total = repeated.length;
-
-                return (
-                  <div className="mb-6">
-                    {/* Viewport — clips to exactly visibleCount items */}
-                    <div className="overflow-hidden rounded-2xl">
-                      {/* Track — wide enough for all 2N items */}
-                      <div
-                        style={{
-                          display: 'flex',
-                          width: `${(total / visibleCount) * 100}%`,
-                          transform: `translateX(-${(currentSlideIndex / total) * 100}%)`,
-                          transition: isCarouselAnimating ? 'transform 700ms ease-in-out' : 'none',
-                        }}
-                        onTransitionEnd={() => {
-                          // Silent reset: jump back N steps — visually identical position
-                          if (currentSlideIndex >= N) {
-                            setCurrentSlideIndex(prev => prev - N);
-                          }
-                          setIsCarouselAnimating(false);
-                        }}
-                      >
-                        {repeated.map((slide, idx) => (
-                          <div key={idx} style={{ width: `${100 / total}%` }} className="px-1 first:pl-0 last:pr-0">
-                            <div className="relative overflow-hidden rounded-xl h-32 sm:h-40 md:h-48 shadow-sm border border-slate-200/60">
-                              <img src={slide.link} alt="Announcement" className="w-full h-full object-cover" />
-                              <CarouselBadge badge={slide.badge} />
-                              <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Progress dots */}
-                    <div className="flex justify-center gap-1.5 mt-3">
-                      {sorted.map((_, i) => (
-                        <button
-                          key={i}
-                          onClick={() => { setIsCarouselAnimating(true); setCurrentSlideIndex(i); }}
-                          className={`h-1.5 rounded-full transition-all duration-300 ${
-                            (currentSlideIndex % N) === i ? 'w-6 bg-indigo-500 shadow-sm' : 'w-1.5 bg-slate-300 hover:bg-slate-400'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Quick Access Tiles */}
-              <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                {/* Live Test — FIRST */}
-                <button onClick={() => setActiveTab('live_test')} className="group relative overflow-hidden rounded-3xl p-5 bg-white border border-rose-200/60 shadow-sm hover:shadow-xl hover:shadow-rose-100 transition-all duration-300 hover:-translate-y-1 text-left col-span-2">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/6 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-[2] transition-transform duration-500"></div>
-                  <div className="flex items-center gap-4">
-                    <div className="w-11 h-11 sm:w-14 sm:h-14 bg-gradient-to-br from-rose-500 to-pink-600 text-white rounded-2xl flex items-center justify-center shrink-0 shadow-lg shadow-rose-200 group-hover:scale-110 transition-transform duration-300 relative">
-                      <BarChart3 className="w-5 h-5 sm:w-7 sm:h-7" />
-                      <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="font-black text-slate-800 text-sm sm:text-base leading-tight">🔴 Live Test</h4>
-                        {liveTests.some(t => { const now = new Date(); return new Date(t.liveStartDate) <= now && new Date(t.liveEndDate) >= now && t.isActive; }) && (
-                          <span className="text-[8px] font-black uppercase tracking-widest bg-rose-100 text-rose-600 px-2 py-0.5 rounded-full border border-rose-200 animate-pulse">Live Now</span>
-                        )}
-                      </div>
-                      <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 leading-relaxed font-medium">Scheduled live exams & past live tests</p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-rose-400 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                </button>
-
-                {/* Learn */}
-                <button onClick={() => setActiveTab('learn_landing')} className="group relative overflow-hidden rounded-3xl p-5 bg-white border border-slate-200/80 shadow-sm hover:shadow-xl hover:shadow-violet-100 transition-all duration-300 hover:-translate-y-1 text-left">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-violet-500/8 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-[2] transition-transform duration-500"></div>
-                  <div className="w-11 h-11 sm:w-14 sm:h-14 bg-gradient-to-br from-violet-500 to-indigo-600 text-white rounded-2xl flex items-center justify-center mb-3 shadow-lg shadow-violet-200 group-hover:scale-110 transition-transform duration-300">
-                    <BookOpen className="w-5 h-5 sm:w-7 sm:h-7" />
-                  </div>
-                  <h4 className="font-black text-slate-800 text-sm sm:text-base leading-tight">📚 Learn</h4>
-                  <p className="text-[10px] sm:text-[11px] text-slate-500 mt-1 leading-relaxed font-medium">Videos, notes & current affairs</p>
-                  <div className="mt-3 flex items-center gap-1 text-violet-600 text-[10px] font-black uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
-                    Explore <ChevronRight className="w-3 h-3" />
-                  </div>
-                </button>
-
-                {/* Mock Test */}
-                <button onClick={() => setActiveTab('mock_landing')} className="group relative overflow-hidden rounded-3xl p-5 bg-white border border-slate-200/80 shadow-sm hover:shadow-xl hover:shadow-rose-100 transition-all duration-300 hover:-translate-y-1 text-left">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/8 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-[2] transition-transform duration-500"></div>
-                  <div className="w-11 h-11 sm:w-14 sm:h-14 bg-gradient-to-br from-rose-500 to-pink-600 text-white rounded-2xl flex items-center justify-center mb-3 shadow-lg shadow-rose-200 group-hover:scale-110 transition-transform duration-300">
-                    <Target className="w-5 h-5 sm:w-7 sm:h-7" />
-                  </div>
-                  <h4 className="font-black text-slate-800 text-sm sm:text-base leading-tight">🎯 Mock Test</h4>
-                  <p className="text-[10px] sm:text-[11px] text-slate-500 mt-1 leading-relaxed font-medium">Topic, sectional & full-length</p>
-                  <div className="mt-3 flex items-center gap-1 text-rose-600 text-[10px] font-black uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
-                    Attempt <ChevronRight className="w-3 h-3" />
-                  </div>
-                </button>
-
-                {/* Typing Test */}
-                <button onClick={() => navigate('/typing-test')} className="group relative overflow-hidden rounded-3xl p-5 bg-white border border-slate-200/80 shadow-sm hover:shadow-xl hover:shadow-emerald-100 transition-all duration-300 hover:-translate-y-1 text-left">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/8 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-[2] transition-transform duration-500"></div>
-                  <div className="w-11 h-11 sm:w-14 sm:h-14 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-2xl flex items-center justify-center mb-3 shadow-lg shadow-emerald-200 group-hover:scale-110 transition-transform duration-300">
-                    <Keyboard className="w-5 h-5 sm:w-7 sm:h-7" />
-                  </div>
-                  <h4 className="font-black text-slate-800 text-sm sm:text-base leading-tight">⌨️ Typing Test</h4>
-                  <p className="text-[10px] sm:text-[11px] text-slate-500 mt-1 leading-relaxed font-medium">Improve your WPM & accuracy</p>
-                  <div className="mt-3 flex items-center gap-1 text-emerald-600 text-[10px] font-black uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
-                    Practice <ChevronRight className="w-3 h-3" />
-                  </div>
-                </button>
-
-                {/* Previous Year Questions */}
-                <button onClick={() => setActiveTab('pyq')} className="group relative overflow-hidden rounded-3xl p-5 bg-white border border-slate-200/80 shadow-sm hover:shadow-xl hover:shadow-amber-100 transition-all duration-300 hover:-translate-y-1 text-left">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/8 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-[2] transition-transform duration-500"></div>
-                  <div className="w-11 h-11 sm:w-14 sm:h-14 bg-gradient-to-br from-amber-500 to-orange-600 text-white rounded-2xl flex items-center justify-center mb-3 shadow-lg shadow-amber-200 group-hover:scale-110 transition-transform duration-300">
-                    <FileText className="w-5 h-5 sm:w-7 sm:h-7" />
-                  </div>
-                  <h4 className="font-black text-slate-800 text-sm sm:text-base leading-tight">📄 Previous Year Q.</h4>
-                  <p className="text-[10px] sm:text-[11px] text-slate-500 mt-1 leading-relaxed font-medium">Practice with past exam papers</p>
-                  <div className="mt-3 flex items-center gap-1 text-amber-600 text-[10px] font-black uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
-                    Download <ChevronRight className="w-3 h-3" />
-                  </div>
-                </button>
-              </div>
-
-              {/* ── Single-line Assistant Bar ─────────────────────────── */}
-              <a
-                href="tel:8900011708"
-                className="mt-6 flex items-center gap-3 w-full rounded-2xl px-4 py-3 text-white hover:brightness-110 active:scale-[0.99] transition-all shadow-md"
-                style={{ background: 'linear-gradient(90deg, #312e81 0%, #1e3a5f 100%)' }}
-              >
-                {/* Bot avatar dot */}
-                <span className="w-7 h-7 bg-indigo-400/30 rounded-full flex items-center justify-center shrink-0 text-base">🤖</span>
-                {/* Message */}
-                <span className="flex-1 text-[11px] sm:text-xs font-semibold text-indigo-100 truncate">
-                  Need help? Our assistant is ready — <span className="font-black text-white">Call 8900011708</span>
-                </span>
-                {/* Arrow */}
-                <span className="shrink-0 w-6 h-6 bg-white/10 rounded-full flex items-center justify-center">
-                  <ChevronRight className="w-3.5 h-3.5 text-indigo-200" />
-                </span>
-              </a>
 
             </div>
           )}
@@ -1472,7 +1566,29 @@ export default function Dashboard() {
             const upcomingLive = liveTests.filter(t => t.isActive && new Date(t.liveStartDate) > now);
             const pastLive = liveTests.filter(t => new Date(t.liveEndDate) < now || !t.isActive);
 
-            const LiveCard = ({ t, badge }: { key?: any; t: any; badge: 'live' | 'upcoming' | 'past' }) => (
+            const openLiveAnalysis = async (testId: string, result: any) => {
+              setAnalysisLiveRank(null);
+              setSelectedResult(result);
+              setShowFullAnalysis(false);
+              setShowAnalysisModal(true);
+              try {
+                const token = await user!.getIdToken();
+                const res = await fetch(
+                  `/api/test-leaderboard/${testId}?myScore=${encodeURIComponent(result.score)}`,
+                  { headers: { Authorization: `Bearer ${token}` } }
+                );
+                if (res.ok) {
+                  const lb = await res.json();
+                  setAnalysisLiveRank({ myRank: lb.myRank, totalParticipants: lb.totalParticipants });
+                }
+              } catch {}
+            };
+
+            const LiveCard = ({ t, badge }: { key?: any; t: any; badge: 'live' | 'upcoming' | 'past' }) => {
+              const prevResult = pastResults.find((r: any) => r.testId === t.id);
+              const hasAttempted = !!prevResult;
+
+              return (
               <div className={`bg-white rounded-2xl border shadow-sm p-5 flex flex-col gap-3 transition-all hover:shadow-md ${badge === 'live' ? 'border-rose-200 shadow-rose-50' : 'border-slate-100'}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
@@ -1485,12 +1601,18 @@ export default function Dashboard() {
                       )}
                       {badge === 'upcoming' && <span className="text-[9px] font-black uppercase tracking-widest bg-amber-100 text-amber-600 px-2.5 py-1 rounded-full">Upcoming</span>}
                       {badge === 'past' && <span className="text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">Past Live Test</span>}
+                      {hasAttempted && (
+                        <span className="text-[9px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-600 px-2.5 py-1 rounded-full flex items-center gap-1">
+                          <CheckCircle className="w-2.5 h-2.5" /> Attempted
+                        </span>
+                      )}
                     </div>
                     <h4 className="font-black text-slate-800 text-base leading-snug">{t.title}</h4>
                     {t.description && <p className="text-xs text-slate-500 font-medium mt-1">{t.description}</p>}
                     <div className="flex gap-3 mt-1.5 text-[10px] font-bold text-slate-400">
                       {t.duration && <span>⏱ {t.duration} min</span>}
                       {t.totalQuestions && <span>📝 {t.totalQuestions} Qs</span>}
+                      {hasAttempted && <span className="text-emerald-600">Score: {prevResult.score}</span>}
                     </div>
                   </div>
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-md ${badge === 'live' ? 'bg-gradient-to-br from-rose-500 to-pink-600 shadow-rose-200' : badge === 'upcoming' ? 'bg-gradient-to-br from-amber-500 to-orange-500 shadow-amber-200' : 'bg-gradient-to-br from-slate-400 to-slate-500 shadow-slate-200'}`}>
@@ -1503,8 +1625,28 @@ export default function Dashboard() {
                   <span>End: {new Date(t.liveEndDate).toLocaleString()}</span>
                 </div>
 
-                {/* Attempt button — only for live and past tests (past = review allowed) */}
-                {badge !== 'upcoming' && (
+                {badge === 'upcoming' ? (
+                  <div className="w-full py-3 rounded-xl bg-amber-50 border border-amber-100 text-amber-600 font-black text-xs uppercase tracking-widest text-center">
+                    Opens on {new Date(t.liveStartDate).toLocaleString()}
+                  </div>
+                ) : hasAttempted ? (
+                  /* Already attempted — show two options */
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => openLiveAnalysis(t.id, prevResult)}
+                      className="flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-1.5 bg-indigo-600 text-white hover:bg-indigo-700 transition-all active:scale-95"
+                    >
+                      <BarChart3 className="w-3.5 h-3.5" /> Previous Analysis
+                    </button>
+                    <button
+                      onClick={() => navigate(`/test/${t.id}`)}
+                      className="flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all active:scale-95"
+                    >
+                      <Play className="w-3.5 h-3.5" /> Re-attempt
+                    </button>
+                  </div>
+                ) : (
+                  /* Not yet attempted */
                   <button
                     onClick={() => navigate(`/test/${t.id}`)}
                     className={`w-full py-3 rounded-xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm ${
@@ -1513,21 +1655,12 @@ export default function Dashboard() {
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
                   >
-                    {badge === 'live' ? (
-                      <><Play className="w-4 h-4" /> Attempt Now</>
-                    ) : (
-                      <><Play className="w-4 h-4" /> Attempt / Review</>
-                    )}
+                    <Play className="w-4 h-4" /> {badge === 'live' ? 'Attempt Now' : 'Attempt Test'}
                   </button>
                 )}
-
-                {badge === 'upcoming' && (
-                  <div className="w-full py-3 rounded-xl bg-amber-50 border border-amber-100 text-amber-600 font-black text-xs uppercase tracking-widest text-center">
-                    Opens on {new Date(t.liveStartDate).toLocaleString()}
-                  </div>
-                )}
               </div>
-            );
+              );
+            };
 
             return (
               <div className="space-y-8 animate-in fade-in duration-700">
@@ -2048,8 +2181,8 @@ export default function Dashboard() {
                  </h2>
                  <p className="text-slate-400 font-bold text-xs">{selectedResult.testTitle || 'Mock Test'}</p>
                </div>
-              <button 
-                onClick={() => { setShowAnalysisModal(false); setShowFullAnalysis(false); }}
+              <button
+                onClick={() => { setShowAnalysisModal(false); setShowFullAnalysis(false); setAnalysisLiveRank(null); }}
                 className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-all"
               >
                 <X className="w-5 h-5" />
@@ -2060,6 +2193,17 @@ export default function Dashboard() {
               {!showFullAnalysis ? (
                 /* Summary Section */
                 <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+                  {/* Live rank banner — only shown when this result is from a live test */}
+                  {analysisLiveRank && (
+                    <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-5 flex items-center justify-between text-white shadow-lg shadow-amber-100">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Your Live Test Rank</p>
+                        <p className="text-3xl font-black">Rank-{analysisLiveRank.myRank}/{analysisLiveRank.totalParticipants}</p>
+                      </div>
+                      <Trophy className="w-10 h-10 opacity-60" />
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-center">
                       <span className="block text-[10px] font-black text-slate-400 uppercase mb-2">Marks Obtained</span>

@@ -457,4 +457,85 @@ img {
   box-shadow: 0 15px 30px rgba(142, 45, 226, 0.4) !important;
 }
 
+/* ── Design E: Light Refined Sidebar ──────────────────────────── */
+.sidebar-btn {
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #64748b !important;
+  border: 1px solid transparent !important;
+  border-radius: 10px !important;
+  transform: none !important;
+  margin-bottom: 2px !important;
+  padding: 10px 16px !important;
+  font-size: 0.78rem !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-weight: 600 !important;
+}
+.sidebar-btn:hover {
+  background: #f8fafc !important;
+  color: #1e293b !important;
+  transform: none !important;
+  filter: none !important;
+  box-shadow: none !important;
+}
+.sidebar-btn.active {
+  background: linear-gradient(135deg, #ede9fe, #e0e7ff) !important;
+  color: #4f46e5 !important;
+  border-color: transparent !important;
+  border-left: none !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+.sidebar-home, .sidebar-profile, .sidebar-learn, .sidebar-mock,
+.sidebar-typing, .sidebar-pyq, .sidebar-pattern, .sidebar-about,
+.sidebar-contact, .sidebar-live {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.sidebar-home:hover, .sidebar-profile:hover, .sidebar-learn:hover, .sidebar-mock:hover,
+.sidebar-typing:hover, .sidebar-pyq:hover, .sidebar-pattern:hover, .sidebar-about:hover,
+.sidebar-contact:hover, .sidebar-live:hover,
+.sidebar-home.active, .sidebar-profile.active, .sidebar-learn.active, .sidebar-mock.active,
+.sidebar-typing.active, .sidebar-pyq.active, .sidebar-pattern.active, .sidebar-about.active,
+.sidebar-contact.active, .sidebar-live.active {
+  box-shadow: none !important;
+}
+
+/* Sub-categories – light refined */
+.sub-category {
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #64748b !important;
+  border: 1px solid transparent !important;
+  border-radius: 8px !important;
+  transform: none !important;
+  padding: 9px 14px !important;
+  margin-bottom: 2px !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+.sub-category:hover {
+  background: #f8fafc !important;
+  color: #1e293b !important;
+  transform: none !important;
+  filter: none !important;
+  box-shadow: none !important;
+}
+.sub-category.active {
+  background: rgba(79,70,229,.08) !important;
+  color: #4f46e5 !important;
+  border-color: transparent !important;
+  border-left: 3px solid #4f46e5 !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+.sub-learn-video, .sub-learn-notes, .sub-learn-affairs, .sub-learn-practice,
+.sub-mock-topic, .sub-mock-sectional, .sub-mock-full {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
 

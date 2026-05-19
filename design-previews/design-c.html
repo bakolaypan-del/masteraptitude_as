@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Design C – Vibrant Cards</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+  body { font-family: 'Inter', sans-serif; background: #0b0c10; color: #fff; min-height: 100vh; }
+
+  /* Sidebar */
+  .sidebar { width: 240px; background: #111318; border-right: 1px solid rgba(255,255,255,0.06); min-height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; padding: 24px 0; z-index: 40; }
+  .main-content { margin-left: 240px; padding: 32px; }
+
+  /* Nav items */
+  .nav-item { display: flex; align-items: center; gap: 12px; padding: 11px 20px; margin: 2px 12px; border-radius: 12px; font-size: 13px; font-weight: 600; color: #6b7280; cursor: pointer; transition: all .2s; }
+  .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; }
+  .nav-item.active { background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; box-shadow: 0 4px 20px rgba(79,70,229,0.4); }
+  .nav-icon { font-size: 18px; width: 22px; text-align: center; }
+
+  /* Cards */
+  .card-dark { background: #1a1d27; border-radius: 20px; border: 1px solid rgba(255,255,255,0.06); }
+  .card-hover { transition: transform .2s, border-color .2s; cursor: pointer; }
+  .card-hover:hover { transform: translateY(-3px); border-color: rgba(99,102,241,0.4); }
+
+  /* Gradients */
+  .g-indigo { background: linear-gradient(135deg, #4338ca, #6d28d9); }
+  .g-teal   { background: linear-gradient(135deg, #0d9488, #059669); }
+  .g-amber  { background: linear-gradient(135deg, #b45309, #d97706); }
+  .g-rose   { background: linear-gradient(135deg, #be123c, #e11d48); }
+  .g-hero   { background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%); }
+
+  .badge-sm { display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;padding:3px 10px;border-radius:999px; }
+  .progress { height:5px;border-radius:999px;background:rgba(255,255,255,0.07);overflow:hidden; }
+  .progress-fill { height:100%;border-radius:999px; }
+
+  /* Avatar ring */
+  .avatar-ring { padding: 2px; background: linear-gradient(135deg, #4f46e5, #ec4899); border-radius: 999px; }
+  .avatar-inner { background: #1a1d27; border-radius: 999px; padding: 1px; }
+
+  /* Live pulse */
+  @keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(239,68,68,.4)} 50%{opacity:.8;box-shadow:0 0 0 6px rgba(239,68,68,0)} }
+  .live-badge { animation: pulse 2s infinite; }
+
+  /* Rank badge */
+  .rank-glow { box-shadow: 0 0 20px rgba(251,191,36,0.3); }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="flex items-center gap-3 px-5 mb-8">
+    <div class="w-9 h-9 g-indigo rounded-xl flex items-center justify-center font-black text-sm shadow-lg">M</div>
+    <span class="font-black text-white text-base">Master<span class="text-indigo-400">Aptitude</span></span>
+  </div>
+
+  <div class="px-4 mb-2">
+    <p class="text-[10px] font-black text-slate-600 uppercase tracking-widest px-2 mb-1">Main</p>
+  </div>
+  <div class="nav-item active"><span class="nav-icon">🏠</span> Home</div>
+  <div class="nav-item"><span class="nav-icon">📝</span> Mock Tests</div>
+  <div class="nav-item"><span class="nav-icon">🔴</span> Live Tests</div>
+  <div class="nav-item"><span class="nav-icon">📊</span> My Results</div>
+  <div class="nav-item"><span class="nav-icon">🏆</span> Leaderboard</div>
+
+  <div class="px-4 mt-6 mb-2">
+    <p class="text-[10px] font-black text-slate-600 uppercase tracking-widest px-2 mb-1">Resources</p>
+  </div>
+  <div class="nav-item"><span class="nav-icon">📚</span> Study Notes</div>
+  <div class="nav-item"><span class="nav-icon">🎬</span> Video Lectures</div>
+  <div class="nav-item"><span class="nav-icon">📰</span> Current Affairs</div>
+
+  <!-- User -->
+  <div class="mt-auto px-4">
+    <div class="card-dark p-4 flex items-center gap-3">
+      <div class="avatar-ring">
+        <div class="avatar-inner">
+          <div class="w-9 h-9 g-indigo rounded-full flex items-center justify-center font-black text-sm">R</div>
+        </div>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="font-bold text-white text-sm truncate">Rahul Singh</p>
+        <p class="text-slate-500 text-xs font-medium">MANZIL 2.0</p>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main-content">
+
+  <!-- TOP BAR -->
+  <div class="flex items-center justify-between mb-8">
+    <div>
+      <p class="text-slate-500 text-sm font-semibold">Tuesday, 20 May 2026</p>
+      <h1 class="text-2xl font-black text-white mt-0.5">Good morning, <span class="text-indigo-400">Rahul</span> 👋</h1>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="card-dark flex items-center gap-2 px-4 py-2.5 rounded-2xl">
+        <span class="text-base">🔥</span>
+        <span class="text-white font-black text-sm">12</span>
+        <span class="text-slate-500 text-xs font-medium">day streak</span>
+      </div>
+      <div class="card-dark flex items-center gap-2 px-4 py-2.5 rounded-2xl rank-glow border border-amber-500/20">
+        <span class="text-amber-400 text-base">🏆</span>
+        <span class="text-amber-300 font-black text-sm">Rank #24</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATS ROW -->
+  <div class="grid grid-cols-3 gap-4 mb-6">
+    <div class="card-dark p-5 flex items-center gap-4">
+      <div class="w-12 h-12 g-indigo rounded-2xl flex items-center justify-center text-2xl shadow-lg">📝</div>
+      <div>
+        <p class="text-2xl font-black text-white">47</p>
+        <p class="text-slate-500 text-xs font-semibold uppercase mt-0.5">Tests Completed</p>
+      </div>
+    </div>
+    <div class="card-dark p-5 flex items-center gap-4">
+      <div class="w-12 h-12 g-teal rounded-2xl flex items-center justify-center text-2xl shadow-lg">📈</div>
+      <div>
+        <p class="text-2xl font-black text-emerald-400">78%</p>
+        <p class="text-slate-500 text-xs font-semibold uppercase mt-0.5">Average Score</p>
+      </div>
+    </div>
+    <div class="card-dark p-5 flex items-center gap-4">
+      <div class="w-12 h-12 g-amber rounded-2xl flex items-center justify-center text-2xl shadow-lg">⚡</div>
+      <div>
+        <p class="text-2xl font-black text-amber-400">+8</p>
+        <p class="text-slate-500 text-xs font-semibold uppercase mt-0.5">Rank Change</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIVE TEST CARD -->
+  <div class="rounded-2xl p-5 mb-6 flex items-center justify-between" style="background:linear-gradient(135deg,#7f1d1d,#be123c,#e11d48)">
+    <div class="flex items-center gap-4">
+      <div class="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center live-badge">
+        <span class="text-2xl">🔴</span>
+      </div>
+      <div>
+        <div class="badge-sm bg-white/20 text-white mb-1">Live Right Now • 200 Students</div>
+        <p class="font-black text-lg text-white">SSC CGL Full Mock – 2026 Series</p>
+        <p class="text-rose-200 text-xs font-medium mt-0.5">⏱ Ends in 1h 24m</p>
+      </div>
+    </div>
+    <button class="bg-white text-rose-700 px-6 py-3 rounded-2xl font-black text-sm uppercase tracking-wide hover:scale-105 hover:shadow-xl transition-all shadow-lg">Join Now →</button>
+  </div>
+
+  <!-- TEST CATEGORIES -->
+  <h2 class="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Test Categories</h2>
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+
+    <div class="card-dark card-hover p-5">
+      <div class="w-10 h-10 g-indigo rounded-xl flex items-center justify-center mb-4 text-xl">🎯</div>
+      <p class="font-black text-white text-sm mb-1">Topic Wise</p>
+      <p class="text-slate-500 text-xs mb-3">128 tests</p>
+      <div class="progress"><div class="progress-fill g-indigo" style="width:65%"></div></div>
+      <p class="text-indigo-400 text-xs font-bold mt-2">65% done</p>
+    </div>
+
+    <div class="card-dark card-hover p-5">
+      <div class="w-10 h-10 g-teal rounded-xl flex items-center justify-center mb-4 text-xl">📊</div>
+      <p class="font-black text-white text-sm mb-1">Sectional</p>
+      <p class="text-slate-500 text-xs mb-3">64 tests</p>
+      <div class="progress"><div class="progress-fill g-teal" style="width:40%"></div></div>
+      <p class="text-teal-400 text-xs font-bold mt-2">40% done</p>
+    </div>
+
+    <div class="card-dark card-hover p-5">
+      <div class="w-10 h-10 g-amber rounded-xl flex items-center justify-center mb-4 text-xl">📋</div>
+      <p class="font-black text-white text-sm mb-1">Full Mock</p>
+      <p class="text-slate-500 text-xs mb-3">32 tests</p>
+      <div class="progress"><div class="progress-fill g-amber" style="width:20%"></div></div>
+      <p class="text-amber-400 text-xs font-bold mt-2">20% done</p>
+    </div>
+
+    <div class="card-dark card-hover p-5">
+      <div class="w-10 h-10 g-rose rounded-xl flex items-center justify-center mb-4 text-xl">🔴</div>
+      <p class="font-black text-white text-sm mb-1">Live Tests</p>
+      <p class="text-slate-500 text-xs mb-3">3 live now</p>
+      <div class="progress"><div class="progress-fill g-rose animate-pulse" style="width:100%"></div></div>
+      <p class="text-rose-400 text-xs font-bold mt-2">Active</p>
+    </div>
+  </div>
+
+  <!-- RESOURCES -->
+  <h2 class="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Study Resources</h2>
+  <div class="grid grid-cols-3 gap-4">
+    <div class="card-dark card-hover p-5 flex items-center gap-4">
+      <div class="w-11 h-11 rounded-xl flex items-center justify-center text-xl" style="background:rgba(99,102,241,.15)">📚</div>
+      <div>
+        <p class="font-black text-white text-sm">Study Notes</p>
+        <p class="text-slate-500 text-xs mt-0.5">85 PDFs available</p>
+      </div>
+    </div>
+    <div class="card-dark card-hover p-5 flex items-center gap-4">
+      <div class="w-11 h-11 rounded-xl flex items-center justify-center text-xl" style="background:rgba(139,92,246,.15)">🎬</div>
+      <div>
+        <p class="font-black text-white text-sm">Video Lectures</p>
+        <p class="text-slate-500 text-xs mt-0.5">42 videos</p>
+      </div>
+    </div>
+    <div class="card-dark card-hover p-5 flex items-center gap-4">
+      <div class="w-11 h-11 rounded-xl flex items-center justify-center text-xl" style="background:rgba(245,158,11,.15)">📰</div>
+      <div>
+        <p class="font-black text-white text-sm">Current Affairs</p>
+        <p class="text-slate-500 text-xs mt-0.5">Updated daily</p>
+      </div>
+    </div>
+  </div>
+
+</main>
+</body>
+</html>

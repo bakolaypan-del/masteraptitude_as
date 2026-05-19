@@ -26,8 +26,6 @@ export default function TestRunner() {
   const [result, setResult] = useState<any>(null);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [warnings, setWarnings] = useState(0);
-  const [questionTimes, setQuestionTimes] = useState<Record<string, number>>({});
-
   const [showInstructions, setShowInstructions] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -37,6 +35,9 @@ export default function TestRunner() {
   const isSubmittingRef = useRef(false);
   const timerRef = useRef<any>(null);
   const currentIdxRef = useRef(currentIdx);
+  // useRef instead of useState so the timer always writes/reads the latest value
+  // regardless of which render's closure is active
+  const questionTimesRef = useRef<Record<string, number>>({});
 
   useEffect(() => { currentIdxRef.current = currentIdx; }, [currentIdx]);
 
@@ -153,7 +154,8 @@ export default function TestRunner() {
         const activeIdx = currentIdxRef.current;
         const currentQuestionId = questions[activeIdx]?.id;
         if (currentQuestionId) {
-          setQuestionTimes(prev => ({ ...prev, [currentQuestionId]: (prev[currentQuestionId] || 0) + 1 }));
+          // Write directly to ref — no re-render needed, never stale
+          questionTimesRef.current[currentQuestionId] = (questionTimesRef.current[currentQuestionId] || 0) + 1;
         }
         setTimeLeft(prev => {
           if (prev <= 1) {
@@ -166,7 +168,8 @@ export default function TestRunner() {
       }, 1000);
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [submitting, result, questions.length, timeLeft]);
+  // showInstructions added: timer must start the moment instructions are dismissed
+  }, [showInstructions, submitting, result, questions.length, timeLeft]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -208,7 +211,7 @@ export default function TestRunner() {
       const res = await fetch('/api/submit-test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ testId, answers: payload, timeTaken: timeTakenStr, questionTimes })
+        body: JSON.stringify({ testId, answers: payload, timeTaken: timeTakenStr, questionTimes: questionTimesRef.current })
       });
 
       const contentType = res.headers.get("content-type");
@@ -524,7 +527,7 @@ export default function TestRunner() {
                           <span>{q.topic || 'General'}</span>
                         </div>
                         {(() => {
-                          const secs = questionTimes[q.id] || 0;
+                          const secs = result.questionTimes?.[q.id] ?? questionTimesRef.current[q.id] ?? 0;
                           const mm = Math.floor(secs / 60);
                           const ss = secs % 60;
                           const timeStr = mm > 0 ? `${mm}m ${ss}s` : `${ss}s`;
