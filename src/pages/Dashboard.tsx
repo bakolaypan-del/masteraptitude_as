@@ -35,7 +35,7 @@ export default function Dashboard() {
 
   const setActiveTab = (tab: DashboardTab) => {
     setSearchParams({ tab, cat: '' });
-    // Reset secondary states
+    setSelectedTopic(null);
     if (!tab.startsWith('mock')) {
       setMockOpen(false);
     }
@@ -44,10 +44,12 @@ export default function Dashboard() {
     }
   };
 
+  const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
+
   const setSelectedCategory = (cat: string) => {
+    setSelectedTopic(null);
     setSearchParams({ tab: activeTab, cat });
   };
-  const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
 
   // Analysis State
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
@@ -1475,91 +1477,177 @@ export default function Dashboard() {
                   <FileText className="w-12 h-12 mb-4 text-slate-200" />
                   <p className="font-bold text-sm uppercase tracking-widest text-slate-500">Select a category above to view Available Mocks.</p>
                 </div>
-              ) : (
-                <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-                    <div className="flex items-center gap-4">
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Selected Category</span>
-                        <h3 className="text-xl font-black text-slate-800 tracking-tight">{selectedCategory}</h3>
+              ) : (() => {
+                // All tests for this category+type
+                const filteredTests = activeTests.filter(t =>
+                  (t.testType || 'topic') === activeTab.replace('mock_', '') &&
+                  t.category === selectedCategory
+                );
+
+                // Build topic map
+                const topicMap: Record<string, typeof filteredTests> = {};
+                filteredTests.forEach(t => {
+                  const key = t.topic || 'General';
+                  if (!topicMap[key]) topicMap[key] = [];
+                  topicMap[key].push(t);
+                });
+                const topicEntries = Object.entries(topicMap);
+
+                if (filteredTests.length === 0) {
+                  return (
+                    <div className="bg-white rounded-3xl p-12 border border-slate-200 text-center text-slate-400 shadow-sm flex flex-col items-center animate-in fade-in duration-300">
+                      <FileText className="w-12 h-12 mb-4 text-slate-200" />
+                      <p className="font-bold text-sm uppercase tracking-widest text-slate-500">No tests found in <span className="text-indigo-500">{selectedCategory}</span> category.</p>
+                    </div>
+                  );
+                }
+
+                // STEP 2 — No topic selected yet: show topic cards
+                if (!selectedTopic) {
+                  return (
+                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-400">
+                      {/* Breadcrumb */}
+                      <div className="flex items-center gap-2 mb-5 text-xs font-black text-slate-400 uppercase tracking-widest">
+                        <span className="text-indigo-600">{selectedCategory}</span>
+                        <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
+                        <span>Choose Topic</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {topicEntries.map(([topicName, topicTests], idx) => {
+                          const takenCount = topicTests.filter(t => pastResults.some(r => r.testId === t.id)).length;
+                          const colors = [
+                            { bg: 'from-indigo-500 to-violet-600', light: 'bg-indigo-50 border-indigo-100', badge: 'bg-indigo-100 text-indigo-700', icon: 'text-indigo-600' },
+                            { bg: 'from-emerald-500 to-teal-600', light: 'bg-emerald-50 border-emerald-100', badge: 'bg-emerald-100 text-emerald-700', icon: 'text-emerald-600' },
+                            { bg: 'from-amber-500 to-orange-500', light: 'bg-amber-50 border-amber-100', badge: 'bg-amber-100 text-amber-700', icon: 'text-amber-600' },
+                            { bg: 'from-rose-500 to-pink-600', light: 'bg-rose-50 border-rose-100', badge: 'bg-rose-100 text-rose-700', icon: 'text-rose-600' },
+                            { bg: 'from-sky-500 to-blue-600', light: 'bg-sky-50 border-sky-100', badge: 'bg-sky-100 text-sky-700', icon: 'text-sky-600' },
+                            { bg: 'from-violet-500 to-purple-600', light: 'bg-violet-50 border-violet-100', badge: 'bg-violet-100 text-violet-700', icon: 'text-violet-600' },
+                          ];
+                          const c = colors[idx % colors.length];
+                          return (
+                            <button
+                              key={topicName}
+                              onClick={() => setSelectedTopic(topicName)}
+                              className={`group relative text-left w-full rounded-2xl border ${c.light} p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 active:scale-95`}
+                            >
+                              {/* Top accent bar */}
+                              <div className={`absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-gradient-to-r ${c.bg}`} />
+
+                              <div className="flex items-start justify-between gap-3 mt-1">
+                                <div className="flex-1 min-w-0">
+                                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Topic</span>
+                                  <h4 className="font-black text-slate-800 text-base leading-tight truncate">{topicName}</h4>
+                                </div>
+                                <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${c.bg} flex items-center justify-center shrink-0 shadow-md`}>
+                                  <Target className="w-4 h-4 text-white" />
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 mt-4 flex-wrap">
+                                <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${c.badge}`}>
+                                  {topicTests.length} {topicTests.length === 1 ? 'Mock Test' : 'Mock Tests'}
+                                </span>
+                                {takenCount > 0 && (
+                                  <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-slate-100 text-slate-500">
+                                    {takenCount} Attempted
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-1 mt-3 text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-indigo-600 transition-colors">
+                                View Tests <ChevronRight className="w-3 h-3" />
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
-                  </div>
+                  );
+                }
 
-                  {activeTests.filter(t => {
-                    const matchesType = (t.testType || 'topic') === activeTab.replace('mock_', '');
-                    const matchesCategory = t.category === selectedCategory;
-                    return matchesType && matchesCategory;
-                  }).length === 0 ? (
-                    <div className="bg-white rounded-3xl p-12 border border-slate-200 text-center text-slate-400 shadow-sm flex flex-col items-center">
-                      <FileText className="w-12 h-12 mb-4 text-slate-200" />
-                      <p className="font-bold text-sm uppercase tracking-widest text-slate-500 mb-2">No tests found in this category.</p>
+                // STEP 3 — Topic selected: show tests in that topic
+                const testsInTopic = topicMap[selectedTopic] || [];
+                return (
+                  <div className="animate-in fade-in slide-in-from-bottom-2 duration-400">
+                    {/* Breadcrumb + Back */}
+                    <div className="flex items-center gap-2 mb-5">
+                      <button
+                        onClick={() => setSelectedTopic(null)}
+                        className="flex items-center gap-1.5 text-xs font-black text-slate-500 hover:text-indigo-600 transition-colors uppercase tracking-widest"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                        Back
+                      </button>
+                      <span className="text-slate-200 font-black">|</span>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{selectedCategory}</span>
+                      <ChevronRight className="w-3 h-3 text-slate-300" />
+                      <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{selectedTopic}</span>
                     </div>
-                  ) : (
+
+                    {/* Topic header card */}
+                    <div className="flex items-center gap-4 bg-gradient-to-r from-indigo-600 to-violet-600 rounded-2xl px-5 py-4 mb-5 shadow-lg shadow-indigo-200">
+                      <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+                        <Target className="w-5 h-5 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[9px] font-black text-indigo-200 uppercase tracking-widest block">Topic / Sub-Category</span>
+                        <h3 className="font-black text-white text-lg leading-tight truncate">{selectedTopic}</h3>
+                      </div>
+                      <span className="text-[10px] font-black text-white/80 bg-white/15 px-3 py-1.5 rounded-full shrink-0">
+                        {testsInTopic.length} {testsInTopic.length === 1 ? 'Test' : 'Tests'}
+                      </span>
+                    </div>
+
+                    {/* Test list */}
                     <div className="flex flex-col gap-3">
-                      {activeTests.filter(t => {
-                        const matchesType = (t.testType || 'topic') === activeTab.replace('mock_', '');
-                        const matchesCategory = t.category === selectedCategory;
-                        return matchesType && matchesCategory;
-                      }).map(test => {
+                      {testsInTopic.map((test, testIdx) => {
                         const isTaken = pastResults.some(r => r.testId === test.id);
                         return (
-                          <div key={test.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm transition-all hover:shadow-md hover:-translate-y-px hover:border-indigo-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            {/* LEFT SIDE: Mock Test Name */}
-                            <div className="flex items-center gap-3 min-w-[200px] flex-1">
-                              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-600 text-white rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-indigo-200">
-                                <Target className="w-5 h-5" />
+                          <div key={test.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:-translate-y-px hover:border-indigo-100 transition-all duration-200 flex flex-col md:flex-row md:items-center justify-between gap-4 p-4">
+                            {/* LEFT: Test name */}
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <div className="w-9 h-9 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-xl flex items-center justify-center shrink-0 font-black text-sm">
+                                {testIdx + 1}
                               </div>
-                              <div>
+                              <div className="min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <h4 className="font-extrabold text-slate-800 text-sm md:text-base leading-snug">
-                                    {test.title}
-                                  </h4>
+                                  <h4 className="font-extrabold text-slate-800 text-sm md:text-base leading-snug">{test.title}</h4>
                                   {test.isActive && (
                                     <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded border border-emerald-100 flex items-center gap-0.5 shrink-0">
-                                      <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse"></span>
+                                      <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
                                       Live
                                     </span>
                                   )}
                                 </div>
                                 {test.subjectName && (
-                                  <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest block leading-none mt-1">
-                                    {test.subjectName}
-                                  </span>
+                                  <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest block leading-none mt-1">{test.subjectName}</span>
                                 )}
                               </div>
                             </div>
 
-                            {/* MIDDLE: Topic Name */}
-                            <div className="flex items-center gap-6 md:min-w-[180px]">
-                              <div className="text-left">
-                                <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Topic</span>
-                                <span className="text-xs font-black text-slate-600 uppercase">
-                                  {test.topic || 'General Mock'}
-                                </span>
-                              </div>
-                              <div className="text-left">
-                                <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Specs</span>
-                                <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1.5">
-                                  <Clock className="w-3 h-3 text-indigo-500" />
-                                  {test.duration || 30} min | {test.marksPerCorrect || 1}M
-                                </span>
-                              </div>
+                            {/* MIDDLE: Specs */}
+                            <div className="shrink-0 text-left md:min-w-[130px]">
+                              <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Specs</span>
+                              <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1.5">
+                                <Clock className="w-3 h-3 text-indigo-500" />
+                                {test.duration || 30} min | {test.marksPerCorrect || 1}M
+                              </span>
                             </div>
 
-                            {/* RIGHT SIDE: [ ATTEMPT MOCK ] */}
+                            {/* RIGHT: Actions */}
                             <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
                               {isTaken && (
                                 <>
-                                  <button 
+                                  <button
                                     onClick={() => handleDownloadPDF(test.id, test.title, test.category || 'N/A', test.testType || 'N/A')}
                                     disabled={downloadingPDF === test.id}
                                     className="flex items-center justify-center p-2.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-500 rounded-xl transition-all disabled:opacity-50"
-                                    title="Download PDF Question Bank"
+                                    title="Download PDF"
                                   >
                                     <Download className="w-4 h-4" />
                                   </button>
-                                  <button 
+                                  <button
                                     onClick={() => {
                                       const res = pastResults.find(r => r.testId === test.id);
                                       if (res) {
@@ -1575,7 +1663,7 @@ export default function Dashboard() {
                                   </button>
                                 </>
                               )}
-                              <Link 
+                              <Link
                                 to={`/test/${test.id}`}
                                 className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-black text-[9px] uppercase tracking-widest rounded-xl hover:from-slate-900 hover:to-slate-900 transition-all shadow-md shadow-indigo-200 hover:shadow-lg flex items-center gap-1 active:scale-95"
                               >
@@ -1587,9 +1675,9 @@ export default function Dashboard() {
                         );
                       })}
                     </div>
-                  )}
-                </div>
-              )}
+                  </div>
+                );
+              })()}
 
               {/* Performance Analytics Section - Moved here and made compact */}
               <div className="bg-white rounded-3xl p-6 border border-indigo-100 shadow-xl shadow-indigo-500/5 relative overflow-hidden group mt-12 mb-8">

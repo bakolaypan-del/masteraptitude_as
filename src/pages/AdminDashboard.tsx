@@ -2004,13 +2004,18 @@ function AdminHome() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Topic Name</label>
-                <input 
-                  type="text" 
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium" 
-                  value={topic} onChange={e => setTopic(e.target.value)} 
-                  placeholder="e.g. Mechanics"
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Topic Name <span className="text-indigo-400 normal-case font-medium">(becomes sub-category)</span></label>
+                <input
+                  type="text"
+                  className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium"
+                  value={topic} onChange={e => setTopic(e.target.value)}
+                  placeholder="e.g. Alphabet Test"
                 />
+                {topic && category && (
+                  <p className="mt-1.5 text-[10px] text-indigo-500 font-bold">
+                    📂 {category} → <span className="text-violet-600">{topic}</span> → {title || 'Mock Test'}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Subject Name</label>
@@ -2135,85 +2140,114 @@ function AdminHome() {
             </select>
           </div>
 
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-            <table className="min-w-full divide-y divide-slate-100">
-              <thead className="bg-slate-50/50">
-                <tr>
-                  <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Test Name</th>
-                  <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Topic</th>
-                  <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Time</th>
-                  <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Status</th>
-                  <th className="px-8 py-5 text-right text-xs font-black text-slate-400 uppercase tracking-widest">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-slate-50 relative">
-                {loading && <tr><td colSpan={5} className="px-8 py-10 text-center text-slate-400 font-bold">Fetching Tests...</td></tr>}
-                {!loading && filteredTests.map(test => (
-                  <tr key={test.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-8 py-6 whitespace-nowrap text-sm font-bold text-slate-800">{test.title || 'Untitled'}</td>
-                    <td className="px-8 py-6 whitespace-nowrap text-sm font-medium text-slate-500">
-                      <div className="flex flex-col gap-1">
-                        <span className="bg-slate-100 px-3 py-1 rounded-lg text-slate-600 inline-block w-fit">{test.topic || 'No Topic'}</span>
-                        {test.subjectName && <span className="text-xs text-slate-400 font-bold">{test.subjectName}</span>}
-                        <div className="flex gap-2 items-center">
-                          <span className="text-[10px] uppercase font-bold text-indigo-500 tracking-wider">
-                            {test.testType === 'topic' ? 'Topic Wise' : test.testType === 'sectional' ? 'Sectional' : 'Full Mock'}
-                          </span>
-                          {test.category && <span className="text-[10px] uppercase font-black text-emerald-500 bg-emerald-50 px-2 rounded">{test.category}</span>}
+          {loading && (
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 px-8 py-10 text-center text-slate-400 font-bold">Fetching Tests...</div>
+          )}
+          {!loading && filteredTests.length === 0 && (
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 px-8 py-10 text-center text-slate-400 font-bold">No tests created yet.</div>
+          )}
+          {!loading && filteredTests.length > 0 && (() => {
+            // Build: category → topic → tests
+            const catMap: Record<string, Record<string, typeof filteredTests>> = {};
+            filteredTests.forEach(test => {
+              const cat = test.category || 'Uncategorized';
+              const top = test.topic || 'General';
+              if (!catMap[cat]) catMap[cat] = {};
+              if (!catMap[cat][top]) catMap[cat][top] = [];
+              catMap[cat][top].push(test);
+            });
+            return (
+              <div className="flex flex-col gap-6">
+                {Object.entries(catMap).map(([catName, topicMap]) => (
+                  <div key={catName} className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                    {/* Category header */}
+                    <div className="flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-slate-800 to-slate-900">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Category</span>
+                      <span className="font-black text-white text-sm uppercase tracking-widest">{catName}</span>
+                      <span className="ml-auto text-[9px] font-black text-slate-400 bg-slate-700 px-2.5 py-1 rounded-full">
+                        {Object.values(topicMap).flat().length} tests
+                      </span>
+                    </div>
+
+                    {/* Topic groups */}
+                    <div className="divide-y divide-slate-100">
+                      {Object.entries(topicMap).map(([topicName, topicTests]) => (
+                        <div key={topicName}>
+                          {/* Topic / sub-category header */}
+                          <div className="flex items-center gap-3 px-6 py-3 bg-indigo-50/60 border-b border-indigo-100">
+                            <div className="w-5 h-5 bg-indigo-200 rounded-md flex items-center justify-center shrink-0">
+                              <span className="text-[8px] font-black text-indigo-700">T</span>
+                            </div>
+                            <span className="text-xs font-black text-indigo-700 uppercase tracking-wider">{topicName}</span>
+                            <span className="text-[9px] font-bold text-indigo-400 bg-indigo-100 px-2 py-0.5 rounded-full ml-1">
+                              {topicTests.length} {topicTests.length === 1 ? 'test' : 'tests'}
+                            </span>
+                          </div>
+
+                          {/* Tests in this topic */}
+                          <div className="divide-y divide-slate-50">
+                            {topicTests.map((test, tidx) => (
+                              <div key={test.id} className="flex flex-wrap items-center gap-4 px-6 py-4 hover:bg-slate-50/60 transition-colors">
+                                <span className="text-[10px] font-black text-slate-300 w-5 text-center shrink-0">{tidx + 1}</span>
+                                <div className="flex-1 min-w-[160px]">
+                                  <p className="text-sm font-bold text-slate-800">{test.title || 'Untitled'}</p>
+                                  <div className="flex flex-wrap gap-2 mt-1 items-center">
+                                    <span className="text-[10px] uppercase font-bold text-indigo-500 tracking-wider">
+                                      {test.testType === 'topic' ? 'Topic Wise' : test.testType === 'sectional' ? 'Sectional' : 'Full Mock'}
+                                    </span>
+                                    {test.subjectName && <span className="text-[10px] text-slate-400 font-bold">{test.subjectName}</span>}
+                                  </div>
+                                </div>
+                                <button onClick={() => updateDuration(test)} className="font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg hover:bg-indigo-100 transition-colors text-xs shrink-0">
+                                  {test.duration || 30}m
+                                </button>
+                                <button
+                                  onClick={() => toggleActive(test)}
+                                  className={`px-3 py-1 inline-flex text-[10px] font-black uppercase tracking-widest rounded-full transition-all shrink-0 ${test.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}
+                                >
+                                  {test.isActive ? 'Active' : 'Draft'}
+                                </button>
+                                <div className="flex gap-2 items-center shrink-0 flex-wrap">
+                                  <button
+                                    onClick={() => handleEditTest(test)}
+                                    className="text-amber-600 hover:bg-amber-100 px-3 py-1.5 rounded-lg transition-all border border-amber-100 font-bold text-xs"
+                                    title="Edit Test Settings"
+                                  >
+                                    Settings
+                                  </button>
+                                  <Link
+                                    to={`/admin/test/${test.id}`}
+                                    className="text-indigo-600 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-all border border-indigo-100 font-bold text-xs"
+                                    title="Modify Questions"
+                                  >
+                                    Modify
+                                  </Link>
+                                  <button
+                                    onClick={() => handleDeleteContent('tests', test.id)}
+                                    className="text-rose-500 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-all border border-rose-100 font-bold text-xs"
+                                    title="Delete Test"
+                                  >
+                                    Delete
+                                  </button>
+                                  <button
+                                    onClick={() => copyLink(`${window.location.origin}/test/${test.id}`, test.id)}
+                                    className={`px-3 py-1.5 rounded-lg transition-all border font-bold text-xs flex items-center gap-1 ${copiedId === test.id ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'text-violet-600 hover:bg-violet-100 border-violet-100'}`}
+                                    title="Copy shareable link"
+                                  >
+                                    {copiedId === test.id ? <><Check className="w-3 h-3" /> Copied!</> : <><Link2 className="w-3 h-3" /> Share</>}
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-8 py-6 whitespace-nowrap text-sm text-slate-500">
-                      <button onClick={() => updateDuration(test)} className="font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg hover:bg-indigo-100 transition-colors">
-                        {test.duration || 30}m
-                      </button>
-                    </td>
-                    <td className="px-8 py-6 whitespace-nowrap text-sm">
-                      <button 
-                        onClick={() => toggleActive(test)}
-                        className={`px-4 py-1.5 inline-flex text-xs font-black uppercase tracking-widest rounded-full transition-all ${test.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}
-                      >
-                        {test.isActive ? 'Active' : 'Draft'}
-                      </button>
-                    </td>
-                    <td className="px-8 py-6 whitespace-nowrap text-right text-sm font-bold">
-                      <div className="flex justify-end gap-2">
-                        <button 
-                          onClick={() => handleEditTest(test)}
-                          className="text-amber-600 hover:bg-amber-100 px-3 py-1.5 rounded-lg transition-all border border-amber-100 font-bold text-xs"
-                          title="Edit Test Settings (Title, Time)"
-                        >
-                          Settings
-                        </button>
-                        <Link 
-                          to={`/admin/test/${test.id}`} 
-                          className="text-indigo-600 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-all border border-indigo-100 font-bold text-xs"
-                          title="Modify Questions & Solutions"
-                        >
-                          Modify
-                        </Link>
-                        <button
-                          onClick={() => handleDeleteContent('tests', test.id)}
-                          className="text-rose-500 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-all border border-rose-100 font-bold text-xs"
-                          title="Delete Test"
-                        >
-                          Delete
-                        </button>
-                        <button
-                          onClick={() => copyLink(`${window.location.origin}/test/${test.id}`, test.id)}
-                          className={`px-3 py-1.5 rounded-lg transition-all border font-bold text-xs flex items-center gap-1 ${copiedId === test.id ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'text-violet-600 hover:bg-violet-100 border-violet-100'}`}
-                          title="Copy shareable link"
-                        >
-                          {copiedId === test.id ? <><Check className="w-3 h-3" /> Copied!</> : <><Link2 className="w-3 h-3" /> Share</>}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                      ))}
+                    </div>
+                  </div>
                 ))}
-                {!loading && tests.length === 0 && <tr><td colSpan={5} className="px-8 py-10 text-center text-slate-400 font-bold">No tests created yet.</td></tr>}
-              </tbody>
-            </table>
-          </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
