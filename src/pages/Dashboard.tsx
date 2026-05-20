@@ -56,7 +56,7 @@ export default function Dashboard() {
   // Analysis State
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
   const [selectedResult, setSelectedResult] = useState<any>(null);
-  const [analysisLiveRank, setAnalysisLiveRank] = useState<{ myRank: number; totalParticipants: number; uniqueStudents?: number; percentile?: number } | null>(null);
+  const [analysisLiveRank, setAnalysisLiveRank] = useState<{ myRank: number; totalParticipants: number } | null>(null);
   const [downloadingPDF, setDownloadingPDF] = useState<string | null>(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isCarouselAnimating, setIsCarouselAnimating] = useState(false);
@@ -1579,7 +1579,7 @@ export default function Dashboard() {
                 );
                 if (res.ok) {
                   const lb = await res.json();
-                  setAnalysisLiveRank({ myRank: lb.myRank, totalParticipants: lb.totalParticipants, uniqueStudents: lb.uniqueStudents, percentile: lb.percentile });
+                  setAnalysisLiveRank({ myRank: lb.myRank, totalParticipants: lb.totalParticipants });
                 }
               } catch {}
             };
@@ -1600,12 +1600,7 @@ export default function Dashboard() {
                         </span>
                       )}
                       {badge === 'upcoming' && <span className="text-[9px] font-black uppercase tracking-widest bg-amber-100 text-amber-600 px-2.5 py-1 rounded-full">Upcoming</span>}
-                      {badge === 'past' && (
-                        <>
-                          <span className="text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">Live Ended</span>
-                          <span className="text-[9px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-600 px-2.5 py-1 rounded-full border border-emerald-200">Attempt Anytime</span>
-                        </>
-                      )}
+                      {badge === 'past' && <span className="text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">Past Live Test</span>}
                       {hasAttempted && (
                         <span className="text-[9px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-600 px-2.5 py-1 rounded-full flex items-center gap-1">
                           <CheckCircle className="w-2.5 h-2.5" /> Attempted
@@ -1614,11 +1609,10 @@ export default function Dashboard() {
                     </div>
                     <h4 className="font-black text-slate-800 text-base leading-snug">{t.title}</h4>
                     {t.description && <p className="text-xs text-slate-500 font-medium mt-1">{t.description}</p>}
-                    <div className="flex gap-3 mt-1.5 text-[10px] font-bold text-slate-400 flex-wrap">
+                    <div className="flex gap-3 mt-1.5 text-[10px] font-bold text-slate-400">
                       {t.duration && <span>⏱ {t.duration} min</span>}
                       {t.totalQuestions && <span>📝 {t.totalQuestions} Qs</span>}
                       {hasAttempted && <span className="text-emerald-600">Score: {prevResult.score}</span>}
-                      {(t.uniqueStudentCount ?? 0) > 0 && <span className="text-slate-500">👥 {(t.uniqueStudentCount as number).toLocaleString()} Students</span>}
                     </div>
                   </div>
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-md ${badge === 'live' ? 'bg-gradient-to-br from-rose-500 to-pink-600 shadow-rose-200' : badge === 'upcoming' ? 'bg-gradient-to-br from-amber-500 to-orange-500 shadow-amber-200' : 'bg-gradient-to-br from-slate-400 to-slate-500 shadow-slate-200'}`}>
@@ -1900,11 +1894,6 @@ export default function Dashboard() {
                                 {test.subjectName && (
                                   <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest block leading-none mt-1">{test.subjectName}</span>
                                 )}
-                                {(test.uniqueStudentCount ?? 0) > 0 && (
-                                  <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1 mt-0.5">
-                                    👥 {(test.uniqueStudentCount as number).toLocaleString()} Students
-                                  </span>
-                                )}
                               </div>
                             </div>
 
@@ -1930,22 +1919,13 @@ export default function Dashboard() {
                                     <Download className="w-4 h-4" />
                                   </button>
                                   <button
-                                    onClick={async () => {
+                                    onClick={() => {
                                       const res = pastResults.find(r => r.testId === test.id);
                                       if (res) {
-                                        setAnalysisLiveRank(null);
                                         setSelectedResult(res);
                                         setShowAnalysisModal(true);
                                         setShowFullAnalysis(false);
                                         fetchQuestionsForAnalysis(test.id);
-                                        try {
-                                          const token = await user!.getIdToken();
-                                          const lbRes = await fetch(`/api/test-leaderboard/${test.id}?myScore=${encodeURIComponent(res.score)}`, { headers: { Authorization: `Bearer ${token}` } });
-                                          if (lbRes.ok) {
-                                            const lb = await lbRes.json();
-                                            setAnalysisLiveRank({ myRank: lb.myRank, totalParticipants: lb.totalParticipants, uniqueStudents: lb.uniqueStudents, percentile: lb.percentile });
-                                          }
-                                        } catch {}
                                       }
                                     }}
                                     className="px-4 py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 transition-all"
@@ -2213,24 +2193,14 @@ export default function Dashboard() {
               {!showFullAnalysis ? (
                 /* Summary Section */
                 <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
-                  {/* Rank & percentile banner */}
+                  {/* Live rank banner — only shown when this result is from a live test */}
                   {analysisLiveRank && (
-                    <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-5 text-white shadow-lg shadow-amber-100">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Your Rank</p>
-                          <p className="text-3xl font-black">Rank-{analysisLiveRank.myRank}/{analysisLiveRank.totalParticipants}</p>
-                        </div>
-                        <Trophy className="w-10 h-10 opacity-60" />
+                    <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-5 flex items-center justify-between text-white shadow-lg shadow-amber-100">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Your Live Test Rank</p>
+                        <p className="text-3xl font-black">Rank-{analysisLiveRank.myRank}/{analysisLiveRank.totalParticipants}</p>
                       </div>
-                      <div className="flex gap-4 mt-3 text-sm font-bold">
-                        {analysisLiveRank.percentile !== undefined && (
-                          <span className="bg-white/20 px-3 py-1 rounded-full text-xs">Percentile: {analysisLiveRank.percentile}%ile</span>
-                        )}
-                        {analysisLiveRank.uniqueStudents !== undefined && (
-                          <span className="bg-white/20 px-3 py-1 rounded-full text-xs">👥 {analysisLiveRank.uniqueStudents.toLocaleString()} Total Students</span>
-                        )}
-                      </div>
+                      <Trophy className="w-10 h-10 opacity-60" />
                     </div>
                   )}
 
@@ -2290,12 +2260,7 @@ export default function Dashboard() {
                     </button>
                   </div>
 
-                  <div className="text-center pb-4 space-y-1">
-                    {selectedResult.attemptNumber && (
-                      <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">
-                        Attempt #{selectedResult.attemptNumber}{selectedResult.isFirstAttempt ? ' (1st Attempt — Counts for Leaderboard)' : ' (Reattempt — Not counted in Leaderboard)'}
-                      </p>
-                    )}
+                  <div className="text-center pb-4">
                     <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Attempted on {new Date(selectedResult.timestamp).toLocaleString()}</p>
                   </div>
                 </div>

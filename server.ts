@@ -502,27 +502,6 @@ app.use((req, res, next) => {
 
       const questionTimes = req.body.questionTimes || {};
 
-      // Count existing attempts for this user+test (query by userId, filter by testId in memory)
-      const existingResultsSnap = await currentDb.collection("results")
-        .where("userId", "==", user.uid)
-        .get();
-      const existingForTest = existingResultsSnap.docs
-        .filter(doc => doc.data().testId === testId)
-        .map(doc => ({ id: doc.id, timestamp: doc.data().timestamp || 0 }));
-      existingForTest.sort((a, b) => a.timestamp - b.timestamp);
-
-      const attemptNumber = existingForTest.length + 1;
-      const isFirstAttempt = attemptNumber === 1;
-
-      // Check if submitted within live window
-      let submittedDuringLive = false;
-      if (testData?.isLive && testData.liveStartDate && testData.liveEndDate) {
-        const now = Date.now();
-        const liveStart = new Date(testData.liveStartDate).getTime();
-        const liveEnd = new Date(testData.liveEndDate).getTime();
-        submittedDuringLive = now >= liveStart && now <= liveEnd;
-      }
-
       const resultData = {
         timestamp: Date.now(),
         userId: user.uid,
@@ -538,10 +517,7 @@ app.use((req, res, next) => {
         userAnswers,
         correctAnswersMap,
         questionTimes,
-        status: "completed",
-        attemptNumber,
-        isFirstAttempt,
-        submittedDuringLive
+        status: "completed"
       };
 
       const profileRef = currentDb.collection("profiles").doc(user.uid);
@@ -616,22 +592,6 @@ app.use((req, res, next) => {
         console.error("Batch write to mock_question_analysis failed:", batchErr);
       }
 
-      // Increment uniqueStudentCount on test if this is a first-ever attempt
-      if (isFirstAttempt) {
-        currentDb.collection("tests").doc(testId).update({
-          uniqueStudentCount: admin.firestore.FieldValue.increment(1)
-        }).catch(() => {});
-      }
-
-      // Keep only latest 3 attempts per user per test — delete the oldest excess
-      if (existingForTest.length >= 3) {
-        const countToDelete = existingForTest.length - 2;
-        const toDelete = existingForTest.slice(0, countToDelete);
-        for (const old of toDelete) {
-          currentDb.collection("results").doc(old.id).delete().catch(() => {});
-        }
-      }
-
       let rank = 1;
       try {
         const updatedProfileSnap = await profileRef.get();
@@ -649,7 +609,7 @@ app.use((req, res, next) => {
         analysis[key] = val;
       });
 
-      return res.json({ ...resultData, rank, analysis, attemptNumber, isFirstAttempt });
+      return res.json({ ...resultData, rank, analysis });
     } catch (error: any) {
       console.error("[API] Failed to submit test:", error);
       return res.status(500).json({ error: "Failed to submit test. Please try again." });
@@ -662,75 +622,45 @@ app.use((req, res, next) => {
     if (!currentDb) return res.status(503).json({ error: "Database offline" });
     const { testId } = req.params;
     const user = (req as any).user;
+    // myScore is passed by the client right after submission to handle brief Firestore replication lag
     const myScoreParam = req.query.myScore !== undefined ? parseFloat(req.query.myScore as string) : null;
-    const isFirstAttemptParam = req.query.isFirstAttempt === "true";
 
     try {
-      const [resultsSnap, testSnap] = await Promise.all([
-        currentDb.collection("results").where("testId", "==", testId).get(),
-        currentDb.collection("tests").doc(testId).get()
-      ]);
-      const testData = testSnap.data();
+      // No orderBy — avoids requiring a composite Firestore index; sort in memory instead
+      const resultsSnap = await currentDb.collection("results")
+        .where("testId", "==", testId)
+        .get();
 
-      // Determine live window for live tests
-      let liveStart = 0, liveEnd = 0;
-      const isLiveTest = !!(testData?.isLive && testData.liveStartDate && testData.liveEndDate);
-      if (isLiveTest) {
-        liveStart = new Date(testData!.liveStartDate).getTime();
-        liveEnd = new Date(testData!.liveEndDate).getTime();
-      }
-
-      // FIRST attempt per user (earliest timestamp) — used for leaderboard ranking
-      const firstAttemptByUser = new Map<string, { userId: string; score: number; timestamp: number; duringLive: boolean }>();
-      // All unique students (any attempt ever)
-      const allUniqueUsers = new Set<string>();
-
+      // Best score per user
+      const bestByUser = new Map<string, { userId: string; score: number }>();
       resultsSnap.docs.forEach(doc => {
         const data = doc.data();
         const uid = data.userId as string;
         const sc = typeof data.score === "number" ? data.score : 0;
-        const ts = data.timestamp || 0;
-        const duringLive = !!(data.submittedDuringLive);
-        allUniqueUsers.add(uid);
-
-        const existing = firstAttemptByUser.get(uid);
-        if (!existing || ts < existing.timestamp) {
-          firstAttemptByUser.set(uid, { userId: uid, score: sc, timestamp: ts, duringLive });
+        const existing = bestByUser.get(uid);
+        if (!existing || sc > existing.score) {
+          bestByUser.set(uid, { userId: uid, score: sc });
         }
       });
 
-      const uniqueStudents = allUniqueUsers.size;
-
-      // Inject current user if Firestore hasn't replicated their submission yet
-      if (myScoreParam !== null && !isNaN(myScoreParam) && isFirstAttemptParam) {
-        if (!firstAttemptByUser.has(user.uid)) {
-          firstAttemptByUser.set(user.uid, { userId: user.uid, score: myScoreParam, timestamp: Date.now(), duringLive: true });
-          allUniqueUsers.add(user.uid);
+      // Inject current user's score if not yet visible (Firestore replication lag)
+      if (myScoreParam !== null && !isNaN(myScoreParam)) {
+        const existing = bestByUser.get(user.uid);
+        if (!existing || myScoreParam > existing.score) {
+          bestByUser.set(user.uid, { userId: user.uid, score: myScoreParam });
         }
       }
 
-      // For live tests: leaderboard ranks ONLY first attempts submitted during the live window
-      // For other tests: leaderboard ranks all first attempts
-      let leaderboardEntries = Array.from(firstAttemptByUser.values());
-      if (isLiveTest) {
-        leaderboardEntries = leaderboardEntries.filter(e => e.duringLive || (e.userId === user.uid && isFirstAttemptParam));
-      }
-
-      const sorted = leaderboardEntries.sort((a, b) => b.score - a.score);
+      const sorted = Array.from(bestByUser.values()).sort((a, b) => b.score - a.score);
       const totalParticipants = sorted.length;
 
-      // Rank with ties
+      // Rank = position in sorted list (ties share the same rank number)
       let rank = 1;
-      let myRank = totalParticipants + 1;
+      let myRank = totalParticipants;
       for (let i = 0; i < sorted.length; i++) {
         if (i > 0 && sorted[i].score < sorted[i - 1].score) rank = i + 1;
         if (sorted[i].userId === user.uid) { myRank = rank; break; }
       }
-
-      // Percentile: % of leaderboard participants scoring strictly less than me
-      const myScore = myScoreParam !== null && !isNaN(myScoreParam) ? myScoreParam : (firstAttemptByUser.get(user.uid)?.score ?? 0);
-      const scoringBelow = sorted.filter(r => r.score < myScore).length;
-      const percentile = totalParticipants > 0 ? parseFloat(((scoringBelow / totalParticipants) * 100).toFixed(1)) : 0;
 
       const top10 = sorted.slice(0, 10);
       const profileSnaps = await Promise.all(
@@ -744,47 +674,10 @@ app.use((req, res, next) => {
         isCurrentUser: r.userId === user.uid
       }));
 
-      return res.json({ topRankers, myRank, totalParticipants, uniqueStudents, percentile });
+      return res.json({ topRankers, myRank, totalParticipants });
     } catch (error: any) {
       console.error("[test-leaderboard] failed:", error);
       return res.status(500).json({ error: "Failed to fetch leaderboard" });
-    }
-  });
-
-  // Per-question community stats (avg correct %, avg time) aggregated from mock_question_analysis
-  app.get("/api/test-question-stats/:testId", verifyToken, async (req, res) => {
-    const currentDb = getDb();
-    if (!currentDb) return res.status(503).json({ error: "Database offline" });
-    const { testId } = req.params;
-    try {
-      const analysisSnap = await currentDb.collection("mock_question_analysis")
-        .where("testId", "==", testId)
-        .get();
-
-      const statsMap: Record<string, { attempts: number; correct: number; totalTime: number }> = {};
-      analysisSnap.docs.forEach(doc => {
-        const d = doc.data();
-        const qId = d.questionId as string;
-        if (!qId) return;
-        if (!statsMap[qId]) statsMap[qId] = { attempts: 0, correct: 0, totalTime: 0 };
-        statsMap[qId].attempts++;
-        if (d.isCorrect) statsMap[qId].correct++;
-        statsMap[qId].totalTime += d.timeTakenSeconds || 0;
-      });
-
-      const stats: Record<string, { totalAttempts: number; correctPercent: number; avgTimeSecs: number }> = {};
-      for (const [qId, s] of Object.entries(statsMap)) {
-        stats[qId] = {
-          totalAttempts: s.attempts,
-          correctPercent: s.attempts > 0 ? parseFloat(((s.correct / s.attempts) * 100).toFixed(1)) : 0,
-          avgTimeSecs: s.attempts > 0 ? parseFloat((s.totalTime / s.attempts).toFixed(1)) : 0
-        };
-      }
-
-      return res.json({ stats });
-    } catch (error: any) {
-      console.error("[test-question-stats] failed:", error);
-      return res.status(500).json({ error: "Failed to fetch question stats" });
     }
   });
 

@@ -29,8 +29,7 @@ export default function TestRunner() {
   const [showInstructions, setShowInstructions] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  const [leaderboard, setLeaderboard] = useState<{ topRankers: { rank: number; name: string; score: number }[]; myRank: number; totalParticipants: number; uniqueStudents: number; percentile: number } | null>(null);
-  const [questionStats, setQuestionStats] = useState<Record<string, { totalAttempts: number; correctPercent: number; avgTimeSecs: number }>>({});
+  const [leaderboard, setLeaderboard] = useState<{ topRankers: { rank: number; name: string; score: number }[]; myRank: number; totalParticipants: number } | null>(null);
   const leaderboardPollRef = useRef<any>(null);
 
   const isSubmittingRef = useRef(false);
@@ -232,22 +231,15 @@ export default function TestRunner() {
       const responseData = await res.json();
       setResult(responseData);
 
+      // Fetch leaderboard and start polling for real-time rank updates.
+      // Pass myScore so the endpoint can include this submission even if Firestore
+      // hasn't propagated it yet (brief replication lag after submit).
       const submittedScore = parseFloat(responseData.score);
-      const firstAttempt = !!responseData.isFirstAttempt;
-
-      // Fetch question stats for analysis view
-      user.getIdToken().then(tk => {
-        fetch(`/api/test-question-stats/${testId}`, { headers: { 'Authorization': `Bearer ${tk}` } })
-          .then(r => r.ok ? r.json() : null)
-          .then(d => { if (d?.stats) setQuestionStats(d.stats); })
-          .catch(() => {});
-      });
-
       const fetchLeaderboard = async () => {
         try {
           const tk = await user.getIdToken();
           const lbRes = await fetch(
-            `/api/test-leaderboard/${testId}?myScore=${encodeURIComponent(submittedScore)}&isFirstAttempt=${firstAttempt}`,
+            `/api/test-leaderboard/${testId}?myScore=${encodeURIComponent(submittedScore)}`,
             { headers: { 'Authorization': `Bearer ${tk}` } }
           );
           if (lbRes.ok) setLeaderboard(await lbRes.json());
@@ -440,55 +432,6 @@ export default function TestRunner() {
 
         <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-[#f8f9fa]">
           <div className="max-w-4xl mx-auto space-y-8 pb-20">
-
-            {/* Topic-wise summary */}
-            {(() => {
-              const topicMap: Record<string, { total: number; correct: number; wrong: number; unattempted: number }> = {};
-              questions.forEach(q => {
-                const topic = q.topic || 'General';
-                if (!topicMap[topic]) topicMap[topic] = { total: 0, correct: 0, wrong: 0, unattempted: 0 };
-                topicMap[topic].total++;
-                const correctAnswer = result.analysis[q.id];
-                const storedIdx = answers[q.id];
-                const origQ = questions.find((oq: any) => oq.id === q.id);
-                const userChoice = (storedIdx !== undefined && origQ) ? (origQ.options[parseInt(storedIdx)] || '') : '';
-                if (!userChoice) topicMap[topic].unattempted++;
-                else if (userChoice === correctAnswer) topicMap[topic].correct++;
-                else topicMap[topic].wrong++;
-              });
-              const entries = Object.entries(topicMap);
-              if (entries.length <= 1) return null;
-              return (
-                <div className="bg-white rounded-[32px] border border-indigo-100 p-6 shadow-sm">
-                  <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <Target className="w-4 h-4 text-indigo-500" />
-                    Topic-wise Analysis
-                  </h3>
-                  <div className="space-y-3">
-                    {entries.map(([topic, s]) => {
-                      const pct = s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0;
-                      return (
-                        <div key={topic}>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-bold text-slate-700">{topic}</span>
-                            <span className="text-[10px] font-black text-slate-500">{s.correct}/{s.total} correct ({pct}%)</span>
-                          </div>
-                          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                            <div className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-500 transition-all" style={{ width: `${pct}%` }} />
-                          </div>
-                          <div className="flex gap-3 mt-1 text-[9px] font-bold uppercase tracking-widest">
-                            <span className="text-emerald-600">{s.correct} correct</span>
-                            <span className="text-rose-500">{s.wrong} wrong</span>
-                            <span className="text-slate-400">{s.unattempted} skipped</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
-
             {questions.map((q, idx) => {
               const correctAnswer = result.analysis[q.id];
               const storedIdx = answers[q.id];
@@ -577,23 +520,7 @@ export default function TestRunner() {
                       })}
                     </div>
 
-                    {/* Community stats row */}
-                    {questionStats[q.id] && (
-                      <div className="mt-6 flex flex-wrap gap-2 text-[9px] font-black uppercase tracking-widest">
-                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-violet-50 text-violet-700 rounded-lg border border-violet-100">
-                          <span>Avg correct: {questionStats[q.id].correctPercent}%</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-sky-50 text-sky-700 rounded-lg border border-sky-100">
-                          <Clock className="w-3 h-3" />
-                          <span>Avg time: {questionStats[q.id].avgTimeSecs}s</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 text-slate-500 rounded-lg border border-slate-100">
-                          <span>{questionStats[q.id].totalAttempts} attempts</span>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="mt-4 pt-6 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                    <div className="mt-8 pt-6 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
                       <div className="flex items-center gap-4 flex-wrap">
                         <div className="flex items-center gap-2">
                           <Target className="w-3.5 h-3.5 text-indigo-400" />
@@ -607,7 +534,7 @@ export default function TestRunner() {
                           return (
                             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-lg border border-indigo-100">
                               <Clock className="w-3 h-3" />
-                              <span>Your time: {timeStr}</span>
+                              <span>Time: {timeStr}</span>
                             </div>
                           );
                         })()}
@@ -660,22 +587,14 @@ export default function TestRunner() {
 
   // ─── Result Summary Screen ────────────────────────────────────────────────────
   if (result) {
+    // Show '...' until the test-specific leaderboard loads — result.rank is the
+    // global cumulative rank which is unrelated to this test's participant count.
     const rankDisplay = leaderboard
       ? `${leaderboard.myRank}/${leaderboard.totalParticipants}`
       : '...';
     const accuracy = result.totalQuestions > 0
       ? ((result.correctAnswers / result.totalQuestions) * 100).toFixed(1)
       : result.accuracy ?? 0;
-    const accuracyNum = parseFloat(String(accuracy));
-
-    // Performance feedback based on accuracy
-    const feedbackConfig = accuracyNum >= 90
-      ? { msg: 'Excellent! You are exam ready. Keep it up!', color: 'text-emerald-300', bg: 'rgba(16,185,129,0.12)', border: 'border-emerald-500/30', emoji: '🔥' }
-      : accuracyNum >= 70
-      ? { msg: 'Good performance! Practice more to improve speed and accuracy.', color: 'text-sky-300', bg: 'rgba(14,165,233,0.12)', border: 'border-sky-500/30', emoji: '👍' }
-      : accuracyNum >= 50
-      ? { msg: 'Average performance. Focus on weak areas and regular practice.', color: 'text-amber-300', bg: 'rgba(245,158,11,0.12)', border: 'border-amber-500/30', emoji: '📈' }
-      : { msg: 'You need more practice. Analyze your mistakes carefully and improve your concepts.', color: 'text-rose-300', bg: 'rgba(239,68,68,0.12)', border: 'border-rose-500/30', emoji: '⚠️' };
 
     return (
       <div className="min-h-screen flex items-center justify-center p-4"
@@ -700,23 +619,14 @@ export default function TestRunner() {
               <p className="text-slate-400 text-sm font-medium">Your performance has been evaluated and recorded.</p>
             </div>
 
-            {/* Performance feedback banner */}
-            <div className="mx-6 mb-4 rounded-2xl border p-4 flex items-start gap-3"
-              style={{ background: feedbackConfig.bg, borderColor: feedbackConfig.border.replace('border-', '') }}>
-              <span className="text-2xl shrink-0">{feedbackConfig.emoji}</span>
-              <p className={`text-sm font-bold leading-snug ${feedbackConfig.color}`}>{feedbackConfig.msg}</p>
-            </div>
-
             <div className="px-6 pb-6 grid grid-cols-2 gap-3">
               {[
                 { label: 'Your Score', value: result.score, textColor: 'text-indigo-300', border: 'border-indigo-500/20' },
                 { label: 'Your Rank', value: leaderboard ? `Rank-${rankDisplay}` : '...', textColor: 'text-amber-300', border: 'border-amber-500/20' },
-                { label: 'Percentile', value: leaderboard ? `${leaderboard.percentile}%ile` : '...', textColor: 'text-violet-300', border: 'border-violet-500/20' },
                 { label: 'Accuracy', value: `${accuracy}%`, textColor: 'text-emerald-300', border: 'border-emerald-500/20' },
                 { label: 'Correct', value: result.correctAnswers, textColor: 'text-teal-300', border: 'border-teal-500/20' },
                 { label: 'Wrong', value: result.wrongAnswers, textColor: 'text-rose-300', border: 'border-rose-500/20' },
                 { label: 'Skipped', value: result.unattempted, textColor: 'text-slate-400', border: 'border-slate-500/20' },
-                { label: 'Unique Students', value: leaderboard ? `${leaderboard.uniqueStudents.toLocaleString()}` : '...', textColor: 'text-sky-300', border: 'border-sky-500/20' },
               ].map((stat) => (
                 <div key={stat.label} className={`rounded-2xl border p-4 text-center ${stat.border}`}
                   style={{ background: 'rgba(255,255,255,0.04)' }}>
