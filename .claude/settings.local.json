@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npx tsc *)",
+      "Bash(node --input-type=module --eval \"import\\('./server.ts'\\).catch\\(e => console.error\\('STARTUP ERROR:', e.message\\)\\)\")"
+    ]
+  }
+}
