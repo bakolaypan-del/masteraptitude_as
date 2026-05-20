@@ -3817,10 +3817,90 @@ function AdminHome() {
                   );
                 })()}
 
+                {/* ── Top 10 Visual Leaderboard (student-panel style) ── */}
+                {analysisModalData.leaderboard.length > 0 && (() => {
+                  const top10 = (analysisModalData.leaderboard as any[]).slice(0, 10);
+                  const podium = [top10[1], top10[0], top10[2]]; // order: 2nd | 1st | 3rd
+                  const rest   = top10.slice(3);
+                  const medals = ['🥈', '🥇', '🥉'];
+                  const podiumH   = ['h-20', 'h-28', 'h-16'];
+                  const podiumBg  = [
+                    'from-slate-300 to-slate-400',
+                    'from-amber-400 to-yellow-500',
+                    'from-orange-300 to-amber-400',
+                  ];
+                  const podiumRank = [2, 1, 3];
+                  return (
+                    <div className="bg-gradient-to-br from-slate-900 to-indigo-950 rounded-3xl p-6 space-y-5">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest">🏆 Top 10 Leaderboard</h4>
+                        <span className="text-[10px] font-black text-indigo-300 bg-indigo-900/50 px-3 py-1 rounded-full border border-indigo-800">
+                          {analysisModalData.leaderboard.length} Students Ranked
+                        </span>
+                      </div>
+
+                      {/* Podium — top 3 */}
+                      <div className="flex items-end justify-center gap-2 pt-2">
+                        {podium.map((entry: any, i: number) => {
+                          if (!entry) return <div key={i} className="flex-1 max-w-[120px]" />;
+                          return (
+                            <div key={i} className="flex flex-col items-center flex-1 max-w-[120px]">
+                              <span className="text-2xl mb-1">{medals[i]}</span>
+                              <p className="text-[11px] font-black text-white text-center truncate w-full px-1 mb-0.5">
+                                {entry.name || 'Student'}
+                              </p>
+                              <p className="text-sm font-black text-amber-300 mb-1.5">{entry.score ?? 0}</p>
+                              <div className={`w-full ${podiumH[i]} bg-gradient-to-b ${podiumBg[i]} rounded-t-2xl flex items-center justify-center shadow-lg`}>
+                                <span className="text-white font-black text-lg">#{podiumRank[i]}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Ranks 4–10 */}
+                      {rest.length > 0 && (
+                        <div className="space-y-1.5 pt-1">
+                          {rest.map((entry: any, idx: number) => (
+                            <div key={idx} className="flex items-center gap-3 bg-white/5 hover:bg-white/10 rounded-xl px-4 py-2.5 transition-colors">
+                              <span className="text-xs font-black text-slate-400 w-6 shrink-0">#{idx + 4}</span>
+                              <span className="flex-1 text-sm font-bold text-slate-200 truncate">{entry.name || 'Student'}</span>
+                              <span className="text-sm font-black text-indigo-300 font-mono shrink-0">{entry.score ?? 0}</span>
+                              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${
+                                (entry.accuracy || 0) >= 70 ? 'bg-emerald-900/60 text-emerald-300' :
+                                (entry.accuracy || 0) >= 50 ? 'bg-amber-900/60 text-amber-300' :
+                                'bg-rose-900/60 text-rose-300'
+                              }`}>
+                                {entry.accuracy || 0}%
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Rank + percentile summary strip */}
+                      <div className="grid grid-cols-3 gap-3 pt-2 border-t border-white/10">
+                        <div className="text-center">
+                          <p className="text-xl font-black text-white">{analysisModalData.uniqueStudents}</p>
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Total Students</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xl font-black text-amber-400">{top10[0]?.score ?? 0}</p>
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Top Score</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xl font-black text-emerald-400">{analysisModalData.avgScore}</p>
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Avg Score</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* Leaderboard with search/filter */}
                 <div>
                   <div className="flex flex-wrap items-center gap-3 mb-4">
-                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex-1">Leaderboard (First Attempt Only)</h4>
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex-1">Full Student Rankings (First Attempt Only)</h4>
                     <div className="relative">
                       <input
                         type="text" value={analysisModalSearch} onChange={e => setAnalysisModalSearch(e.target.value)}
