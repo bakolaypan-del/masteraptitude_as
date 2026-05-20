@@ -14,7 +14,7 @@ import AdminTypingTests from '../components/AdminTypingTests';
 import { Keyboard } from 'lucide-react';
 import { RenderMathText } from '../components/MathRenderer';
 
-type AdminTab = 'students' | 'mock' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'student_analysis';
+type AdminTab = 'students' | 'mock' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'blog';
 
 // ─── Image Cropper Modal ─────────────────────────────────────────────────────
 function ImageCropper({
@@ -272,6 +272,7 @@ function AdminHome() {
   const [selectedAttemptForDeepAnalysis, setSelectedAttemptForDeepAnalysis] = useState<any | null>(null);
   const [deepAnalysisQuestions, setDeepAnalysisQuestions] = useState<any[]>([]);
   const [loadingDeepAnalysis, setLoadingDeepAnalysis] = useState(false);
+  const [deepAnalysisStudentView, setDeepAnalysisStudentView] = useState(false);
   
   // Test Form
   const [editingTestId, setEditingTestId] = useState<string | null>(null);
@@ -365,6 +366,34 @@ function AdminHome() {
   const [socialWhatsapp, setSocialWhatsapp] = useState('');
   const [savingSocials, setSavingSocials] = useState(false);
 
+  // Mock Test Analysis Modal
+  const [analysisModalTest, setAnalysisModalTest] = useState<any | null>(null);
+  const [analysisModalData, setAnalysisModalData] = useState<any | null>(null);
+  const [analysisModalLoading, setAnalysisModalLoading] = useState(false);
+  const [analysisModalSearch, setAnalysisModalSearch] = useState('');
+  const [analysisModalFilter, setAnalysisModalFilter] = useState<'all' | 'top' | 'failed' | 'low_accuracy'>('all');
+
+  // Blog / News form
+  const [blogPosts, setBlogPosts] = useState<any[]>([]);
+  const [blogLoading, setBlogLoading] = useState(false);
+  const [showBlogForm, setShowBlogForm] = useState(false);
+  const [editingBlogId, setEditingBlogId] = useState<string | null>(null);
+  const [blogTitle, setBlogTitle] = useState('');
+  const [blogContent, setBlogContent] = useState('');
+  const [blogTags, setBlogTags] = useState('');
+  const [blogCategory, setBlogCategory] = useState('News');
+  const [blogPublishDate, setBlogPublishDate] = useState('');
+  const [blogThumbnailFile, setBlogThumbnailFile] = useState<File | null>(null);
+  const [blogThumbnailPreview, setBlogThumbnailPreview] = useState('');
+  const [blogThumbnailUrl, setBlogThumbnailUrl] = useState('');
+  const [uploadingBlogThumb, setUploadingBlogThumb] = useState(false);
+  const [blogSeoTitle, setBlogSeoTitle] = useState('');
+  const [blogMetaDesc, setBlogMetaDesc] = useState('');
+  const [blogKeywords, setBlogKeywords] = useState('');
+  const [blogSlug, setBlogSlug] = useState('');
+  const [blogIsTrending, setBlogIsTrending] = useState(false);
+  const [blogSavingPost, setBlogSavingPost] = useState(false);
+
   const { user, profile } = useAuth();
   const passwordInputRef = useRef<HTMLInputElement>(null);
 
@@ -396,6 +425,7 @@ function AdminHome() {
     const qAffairs = query(collection(db, 'affairs'), orderBy('createdAt', 'desc'));
     const qPractice = query(collection(db, 'practice_sets'), orderBy('createdAt', 'desc'));
     const qCarousels = query(collection(db, 'carousel'), orderBy('createdAt', 'desc'));
+    const qBlogPosts = query(collection(db, 'news_posts'), orderBy('createdAt', 'desc'));
     const qStudents = query(collection(db, 'profiles'), where('role', 'in', ['user', 'student']));
 
     const unsubStudents = onSnapshot(qStudents, (snap) => {
@@ -433,6 +463,10 @@ function AdminHome() {
 
     const unsubCarousels = onSnapshot(qCarousels, (snap) => {
       setCarousels(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (err) => console.error(err));
+
+    const unsubBlog = onSnapshot(qBlogPosts, (snap) => {
+      setBlogPosts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (err) => console.error(err));
 
     const unsubSocials = onSnapshot(doc(db, 'settings', 'social_links'), (snap) => {
@@ -494,6 +528,7 @@ function AdminHome() {
       unsubAffairs();
       unsubPractice();
       unsubCarousels();
+      unsubBlog();
       unsubSocials();
       unsubInfo();
       clearInterval(statsInterval);
@@ -1335,6 +1370,136 @@ function AdminHome() {
     }
   };
 
+  // ─── Open Mock Test Analysis Modal ──────────────────────────────────────────
+  const openAnalysisModal = async (test: any) => {
+    setAnalysisModalTest(test);
+    setAnalysisModalData(null);
+    setAnalysisModalLoading(true);
+    setAnalysisModalSearch('');
+    setAnalysisModalFilter('all');
+    try {
+      const token = await user?.getIdToken();
+      const res = await fetch(`/api/admin/test-analysis/${test.id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = res.ok ? await res.json() : {};
+      const entries: any[] = data.leaderboard || [];
+      setAnalysisModalData({
+        leaderboard: entries,
+        uniqueStudents: data.uniqueStudents || 0,
+        totalAttempts: data.totalAttempts || entries.length,
+        avgScore: data.avgScore || 0,
+        highScore: data.highScore || 0,
+      });
+    } catch (err) {
+      console.error(err);
+      setAnalysisModalData({ leaderboard: [], uniqueStudents: 0, totalAttempts: 0, avgScore: 0, highScore: 0 });
+    } finally {
+      setAnalysisModalLoading(false);
+    }
+  };
+
+  // ─── Blog handlers ────────────────────────────────────────────────────────────
+  const slugify = (text: string) =>
+    text.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').slice(0, 80);
+
+  const handleBlogSave = async () => {
+    if (!blogTitle.trim() || !blogContent.trim() || !user) return;
+    const slug = blogSlug.trim() || slugify(blogTitle);
+    setBlogSavingPost(true);
+    try {
+      let finalThumbUrl = blogThumbnailUrl;
+      if (blogThumbnailFile) {
+        setUploadingBlogThumb(true);
+        const fileName = `blog_${Date.now()}_${blogThumbnailFile.name}`;
+        const fileRef = ref(storage, `blog_thumbnails/${fileName}`);
+        const snapshot = await uploadBytes(fileRef, blogThumbnailFile);
+        finalThumbUrl = await getDownloadURL(snapshot.ref);
+        setUploadingBlogThumb(false);
+      }
+      const postData: any = {
+        title: blogTitle.trim(),
+        content: blogContent.trim(),
+        tags: blogTags.split(',').map(t => t.trim()).filter(Boolean),
+        category: blogCategory,
+        publishDate: blogPublishDate || new Date().toISOString().split('T')[0],
+        thumbnailUrl: finalThumbUrl,
+        seoTitle: blogSeoTitle.trim() || blogTitle.trim(),
+        metaDescription: blogMetaDesc.trim(),
+        keywords: blogKeywords.split(',').map(k => k.trim()).filter(Boolean),
+        slug,
+        isTrending: blogIsTrending,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+      if (editingBlogId) {
+        await updateDoc(doc(db, 'news_posts', editingBlogId), { ...postData, createdAt: undefined });
+      } else {
+        await addDoc(collection(db, 'news_posts'), postData);
+      }
+      // Reset form
+      setBlogTitle(''); setBlogContent(''); setBlogTags(''); setBlogCategory('News');
+      setBlogPublishDate(''); setBlogThumbnailFile(null); setBlogThumbnailPreview(''); setBlogThumbnailUrl('');
+      setBlogSeoTitle(''); setBlogMetaDesc(''); setBlogKeywords(''); setBlogSlug(''); setBlogIsTrending(false);
+      setEditingBlogId(null); setShowBlogForm(false);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to save blog post');
+    } finally {
+      setBlogSavingPost(false);
+      setUploadingBlogThumb(false);
+    }
+  };
+
+  const handleEditBlog = (post: any) => {
+    setEditingBlogId(post.id);
+    setBlogTitle(post.title || '');
+    setBlogContent(post.content || '');
+    setBlogTags((post.tags || []).join(', '));
+    setBlogCategory(post.category || 'News');
+    setBlogPublishDate(post.publishDate || '');
+    setBlogThumbnailUrl(post.thumbnailUrl || '');
+    setBlogThumbnailPreview(post.thumbnailUrl || '');
+    setBlogThumbnailFile(null);
+    setBlogSeoTitle(post.seoTitle || '');
+    setBlogMetaDesc(post.metaDescription || '');
+    setBlogKeywords((post.keywords || []).join(', '));
+    setBlogSlug(post.slug || '');
+    setBlogIsTrending(post.isTrending || false);
+    setShowBlogForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDeleteBlog = async (postId: string) => {
+    if (!confirm('Delete this post permanently?')) return;
+    try {
+      await deleteDoc(doc(db, 'news_posts', postId));
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete post');
+    }
+  };
+
+  // Export analysis as CSV
+  const exportAnalysisCSV = () => {
+    if (!analysisModalData || !analysisModalTest) return;
+    const rows = [['Rank', 'Name', 'Score', 'Accuracy', 'Time (min)', 'Attempt #', 'Date']];
+    (analysisModalData.leaderboard || []).forEach((e: any, i: number) => {
+      rows.push([
+        String(i + 1), e.name || 'Student', String(e.score || 0),
+        `${e.accuracy || 0}%`, String(Math.round((e.timeTaken || 0) / 60)),
+        String(e.attemptNumber || 1),
+        e.submittedAt ? new Date(e.submittedAt).toLocaleDateString() : 'N/A',
+      ]);
+    });
+    const csvContent = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url;
+    a.download = `${analysisModalTest.title || 'analysis'}_leaderboard.csv`;
+    a.click(); URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-8">
       {/* Admin Tab Navigation */}
@@ -1436,575 +1601,16 @@ function AdminHome() {
           About & Contact Info
         </button>
         <button
-          onClick={() => setActiveTab('student_analysis')}
+          onClick={() => setActiveTab('blog')}
           className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all
-            ${activeTab === 'student_analysis' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' : 'text-slate-500 hover:text-indigo-600 hover:bg-indigo-50'}`}
+            ${activeTab === 'blog' ? 'bg-violet-600 text-white shadow-md shadow-violet-100' : 'text-slate-500 hover:text-violet-600 hover:bg-violet-50'}`}
         >
-          <UserIcon className="w-4 h-4" />
-          STUDENT ANALYSIS
+          <BookOpen className="w-4 h-4" />
+          News & Blog
         </button>
       </div>
 
-      {activeTab === 'student_analysis' && (() => {
-        const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
-        const [studentAttempts, setStudentAttempts] = useState<any[]>([]);
-        const [loadingAttempts, setLoadingAttempts] = useState(false);
-        const [selectedAttempt, setSelectedAttempt] = useState<any | null>(null);
-        const [deepQuestions, setDeepQuestions] = useState<any[]>([]);
-        const [loadingDeep, setLoadingDeep] = useState(false);
-        const [searchQuery, setSearchQuery] = useState('');
-
-        // Load attempts for selected student
-        useEffect(() => {
-          if (!selectedStudent) return;
-          async function fetchAttempts() {
-            setLoadingAttempts(true);
-            setSelectedAttempt(null);
-            setDeepQuestions([]);
-            try {
-              const token = await auth.currentUser?.getIdToken();
-              const res = await fetch(`/api/admin/student-attempts/${selectedStudent.id}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-              });
-              if (res.ok) {
-                const data = await res.json();
-                setStudentAttempts(data.attempts || []);
-              }
-            } catch (err) {
-              console.error(err);
-            } finally {
-              setLoadingAttempts(false);
-            }
-          }
-          fetchAttempts();
-        }, [selectedStudent]);
-
-        // Load deep questions when attempt is clicked
-        useEffect(() => {
-          if (!selectedAttempt) return;
-          async function fetchDeepQuestions() {
-            setLoadingDeep(true);
-            try {
-              const token = await auth.currentUser?.getIdToken();
-              const res = await fetch(`/api/admin/test-attempt-analysis/${selectedAttempt.id}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-              });
-              if (res.ok) {
-                const data = await res.json();
-                setDeepQuestions(data.questions || []);
-              }
-            } catch (err) {
-              console.error(err);
-            } finally {
-              setLoadingDeep(false);
-            }
-          }
-          fetchDeepQuestions();
-        }, [selectedAttempt]);
-
-        // Export PDF
-        const handlePDFExport = (student: any, attempts: any[]) => {
-          const doc = new jsPDF();
-          doc.setFontSize(22);
-          doc.setTextColor(79, 70, 229);
-          doc.text(`Master Aptitude Student Performance Report`, 14, 20);
-
-          doc.setFontSize(11);
-          doc.setTextColor(100, 116, 139);
-          doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 27);
-
-          doc.setFontSize(13);
-          doc.setTextColor(30, 41, 59);
-          doc.text(`Basic Information`, 14, 38);
-          doc.line(14, 40, 196, 40);
-
-          doc.setFontSize(11);
-          doc.text(`Student Name: ${student.name}`, 14, 48);
-          doc.text(`Mobile Number: ${student.phoneNumber || 'N/A'}`, 14, 55);
-          doc.text(`Email: ${student.email || 'N/A'}`, 14, 62);
-          doc.text(`Course: ${student.courseName || 'General Course'}`, 14, 69);
-          doc.text(`Registered: ${student.registrationDate ? new Date(student.registrationDate).toLocaleDateString() : 'N/A'}`, 14, 76);
-
-          doc.setFontSize(13);
-          doc.text(`Performance History`, 14, 90);
-          doc.line(14, 92, 196, 92);
-
-          const headers = [["Mock Test Title", "Score Obtained", "Accuracy %", "Rank", "Date Attempted"]];
-          const tableData = attempts.map(att => [
-            att.testTitle,
-            att.score,
-            `${att.accuracy}%`,
-            att.rank || 'N/A',
-            new Date(att.createdAt).toLocaleDateString()
-          ]);
-
-          (doc as any).autoTable({
-            startY: 96,
-            head: headers,
-            body: tableData,
-            theme: 'striped',
-            headStyles: { fillColor: [79, 70, 229] }
-          });
-
-          doc.save(`${student.name}_analysis_report.pdf`);
-        };
-
-        // Export Excel (CSV)
-        const handleCSVExport = (student: any, attempts: any[]) => {
-          const csvRows = [
-            ["Mock Test", "Marks", "Accuracy", "Rank", "Date"],
-            ...attempts.map(att => [
-              att.testTitle,
-              att.score,
-              `${att.accuracy}%`,
-              att.rank || 'N/A',
-              new Date(att.createdAt).toLocaleDateString()
-            ])
-          ];
-          const csvContent = "data:text/csv;charset=utf-8," 
-            + csvRows.map(e => e.map(val => `"${val}"`).join(",")).join("\n");
-          const encodedUri = encodeURI(csvContent);
-          const link = document.createElement("a");
-          link.setAttribute("href", encodedUri);
-          link.setAttribute("download", `${student.name}_mock_history.csv`);
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        };
-
-        // Print Analysis
-        const handlePrint = () => {
-          window.print();
-        };
-
-        // Filters student list (Active only)
-        const activeStudents = students.filter(s => {
-          if (s.status === 'blocked') return false;
-          const matchesSearch = (s.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                (s.phoneNumber || '').includes(searchQuery) ||
-                                (s.email || '').toLowerCase().includes(searchQuery.toLowerCase());
-          return matchesSearch;
-        });
-
-        return (
-          <div className="space-y-8 animate-in fade-in duration-300">
-            {!selectedStudent ? (
-              // List View of Active Students
-              <div className="space-y-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
-                    <span className="w-2 h-8 bg-indigo-600 rounded-full"></span>
-                    STUDENT-WISE PERFORMANCE ANALYSIS
-                  </h2>
-                  <div className="flex flex-wrap gap-4 items-center">
-                    <div className="relative">
-                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                      <input 
-                        type="text"
-                        placeholder="Search student, mobile, email..."
-                        className="pl-11 pr-4 py-2.5 rounded-xl border-2 border-slate-200 focus:border-indigo-600 outline-hidden w-64 md:w-80 font-medium text-sm bg-white"
-                        value={searchQuery}
-                        onChange={e => setSearchQuery(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-                  <table className="min-w-full divide-y divide-slate-100">
-                    <thead className="bg-slate-50/50">
-                      <tr>
-                        <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Student Name</th>
-                        <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Mobile Number</th>
-                        <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Course</th>
-                        <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Total Mock Attempts</th>
-                        <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Status</th>
-                        <th className="px-8 py-5 text-right text-xs font-black text-slate-400 uppercase tracking-widest">View Analysis</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-slate-50">
-                      {activeStudents.map(student => (
-                        <tr key={student.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-8 py-6 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center font-black mr-4 uppercase">
-                                {(student.name || 'S').charAt(0)}
-                              </div>
-                              <span className="text-sm font-bold text-slate-800">{student.name}</span>
-                            </div>
-                          </td>
-                          <td className="px-8 py-6 whitespace-nowrap">
-                            <span className="text-sm font-medium text-slate-600">{student.phoneNumber || 'N/A'}</span>
-                          </td>
-                          <td className="px-8 py-6 whitespace-nowrap">
-                            <span className="text-sm text-slate-500 font-bold">{student.courseName || 'General Aptitude'}</span>
-                          </td>
-                          <td className="px-8 py-6 whitespace-nowrap">
-                            <span className="text-sm font-black text-indigo-600">{student.totalTestsTaken || 0}</span>
-                          </td>
-                          <td className="px-8 py-6 whitespace-nowrap">
-                            <span className="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-600">
-                              Active
-                            </span>
-                          </td>
-                          <td className="px-8 py-6 whitespace-nowrap text-right">
-                            <button 
-                              onClick={() => setSelectedStudent(student)}
-                              className="px-4 py-2 bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all"
-                            >
-                              VIEW DETAILS
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                      {activeStudents.length === 0 && (
-                        <tr>
-                          <td colSpan={6} className="py-12 text-center text-slate-400 font-bold">
-                            No active students found matching search.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ) : (
-              // Detailed Performance Dashboard View
-              <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
-                {/* Header Actions */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                  <div className="flex items-center gap-4">
-                    <button 
-                      onClick={() => setSelectedStudent(null)} 
-                      className="w-10 h-10 bg-slate-100 hover:bg-slate-200 rounded-xl flex items-center justify-center transition-colors"
-                      title="Back to Student List"
-                    >
-                      <ArrowLeft className="w-5 h-5 text-slate-600" />
-                    </button>
-                    <div>
-                      <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block mb-0.5">Student Dashboard</span>
-                      <h3 className="text-2xl font-black text-slate-800">{selectedStudent.name}</h3>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-3">
-                    <button 
-                      onClick={() => handlePDFExport(selectedStudent, studentAttempts)}
-                      className="px-4 py-2 bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all"
-                    >
-                      Export PDF
-                    </button>
-                    <button 
-                      onClick={() => handleCSVExport(selectedStudent, studentAttempts)}
-                      className="px-4 py-2 bg-emerald-50 hover:bg-emerald-600 text-emerald-600 hover:text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all"
-                    >
-                      Export Excel
-                    </button>
-                    <button 
-                      onClick={handlePrint}
-                      className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-black uppercase tracking-wider transition-all"
-                    >
-                      Print Analysis
-                    </button>
-                  </div>
-                </div>
-
-                {/* Dashboard Details Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  
-                  {/* Left: Basic Details & Advanced Metrics */}
-                  <div className="lg:col-span-1 space-y-8">
-                    
-                    {/* Basic details */}
-                    <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
-                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Basic Information</h4>
-                      
-                      <div className="space-y-4">
-                        <div>
-                          <span className="text-[9px] font-black text-slate-400 uppercase block">Name</span>
-                          <span className="text-sm font-bold text-slate-800">{selectedStudent.name}</span>
-                        </div>
-                        <div>
-                          <span className="text-[9px] font-black text-slate-400 uppercase block">Mobile Number</span>
-                          <span className="text-sm font-medium text-slate-600">{selectedStudent.phoneNumber || 'N/A'}</span>
-                        </div>
-                        <div>
-                          <span className="text-[9px] font-black text-slate-400 uppercase block">Email Address</span>
-                          <span className="text-sm font-medium text-slate-600">{selectedStudent.email || 'N/A'}</span>
-                        </div>
-                        <div>
-                          <span className="text-[9px] font-black text-slate-400 uppercase block">Registration Date</span>
-                          <span className="text-sm font-medium text-slate-500">
-                            {selectedStudent.registrationDate ? new Date(selectedStudent.registrationDate).toLocaleDateString() : 'N/A'}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-[9px] font-black text-slate-400 uppercase block">Course</span>
-                          <span className="text-sm font-bold text-indigo-600">{selectedStudent.courseName || 'General Aptitude'}</span>
-                        </div>
-                        <div>
-                          <span className="text-[9px] font-black text-slate-400 uppercase block">Active Status</span>
-                          <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase">
-                            Active
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Advanced Metrics */}
-                    {studentAttempts.length > 0 && (() => {
-                      // Compute Advanced Analytics
-                      const scores = studentAttempts.map(a => a.score || 0);
-                      const maxScore = Math.max(...scores);
-                      const minScore = Math.min(...scores);
-                      const totalTime = studentAttempts.reduce((acc, curr) => acc + (curr.timeTaken || 0), 0);
-                      const avgTime = Math.round(totalTime / studentAttempts.length);
-
-                      return (
-                        <div className="bg-slate-900 text-white p-8 rounded-3xl border border-slate-800 shadow-xl space-y-6">
-                          <h4 className="text-xs font-black text-indigo-400 uppercase tracking-widest">Advanced Statistics</h4>
-                          
-                          <div className="space-y-4">
-                            <div className="flex justify-between border-b border-slate-800 pb-2">
-                              <span className="text-xs text-slate-400 font-bold">Highest Score</span>
-                              <span className="text-sm font-black text-indigo-300 font-mono">{maxScore}</span>
-                            </div>
-                            <div className="flex justify-between border-b border-slate-800 pb-2">
-                              <span className="text-xs text-slate-400 font-bold">Lowest Score</span>
-                              <span className="text-sm font-black text-rose-400 font-mono">{minScore}</span>
-                            </div>
-                            <div className="flex justify-between border-b border-slate-800 pb-2">
-                              <span className="text-xs text-slate-400 font-bold">Average Solving Latency</span>
-                              <span className="text-sm font-black text-emerald-400 font-mono">{Math.floor(avgTime / 60)}m {avgTime % 60}s</span>
-                            </div>
-                            <div className="flex justify-between pb-2">
-                              <span className="text-xs text-slate-400 font-bold">Total Practice Time</span>
-                              <span className="text-sm font-black text-indigo-300 font-mono">{Math.floor(totalTime / 60)}m {totalTime % 60}s</span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })()}
-
-                  </div>
-
-                  {/* Right: Mock Test Summary, History & Deep Question analysis */}
-                  <div className="lg:col-span-2 space-y-8">
-                    
-                    {/* Overview Cards & History */}
-                    {loadingAttempts ? (
-                      <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-slate-100">
-                        <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                        <p className="text-slate-400 font-bold">Loading student logs...</p>
-                      </div>
-                    ) : (
-                      <>
-                        {/* Summary Metrics */}
-                        {(() => {
-                          const total = studentAttempts.length;
-                          const avgScore = total > 0 ? (studentAttempts.reduce((acc, curr) => acc + (curr.score || 0), 0) / total).toFixed(1) : '0.0';
-                          const avgAccuracy = total > 0 ? Math.round(studentAttempts.reduce((acc, curr) => acc + (curr.accuracy || 0), 0) / total) : 0;
-                          
-                          return (
-                            <div className="grid grid-cols-3 gap-4">
-                              <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-center">
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Mock Attempts</span>
-                                <span className="text-2xl font-black text-slate-900">{total}</span>
-                              </div>
-                              <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-center">
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Avg Score</span>
-                                <span className="text-2xl font-black text-indigo-600">{avgScore}</span>
-                              </div>
-                              <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-center">
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Avg Accuracy</span>
-                                <span className="text-2xl font-black text-emerald-600">{avgAccuracy}%</span>
-                              </div>
-                            </div>
-                          );
-                        })()}
-
-                        {/* Progression Graph */}
-                        <div className="bg-slate-900 text-white p-6 rounded-3xl border border-slate-800 space-y-4">
-                          <h5 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                            <TrendingUp className="w-4 h-4 text-emerald-400 animate-pulse" />
-                            Progression & Improvement Graph
-                          </h5>
-                          {studentAttempts.length > 1 ? (
-                            <div className="relative pt-4">
-                              <svg viewBox="0 0 500 150" className="w-full h-40 overflow-visible">
-                                <line x1="40" y1="10" x2="480" y2="10" stroke="#1e293b" strokeDasharray="3,3" />
-                                <line x1="40" y1="50" x2="480" y2="50" stroke="#1e293b" strokeDasharray="3,3" />
-                                <line x1="40" y1="90" x2="480" y2="90" stroke="#1e293b" strokeDasharray="3,3" />
-                                <line x1="40" y1="130" x2="480" y2="130" stroke="#1e293b" />
-
-                                {(() => {
-                                  const pts = [...studentAttempts].reverse().slice(-8);
-                                  const maxScore = Math.max(...pts.map(p => p.score), 100);
-                                  const xStep = pts.length > 1 ? 440 / (pts.length - 1) : 440;
-                                  
-                                  const pointsCoords = pts.map((p, idx) => {
-                                    const x = 40 + idx * xStep;
-                                    const y = 130 - ((p.score || 0) / maxScore) * 120;
-                                    return { x, y, score: p.score, title: p.testTitle };
-                                  });
-
-                                  const dPath = pointsCoords.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-
-                                  return (
-                                    <>
-                                      <path d={dPath} fill="none" stroke="url(#indigoGrad2)" strokeWidth="3" strokeLinecap="round" />
-                                      {pointsCoords.map((p, idx) => (
-                                        <g key={idx}>
-                                          <circle cx={p.x} cy={p.y} r="5" fill="#6366f1" />
-                                          <text x={p.x} y={p.y - 12} textAnchor="middle" fill="#a5b4fc" className="text-[10px] font-bold font-mono">
-                                            {p.score}
-                                          </text>
-                                          <text x={p.x} y="145" textAnchor="middle" fill="#64748b" className="text-[8px] font-medium">
-                                            {pts[idx].testTitle.substring(0, 10)}
-                                          </text>
-                                        </g>
-                                      ))}
-                                      <defs>
-                                        <linearGradient id="indigoGrad2" x1="0" y1="0" x2="1" y2="0">
-                                          <stop offset="0%" stopColor="#818cf8" />
-                                          <stop offset="100%" stopColor="#34d399" />
-                                        </linearGradient>
-                                      </defs>
-                                    </>
-                                  );
-                                })()}
-                              </svg>
-                            </div>
-                          ) : (
-                            <div className="h-40 flex items-center justify-center border border-slate-800 border-dashed rounded-2xl text-slate-500 text-sm font-bold">
-                              Take at least 2 mock tests to display progression graph.
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Mock History List */}
-                        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
-                          <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Mock Test History</h4>
-                          
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
-                              <thead>
-                                <tr className="border-b border-slate-100 text-slate-400">
-                                  <th className="pb-3 text-xs font-black uppercase tracking-widest">Mock Test</th>
-                                  <th className="pb-3 text-xs font-black uppercase tracking-widest">Marks</th>
-                                  <th className="pb-3 text-xs font-black uppercase tracking-widest">Accuracy</th>
-                                  <th className="pb-3 text-xs font-black uppercase tracking-widest">Rank</th>
-                                  <th className="pb-3 text-xs font-black uppercase tracking-widest">Date</th>
-                                  <th className="pb-3 text-xs font-black uppercase tracking-widest text-right">View Analysis</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {studentAttempts.map(attempt => (
-                                  <tr key={attempt.id} className="hover:bg-slate-50/50">
-                                    <td className="py-4 text-sm font-bold text-slate-800 truncate max-w-[200px]" title={attempt.testTitle}>
-                                      {attempt.testTitle}
-                                    </td>
-                                    <td className="py-4 text-sm font-mono font-bold text-indigo-600">{attempt.score}</td>
-                                    <td className="py-4">
-                                      <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 text-xs font-bold">
-                                        {attempt.accuracy}%
-                                      </span>
-                                    </td>
-                                    <td className="py-4 text-sm text-slate-500 font-bold">#{attempt.rank || 'N/A'}</td>
-                                    <td className="py-4 text-xs text-slate-500 font-medium">
-                                      {attempt.createdAt ? new Date(attempt.createdAt).toLocaleDateString() : 'N/A'}
-                                    </td>
-                                    <td className="py-4 text-right">
-                                      <button 
-                                        onClick={() => setSelectedAttempt(attempt)}
-                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors ${
-                                          selectedAttempt?.id === attempt.id 
-                                            ? 'bg-rose-600 text-white' 
-                                            : 'bg-slate-100 text-slate-600 hover:bg-indigo-600 hover:text-white'
-                                        }`}
-                                      >
-                                        Analyze
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))}
-                                {studentAttempts.length === 0 && (
-                                  <tr>
-                                    <td colSpan={6} className="py-12 text-center text-slate-400 font-bold">
-                                      No mock test attempts recorded yet.
-                                    </td>
-                                  </tr>
-                                )}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-
-                        {/* Deep Question analysis Matrix */}
-                        {selectedAttempt && (
-                          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6 animate-in fade-in duration-300">
-                            <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center justify-between">
-                              <span>Question-Wise Response Analysis — {selectedAttempt.testTitle}</span>
-                              <button 
-                                onClick={() => setSelectedAttempt(null)}
-                                className="text-[10px] text-rose-500 font-black uppercase tracking-widest hover:underline"
-                              >
-                                Clear Analysis
-                              </button>
-                            </h4>
-
-                            {loadingDeep ? (
-                              <div className="flex flex-col items-center justify-center py-10">
-                                <div className="w-8 h-8 border-4 border-rose-500 border-t-transparent rounded-full animate-spin mb-2"></div>
-                                <p className="text-slate-400 font-bold text-xs">Loading answers...</p>
-                              </div>
-                            ) : (
-                              <div className="overflow-x-auto">
-                                <table className="w-full text-left border-collapse">
-                                  <thead>
-                                    <tr className="border-b border-slate-100 text-slate-400">
-                                      <th className="pb-3 text-[10px] font-black uppercase tracking-widest">Question No</th>
-                                      <th className="pb-3 text-[10px] font-black uppercase tracking-widest">Student Answer</th>
-                                      <th className="pb-3 text-[10px] font-black uppercase tracking-widest">Correct Answer</th>
-                                      <th className="pb-3 text-[10px] font-black uppercase tracking-widest">Status</th>
-                                      <th className="pb-3 text-[10px] font-black uppercase tracking-widest text-right">Time Taken</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {deepQuestions.map(q => (
-                                      <tr key={q.questionNo} className="hover:bg-slate-50/50">
-                                        <td className="py-3 text-sm font-mono font-bold text-slate-800">Q{q.questionNo}</td>
-                                        <td className="py-3 text-sm font-mono font-bold text-slate-500">{q.studentAnswer || '--'}</td>
-                                        <td className="py-3 text-sm font-mono font-bold text-emerald-600">{q.correctAnswer}</td>
-                                        <td className="py-3">
-                                          <span className={`px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-wide ${
-                                            !q.studentAnswer ? 'bg-slate-100 text-slate-400' :
-                                            q.isCorrect ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
-                                          }`}>
-                                            {!q.studentAnswer ? 'Skipped' : q.isCorrect ? 'Correct' : 'Wrong'}
-                                          </span>
-                                        </td>
-                                        <td className="py-3 text-right text-xs font-mono text-slate-400">{q.timeTaken || 0} sec</td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </>
-                    )}
-
-                  </div>
-
-                </div>
-
-              </div>
-            )}
-          </div>
-        );
-      })()}
+      
 
       {activeTab === 'mock' && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -2418,6 +2024,13 @@ function AdminHome() {
                                   >
                                     Modify
                                   </Link>
+                                  <button
+                                    onClick={() => openAnalysisModal(test)}
+                                    className="text-emerald-600 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition-all border border-emerald-100 font-bold text-xs flex items-center gap-1"
+                                    title="View Analytics"
+                                  >
+                                    <TrendingUp className="w-3 h-3" /> Analysis
+                                  </button>
                                   <button
                                     onClick={() => handleDeleteContent('tests', test.id)}
                                     className="text-rose-500 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-all border border-rose-100 font-bold text-xs"
@@ -3705,193 +3318,252 @@ function AdminHome() {
 
                   {/* Deep Question-Wise Analysis Panel */}
                   {selectedAttemptForDeepAnalysis && (
-                    <div className="bg-slate-950/40 rounded-3xl border border-slate-850 p-6 space-y-8 animate-in fade-in duration-300">
-                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-800 pb-6 gap-4">
+                    <div className="bg-slate-950/40 rounded-3xl border border-slate-800 p-6 space-y-6 animate-in fade-in duration-300">
+                      {/* Header */}
+                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-800 pb-5 gap-4">
                         <div>
                           <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest block mb-1">Deep Dive Report</span>
-                          <h4 className="text-lg font-black text-white uppercase tracking-tight">{selectedAttemptForDeepAnalysis.testTitle}</h4>
+                          <h4 className="text-lg font-black text-white">{selectedAttemptForDeepAnalysis.testTitle}</h4>
                         </div>
-                        <div className="flex items-center gap-4 bg-slate-900/60 px-4 py-2 rounded-2xl border border-slate-800">
-                          <span className="text-xs text-slate-400 font-bold">Rank:</span>
-                          <span className="text-sm font-black text-indigo-400">#{selectedAttemptForDeepAnalysis.rank || 'N/A'}</span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {/* View as Student toggle */}
+                          <button
+                            onClick={() => setDeepAnalysisStudentView(v => !v)}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${deepAnalysisStudentView ? 'bg-indigo-600 text-white border-indigo-600' : 'border-slate-700 text-slate-400 hover:border-indigo-500 hover:text-indigo-300'}`}
+                          >
+                            <Play className="w-3 h-3" /> {deepAnalysisStudentView ? 'Admin View' : 'Student View'}
+                          </button>
+                          <button onClick={() => { setSelectedAttemptForDeepAnalysis(null); setDeepAnalysisQuestions([]); setDeepAnalysisStudentView(false); }} className="text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-rose-400 transition-colors px-3 py-1.5 rounded-lg border border-slate-700 hover:border-rose-500">
+                            Close
+                          </button>
                         </div>
                       </div>
 
                       {loadingDeepAnalysis ? (
-                        <div className="flex flex-col items-center justify-center py-10">
-                          <div className="w-10 h-10 border-4 border-rose-500 border-t-transparent rounded-full animate-spin mb-3"></div>
-                          <p className="text-slate-400 font-bold text-sm">Extracting response logs...</p>
+                        <div className="flex flex-col items-center justify-center py-16">
+                          <div className="w-10 h-10 border-4 border-rose-500 border-t-transparent rounded-full animate-spin mb-3" />
+                          <p className="text-slate-400 font-bold text-sm">Loading full question data...</p>
                         </div>
-                      ) : (
-                        <>
-                          {/* Subject-Wise and Time Analytics */}
-                          {(() => {
-                            const totalQuestions = deepAnalysisQuestions.length;
-                            const correctAnswers = deepAnalysisQuestions.filter(q => q.isCorrect).length;
-                            const wrongAnswers = deepAnalysisQuestions.filter(q => q.studentAnswer && !q.isCorrect).length;
-                            const skippedAnswers = deepAnalysisQuestions.filter(q => !q.studentAnswer).length;
-
-                            // Calculate Fastest/Slowest solved questions
-                            const solvedQuestions = deepAnalysisQuestions.filter(q => q.timeTaken > 0);
-                            const fastestQuestion = solvedQuestions.length > 0 
-                              ? solvedQuestions.reduce((min, q) => q.timeTaken < min.timeTaken ? q : min, solvedQuestions[0])
-                              : null;
-                            const slowestQuestion = solvedQuestions.length > 0
-                              ? solvedQuestions.reduce((max, q) => q.timeTaken > max.timeTaken ? q : max, solvedQuestions[0])
-                              : null;
-
-                            // Group by Subject
-                            const subjectStats: { [key: string]: { total: number, correct: number } } = {};
-                            deepAnalysisQuestions.forEach(q => {
-                              const sub = q.subject || 'General';
-                              if (!subjectStats[sub]) {
-                                subjectStats[sub] = { total: 0, correct: 0 };
-                              }
-                              subjectStats[sub].total += 1;
-                              if (q.isCorrect) subjectStats[sub].correct += 1;
-                            });
-
-                            const weakTopics: string[] = [];
-                            const strongTopics: string[] = [];
-                            Object.entries(subjectStats).forEach(([subject, stats]) => {
-                              const acc = (stats.correct / stats.total) * 100;
-                              if (acc >= 80) strongTopics.push(subject);
-                              else if (acc < 50) weakTopics.push(subject);
-                            });
-
-                            return (
-                              <div className="space-y-8">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                  
-                                  {/* Stats details & Timing metrics */}
-                                  <div className="bg-slate-900/60 p-6 rounded-2xl border border-slate-800 flex flex-col justify-between">
-                                    <div className="space-y-4">
-                                      <h5 className="text-xs font-black text-slate-400 uppercase tracking-widest">Question Summary</h5>
-                                      <div className="grid grid-cols-3 gap-2">
-                                        <div className="bg-emerald-500/10 p-3.5 rounded-xl border border-emerald-500/20 text-center">
-                                          <span className="text-xl font-bold text-emerald-400 block">{correctAnswers}</span>
-                                          <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Correct</span>
-                                        </div>
-                                        <div className="bg-rose-500/10 p-3.5 rounded-xl border border-rose-500/20 text-center">
-                                          <span className="text-xl font-bold text-rose-400 block">{wrongAnswers}</span>
-                                          <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Wrong</span>
-                                        </div>
-                                        <div className="bg-slate-800 p-3.5 rounded-xl text-center">
-                                          <span className="text-xl font-bold text-slate-300 block">{skippedAnswers}</span>
-                                          <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Skipped</span>
-                                        </div>
-                                      </div>
+                      ) : deepAnalysisQuestions.length > 0 && deepAnalysisStudentView ? (
+                        /* ── Student View Mode ──────────────────────────────── */
+                        <div className="space-y-5">
+                          <div className="flex items-center gap-2 px-4 py-3 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl">
+                            <Play className="w-3.5 h-3.5 text-indigo-400" />
+                            <span className="text-xs font-black text-indigo-400">Student View — this is exactly how {selectedStudentForAnalysis?.name || 'the student'} saw the questions</span>
+                          </div>
+                          {deepAnalysisQuestions.map(q => (
+                            <div key={q.questionNo} className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-4">
+                              <div className="flex items-center gap-3">
+                                <span className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-black text-sm shrink-0">{q.questionNo}</span>
+                                {q.topic && <span className="text-[9px] font-black text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-lg uppercase tracking-wider">{q.topic}</span>}
+                                <span className={`ml-auto px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider ${q.isSkipped ? 'bg-slate-100 text-slate-400' : q.isCorrect ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                  {q.isSkipped ? 'Skipped' : q.isCorrect ? '✓ Correct' : '✗ Wrong'}
+                                </span>
+                              </div>
+                              <p className="text-slate-800 font-medium text-sm leading-relaxed">{q.questionText}</p>
+                              {q.equationLatex && <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-center overflow-x-auto"><RenderMathText text={`$$${q.equationLatex}$$`} /></div>}
+                              {q.imageUrl && (
+                                <div className="rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 flex justify-center" style={{ maxHeight: 220 }}>
+                                  <img src={q.imageUrl} alt="" loading="eager" style={{ maxHeight: 220, objectFit: 'contain' }} className="rounded-xl"
+                                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                                </div>
+                              )}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {(q.options || []).map((opt: string, oi: number) => {
+                                  const letter = String.fromCharCode(65 + oi);
+                                  const isStudentChoice = opt === q.studentAnswer;
+                                  const isCorrectOpt = opt === q.correctAnswer;
+                                  let cls = 'border-slate-100 bg-slate-50 text-slate-500';
+                                  if (isCorrectOpt) cls = 'border-emerald-200 bg-emerald-50 text-emerald-800';
+                                  if (isStudentChoice && !isCorrectOpt) cls = 'border-rose-200 bg-rose-50 text-rose-700';
+                                  return (
+                                    <div key={oi} className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl border-2 ${cls}`}>
+                                      <span className={`w-7 h-7 rounded-xl flex items-center justify-center text-[10px] font-black shrink-0 ${isCorrectOpt ? 'bg-emerald-500 text-white' : isStudentChoice ? 'bg-rose-500 text-white' : 'bg-white text-slate-400 border border-slate-200'}`}>{letter}</span>
+                                      <span className="text-xs font-medium">{opt}</span>
                                     </div>
+                                  );
+                                })}
+                              </div>
+                              {(q.solution || q.explanation) && (
+                                <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl">
+                                  <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1.5">💡 Solution</p>
+                                  <p className="text-sm text-slate-700 leading-relaxed">{q.solution || q.explanation}</p>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : deepAnalysisQuestions.length > 0 ? (
+                        <>
+                          {/* ── Summary KPI row ─────────────────────────── */}
+                          {(() => {
+                            const qs = deepAnalysisQuestions;
+                            const correct = qs.filter(q => q.isCorrect).length;
+                            const wrong = qs.filter(q => !q.isCorrect && !q.isSkipped).length;
+                            const skipped = qs.filter(q => q.isSkipped).length;
+                            const totalScore = qs.reduce((s, q) => s + (q.marksEarned || 0), 0);
+                            const solvedQs = qs.filter(q => q.timeTaken > 0);
+                            const fastest = solvedQs.length ? solvedQs.reduce((m, q) => q.timeTaken < m.timeTaken ? q : m, solvedQs[0]) : null;
+                            const slowest = solvedQs.length ? solvedQs.reduce((m, q) => q.timeTaken > m.timeTaken ? q : m, solvedQs[0]) : null;
+                            return (
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 text-center">
+                                  <span className="text-2xl font-black text-emerald-400 block">{correct}</span>
+                                  <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Correct</span>
+                                  <span className="text-[9px] text-emerald-700/60 block mt-0.5">+{(correct * (qs[0]?.marksPerCorrect || 1)).toFixed(2)} marks</span>
+                                </div>
+                                <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-4 text-center">
+                                  <span className="text-2xl font-black text-rose-400 block">{wrong}</span>
+                                  <span className="text-[9px] font-black text-rose-600 uppercase tracking-widest">Wrong</span>
+                                  <span className="text-[9px] text-rose-700/60 block mt-0.5">-{(wrong * (qs[0]?.negativeMarks || 0.25)).toFixed(2)} marks</span>
+                                </div>
+                                <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 text-center">
+                                  <span className="text-2xl font-black text-slate-300 block">{skipped}</span>
+                                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Skipped</span>
+                                  <span className="text-[9px] text-slate-600 block mt-0.5">0 marks</span>
+                                </div>
+                                <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-4 text-center">
+                                  <span className="text-2xl font-black text-indigo-400 block font-mono">{totalScore >= 0 ? '+' : ''}{totalScore.toFixed(2)}</span>
+                                  <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">Net Score</span>
+                                  {fastest && <span className="text-[9px] text-slate-500 block mt-0.5">⚡ Q{fastest.questionNo} ({fastest.timeTaken}s)</span>}
+                                </div>
+                              </div>
+                            );
+                          })()}
 
-                                    <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-slate-800">
-                                      <div>
-                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-1">⚡ Fastest Answer</span>
-                                        <span className="text-sm font-bold text-emerald-400 font-mono">
-                                          {fastestQuestion ? `Q${fastestQuestion.questionNo} (${fastestQuestion.timeTaken}s)` : 'N/A'}
-                                        </span>
+                          {/* ── Subject-wise bars ────────────────────────── */}
+                          {(() => {
+                            const subjectMap: Record<string, { total: number; correct: number }> = {};
+                            deepAnalysisQuestions.forEach(q => {
+                              const sub = q.subject || q.topic || 'General';
+                              if (!subjectMap[sub]) subjectMap[sub] = { total: 0, correct: 0 };
+                              subjectMap[sub].total++;
+                              if (q.isCorrect) subjectMap[sub].correct++;
+                            });
+                            const subjects = Object.entries(subjectMap);
+                            if (subjects.length < 2) return null;
+                            return (
+                              <div className="bg-slate-900/60 rounded-2xl border border-slate-800 p-5 space-y-3">
+                                <h5 className="text-xs font-black text-slate-400 uppercase tracking-widest">Subject-Wise Performance</h5>
+                                {subjects.map(([sub, s]) => {
+                                  const acc = Math.round((s.correct / s.total) * 100);
+                                  return (
+                                    <div key={sub} className="flex items-center gap-3">
+                                      <span className="text-xs font-bold text-slate-300 w-28 shrink-0 truncate">{sub}</span>
+                                      <div className="flex-1 h-3 bg-slate-800 rounded-full overflow-hidden">
+                                        <div style={{ width: `${acc}%` }} className={`h-full rounded-full transition-all ${acc >= 75 ? 'bg-emerald-500' : acc >= 50 ? 'bg-indigo-500' : 'bg-rose-500'}`} />
                                       </div>
-                                      <div>
-                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-1">🐢 Slowest Answer</span>
-                                        <span className="text-sm font-bold text-rose-400 font-mono">
-                                          {slowestQuestion ? `Q${slowestQuestion.questionNo} (${slowestQuestion.timeTaken}s)` : 'N/A'}
-                                        </span>
-                                      </div>
+                                      <span className={`text-xs font-black w-12 text-right ${acc >= 75 ? 'text-emerald-400' : acc >= 50 ? 'text-indigo-400' : 'text-rose-400'}`}>{s.correct}/{s.total}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
+
+                          {/* ── Question Cards ───────────────────────────── */}
+                          <div className="space-y-4">
+                            <h5 className="text-xs font-black text-slate-400 uppercase tracking-widest">Question-Wise Analysis</h5>
+                            {deepAnalysisQuestions.map((q, idx) => {
+                              const resultColor = q.isSkipped ? 'border-slate-700 bg-slate-900/40' : q.isCorrect ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-rose-500/30 bg-rose-500/5';
+                              const resultBadge = q.isSkipped
+                                ? <span className="px-2.5 py-1 rounded-lg text-[9px] font-black bg-slate-800 text-slate-400 uppercase tracking-wider">Skipped</span>
+                                : q.isCorrect
+                                ? <span className="px-2.5 py-1 rounded-lg text-[9px] font-black bg-emerald-500/15 text-emerald-400 uppercase tracking-wider">✓ Correct</span>
+                                : <span className="px-2.5 py-1 rounded-lg text-[9px] font-black bg-rose-500/15 text-rose-400 uppercase tracking-wider">✗ Wrong</span>;
+
+                              return (
+                                <div key={q.questionNo} className={`rounded-2xl border p-5 space-y-4 ${resultColor}`}>
+                                  {/* Q# header row */}
+                                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                                    <div className="flex items-center gap-3 flex-wrap">
+                                      <span className="w-8 h-8 rounded-xl bg-slate-800 flex items-center justify-center text-xs font-black text-slate-300 shrink-0">{q.questionNo}</span>
+                                      {q.topic && <span className="text-[9px] font-black text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-lg uppercase tracking-wider">{q.topic}</span>}
+                                      {resultBadge}
+                                    </div>
+                                    <div className="flex items-center gap-3 text-[10px] font-black">
+                                      <span className="text-slate-500">⏱ {q.timeTaken || 0}s</span>
+                                      <span className={q.marksEarned > 0 ? 'text-emerald-400' : q.marksEarned < 0 ? 'text-rose-400' : 'text-slate-500'}>
+                                        {q.marksEarned > 0 ? '+' : ''}{(q.marksEarned || 0).toFixed(2)} marks
+                                      </span>
                                     </div>
                                   </div>
 
-                                  {/* Subject-Wise & Topics strengths */}
-                                  <div className="bg-slate-900/60 p-6 rounded-2xl border border-slate-800 space-y-6">
-                                    <h5 className="text-xs font-black text-slate-400 uppercase tracking-widest">Subject Analysis</h5>
-                                    
-                                    <div className="space-y-3 max-h-[160px] overflow-y-auto pr-2">
-                                      {Object.entries(subjectStats).map(([subject, stats]) => {
-                                        const accuracy = Math.round((stats.correct / stats.total) * 100);
+                                  {/* Question text */}
+                                  {q.questionText && (
+                                    <p className="text-sm font-medium text-slate-200 leading-relaxed">{q.questionText}</p>
+                                  )}
+
+                                  {/* Equation */}
+                                  {q.equationLatex && (
+                                    <div className="bg-slate-800 border border-slate-700 rounded-xl p-3 text-center overflow-x-auto">
+                                      <RenderMathText text={`$$${q.equationLatex}$$`} />
+                                    </div>
+                                  )}
+
+                                  {/* Question image */}
+                                  {q.imageUrl && (
+                                    <div className="rounded-xl overflow-hidden border border-slate-700 bg-slate-800/50">
+                                      <img
+                                        src={q.imageUrl}
+                                        alt={`Q${q.questionNo} figure`}
+                                        className="max-h-56 w-auto mx-auto object-contain p-2"
+                                        loading="eager"
+                                        onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                                      />
+                                    </div>
+                                  )}
+
+                                  {/* Options grid */}
+                                  {q.options && q.options.length > 0 && (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                      {q.options.map((opt: string, oi: number) => {
+                                        const letter = String.fromCharCode(65 + oi);
+                                        const isStudentChoice = opt === q.studentAnswer;
+                                        const isCorrectOpt = opt === q.correctAnswer;
+                                        let cls = 'border-slate-700 bg-slate-800/40 text-slate-400';
+                                        if (isCorrectOpt) cls = 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300';
+                                        if (isStudentChoice && !isCorrectOpt) cls = 'border-rose-500/40 bg-rose-500/10 text-rose-300';
                                         return (
-                                          <div key={subject} className="space-y-1">
-                                            <div className="flex justify-between text-xs font-bold text-slate-300">
-                                              <span>{subject}</span>
-                                              <span>{stats.correct}/{stats.total} ({accuracy}%)</span>
-                                            </div>
-                                            <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                                              <div 
-                                                style={{ width: `${accuracy}%` }} 
-                                                className={`h-full rounded-full ${accuracy >= 80 ? 'bg-emerald-500' : accuracy >= 50 ? 'bg-indigo-500' : 'bg-rose-500'}`}
-                                              ></div>
-                                            </div>
+                                          <div key={oi} className={`flex items-start gap-2.5 px-3 py-2.5 rounded-xl border ${cls}`}>
+                                            <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[9px] font-black shrink-0 ${isCorrectOpt ? 'bg-emerald-500/20 text-emerald-400' : isStudentChoice ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-700 text-slate-500'}`}>{letter}</span>
+                                            <span className="text-xs font-medium leading-relaxed flex-1">{opt}</span>
+                                            {isCorrectOpt && <span className="text-[8px] font-black text-emerald-500 uppercase shrink-0">✓ Correct</span>}
+                                            {isStudentChoice && !isCorrectOpt && <span className="text-[8px] font-black text-rose-500 uppercase shrink-0">Student</span>}
                                           </div>
                                         );
                                       })}
                                     </div>
-                                  </div>
+                                  )}
 
-                                </div>
-
-                                {/* Strengths and Weaknesses */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                  <div className="bg-emerald-500/5 p-5 rounded-2xl border border-emerald-500/10">
-                                    <h5 className="text-xs font-black text-emerald-400 uppercase tracking-widest mb-3">🔥 Student Strengths</h5>
-                                    <div className="flex flex-wrap gap-2">
-                                      {strongTopics.map(t => (
-                                        <span key={t} className="px-3 py-1.5 bg-emerald-500/10 text-emerald-400 text-xs font-black rounded-lg border border-emerald-500/20">{t}</span>
-                                      ))}
-                                      {strongTopics.length === 0 && <span className="text-slate-500 text-xs font-bold">No strong topics detected yet.</span>}
+                                  {/* Answer comparison row (when skipped) */}
+                                  {q.isSkipped && (
+                                    <div className="flex items-center gap-4 px-3 py-2 bg-slate-800/40 rounded-xl border border-slate-700">
+                                      <span className="text-[10px] text-slate-500 font-black uppercase tracking-wider">Correct Answer:</span>
+                                      <span className="text-sm font-black text-emerald-400">{q.correctAnswer}</span>
+                                      <span className="text-[10px] text-slate-500 font-black uppercase tracking-wider ml-4">Student:</span>
+                                      <span className="text-sm font-black text-slate-500 italic">Not attempted</span>
                                     </div>
-                                  </div>
-                                  <div className="bg-rose-500/5 p-5 rounded-2xl border border-rose-500/10">
-                                    <h5 className="text-xs font-black text-rose-400 uppercase tracking-widest mb-3">⚠️ Weak Areas</h5>
-                                    <div className="flex flex-wrap gap-2">
-                                      {weakTopics.map(t => (
-                                        <span key={t} className="px-3 py-1.5 bg-rose-500/10 text-rose-400 text-xs font-black rounded-lg border border-rose-500/20">{t}</span>
-                                      ))}
-                                      {weakTopics.length === 0 && <span className="text-slate-500 text-xs font-bold">No critical weak areas detected. Outstanding!</span>}
+                                  )}
+
+                                  {/* Solution / Explanation */}
+                                  {(q.solution || q.explanation) && (
+                                    <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-4 space-y-2">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-[9px] font-black text-amber-500 uppercase tracking-widest">💡 Solution &amp; Explanation</span>
+                                      </div>
+                                      <p className="text-sm text-slate-300 leading-relaxed">
+                                        {q.solution || q.explanation}
+                                      </p>
                                     </div>
-                                  </div>
+                                  )}
                                 </div>
-
-                                {/* Question-Wise Response Matrix */}
-                                <div className="space-y-4">
-                                  <h5 className="text-xs font-black text-slate-400 uppercase tracking-widest">Question-Wise Response Matrix</h5>
-                                  <div className="overflow-x-auto">
-                                    <table className="w-full text-left border-collapse">
-                                      <thead>
-                                        <tr className="border-b border-slate-800 text-slate-400">
-                                          <th className="pb-3 text-xs font-black uppercase tracking-widest">Q#</th>
-                                          <th className="pb-3 text-xs font-black uppercase tracking-widest">Subject</th>
-                                          <th className="pb-3 text-xs font-black uppercase tracking-widest">Student Ans</th>
-                                          <th className="pb-3 text-xs font-black uppercase tracking-widest">Correct Ans</th>
-                                          <th className="pb-3 text-xs font-black uppercase tracking-widest">Result</th>
-                                          <th className="pb-3 text-xs font-black uppercase tracking-widest text-right">Time Taken</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody className="divide-y divide-slate-800/30">
-                                        {deepAnalysisQuestions.map((q) => (
-                                          <tr key={q.questionNo} className="hover:bg-slate-800/10">
-                                            <td className="py-3 font-mono font-bold text-sm">Q{q.questionNo}</td>
-                                            <td className="py-3 text-xs font-bold text-slate-300">{q.subject || 'General'}</td>
-                                            <td className="py-3 font-mono font-bold text-slate-400">{q.studentAnswer || 'Skipped'}</td>
-                                            <td className="py-3 font-mono font-bold text-emerald-400">{q.correctAnswer}</td>
-                                            <td className="py-3">
-                                              <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${
-                                                !q.studentAnswer ? 'bg-slate-800 text-slate-400' :
-                                                q.isCorrect ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'
-                                              }`}>
-                                                {!q.studentAnswer ? 'Skipped' : q.isCorrect ? 'Correct' : 'Wrong'}
-                                              </span>
-                                            </td>
-                                            <td className="py-3 text-right font-mono text-xs text-slate-400">
-                                              {q.timeTaken || 0}s
-                                            </td>
-                                          </tr>
-                                        ))}
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                </div>
-
-                              </div>
-                            );
-                          })()}
+                              );
+                            })}
+                          </div>
                         </>
+                      ) : (
+                        <div className="text-center py-12 text-slate-500 font-bold">No question data available for this attempt.</div>
                       )}
                     </div>
                   )}
@@ -3905,8 +3577,391 @@ function AdminHome() {
         </div>
       )}
 
+      {/* ── Blog / News Tab ─────────────────────────────────────────────────── */}
+      {activeTab === 'blog' && (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+              <span className="w-2 h-8 bg-violet-600 rounded-full" />
+              News &amp; Blog
+            </h2>
+            <button
+              onClick={() => { setShowBlogForm(true); setEditingBlogId(null); setBlogTitle(''); setBlogContent(''); setBlogTags(''); setBlogCategory('News'); setBlogPublishDate(''); setBlogThumbnailFile(null); setBlogThumbnailPreview(''); setBlogThumbnailUrl(''); setBlogSeoTitle(''); setBlogMetaDesc(''); setBlogKeywords(''); setBlogSlug(''); setBlogIsTrending(false); }}
+              className="flex items-center gap-2 px-5 py-3 bg-violet-600 text-white rounded-2xl font-black text-xs uppercase tracking-wider hover:bg-violet-700 shadow-lg shadow-violet-100 transition-all"
+            >
+              <Plus className="w-4 h-4" /> New Post
+            </button>
+          </div>
+
+          {/* Blog Post Form */}
+          {showBlogForm && (
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8 space-y-6 animate-in fade-in duration-300">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-black text-slate-800">{editingBlogId ? 'Edit Post' : 'Create New Post'}</h3>
+                <button onClick={() => setShowBlogForm(false)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors"><X className="w-4 h-4" /></button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="md:col-span-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Post Title *</label>
+                  <input
+                    type="text" value={blogTitle}
+                    onChange={e => { setBlogTitle(e.target.value); if (!blogSlug) setBlogSlug(slugify(e.target.value)); }}
+                    placeholder="e.g. RRB NTPC 2025 Official Notification Released"
+                    className="w-full rounded-xl border-2 border-slate-200 p-3 font-medium outline-hidden focus:border-violet-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Category</label>
+                  <select value={blogCategory} onChange={e => setBlogCategory(e.target.value)} className="w-full rounded-xl border-2 border-slate-200 p-3 font-medium outline-hidden focus:border-violet-500">
+                    {['News', 'Update', 'Blog', 'Exam Alert', 'Result', 'Admit Card', 'Answer Key', 'Tips & Tricks'].map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Publish Date</label>
+                  <input type="date" value={blogPublishDate} onChange={e => setBlogPublishDate(e.target.value)} className="w-full rounded-xl border-2 border-slate-200 p-3 font-medium outline-hidden focus:border-violet-500" />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Tags <span className="text-slate-300 normal-case font-normal">(comma separated)</span></label>
+                  <input type="text" value={blogTags} onChange={e => setBlogTags(e.target.value)} placeholder="RRB, NTPC, 2025, Railway" className="w-full rounded-xl border-2 border-slate-200 p-3 font-medium outline-hidden focus:border-violet-500" />
+                </div>
+
+                <div className="flex items-end gap-4">
+                  <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border-2 border-amber-100 rounded-xl cursor-pointer select-none" onClick={() => setBlogIsTrending(v => !v)}>
+                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${blogIsTrending ? 'bg-amber-500 border-amber-500' : 'border-slate-300'}`}>
+                      {blogIsTrending && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                    <span className="text-xs font-black text-amber-700 uppercase tracking-wider">🔥 Mark as Trending</span>
+                  </div>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Thumbnail Image</label>
+                  <div className={`relative border-2 border-dashed rounded-2xl transition-all ${blogThumbnailPreview ? 'border-violet-200 bg-violet-50/20' : 'border-slate-200 bg-slate-50 hover:border-violet-300'}`}>
+                    {blogThumbnailPreview ? (
+                      <div className="p-4 flex items-center gap-4">
+                        <img src={blogThumbnailPreview} alt="Thumbnail" className="w-24 h-16 object-cover rounded-xl border border-slate-100" />
+                        <button type="button" onClick={() => { setBlogThumbnailFile(null); setBlogThumbnailPreview(''); setBlogThumbnailUrl(''); }} className="text-xs font-bold text-rose-500 flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-rose-50 border border-rose-100"><X className="w-3 h-3" /> Remove</button>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center gap-2 p-6 cursor-pointer">
+                        <FileText className="w-8 h-8 text-slate-300" />
+                        <span className="text-sm font-bold text-slate-400">Click to upload thumbnail</span>
+                        <input type="file" accept="image/*" className="hidden" onChange={e => {
+                          const f = e.target.files?.[0];
+                          if (f) { setBlogThumbnailFile(f); setBlogThumbnailPreview(URL.createObjectURL(f)); setBlogThumbnailUrl(''); }
+                        }} />
+                      </label>
+                    )}
+                  </div>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Content / Body *</label>
+                  <textarea
+                    rows={8} value={blogContent} onChange={e => setBlogContent(e.target.value)}
+                    placeholder="Write your full post content here. You can use plain text or Markdown..."
+                    className="w-full rounded-xl border-2 border-slate-200 p-3 font-medium outline-hidden focus:border-violet-500 resize-y"
+                  />
+                </div>
+              </div>
+
+              {/* SEO Section */}
+              <div className="bg-slate-50 rounded-2xl border border-slate-100 p-6 space-y-4">
+                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                  <Search className="w-3.5 h-3.5 text-violet-500" /> SEO Settings
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">SEO Title <span className="text-slate-300 normal-case font-normal">(≤60 chars)</span></label>
+                    <input type="text" value={blogSeoTitle} onChange={e => setBlogSeoTitle(e.target.value)} placeholder="Optimized title for search engines" className="w-full rounded-xl border-2 border-slate-200 p-3 font-medium outline-hidden focus:border-violet-500 bg-white" />
+                    <p className="text-[10px] text-slate-400 mt-1">{blogSeoTitle.length}/60 chars</p>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">URL Slug</label>
+                    <input type="text" value={blogSlug} onChange={e => setBlogSlug(slugify(e.target.value))} placeholder="e.g. rrb-ntpc-2025-notification" className="w-full rounded-xl border-2 border-slate-200 p-3 font-medium outline-hidden focus:border-violet-500 bg-white font-mono text-sm" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Meta Description <span className="text-slate-300 normal-case font-normal">(≤160 chars)</span></label>
+                    <textarea rows={2} value={blogMetaDesc} onChange={e => setBlogMetaDesc(e.target.value)} placeholder="Brief description shown in search results..." className="w-full rounded-xl border-2 border-slate-200 p-3 font-medium outline-hidden focus:border-violet-500 bg-white resize-none" />
+                    <p className="text-[10px] text-slate-400 mt-1">{blogMetaDesc.length}/160 chars</p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Focus Keywords <span className="text-slate-300 normal-case font-normal">(comma separated)</span></label>
+                    <input type="text" value={blogKeywords} onChange={e => setBlogKeywords(e.target.value)} placeholder="RRB NTPC 2025, Railway recruitment, NTPC notification" className="w-full rounded-xl border-2 border-slate-200 p-3 font-medium outline-hidden focus:border-violet-500 bg-white" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-4 justify-end">
+                <button onClick={() => setShowBlogForm(false)} className="px-6 py-3 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all">Cancel</button>
+                <button
+                  onClick={handleBlogSave}
+                  disabled={blogSavingPost || uploadingBlogThumb || !blogTitle.trim() || !blogContent.trim()}
+                  className="px-6 py-3 bg-violet-600 text-white rounded-2xl font-bold hover:bg-violet-700 transition-all shadow-lg shadow-violet-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {blogSavingPost ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Saving...</> : <><Check className="w-4 h-4" />{editingBlogId ? 'Update Post' : 'Publish Post'}</>}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Blog Posts List */}
+          {blogPosts.length === 0 ? (
+            <div className="bg-white rounded-3xl border border-slate-100 py-16 text-center text-slate-400 font-bold">
+              No posts yet. Create your first post!
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {blogPosts.map(post => (
+                <div key={post.id} className="bg-white rounded-3xl border border-slate-100 p-6 flex gap-5 items-start hover:shadow-md transition-all group">
+                  {post.thumbnailUrl && (
+                    <img src={post.thumbnailUrl} alt="" className="w-20 h-14 object-cover rounded-2xl shrink-0 border border-slate-100" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-violet-100 text-violet-600">{post.category || 'News'}</span>
+                      {post.isTrending && <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-amber-100 text-amber-600">🔥 Trending</span>}
+                      <span className="text-[10px] text-slate-400 font-medium">{post.publishDate || (post.createdAt?.toDate ? post.createdAt.toDate().toLocaleDateString() : '')}</span>
+                    </div>
+                    <h4 className="font-black text-slate-800 text-sm leading-snug mb-1 line-clamp-1">{post.title}</h4>
+                    <p className="text-xs text-slate-400 font-medium line-clamp-2 mb-2">{post.content?.slice(0, 120)}...</p>
+                    <div className="flex flex-wrap gap-1">
+                      {(post.tags || []).slice(0, 4).map((tag: string) => (
+                        <span key={tag} className="text-[9px] font-black px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <button onClick={() => handleEditBlog(post)} className="text-amber-600 hover:bg-amber-100 px-3 py-1.5 rounded-lg border border-amber-100 font-bold text-xs transition-all">Edit</button>
+                    <button onClick={() => handleDeleteBlog(post.id)} className="text-rose-500 hover:bg-rose-100 px-3 py-1.5 rounded-lg border border-rose-100 font-bold text-xs transition-all">Delete</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Mock Test Analysis Modal ─────────────────────────────────────────── */}
+      {analysisModalTest && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[200] flex items-start justify-center p-4 sm:p-6 overflow-y-auto animate-in fade-in duration-300">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl my-6 overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-8 py-6 bg-slate-900 text-white">
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Test Analytics</p>
+                <h3 className="text-xl font-black">{analysisModalTest.title}</h3>
+                <p className="text-xs text-slate-400 font-medium mt-1">{analysisModalTest.category} · {analysisModalTest.testType === 'topic' ? 'Topic Wise' : analysisModalTest.testType === 'sectional' ? 'Sectional' : 'Full Mock'}</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <button onClick={exportAnalysisCSV} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl font-black text-xs uppercase tracking-wider hover:bg-emerald-700 transition-all">
+                  <Download className="w-3.5 h-3.5" /> Export CSV
+                </button>
+                <button onClick={() => setAnalysisModalTest(null)} className="p-2 rounded-xl hover:bg-slate-700 transition-all">
+                  <X className="w-5 h-5 text-slate-400" />
+                </button>
+              </div>
+            </div>
+
+            {analysisModalLoading ? (
+              <div className="flex flex-col items-center justify-center py-20">
+                <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4" />
+                <p className="text-slate-400 font-bold">Loading analytics...</p>
+              </div>
+            ) : analysisModalData ? (
+              <div className="p-8 space-y-8">
+                {/* KPI Row */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { label: 'Unique Students', value: analysisModalData.uniqueStudents, color: 'indigo' },
+                    { label: 'Total Attempts', value: analysisModalData.totalAttempts, color: 'violet' },
+                    { label: 'Avg Score', value: analysisModalData.avgScore, color: 'emerald' },
+                    { label: 'Top Score', value: analysisModalData.highScore, color: 'amber' },
+                  ].map(kpi => (
+                    <div key={kpi.label} className={`bg-${kpi.color}-50 border border-${kpi.color}-100 rounded-2xl p-5 text-center`}>
+                      <p className={`text-2xl font-black text-${kpi.color}-700`}>{kpi.value}</p>
+                      <p className={`text-[10px] font-black text-${kpi.color}-400 uppercase tracking-widest mt-1`}>{kpi.label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Score distribution bands */}
+                {analysisModalData.leaderboard.length > 0 && (() => {
+                  const entries = analysisModalData.leaderboard as any[];
+                  const bands = [
+                    { label: 'Excellent (≥80%)', color: 'emerald', count: entries.filter((e: any) => (e.accuracy || 0) >= 80).length },
+                    { label: 'Good (60-79%)', color: 'indigo', count: entries.filter((e: any) => (e.accuracy || 0) >= 60 && (e.accuracy || 0) < 80).length },
+                    { label: 'Average (40-59%)', color: 'amber', count: entries.filter((e: any) => (e.accuracy || 0) >= 40 && (e.accuracy || 0) < 60).length },
+                    { label: 'Needs Work (<40%)', color: 'rose', count: entries.filter((e: any) => (e.accuracy || 0) < 40).length },
+                  ];
+                  const max = Math.max(...bands.map(b => b.count), 1);
+                  return (
+                    <div>
+                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Performance Distribution</h4>
+                      <div className="space-y-3">
+                        {bands.map(b => (
+                          <div key={b.label} className="flex items-center gap-3">
+                            <span className="text-xs font-bold text-slate-500 w-36 shrink-0">{b.label}</span>
+                            <div className="flex-1 h-5 bg-slate-100 rounded-full overflow-hidden">
+                              <div style={{ width: `${(b.count / max) * 100}%` }} className={`h-full bg-${b.color}-500 rounded-full transition-all`} />
+                            </div>
+                            <span className={`text-sm font-black text-${b.color}-600 w-8 text-right`}>{b.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Leaderboard with search/filter */}
+                <div>
+                  <div className="flex flex-wrap items-center gap-3 mb-4">
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex-1">Leaderboard (First Attempt Only)</h4>
+                    <div className="relative">
+                      <input
+                        type="text" value={analysisModalSearch} onChange={e => setAnalysisModalSearch(e.target.value)}
+                        placeholder="Search by name..."
+                        className="w-48 bg-slate-50 border-none rounded-xl p-2.5 pl-8 text-xs font-medium focus:ring-2 focus:ring-indigo-500"
+                      />
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    </div>
+                    <select value={analysisModalFilter} onChange={e => setAnalysisModalFilter(e.target.value as any)} className="bg-slate-50 border-none rounded-xl p-2.5 text-xs font-bold text-slate-600 focus:ring-2 focus:ring-indigo-500">
+                      <option value="all">All</option>
+                      <option value="top">Top 20%</option>
+                      <option value="failed">Failed (&lt;35%)</option>
+                      <option value="low_accuracy">Low Accuracy (&lt;50%)</option>
+                    </select>
+                  </div>
+
+                  <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-100">
+                          <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Rank</th>
+                          <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Name</th>
+                          <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Score</th>
+                          <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Accuracy</th>
+                          <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Time</th>
+                          <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {(() => {
+                          const total = analysisModalData.leaderboard.length;
+                          return (analysisModalData.leaderboard as any[])
+                            .filter((e: any, i: number) => {
+                              const acc = e.accuracy || 0;
+                              if (analysisModalFilter === 'top') return i < Math.ceil(total * 0.2);
+                              if (analysisModalFilter === 'failed') return acc < 35;
+                              if (analysisModalFilter === 'low_accuracy') return acc < 50;
+                              return true;
+                            })
+                            .filter((e: any) => !analysisModalSearch || (e.name || '').toLowerCase().includes(analysisModalSearch.toLowerCase()))
+                            .map((e: any, i: number) => (
+                              <tr key={i} className="hover:bg-slate-50/60">
+                                <td className="px-4 py-3 font-black text-sm text-slate-500">#{i + 1}</td>
+                                <td className="px-4 py-3 font-bold text-sm text-slate-800">{e.name || 'Student'}</td>
+                                <td className="px-4 py-3 font-black text-sm text-indigo-600 font-mono">{e.score || 0}</td>
+                                <td className="px-4 py-3">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-black ${(e.accuracy || 0) >= 70 ? 'bg-emerald-100 text-emerald-700' : (e.accuracy || 0) >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}`}>{e.accuracy || 0}%</span>
+                                </td>
+                                <td className="px-4 py-3 text-xs text-slate-400 font-mono">{Math.floor((e.timeTaken || 0) / 60)}m {(e.timeTaken || 0) % 60}s</td>
+                                <td className="px-4 py-3 text-xs text-slate-400">{e.submittedAt ? new Date(e.submittedAt).toLocaleDateString() : 'N/A'}</td>
+                              </tr>
+                            ));
+                        })()}
+                      </tbody>
+                    </table>
+                    {analysisModalData.leaderboard.length === 0 && (
+                      <p className="py-10 text-center text-slate-400 font-bold text-sm">No attempts recorded yet.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
+
     </div>
   );
+}
+
+// ── Smart image compression ─────────────────────────────────────────────────
+// • PNG inputs are ALWAYS kept as PNG (lossless) — critical for equations,
+//   graphs, diagrams, and geometry figures where JPEG artifacts destroy clarity.
+// • JPEG/other inputs get resized only if they exceed maxDimension; quality 0.82.
+// • Files under 200 KB are returned as-is regardless of format.
+async function compressImage(file: File, maxDimension = 1200, quality = 0.82): Promise<File> {
+  return new Promise((resolve) => {
+    // Very small files — no benefit from re-encoding, return original
+    if (file.size < 200 * 1024) {
+      resolve(file);
+      return;
+    }
+
+    const isPng       = file.type === 'image/png';
+    const outputMime  = isPng ? 'image/png'  : 'image/jpeg';
+    const outputExt   = isPng ? '.png'        : '.jpg';
+
+    const reader = new FileReader();
+    reader.onerror = () => resolve(file); // fallback on read error
+
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = () => resolve(file); // fallback on decode error
+
+      img.onload = () => {
+        let { width, height } = img;
+        const needsResize = width > maxDimension || height > maxDimension;
+
+        // PNG within dimension limits → return the original file unchanged.
+        // Equations and diagrams must never be re-encoded with lossy compression.
+        if (isPng && !needsResize) {
+          resolve(file);
+          return;
+        }
+
+        if (needsResize) {
+          const ratio = Math.min(maxDimension / width, maxDimension / height);
+          width  = Math.round(width  * ratio);
+          height = Math.round(height * ratio);
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width  = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d')!;
+
+        // Paint white background before drawing — prevents black fill when a
+        // transparent PNG is being downsampled to JPEG.
+        if (!isPng) {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, width, height);
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) { resolve(file); return; }
+            const newName = file.name.replace(/\.[^.]+$/, outputExt);
+            resolve(new File([blob], newName, { type: outputMime }));
+          },
+          outputMime,
+          isPng ? undefined : quality // quality is irrelevant for PNG (lossless)
+        );
+      };
+
+      img.src = e.target?.result as string;
+    };
+
+    reader.readAsDataURL(file);
+  });
 }
 
 function QuestionManager() {
@@ -3931,6 +3986,8 @@ function QuestionManager() {
   const [qImageUrl, setQImageUrl] = useState<string>('');
   const [uploadingQImage, setUploadingQImage] = useState(false);
   const [qEquation, setQEquation] = useState('');
+  const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
+  const [showPreview, setShowPreview] = useState(true);
 
   useEffect(() => {
     if (!testId) return;
@@ -3957,10 +4014,26 @@ function QuestionManager() {
       let finalImageUrl = qImageUrl;
       if (qImageFile) {
         setUploadingQImage(true);
+        // Compress before upload — PNG preserved as-is for equations/diagrams
+        const compressed = await compressImage(qImageFile, 1200, 0.82);
         const randomId = Math.random().toString(36).substring(2, 8);
-        const fileName = `${Date.now()}_${randomId}_${qImageFile.name}`;
+        // Use the actual output format extension (.png for PNG, .jpg for JPEG)
+        const ext = compressed.type === 'image/png' ? '.png' : '.jpg';
+        const fileName = `${Date.now()}_${randomId}_q${ext}`;
         const fileRef = ref(storage, `question_images/${fileName}`);
-        const snapshot = await uploadBytes(fileRef, qImageFile);
+        let snapshot;
+        try {
+          snapshot = await uploadBytes(fileRef, compressed);
+        } catch (storageErr: any) {
+          setUploadingQImage(false);
+          const code = storageErr?.code || '';
+          if (code === 'storage/unauthorized') {
+            alert('Image upload failed: Storage permission denied.\n\nPlease deploy updated storage.rules to Firebase:\n  firebase deploy --only storage');
+          } else {
+            alert(`Image upload failed: ${storageErr?.message || storageErr}`);
+          }
+          return;
+        }
         finalImageUrl = await getDownloadURL(snapshot.ref);
         setUploadingQImage(false);
       }
@@ -4050,13 +4123,23 @@ function QuestionManager() {
 
   return (
     <div>
-      <div className="flex items-center mb-6">
-        <Link to="/admin" className="mr-4 p-3 bg-white rounded-2xl shadow-sm border border-slate-100 hover:bg-slate-50 transition group">
+      <div className="flex items-center mb-6 gap-4 flex-wrap">
+        <Link to="/admin" className="p-3 bg-white rounded-2xl shadow-sm border border-slate-100 hover:bg-slate-50 transition group">
           <ArrowLeft className="w-5 h-5 text-indigo-600 group-hover:-translate-x-1 transition-transform" />
         </Link>
-        <h2 className="text-2xl font-black text-slate-800">Manage Test Questions</h2>
+        <h2 className="text-2xl font-black text-slate-800 flex-1">Manage Test Questions</h2>
+        <button
+          type="button"
+          onClick={() => setShowPreview(v => !v)}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all border-2 ${showPreview ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300'}`}
+        >
+          <Play className="w-3.5 h-3.5" /> Live Preview
+        </button>
       </div>
 
+      <div className={`flex gap-6 items-start ${showPreview ? 'flex-col lg:flex-row' : ''}`}>
+        {/* ─── Form Column ─────────────────────────────────────── */}
+        <div className={showPreview ? 'flex-1 min-w-0' : 'w-full'}>
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
          <h3 className="text-lg font-bold text-slate-800 mb-6">{editingQuestionId ? 'Edit Question' : 'Add New Question'}</h3>
          <form onSubmit={handleAddQuestion} className="space-y-6">
@@ -4085,15 +4168,35 @@ function QuestionManager() {
                }}
              >
                {qImagePreview ? (
-                 <div className="p-4">
-                   <img src={qImagePreview} alt="Question" className="max-h-48 mx-auto rounded-xl object-contain" />
-                   <button
-                     type="button"
-                     onClick={() => { setQImageFile(null); setQImagePreview(''); setQImageUrl(''); }}
-                     className="mt-3 mx-auto flex items-center gap-1.5 text-xs font-bold text-rose-500 hover:text-rose-700 px-3 py-1.5 rounded-lg hover:bg-rose-50 border border-rose-100 transition-all"
-                   >
-                     <X className="w-3 h-3" /> Remove Image
-                   </button>
+                 <div className="p-4 flex items-start gap-4">
+                   {/* Fixed-size preview box — never grows beyond 280px wide */}
+                   <div className="shrink-0 w-[200px] sm:w-[280px] rounded-2xl overflow-hidden border border-indigo-100 bg-slate-50 flex items-center justify-center" style={{ minHeight: 80, maxHeight: 220 }}>
+                     <img
+                       src={qImagePreview}
+                       alt="Question image"
+                       style={{ maxHeight: 220, maxWidth: '100%', objectFit: 'contain', display: 'block' }}
+                       className="rounded-xl"
+                     />
+                   </div>
+                   <div className="flex flex-col gap-2 pt-2">
+                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Image ready</p>
+                     <p className="text-xs text-slate-400">Will be compressed &amp; uploaded on save.</p>
+                     {/* Replace button */}
+                     <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-indigo-600 hover:text-indigo-800 px-3 py-1.5 rounded-lg hover:bg-indigo-50 border border-indigo-100 transition-all w-fit">
+                       <FileText className="w-3 h-3" /> Replace
+                       <input type="file" accept="image/*" className="hidden" onChange={e => {
+                         const file = e.target.files?.[0];
+                         if (file) { setQImageFile(file); setQImagePreview(URL.createObjectURL(file)); setQImageUrl(''); }
+                       }} />
+                     </label>
+                     <button
+                       type="button"
+                       onClick={() => { setQImageFile(null); setQImagePreview(''); setQImageUrl(''); }}
+                       className="flex items-center gap-1.5 text-xs font-bold text-rose-500 hover:text-rose-700 px-3 py-1.5 rounded-lg hover:bg-rose-50 border border-rose-100 transition-all w-fit"
+                     >
+                       <X className="w-3 h-3" /> Remove
+                     </button>
+                   </div>
                  </div>
                ) : (
                  <label className="flex flex-col items-center justify-center gap-2 p-8 cursor-pointer">
@@ -4101,7 +4204,7 @@ function QuestionManager() {
                      <FileText className="w-6 h-6 text-slate-400" />
                    </div>
                    <span className="text-sm font-bold text-slate-500">Click to upload or drag &amp; drop</span>
-                   <span className="text-xs text-slate-400">PNG, JPG, GIF, SVG supported</span>
+                   <span className="text-xs text-slate-400">PNG, JPG, GIF, SVG · Auto-compressed to max 1200px</span>
                    <input type="file" accept="image/*" className="hidden" onChange={e => {
                      const file = e.target.files?.[0];
                      if (file) { setQImageFile(file); setQImagePreview(URL.createObjectURL(file)); setQImageUrl(''); }
@@ -4255,8 +4358,23 @@ function QuestionManager() {
                </div>
              )}
              {q.imageUrl && (
-               <div className="mb-5 ml-14">
-                 <img src={q.imageUrl} alt="Question figure" className="max-h-48 rounded-xl object-contain border border-slate-100 bg-slate-50" />
+               <div className="mb-5 ml-14 w-fit max-w-full">
+                 <div className="rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 inline-flex items-center justify-center" style={{ maxWidth: '100%', maxHeight: 220 }}>
+                   <img
+                     src={q.imageUrl}
+                     alt="Question figure"
+                     loading="lazy"
+                     style={{ maxHeight: 220, maxWidth: '100%', objectFit: 'contain', display: 'block' }}
+                     className="rounded-2xl"
+                     onError={e => {
+                       (e.currentTarget as HTMLImageElement).style.display = 'none';
+                       const fallback = document.createElement('div');
+                       fallback.className = 'flex items-center gap-2 p-3 text-rose-500 text-xs font-bold';
+                       fallback.innerHTML = '⚠ Image failed to load — check Firebase Storage URL';
+                       e.currentTarget.parentElement?.appendChild(fallback);
+                     }}
+                   />
+                 </div>
                </div>
              )}
              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
@@ -4285,6 +4403,104 @@ function QuestionManager() {
         }
         {questions.length === 0 && !loading && <p className="text-slate-400 font-bold text-center py-10">No questions added yet.</p>}
       </div>
+        </div>{/* end form column */}
+
+        {/* ─── Live Preview Column ─────────────────────────────── */}
+        {showPreview && (
+          <div className="lg:w-[380px] lg:sticky lg:top-24 shrink-0">
+            {/* View toggle */}
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Live Preview</span>
+              <div className="flex bg-slate-100 rounded-xl p-0.5 gap-0.5">
+                <button type="button" onClick={() => setPreviewMode('desktop')} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${previewMode === 'desktop' ? 'bg-white shadow text-indigo-600' : 'text-slate-400'}`}>Desktop</button>
+                <button type="button" onClick={() => setPreviewMode('mobile')} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${previewMode === 'mobile' ? 'bg-white shadow text-indigo-600' : 'text-slate-400'}`}>Mobile</button>
+              </div>
+            </div>
+
+            <div className={`transition-all ${previewMode === 'mobile' ? 'max-w-[360px] mx-auto' : ''}`}>
+              <div className={`bg-white rounded-3xl border-2 border-slate-200 overflow-hidden shadow-lg ${previewMode === 'mobile' ? 'rounded-[32px] border-4 border-slate-700' : ''}`}>
+                {/* Mock phone notch */}
+                {previewMode === 'mobile' && (
+                  <div className="bg-slate-800 h-6 flex items-center justify-center">
+                    <div className="w-16 h-1.5 rounded-full bg-slate-600" />
+                  </div>
+                )}
+                <div className={`p-5 space-y-4 ${previewMode === 'mobile' ? 'text-[13px]' : 'text-[14px]'}`}>
+                  {/* Question number */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest bg-indigo-50 px-2 py-1 rounded-lg">Q {questions.length + 1}</span>
+                    {qTopic && <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{qTopic}</span>}
+                  </div>
+
+                  {/* Question text */}
+                  <div className="font-semibold text-slate-800 leading-relaxed min-h-[40px]">
+                    {qText || <span className="text-slate-300 italic">Question will appear here...</span>}
+                  </div>
+
+                  {/* Math equation */}
+                  {qEquation.trim() && (
+                    <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-center overflow-x-auto">
+                      <RenderMathText text={`$$${qEquation}$$`} />
+                    </div>
+                  )}
+
+                  {/* Image */}
+                  {qImagePreview && (
+                    <div className="rounded-xl overflow-hidden border border-slate-100">
+                      <img src={qImagePreview} alt="Question" className="w-full max-h-40 object-contain bg-slate-50" />
+                    </div>
+                  )}
+
+                  {/* Options */}
+                  <div className="space-y-2">
+                    {qOptions.map((opt, i) => {
+                      const letter = String.fromCharCode(65 + i);
+                      const isCorrect = opt.trim() !== '' && opt === qCorrect;
+                      return (
+                        <div key={i} className={`flex items-center gap-3 p-3 rounded-2xl border-2 transition-all ${
+                          isCorrect ? 'bg-emerald-50 border-emerald-200' :
+                          opt.trim() ? 'bg-slate-50 border-slate-200' : 'bg-slate-50/50 border-dashed border-slate-200'
+                        }`}>
+                          <span className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-black shrink-0 ${
+                            isCorrect ? 'bg-emerald-500 text-white' : 'bg-white text-slate-400 border border-slate-200'
+                          }`}>{letter}</span>
+                          <span className={`font-medium ${opt.trim() ? (isCorrect ? 'text-emerald-800' : 'text-slate-700') : 'text-slate-300 italic text-xs'}`}>
+                            {opt.trim() || `Option ${letter}...`}
+                          </span>
+                          {isCorrect && (
+                            <CheckCircle className="w-4 h-4 text-emerald-500 ml-auto shrink-0" />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Solution */}
+                  {qSolution && (
+                    <div className="p-3 bg-amber-50 border border-amber-100 rounded-2xl">
+                      <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1">Solution</p>
+                      <p className="text-xs text-slate-600">{qSolution}</p>
+                    </div>
+                  )}
+
+                  {/* Empty state */}
+                  {!qText && !qImagePreview && !qEquation && qOptions.every(o => !o.trim()) && (
+                    <div className="text-center py-6">
+                      <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                        <BookOpen className="w-6 h-6 text-slate-300" />
+                      </div>
+                      <p className="text-xs font-bold text-slate-300">Start typing to see preview</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Preview hint */}
+              <p className="text-center text-[9px] font-black text-slate-300 uppercase tracking-widest mt-3">This is how students will see the question</p>
+            </div>
+          </div>
+        )}
+      </div>{/* end flex row */}
     </div>
   );
 }

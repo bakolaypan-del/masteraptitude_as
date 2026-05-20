@@ -664,6 +664,16 @@ export default function Dashboard() {
             <span>Typing Test</span>
           </button>
 
+          {/* NEWS & UPDATES LINK */}
+          <button
+            onClick={() => { navigate('/news'); setIsSidebarOpen(false); }}
+            className="w-full sidebar-btn"
+            style={{ background: 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)', color: '#7c3aed' }}
+          >
+            <BookOpen className="w-4 h-4 shrink-0" />
+            <span>News &amp; Updates</span>
+          </button>
+
           <div className="px-3 pb-1 pt-3" style={{fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#374151'}}>Resources</div>
 
           {/* PREVIOUS YEAR PAPERS */}
@@ -773,85 +783,154 @@ export default function Dashboard() {
           {/* Home Tab – Design D */}
           {activeTab === 'home' && (
             <div className="animate-in fade-in duration-500 space-y-5">
-              {/* ── Design D: Greeting + Stats chips ── */}
-              <div className="flex items-start md:items-center justify-between gap-4 flex-wrap">
-                <div>
-                  <h1 className="text-xl md:text-2xl font-black tracking-tight" style={{color: '#1e293b'}}>
-                    Good morning, <span style={{color: '#4f46e5'}}>{profile?.name?.split(' ')[0] || 'Student'}!</span> 👋
-                  </h1>
-                  <p className="text-sm font-medium mt-1" style={{color: '#64748b'}}>
-                    {new Date().toLocaleDateString('en-IN', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'})}
-                  </p>
-                </div>
-                <div className="flex gap-3 flex-wrap">
-                  <div className="flex items-center gap-2 rounded-xl px-4 py-2.5" style={{background: '#fff', border: '1px solid #e8ecf3', boxShadow: '0 1px 4px rgba(0,0,0,0.04)'}}>
-                    <span className="text-lg">📝</span>
-                    <div>
-                      <div className="text-sm font-black" style={{color: '#1e293b'}}>{performanceStats.totalTests}</div>
-                      <div className="text-[10px] font-medium" style={{color: '#94a3b8'}}>Tests Done</div>
-                    </div>
-                  </div>
-                  {performanceStats.totalTests > 0 && (
-                    <div className="flex items-center gap-2 rounded-xl px-4 py-2.5" style={{background: '#fff', border: '1px solid #e8ecf3', boxShadow: '0 1px 4px rgba(0,0,0,0.04)'}}>
-                      <span className="text-lg">📈</span>
-                      <div>
-                        <div className="text-sm font-black" style={{color: '#059669'}}>{performanceStats.avgScore}%</div>
-                        <div className="text-[10px] font-medium" style={{color: '#94a3b8'}}>Avg Score</div>
+              {/* ── Premium Welcome Hero ── */}
+              {(() => {
+                const quotes = [
+                  { text: "Success doesn't come from luck — it comes from daily practice.", author: "Master Aptitude" },
+                  { text: "Every mock test brings you one step closer to your dream.", author: "Master Aptitude" },
+                  { text: "Consistency beats talent when talent doesn't work hard.", author: "Master Aptitude" },
+                  { text: "The harder you prepare today, the luckier you'll get tomorrow.", author: "Master Aptitude" },
+                  { text: "Champions train while others sleep. Start your next test now.", author: "Master Aptitude" },
+                  { text: "Your rank tomorrow depends on your practice today.", author: "Master Aptitude" },
+                  { text: "One more test, one step closer to the top.", author: "Master Aptitude" },
+                ];
+                const q = quotes[new Date().getDay() % quotes.length];
+                return (
+                  <div className="relative" style={{ borderRadius: '22px' }}>
+                    {/* Inner card */}
+                    <div className="relative overflow-hidden text-white" style={{
+                      borderRadius: '22px',
+                      zIndex: 1,
+                      minHeight: 200,
+                      background: 'linear-gradient(135deg, #0f0c29 0%, #1a1040 45%, #16213e 100%)',
+                    }}>
+                      {/* Background study image — blurred, right-aligned */}
+                      <div className="absolute inset-0 pointer-events-none select-none">
+                        <img
+                          src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=1200&q=80&auto=format&fit=crop&crop=right"
+                          alt=""
+                          aria-hidden="true"
+                          className="w-full h-full object-cover object-right"
+                          style={{ filter: 'blur(2px) brightness(0.28) saturate(0.7)', transform: 'scale(1.04)' }}
+                          loading="eager"
+                          draggable={false}
+                        />
+                        {/* Left-to-right dark-to-transparent overlay for text legibility */}
+                        <div className="absolute inset-0" style={{
+                          background: 'linear-gradient(to right, rgba(15,12,41,0.98) 0%, rgba(15,12,41,0.88) 35%, rgba(15,12,41,0.60) 60%, rgba(15,12,41,0.10) 100%)',
+                        }} />
+                        {/* Subtle top/bottom vignette */}
+                        <div className="absolute inset-0" style={{
+                          background: 'linear-gradient(to bottom, rgba(15,12,41,0.4) 0%, transparent 25%, transparent 75%, rgba(15,12,41,0.5) 100%)',
+                        }} />
                       </div>
-                    </div>
-                  )}
-                  {profile?.batch && (
-                    <div className="flex items-center gap-2 rounded-xl px-4 py-2.5" style={{background: '#fffbeb', border: '1px solid #fde68a', boxShadow: '0 1px 4px rgba(0,0,0,0.04)'}}>
-                      <span className="text-lg">🏆</span>
-                      <div>
-                        <div className="text-sm font-black" style={{color: '#92400e'}}>{profile.batch}</div>
-                        <div className="text-[10px] font-medium" style={{color: '#94a3b8'}}>Batch</div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
 
-              {/* ── Hero Banner ── */}
-              <div className="rounded-[20px] p-6 md:p-8 relative overflow-hidden" style={{background: 'linear-gradient(125deg, #1e1f2e 0%, #16213e 50%, #0f3460 100%)', border: '1px solid rgba(99,102,241,0.15)'}}>
-                <div className="absolute top-0 right-0 pointer-events-none" style={{width: 280, height: 280, background: 'radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%)', transform: 'translate(40px, -40px)'}} />
-                <div className="absolute pointer-events-none" style={{bottom: 0, left: '40%', width: 200, height: 200, background: 'radial-gradient(circle, rgba(139,92,246,0.1) 0%, transparent 70%)', transform: 'translate(0, 40px)'}} />
-                <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-6">
-                  <div className="flex-1">
-                    <div className="inline-flex items-center gap-2 mb-4 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider" style={{background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.25)', color: '#a5b4fc'}}>
-                      🎯 Master every topic — one test at a time
-                    </div>
-                    <h2 className="text-2xl md:text-3xl font-black leading-tight tracking-tight mb-2" style={{color: '#f1f5f9'}}>
-                      Ready to climb<br className="hidden md:block"/>the leaderboard?
-                    </h2>
-                    <p className="text-sm font-medium leading-relaxed mb-6 max-w-md" style={{color: '#94a3b8'}}>
-                      Attempt live tests, review your performance, and stay ahead of the competition.
-                    </p>
-                    <div className="flex gap-3 flex-wrap">
-                      <button onClick={() => setActiveTab('live_test')} className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-all hover:opacity-90" style={{background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', boxShadow: '0 4px 20px rgba(99,102,241,0.35)'}}>
-                        ⚡ Attempt Live Test
-                      </button>
-                      <button onClick={() => setActiveTab('mock_landing')} className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all hover:bg-white/10" style={{background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#cbd5e1'}}>
-                        View Mock Tests
-                      </button>
+                      {/* Right-side blurred image panel — desktop only */}
+                      <div className="hidden md:block absolute inset-y-0 right-0 pointer-events-none select-none" style={{ width: '42%' }}>
+                        <img
+                          src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=1200&q=80&auto=format&fit=crop&crop=right"
+                          alt=""
+                          aria-hidden="true"
+                          className="w-full h-full object-cover object-right"
+                          style={{ filter: 'blur(0px) brightness(0.45) saturate(0.8)' }}
+                          loading="eager"
+                          draggable={false}
+                        />
+                        {/* Fade from left to reveal the clearer right-side image */}
+                        <div className="absolute inset-0" style={{
+                          background: 'linear-gradient(to right, rgba(15,12,41,1) 0%, rgba(15,12,41,0.55) 30%, transparent 65%)',
+                        }} />
+                        {/* Floating emoji accents */}
+                        <span className="absolute top-4 right-8 text-2xl drop-shadow-lg" style={{ animation: 'ma-spin-border 0s', animationName: 'none' }}>📚</span>
+                        <span className="absolute top-1/2 right-5 text-xl drop-shadow-lg" style={{ transform: 'translateY(-50%)' }}>✏️</span>
+                        <span className="absolute bottom-5 right-10 text-xl drop-shadow-lg">🏆</span>
+                      </div>
+
+                      {/* Dot-grid texture */}
+                      <div className="absolute inset-0 opacity-[0.025] pointer-events-none" style={{
+                        backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
+                        backgroundSize: '22px 22px',
+                      }} />
+
+                      {/* ── Left: Welcome text ── */}
+                      <div className="relative z-10 p-6 sm:p-8 md:p-10 flex flex-col justify-center md:max-w-[58%]" style={{ minHeight: 200 }}>
+                        {/* Brand pill */}
+                        <div className="inline-flex items-center gap-1.5 mb-4 px-3 py-1.5 rounded-full w-fit" style={{
+                          background: 'rgba(99,102,241,0.18)',
+                          border: '1px solid rgba(99,102,241,0.35)',
+                          color: '#a5b4fc',
+                          fontSize: 10,
+                          fontWeight: 900,
+                          letterSpacing: '0.12em',
+                          textTransform: 'uppercase',
+                        }}>
+                          🎓 Master Aptitude
+                        </div>
+
+                        {/* Welcome heading */}
+                        <h2 style={{ fontWeight: 900, lineHeight: 1.15, letterSpacing: '-0.02em', marginBottom: 12 }}
+                          className="text-2xl sm:text-3xl md:text-4xl">
+                          Welcome,{' '}
+                          <span className="text-transparent bg-clip-text" style={{
+                            backgroundImage: 'linear-gradient(90deg, #fbbf24 0%, #fde68a 40%, #fbbf24 80%)',
+                            backgroundSize: '200% auto',
+                            WebkitBackgroundClip: 'text',
+                          }}>
+                            {profile?.name?.split(' ')[0] || 'Student'}
+                          </span>
+                          !
+                        </h2>
+
+                        {/* Motivational quote */}
+                        <p className="text-sm sm:text-base leading-relaxed mb-1" style={{
+                          color: 'rgba(255,255,255,0.72)',
+                          fontStyle: 'italic',
+                          fontWeight: 500,
+                          maxWidth: 400,
+                        }}>
+                          "{q.text}"
+                        </p>
+                        <p style={{
+                          color: 'rgba(165,180,252,0.75)',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          letterSpacing: '0.06em',
+                          marginBottom: 20,
+                        }}>
+                          — {q.author}
+                        </p>
+
+                        {/* CTA buttons */}
+                        <div className="flex gap-3 flex-wrap">
+                          <button
+                            onClick={() => setActiveTab('live_test')}
+                            className="flex items-center gap-2 font-bold text-sm text-white transition-all hover:opacity-90 active:scale-[0.97]"
+                            style={{
+                              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                              boxShadow: '0 4px 20px rgba(99,102,241,0.4)',
+                              borderRadius: 12, padding: '10px 20px',
+                            }}
+                          >
+                            ⚡ Attempt Live Test
+                          </button>
+                          <button
+                            onClick={() => setActiveTab('mock_landing')}
+                            className="flex items-center gap-2 font-bold text-sm transition-all hover:brightness-125 active:scale-[0.97]"
+                            style={{
+                              background: 'rgba(255,255,255,0.07)',
+                              border: '1px solid rgba(255,255,255,0.12)',
+                              color: '#cbd5e1',
+                              borderRadius: 12, padding: '10px 20px',
+                            }}
+                          >
+                            View Mock Tests
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div className="hidden md:flex gap-3 flex-shrink-0">
-                    <div className="text-center p-4 rounded-2xl" style={{background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)'}}>
-                      <div className="text-2xl font-black" style={{color: '#818cf8'}}>{performanceStats.totalTests}</div>
-                      <div className="text-[10px] font-bold uppercase tracking-wider mt-1.5" style={{color: '#6b7280'}}>Tests<br/>Done</div>
-                    </div>
-                    <div className="text-center p-4 rounded-2xl" style={{background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)'}}>
-                      <div className="text-2xl font-black" style={{color: '#34d399'}}>{performanceStats.totalTests > 0 ? performanceStats.avgScore + '%' : '–'}</div>
-                      <div className="text-[10px] font-bold uppercase tracking-wider mt-1.5" style={{color: '#6b7280'}}>Avg<br/>Score</div>
-                    </div>
-                    <div className="text-center p-4 rounded-2xl" style={{background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)'}}>
-                      <div className="text-2xl font-black" style={{color: '#fbbf24'}}>{performanceStats.bestScore > 0 ? performanceStats.bestScore + '%' : '–'}</div>
-                      <div className="text-[10px] font-bold uppercase tracking-wider mt-1.5" style={{color: '#6b7280'}}>Best<br/>Score</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* ── Live Test Banner (only when a test is actually live) ── */}
               {(() => {
@@ -1037,92 +1116,6 @@ export default function Dashboard() {
                   <ChevronRight className="w-3.5 h-3.5" style={{color: 'rgba(165,180,252,0.7)'}} />
                 </span>
               </a>
-
-              {/* ── old hero removed ── */}
-              <div style={{display:'none'}}>
-                {/* Rotating light sweep — uses Tailwind's built-in @keyframes spin */}
-                <div
-                  className="absolute pointer-events-none"
-                  style={{
-                    inset: '-60%',
-                    background: 'conic-gradient(from 0deg, transparent 0%, transparent 35%, #818cf8 48%, #a78bfa 52%, #e879f9 58%, #f472b6 62%, transparent 75%, transparent 100%)',
-                    animation: 'spin 5s linear infinite',
-                  }}
-                />
-
-                {/* Actual banner card — sits on top of the rotating gradient */}
-                <div
-                  className="relative rounded-[22px] overflow-hidden text-white"
-                  style={{ background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 55%, #24243e 100%)' }}
-                >
-                  {/* ── Right panel image: online mock test, phone, books & pen ── */}
-                  <div className="absolute inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[55%] pointer-events-none select-none">
-                    <img
-                      src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=900&q=85&auto=format&fit=crop&crop=right"
-                      alt="Student studying with phone, books and pen"
-                      className="w-full h-full object-cover object-right"
-                      loading="eager"
-                      draggable={false}
-                    />
-
-                    {/* Floating icons — visible on all sizes, anchored right side */}
-                    <span className="absolute top-3 right-5 text-xl drop-shadow-lg animate-bounce" style={{ animationDuration: '2.8s' }}>📱</span>
-                    <span className="absolute top-12 right-14 text-base drop-shadow-md animate-bounce" style={{ animationDuration: '3.4s', animationDelay: '0.5s' }}>📚</span>
-                    <span className="absolute bottom-10 right-6 text-lg drop-shadow-md animate-bounce" style={{ animationDuration: '3.1s', animationDelay: '1s' }}>✏️</span>
-                    <span className="absolute bottom-4 right-16 text-base drop-shadow-md animate-bounce" style={{ animationDuration: '2.6s', animationDelay: '0.3s' }}>📝</span>
-                    <span className="absolute top-[40%] right-3 text-sm drop-shadow-md animate-bounce" style={{ animationDuration: '3.7s', animationDelay: '1.4s' }}>🎯</span>
-
-                    {/* Mobile overlay — heavy left gradient, no blur (GPU-safe) */}
-                    <div
-                      className="absolute inset-0 sm:hidden"
-                      style={{ background: 'linear-gradient(to right, rgba(15,12,41,0.97) 0%, rgba(48,43,99,0.92) 42%, rgba(36,36,62,0.65) 70%, rgba(15,12,41,0.30) 100%)' }}
-                    />
-
-                    {/* Desktop Layer A — colour anchor gradient */}
-                    <div
-                      className="absolute inset-y-0 left-0 w-[62%] hidden sm:block"
-                      style={{ background: 'linear-gradient(to right, #302b63 0%, rgba(48,43,99,0.97) 20%, rgba(48,43,99,0.72) 50%, rgba(36,36,62,0.22) 80%, transparent 100%)' }}
-                    />
-
-                    {/* Desktop Layer B — frosted blur with CSS mask fade */}
-                    <div
-                      className="absolute inset-y-0 left-0 w-[50%] hidden sm:block"
-                      style={{
-                        backdropFilter: 'blur(16px)',
-                        WebkitBackdropFilter: 'blur(16px)',
-                        maskImage: 'linear-gradient(to right, black 0%, black 28%, rgba(0,0,0,0.5) 58%, transparent 100%)',
-                        WebkitMaskImage: 'linear-gradient(to right, black 0%, black 28%, rgba(0,0,0,0.5) 58%, transparent 100%)',
-                      }}
-                    />
-
-                    {/* Desktop Layer C — top/bottom vignette */}
-                    <div
-                      className="absolute inset-0"
-                      style={{ background: 'linear-gradient(to bottom, rgba(15,12,41,0.38) 0%, transparent 28%, transparent 68%, rgba(15,12,41,0.48) 100%)' }}
-                    />
-                  </div>
-
-                  {/* Dot-grid texture overlay */}
-                  <div
-                    className="absolute inset-0 opacity-[0.03] pointer-events-none"
-                    style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '20px 20px' }}
-                  />
-
-                  {/* ── Welcome text ── */}
-                  <div className="relative z-10 p-5 sm:p-6 md:p-8 flex flex-col justify-center min-h-[150px] sm:min-h-[180px] sm:max-w-[50%]">
-                    <h2 className="text-xl sm:text-2xl md:text-3xl font-black mb-2 tracking-tight leading-tight">
-                      Hello,{' '}
-                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-300">
-                        {profile?.name?.split(' ')[0] || 'Student'}
-                      </span>
-                      ! 👋
-                    </h2>
-                    <p className="text-xs sm:text-sm font-medium text-white/60 leading-relaxed">
-                      🎯 Every test you attempt brings you one step closer to your dream!
-                    </p>
-                  </div>
-                </div>
-              </div>
 
             </div>
           )}

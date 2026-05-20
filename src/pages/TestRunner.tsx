@@ -545,7 +545,10 @@ export default function TestRunner() {
                     )}
                     {q.imageUrl && (
                       <div className="mb-8 px-2 flex justify-center">
-                        <img src={q.imageUrl} alt="Question figure" className="max-h-52 rounded-xl object-contain border border-slate-100 bg-slate-50" />
+                        <div className="rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 inline-flex flex-col items-center" style={{ maxWidth: '100%' }}>
+                          <img src={q.imageUrl} alt="Question figure" loading="eager" style={{ maxHeight: 260, maxWidth: '100%', objectFit: 'contain', display: 'block' }} className="rounded-2xl"
+                            onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                        </div>
                       </div>
                     )}
 
@@ -939,7 +942,10 @@ export default function TestRunner() {
             )}
             {currentQuestion.imageUrl && (
               <div className="mb-6 md:mb-8 flex justify-center">
-                <img src={currentQuestion.imageUrl} alt="Question figure" className="max-h-52 rounded-xl object-contain border border-slate-100 bg-slate-50" />
+                <div className="rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 inline-flex flex-col items-center" style={{ maxWidth: '100%' }}>
+                  <img src={currentQuestion.imageUrl} alt="Question figure" loading="eager" style={{ maxHeight: 260, maxWidth: '100%', objectFit: 'contain', display: 'block' }} className="rounded-2xl"
+                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                </div>
               </div>
             )}
 

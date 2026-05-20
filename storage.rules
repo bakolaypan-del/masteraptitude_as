@@ -2,10 +2,21 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     match /{allPaths=**} {
+      // All files are publicly readable (images, PDFs, etc.)
       allow read: if true;
+
+      // Only admins can write:
+      //   1. Primary: email check (case-insensitive)
+      //   2. Fallback: role == 'admin' in the Firestore profiles collection
       allow write: if request.auth != null && (
-        request.auth.token.email == 'Bakolaypan@gmail.com' ||
-        get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'admin'
+        (
+          request.auth.token.email != null &&
+          request.auth.token.email.lower() == 'bakolaypan@gmail.com'
+        ) || (
+          firestore.get(
+            /databases/ai-studio-a04eec93-77d7-4d06-a729-9d2c233ce685/documents/profiles/$(request.auth.uid)
+          ).data.get('role', '') == 'admin'
+        )
       );
     }
   }

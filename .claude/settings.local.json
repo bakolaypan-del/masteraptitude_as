@@ -3,7 +3,18 @@
     "allow": [
       "Bash(npm run *)",
       "Bash(npx tsc *)",
-      "Bash(node --input-type=module --eval \"import\\('./server.ts'\\).catch\\(e => console.error\\('STARTUP ERROR:', e.message\\)\\)\")"
+      "Bash(node --input-type=module --eval \"import\\('./server.ts'\\).catch\\(e => console.error\\('STARTUP ERROR:', e.message\\)\\)\")",
+      "Bash(Get-Content \"C:\\\\masteraptitude_as\\\\src\\\\pages\\\\AdminDashboard.tsx\")",
+      "Bash(Measure-Object -Line)",
+      "Bash(npm install *)",
+      "Read(//mnt/c/**)",
+      "Bash(GOOGLE_APPLICATION_CREDENTIALS=\"./service-account-key.json\" firebase deploy --only storage --project gen-lang-client-0535684405 --non-interactive)",
+      "Bash(GOOGLE_APPLICATION_CREDENTIALS=\"$\\(pwd\\)/service-account-key.json\" firebase deploy --only storage --project gen-lang-client-0535684405 --non-interactive)",
+      "Bash(gcloud --version)",
+      "Bash(find /c/Users/bakol/AppData -name \"firebase-tools.json\" 2>/dev/null | head -5; find /c/Users/bakol -name \"firebase-tools.json\" 2>/dev/null | head -5)",
+      "Bash(GOOGLE_APPLICATION_CREDENTIALS=__CMDSUB_OUTPUT__/service-account-key.json node -e ' *)",
+      "Bash(grep -v \"^#\\\\|^$\" /c/masteraptitude_as/.env)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp"
     ]
   }
 }

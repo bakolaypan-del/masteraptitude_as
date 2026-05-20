@@ -320,6 +320,44 @@ app.use((req, res, next) => {
 
 // API Routes
 
+  // Sitemap — dynamically generated from blog posts
+  app.get("/sitemap.xml", async (req, res) => {
+    const currentDb = getDb();
+    const baseUrl = process.env.BASE_URL || "https://masteraptitude.vercel.app";
+    const staticUrls = [
+      { loc: `${baseUrl}/`, priority: "1.0", changefreq: "daily" },
+      { loc: `${baseUrl}/news`, priority: "0.9", changefreq: "daily" },
+    ];
+    let dynamicUrls: { loc: string; priority: string; changefreq: string; lastmod?: string }[] = [];
+    if (currentDb) {
+      try {
+        const snap = await currentDb.collection("news_posts").get();
+        dynamicUrls = snap.docs.map(d => {
+          const data = d.data();
+          return {
+            loc: `${baseUrl}/news/${data.slug || d.id}`,
+            priority: "0.8",
+            changefreq: "weekly",
+            lastmod: data.publishDate || (data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString().split("T")[0] : undefined),
+          };
+        });
+      } catch (err) {
+        console.error("[sitemap] Failed to fetch news_posts:", err);
+      }
+    }
+    const allUrls = [...staticUrls, ...dynamicUrls];
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${allUrls.map(u => `  <url>
+    <loc>${u.loc}</loc>
+    ${u.lastmod ? `<lastmod>${u.lastmod}</lastmod>` : ""}
+    <changefreq>${u.changefreq}</changefreq>
+    <priority>${u.priority}</priority>
+  </url>`).join("\n")}
+</urlset>`;
+    res.header("Content-Type", "application/xml").send(xml);
+  });
+
   // Health check
   app.get("/api/health", async (req, res) => {
     res.json({ 
@@ -777,6 +815,73 @@ app.use((req, res, next) => {
     }
   });
 
+  // Admin: full test analysis — all first-attempt entries with names, scores, accuracy, time
+  app.get("/api/admin/test-analysis/:testId", verifyToken, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(503).json({ error: "Database offline" });
+    const user = (req as any).user;
+    const isAdmin = user?.email === "bakolaypan@gmail.com";
+    if (!isAdmin) {
+      const profSnap = await currentDb.collection("profiles").doc(user.uid).get();
+      if (!profSnap.exists || profSnap.data()?.role !== "admin") {
+        return res.status(403).json({ error: "Admin only" });
+      }
+    }
+    const { testId } = req.params;
+    try {
+      // Fetch all first-attempt results for this test
+      const snap = await currentDb.collection("results")
+        .where("testId", "==", testId)
+        .where("isFirstAttempt", "==", true)
+        .get();
+
+      // Also fetch total attempts count (all attempts, not just first)
+      const allAttemptsSnap = await currentDb.collection("results").where("testId", "==", testId).get();
+      const totalAttempts = allAttemptsSnap.size;
+
+      const resultDocs = snap.docs.map(d => ({ id: d.id, ...d.data() as any }));
+      const uniqueStudents = resultDocs.length;
+
+      // Fetch all user profiles in parallel (batched)
+      const userIds = [...new Set(resultDocs.map(r => r.userId as string))];
+      const profileChunks: string[][] = [];
+      for (let i = 0; i < userIds.length; i += 10) profileChunks.push(userIds.slice(i, i + 10));
+      const profileMap: Record<string, string> = {};
+      for (const chunk of profileChunks) {
+        const profs = await Promise.all(chunk.map(uid => currentDb.collection("profiles").doc(uid).get()));
+        profs.forEach((p, idx) => {
+          profileMap[chunk[idx]] = p.exists ? (p.data()?.name || "Student") : "Student";
+        });
+      }
+
+      const leaderboard = resultDocs
+        .sort((a, b) => (b.score || 0) - (a.score || 0) || (a.timeTaken || 0) - (b.timeTaken || 0))
+        .map((r, i) => ({
+          rank: i + 1,
+          name: profileMap[r.userId] || "Student",
+          userId: r.userId,
+          score: r.score || 0,
+          accuracy: r.accuracy || 0,
+          correctAnswers: r.correctAnswers || 0,
+          wrongAnswers: r.wrongAnswers || 0,
+          unattempted: r.unattempted || 0,
+          timeTaken: r.timeTaken || 0,
+          submittedAt: r.createdAt || null,
+          attemptNumber: r.attemptNumber || 1,
+          submittedDuringLive: r.submittedDuringLive || false,
+        }));
+
+      const scores = leaderboard.map(e => e.score);
+      const avgScore = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+      const highScore = scores.length ? Math.max(...scores) : 0;
+
+      return res.json({ leaderboard, uniqueStudents, totalAttempts, avgScore, highScore });
+    } catch (error: any) {
+      console.error("[admin/test-analysis] failed:", error);
+      return res.status(500).json({ error: "Failed to fetch test analysis" });
+    }
+  });
+
   // Demo endpoint to become an admin
   app.post("/api/become-admin", verifyToken, async (req, res) => {
     const currentDb = getDb();
@@ -886,7 +991,7 @@ app.use((req, res, next) => {
     }
   });
 
-  // Admin: Get Detailed Test Attempt Analysis
+  // Admin: Get Detailed Test Attempt Analysis — returns full question data with solutions
   app.get("/api/admin/test-attempt-analysis/:attemptId", verifyToken, verifyAdmin, async (req, res) => {
     const currentDb = getDb();
     if (!currentDb) return res.status(500).json({ error: "Database offline" });
@@ -899,32 +1004,80 @@ app.use((req, res, next) => {
       }
       const attemptData = resultSnap.data() || {};
       const testId = attemptData.testId;
-      const userAnswers = attemptData.userAnswers || {};
-      const correctAnswersMap = attemptData.correctAnswersMap || {};
-      const questionTimes = attemptData.questionTimes || {};
+      const userAnswers: Record<string, string> = attemptData.userAnswers || {};
+      const questionTimes: Record<string, number> = attemptData.questionTimes || {};
 
-      // Get questions for this test to display question details and subject analysis
-      const questionsSnap = await currentDb.collection("questions").where("testId", "==", testId).get();
-      
-      const questions = questionsSnap.docs.map((doc, idx) => {
-        const qData = doc.data();
-        const qId = doc.id;
+      // Fetch test doc to get marks scheme
+      const [questionsSnap, testSnap] = await Promise.all([
+        currentDb.collection("questions").where("testId", "==", testId).get(),
+        currentDb.collection("tests").doc(testId).get(),
+      ]);
+      const testData = testSnap.exists ? testSnap.data() || {} : {};
+      const marksPerCorrect: number = parseFloat(testData.marksPerCorrect ?? "1");
+      const negativeMarks: number = parseFloat(testData.negativeMarks ?? "0.25");
+
+      const questions = questionsSnap.docs.map((qDoc, idx) => {
+        const qData = qDoc.data();
+        const qId = qDoc.id;
         const studentAns = userAnswers[qId] || "";
-        const correctAns = correctAnswersMap[qId] || qData.correctAnswer || "";
-        const isCorrect = studentAns === correctAns;
+        const correctAns = qData.correctAnswer || "";
+        const isCorrect = studentAns !== "" && studentAns === correctAns;
+        const isSkipped = studentAns === "";
         const timeTaken = questionTimes[qId] || 0;
+
+        // Marks computation
+        let marksEarned = 0;
+        if (isCorrect) marksEarned = marksPerCorrect;
+        else if (!isSkipped) marksEarned = -negativeMarks;
 
         return {
           questionNo: qData.qNo || (idx + 1),
-          subject: qData.subject || qData.subjectName || "General",
-          studentAnswer: studentAns,
+          questionId: qId,
+          questionText: qData.questionText || "",
+          options: qData.options || [],
           correctAnswer: correctAns,
+          studentAnswer: studentAns,
           isCorrect,
-          timeTaken
+          isSkipped,
+          topic: qData.topic || "",
+          subject: qData.subject || qData.subjectName || qData.topic || "General",
+          solution: qData.solution || "",
+          explanation: qData.explanation || qData.solution || "",
+          imageUrl: qData.imageUrl || "",
+          equationLatex: qData.equationLatex || "",
+          timeTaken,
+          marksEarned,
+          marksPerCorrect,
+          negativeMarks,
         };
       }).sort((a, b) => a.questionNo - b.questionNo);
 
-      return res.json({ questions });
+      // Aggregate stats
+      const totalQuestions = questions.length;
+      const correct = questions.filter(q => q.isCorrect).length;
+      const wrong = questions.filter(q => !q.isCorrect && !q.isSkipped).length;
+      const skipped = questions.filter(q => q.isSkipped).length;
+      const totalScore = questions.reduce((sum, q) => sum + q.marksEarned, 0);
+      const accuracy = totalQuestions > 0 ? parseFloat(((correct / totalQuestions) * 100).toFixed(1)) : 0;
+
+      // Subject-wise breakdown
+      const subjectMap: Record<string, { total: number; correct: number; totalTime: number }> = {};
+      questions.forEach(q => {
+        const sub = q.subject || "General";
+        if (!subjectMap[sub]) subjectMap[sub] = { total: 0, correct: 0, totalTime: 0 };
+        subjectMap[sub].total++;
+        if (q.isCorrect) subjectMap[sub].correct++;
+        subjectMap[sub].totalTime += q.timeTaken;
+      });
+
+      return res.json({
+        questions,
+        summary: { totalQuestions, correct, wrong, skipped, totalScore, accuracy },
+        subjectMap,
+        testTitle: testData.title || "",
+        marksPerCorrect,
+        negativeMarks,
+      });
     } catch (err: any) {
       console.error("[attempt-analysis] failed:", err);
       return res.status(500).json({ error: err.message });

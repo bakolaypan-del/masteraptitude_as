@@ -8,6 +8,7 @@ import TestRunner from './pages/TestRunner';
 import TypingTestList from './pages/TypingTestList';
 import TypingTestRunner from './pages/TypingTestRunner';
 import TypingTestAnalysis from './pages/TypingTestAnalysis';
+import { NewsListPage, NewsDetailPage } from './pages/NewsPage';
 
 function SecurityWrapper({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -126,6 +127,18 @@ export default function App() {
               </ProtectedRoute>
             } />
             
+            <Route path="/news" element={
+              <ProtectedRoute>
+                <NewsListPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/news/:slugOrId" element={
+              <ProtectedRoute>
+                <NewsDetailPage />
+              </ProtectedRoute>
+            } />
+
             <Route path="/admin/*" element={
               <ProtectedRoute adminOnly>
                 <AdminDashboard />
