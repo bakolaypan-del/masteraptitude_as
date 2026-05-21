@@ -59,8 +59,9 @@ function SecurityWrapper({ children }: { children: React.ReactNode }) {
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth();
   if (loading) return <div className="flex items-center justify-center min-h-screen text-gray-500">Loading...</div>;
-  if (!user) return <Navigate to="/login" replace />;
-  if (profile?.role !== 'admin') return <Navigate to="/dashboard" replace />;
+  // Anonymous users and unauthenticated users → go to admin login
+  if (!user || user.isAnonymous) return <Navigate to="/login" replace />;
+  if (profile?.role !== 'admin') return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 
