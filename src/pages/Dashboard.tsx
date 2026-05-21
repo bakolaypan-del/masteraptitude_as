@@ -6,6 +6,7 @@ import { auth, db } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { RenderMathText } from '../components/MathRenderer';
+import PWAInstallPrompt, { InstallAppSidebarButton } from '../components/PWAInstallPrompt';
 import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ChevronLeft, ArrowLeft, ExternalLink, Menu, X, Youtube, MessageCircle, Send, LayoutDashboard, History, ChevronDown, ArrowRight, User, Info, Phone, Download, Printer, AlertCircle, BarChart3, Keyboard, Globe, Layers, CheckSquare, Volume2, VolumeX, Maximize, NotebookPen } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -712,6 +713,13 @@ export default function Dashboard() {
             <span>Contact Us</span>
           </button>
         </div>
+
+        {/* Install App button */}
+        {profile?.role !== 'admin' && (
+          <div className="px-3 pb-2 shrink-0">
+            <InstallAppSidebarButton />
+          </div>
+        )}
 
         {/* Sidebar Footer: User card */}
         <div className="p-3 shrink-0" style={{borderTop: '1px solid #f1f5f9'}}>
@@ -2792,6 +2800,9 @@ export default function Dashboard() {
           )}
         </div>
       )}
+
+      {/* PWA install prompt — shows for non-admin users on mobile/Android */}
+      {profile?.role !== 'admin' && <PWAInstallPrompt />}
     </div>
   );
 }

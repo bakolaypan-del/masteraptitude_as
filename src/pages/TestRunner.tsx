@@ -426,31 +426,33 @@ export default function TestRunner() {
   // ─── Analysis Screen ──────────────────────────────────────────────────────────
   if (result && showAnalysis) {
     return (
-      <div className="flex flex-col h-screen bg-[#f8f9fa] font-sans text-slate-900 overflow-hidden">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 shadow-sm sticky top-0 z-10">
-          <div className="flex items-center gap-3">
+      <div className="flex flex-col min-h-screen bg-[#f0f2f5] font-sans text-slate-900">
+        {/* Sticky header — compact on mobile */}
+        <header className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm shrink-0">
+          <div className="flex items-center justify-between px-3 sm:px-6 h-14 gap-2">
             <button onClick={() => setShowAnalysis(false)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-all text-sm font-bold active:scale-95">
-              <ChevronLeft className="w-4 h-4" /> Back to Result
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-all text-xs font-bold active:scale-95 shrink-0">
+              <ChevronLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Back</span>
             </button>
-            <h1 className="text-lg font-bold tracking-tight text-slate-800">Test Analysis</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-4 px-4 py-1.5 bg-indigo-50 border border-indigo-100 rounded-full">
-              <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Score</span>
-              <span className="text-sm font-black text-indigo-600">{result.score}</span>
+            <h1 className="text-sm sm:text-base font-black tracking-tight text-slate-800 truncate">Test Analysis</h1>
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 border border-indigo-100 rounded-full">
+                <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest hidden sm:inline">Score</span>
+                <span className="text-xs font-black text-indigo-600">{result.score}</span>
+              </div>
+              <button onClick={handleExit}
+                className="px-2.5 sm:px-4 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-black transition-colors">
+                Exit
+              </button>
             </div>
-            <button onClick={handleExit}
-              className="px-4 py-1.5 bg-slate-900 text-white rounded-lg text-sm font-bold hover:bg-black transition-colors">
-              Exit Analysis
-            </button>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-[#f8f9fa]">
-          <div className="max-w-4xl mx-auto space-y-8 pb-20">
+        <main className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 sm:py-8">
+          <div className="max-w-3xl mx-auto space-y-5 pb-20">
 
-            {/* Topic-wise summary — only shown when there are multiple topics */}
+            {/* Topic-wise summary */}
             {(() => {
               const tMap: Record<string, { total: number; correct: number; wrong: number; skip: number }> = {};
               questions.forEach(q => {
@@ -467,8 +469,8 @@ export default function TestRunner() {
               const entries = Object.entries(tMap);
               if (entries.length <= 1) return null;
               return (
-                <div className="bg-white rounded-[32px] border border-indigo-100 p-6 shadow-sm">
-                  <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <div className="bg-white rounded-2xl border border-indigo-100 p-4 sm:p-6 shadow-sm">
+                  <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest mb-4 flex items-center gap-2">
                     <Target className="w-4 h-4 text-indigo-500" /> Topic-wise Analysis
                   </h3>
                   <div className="space-y-4">
@@ -477,13 +479,13 @@ export default function TestRunner() {
                       return (
                         <div key={topic}>
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-bold text-slate-700">{topic}</span>
-                            <span className="text-[10px] font-black text-slate-500">{s.correct}/{s.total} correct ({pct}%)</span>
+                            <span className="text-xs font-bold text-slate-700 truncate max-w-[60%]">{topic}</span>
+                            <span className="text-[10px] font-black text-slate-500 shrink-0">{s.correct}/{s.total} ({pct}%)</span>
                           </div>
                           <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                             <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: pct >= 70 ? '#10b981' : pct >= 40 ? '#f59e0b' : '#ef4444' }} />
                           </div>
-                          <div className="flex gap-3 mt-1 text-[9px] font-bold uppercase tracking-widest">
+                          <div className="flex gap-3 mt-1 text-[9px] font-bold uppercase tracking-widest flex-wrap">
                             <span className="text-emerald-600">{s.correct} correct</span>
                             <span className="text-rose-500">{s.wrong} wrong</span>
                             <span className="text-slate-400">{s.skip} skipped</span>
@@ -503,58 +505,63 @@ export default function TestRunner() {
               const userChoice = (storedIdx !== undefined && origQ) ? (origQ.options[parseInt(storedIdx)] || '') : '';
               const isCorrect = !!userChoice && userChoice === correctAnswer;
               const isUnattempted = !userChoice;
+              const solutionText = q.explanation || q.solution || '';
+              const extraInfoText = q.extraInfo || q.note || q.hint || '';
 
               return (
-                <div key={q.id} className={`bg-white rounded-[40px] border shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500
-                  ${isCorrect ? 'border-emerald-100' : isUnattempted ? 'border-slate-100' : 'border-rose-100'}`}
-                  style={{ animationDelay: `${idx * 50}ms` }}>
-                  <div className="p-8 md:p-10">
-                    <div className="flex items-center justify-between mb-8">
-                      <div className="flex items-center gap-3">
-                        <span className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center text-sm font-black shadow-lg">{idx + 1}</span>
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Question</span>
-                          <span className="text-xs font-bold text-slate-600">{q.topic || 'General'}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {isUnattempted ? (
-                          <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-full border border-slate-200">
-                            <Info className="w-4 h-4 text-slate-400" />
-                            <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Not Attempted</span>
-                          </div>
-                        ) : isCorrect ? (
-                          <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 rounded-full border border-emerald-200">
-                            <CheckCircle className="w-4 h-4 text-emerald-600" />
-                            <span className="text-[10px] font-black uppercase text-emerald-600 tracking-wider">Correct</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2 px-4 py-2 bg-rose-50 rounded-full border border-rose-200">
-                            <X className="w-4 h-4 text-rose-600" />
-                            <span className="text-[10px] font-black uppercase text-rose-600 tracking-wider">Incorrect</span>
-                          </div>
-                        )}
-                      </div>
+                <div key={q.id} className={`bg-white rounded-2xl sm:rounded-3xl border shadow-sm overflow-hidden
+                  ${isCorrect ? 'border-l-4 border-l-emerald-500 border-y-emerald-100 border-r-emerald-100' :
+                    isUnattempted ? 'border-l-4 border-l-amber-400 border-y-slate-100 border-r-slate-100' :
+                    'border-l-4 border-l-rose-500 border-y-rose-100 border-r-rose-100'}`}
+                  style={{ animationDelay: `${idx * 30}ms` }}>
+
+                  {/* Question header bar */}
+                  <div className={`flex items-center justify-between px-4 py-2.5 text-[10px] font-black uppercase tracking-widest
+                    ${isCorrect ? 'bg-emerald-50 text-emerald-700' : isUnattempted ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700'}`}>
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 h-6 bg-white/70 rounded-lg flex items-center justify-center font-black text-xs shadow-sm">
+                        {idx + 1}
+                      </span>
+                      <span className="truncate max-w-[120px] sm:max-w-none">{q.topic || 'General'}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {isUnattempted ? (
+                        <><Info className="w-3.5 h-3.5" /><span>Skipped</span></>
+                      ) : isCorrect ? (
+                        <><CheckCircle className="w-3.5 h-3.5" /><span>Correct</span></>
+                      ) : (
+                        <><X className="w-3.5 h-3.5" /><span>Wrong</span></>
+                      )}
+                      <span className="ml-2 px-1.5 py-0.5 bg-white/60 rounded text-[9px]">
+                        {isCorrect ? `+${test?.marksPerCorrect || 1}` : isUnattempted ? '0' : `-${test?.negativeMarks || 0.25}`}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-4 sm:p-6">
+                    {/* Question text */}
+                    <div className="text-sm sm:text-base font-semibold text-slate-800 leading-relaxed mb-4 break-words">
+                      <RenderMathText text={q.questionText} />
                     </div>
 
-                    <h3 className="text-xl font-bold text-slate-800 mb-4 leading-relaxed px-2"><RenderMathText text={q.questionText} /></h3>
                     {q.equationLatex && (
-                      <div className="mb-6 px-2 p-4 bg-indigo-50 border border-indigo-100 rounded-xl text-center text-xl overflow-x-auto">
+                      <div className="mb-4 p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-center text-base overflow-x-auto">
                         <RenderMathText text={`$$${q.equationLatex}$$`} />
                       </div>
                     )}
                     {q.imageUrl && (
-                      <div className="mb-8 px-2 flex justify-center">
-                        <div className="rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 inline-flex flex-col items-center" style={{ maxWidth: '100%' }}>
-                          <img src={q.imageUrl} alt="Question figure" loading="eager" style={{ maxHeight: 260, maxWidth: '100%', objectFit: 'contain', display: 'block' }} className="rounded-2xl"
-                            onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-                        </div>
+                      <div className="mb-4 flex justify-center">
+                        <img src={q.imageUrl} alt="Question figure" loading="lazy"
+                          className="rounded-xl border border-slate-100 max-w-full"
+                          style={{ maxHeight: 220, objectFit: 'contain' }}
+                          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
                       </div>
                     )}
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Options — always vertical on mobile */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-4">
                       {q.options.map((opt: string, i: number) => {
-                        const optionLabel = String.fromCharCode(64 + (i + 1));
+                        const optionLabel = String.fromCharCode(65 + i);
                         const origOpt = origQ?.options[i] ?? opt;
                         const isOptionCorrect = origOpt === correctAnswer;
                         const isOptionSelected = origOpt === userChoice;
@@ -563,91 +570,92 @@ export default function TestRunner() {
                         else if (isOptionSelected && !isCorrect) state = 'incorrect';
 
                         return (
-                          <div key={i} className={`flex items-center p-5 rounded-2xl border-2 transition-all relative
-                            ${state === 'correct' ? 'bg-emerald-50 border-emerald-500 text-emerald-900 shadow-md shadow-emerald-100 ring-2 ring-emerald-500/10' : ''}
-                            ${state === 'incorrect' ? 'bg-rose-50 border-rose-500 text-rose-900 shadow-md shadow-rose-100 ring-2 ring-rose-500/10' : ''}
-                            ${state === 'default' ? 'bg-white border-slate-100 text-slate-600 hover:border-slate-300' : ''}`}>
-                            <span className={`w-9 h-9 shrink-0 rounded-xl flex items-center justify-center font-black text-sm
-                              ${state === 'correct' ? 'bg-emerald-500 text-white shadow-md' : state === 'incorrect' ? 'bg-rose-500 text-white shadow-md' : 'bg-slate-100 text-slate-400'}`}>
+                          <div key={i} className={`flex items-start gap-3 p-3 sm:p-4 rounded-xl border-2 transition-all
+                            ${state === 'correct' ? 'bg-emerald-50 border-emerald-400 text-emerald-900' : ''}
+                            ${state === 'incorrect' ? 'bg-rose-50 border-rose-400 text-rose-900' : ''}
+                            ${state === 'default' ? 'bg-slate-50 border-slate-200 text-slate-600' : ''}`}>
+                            <span className={`w-7 h-7 shrink-0 rounded-lg flex items-center justify-center font-black text-xs mt-0.5
+                              ${state === 'correct' ? 'bg-emerald-500 text-white' : state === 'incorrect' ? 'bg-rose-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
                               {optionLabel}
                             </span>
-                            <span className="font-bold text-sm md:text-base leading-tight pr-6 ml-3">{opt}</span>
-                            {state === 'correct' && (
-                              <div className="absolute right-4 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm">
-                                <CheckCircle className="w-3.5 h-3.5 text-white" />
-                              </div>
-                            )}
-                            {state === 'incorrect' && (
-                              <div className="absolute right-4 w-6 h-6 bg-rose-500 rounded-full flex items-center justify-center shadow-sm">
-                                <X className="w-3.5 h-3.5 text-white" />
-                              </div>
-                            )}
+                            <span className="font-medium text-sm leading-snug break-words min-w-0 flex-1 pt-0.5">{opt}</span>
+                            {state === 'correct' && <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />}
+                            {state === 'incorrect' && <X className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />}
                           </div>
                         );
                       })}
                     </div>
 
-                    {/* Community stats row */}
-                    {questionStats[q.id] && (
-                      <div className="mt-6 flex flex-wrap gap-2">
-                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-violet-50 text-violet-700 rounded-lg border border-violet-100 text-[9px] font-black uppercase tracking-widest">
-                          Avg correct: {questionStats[q.id].correctPercent}%
-                        </div>
-                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-sky-50 text-sky-700 rounded-lg border border-sky-100 text-[9px] font-black uppercase tracking-widest">
-                          <Clock className="w-3 h-3" /> Avg time: {questionStats[q.id].avgTimeSecs}s
-                        </div>
-                        <div className="px-2.5 py-1 bg-slate-50 text-slate-500 rounded-lg border border-slate-100 text-[9px] font-black uppercase tracking-widest">
-                          {questionStats[q.id].totalAttempts} student{questionStats[q.id].totalAttempts !== 1 ? 's' : ''} attempted
-                        </div>
+                    {/* Answer summary strip */}
+                    <div className={`rounded-xl p-3 mb-3 text-xs font-bold flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4
+                      ${isUnattempted ? 'bg-amber-50 border border-amber-200' : isCorrect ? 'bg-emerald-50 border border-emerald-200' : 'bg-rose-50 border border-rose-200'}`}>
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-500 font-medium">Your Answer:</span>
+                        <span className={`font-black ${isUnattempted ? 'text-amber-700' : isCorrect ? 'text-emerald-700' : 'text-rose-700'}`}>
+                          {userChoice || '— Not Attempted'}
+                        </span>
                       </div>
-                    )}
-
-                    <div className="mt-4 pt-6 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                      <div className="flex items-center gap-4 flex-wrap">
+                      {!isCorrect && (
                         <div className="flex items-center gap-2">
-                          <Target className="w-3.5 h-3.5 text-indigo-400" />
-                          <span>{q.topic || 'General'}</span>
-                        </div>
-                        {(() => {
-                          const secs = result.questionTimes?.[q.id] ?? questionTimesRef.current[q.id] ?? 0;
-                          const mm = Math.floor(secs / 60);
-                          const ss = secs % 60;
-                          const timeStr = mm > 0 ? `${mm}m ${ss}s` : `${ss}s`;
-                          return (
-                            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-lg border border-indigo-100">
-                              <Clock className="w-3 h-3" />
-                              <span>Your time: {timeStr}</span>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                      {isCorrect ? (
-                        <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100">
-                          <span>+{test?.marksPerCorrect || 1.0} Marks</span>
-                        </div>
-                      ) : isUnattempted ? (
-                        <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 text-slate-400 rounded-lg border border-slate-200">
-                          <span>0.0 Marks</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2 px-3 py-1 bg-rose-50 text-rose-600 rounded-lg border border-rose-100">
-                          <span>-{test?.negativeMarks || 0.25} Marks</span>
+                          <span className="text-slate-500 font-medium">Correct Answer:</span>
+                          <span className="font-black text-emerald-700">{correctAnswer}</span>
                         </div>
                       )}
                     </div>
 
-                    {q.explanation && (
-                      <div className="mt-6 bg-[#f8fafc] p-6 md:p-8 rounded-[24px] border border-slate-100 relative group overflow-hidden">
-                        <div className="absolute top-0 right-0 p-4 text-indigo-500/5 transition-transform group-hover:scale-110">
-                          <Info className="w-16 h-16 rotate-12" />
+                    {/* Community stats */}
+                    {questionStats[q.id] && (
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        <div className="flex items-center gap-1 px-2 py-1 bg-violet-50 text-violet-700 rounded-lg border border-violet-100 text-[9px] font-black uppercase tracking-widest">
+                          Avg correct: {questionStats[q.id].correctPercent}%
                         </div>
-                        <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] mb-4 flex items-center gap-2 relative z-10">
+                        <div className="flex items-center gap-1 px-2 py-1 bg-sky-50 text-sky-700 rounded-lg border border-sky-100 text-[9px] font-black uppercase tracking-widest">
+                          <Clock className="w-3 h-3" /> {questionStats[q.id].avgTimeSecs}s avg
+                        </div>
+                        {(() => {
+                          const secs = result.questionTimes?.[q.id] ?? questionTimesRef.current[q.id] ?? 0;
+                          return (
+                            <div className="flex items-center gap-1 px-2 py-1 bg-indigo-50 text-indigo-600 rounded-lg border border-indigo-100 text-[9px] font-black uppercase tracking-widest">
+                              <Clock className="w-3 h-3" /> Your: {secs >= 60 ? `${Math.floor(secs/60)}m ` : ''}{secs % 60}s
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+
+                    {/* Solution */}
+                    {solutionText && (
+                      <div className="mt-3 bg-gradient-to-br from-indigo-50 to-violet-50 p-4 sm:p-5 rounded-xl border border-indigo-100">
+                        <p className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5">
                           <div className="w-1.5 h-3 bg-indigo-500 rounded-full"></div>
-                          Solution Deep Dive
+                          Solution
                         </p>
-                        <div className="text-slate-600 text-sm md:text-base leading-relaxed whitespace-pre-wrap font-medium relative z-10">
-                          {q.explanation}
+                        <div className="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap font-medium break-words">
+                          <RenderMathText text={solutionText} />
                         </div>
+                      </div>
+                    )}
+
+                    {/* Extra info / trick */}
+                    {extraInfoText && (
+                      <div className="mt-2.5 bg-amber-50 p-4 rounded-xl border border-amber-200">
+                        <p className="text-[10px] font-black text-amber-700 uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5">
+                          <div className="w-1.5 h-3 bg-amber-500 rounded-full"></div>
+                          Quick Tip / Extra Info
+                        </p>
+                        <div className="text-amber-900 text-sm leading-relaxed font-medium break-words">
+                          <RenderMathText text={extraInfoText} />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Solution image */}
+                    {q.solutionImageUrl && (
+                      <div className="mt-2.5 flex justify-center">
+                        <img src={q.solutionImageUrl} alt="Solution reference"
+                          className="rounded-xl border border-slate-200 max-w-full"
+                          style={{ maxHeight: 200, objectFit: 'contain' }}
+                          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
                       </div>
                     )}
                   </div>
@@ -657,12 +665,12 @@ export default function TestRunner() {
           </div>
         </main>
 
-        <footer className="h-16 bg-white border-t border-slate-200 flex items-center justify-center px-6 shrink-0 z-10">
+        <div className="sticky bottom-0 bg-white border-t border-slate-200 px-4 py-3 flex items-center justify-center z-10">
           <button onClick={() => { setShowAnalysis(false); window.scrollTo(0, 0); }}
-            className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-black rounded-xl hover:from-indigo-700 hover:to-violet-700 transition-all shadow-lg shadow-indigo-100 active:scale-95 uppercase tracking-tighter">
+            className="w-full max-w-sm py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-black rounded-xl hover:from-indigo-700 hover:to-violet-700 transition-all shadow-lg active:scale-95 text-sm uppercase tracking-wider">
             Back to Summary
           </button>
-        </footer>
+        </div>
       </div>
     );
   }

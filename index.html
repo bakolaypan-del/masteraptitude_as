@@ -2,12 +2,40 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Master Aptitude</title>
+
+    <!-- PWA manifest -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Theme color (Android chrome toolbar) -->
+    <meta name="theme-color" content="#6366f1" />
+
+    <!-- iOS PWA support -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="MasterApt" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
+
+    <!-- Standard meta -->
+    <meta name="description" content="Mock tests, practice sets & current affairs by Suman Sir" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="Master Aptitude" />
+
+    <!-- App icon -->
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+
+    <!-- Service worker registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js').catch(function() {});
+        });
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-
