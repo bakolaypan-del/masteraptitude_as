@@ -415,6 +415,28 @@ function AdminHome() {
     );
   }
 
+  const fetchAllStudents = async () => {
+    try {
+      const token = await user!.getIdToken();
+      const [regRes, guestRes] = await Promise.all([
+        fetch('/api/admin/students', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/admin/guest-students', { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      const registered: any[] = regRes.ok ? (await regRes.json()).map((s: any) => ({
+        ...s,
+        source: 'registered',
+        mobile: s.phoneNumber || s.mobile || '',
+        totalTests: s.totalTestsTaken || 0,
+        lastActiveAt: s.lastTestAt || null,
+        registeredAt: s.registrationDate ? new Date(s.registrationDate).getTime() : null,
+      })) : [];
+      const guests: any[] = guestRes.ok ? await guestRes.json() : [];
+      const registeredIds = new Set(registered.map((s: any) => s.id));
+      const uniqueGuests = guests.filter((g: any) => !registeredIds.has(g.id));
+      setStudents([...registered, ...uniqueGuests]);
+    } catch (err) { console.error('Failed to fetch students', err); }
+  };
+
   useEffect(() => {
     setLoading(true);
     const qTests = query(collection(db, 'tests'), orderBy('createdAt', 'asc'));
@@ -426,11 +448,7 @@ function AdminHome() {
     const qPractice = query(collection(db, 'practice_sets'), orderBy('createdAt', 'desc'));
     const qCarousels = query(collection(db, 'carousel'), orderBy('createdAt', 'desc'));
     const qBlogPosts = query(collection(db, 'news_posts'), orderBy('createdAt', 'desc'));
-    const qStudents = query(collection(db, 'profiles'), where('role', 'in', ['user', 'student']));
-
-    const unsubStudents = onSnapshot(qStudents, (snap) => {
-      setStudents(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (err) => console.error(err));
+    fetchAllStudents();
 
     const unsubTests = onSnapshot(qTests, (snap) => {
       setTests(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -519,7 +537,6 @@ function AdminHome() {
     const statsInterval = setInterval(fetchStats, 60000); // Update stats every minute
 
     return () => {
-      unsubStudents();
       unsubTests();
       unsubNotes();
       unsubVideos();
@@ -1254,25 +1271,30 @@ function AdminHome() {
     setSavingStudent(true);
     try {
       const token = await user.getIdToken();
-      const res = await fetch(`/api/admin/students/${editingStudent.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          name: editingStudent.name,
-          phoneNumber: editingStudent.phoneNumber,
-          status: editingStudent.status,
-          batch: editingStudent.batch || '',
-          password: editingStudent.newPassword
-        })
-      });
-      if (res.ok) {
-        setEditingStudent(null);
-        alert('Student updated successfully!');
+      if (editingStudent.source === 'guest') {
+        // Guest student: update name, mobile, batch only
+        const res = await fetch(`/api/admin/guest-students/${editingStudent.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ name: editingStudent.name, mobile: editingStudent.mobile || editingStudent.phoneNumber, batch: editingStudent.batch || '' }),
+        });
+        if (res.ok) { setEditingStudent(null); alert('Student updated successfully!'); fetchAllStudents(); }
+        else { alert('Failed to update guest student'); }
       } else {
-        alert(await res.text());
+        // Registered student: full update including status and password
+        const res = await fetch(`/api/admin/students/${editingStudent.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            name: editingStudent.name,
+            phoneNumber: editingStudent.phoneNumber || editingStudent.mobile,
+            status: editingStudent.status,
+            batch: editingStudent.batch || '',
+            password: editingStudent.newPassword,
+          }),
+        });
+        if (res.ok) { setEditingStudent(null); alert('Student updated successfully!'); fetchAllStudents(); }
+        else { alert(await res.text()); }
       }
     } catch (err) {
       alert('Failed to update student');
@@ -1281,57 +1303,48 @@ function AdminHome() {
     }
   };
 
-  const handleDeleteStudent = async (studentId: string) => {
-    if (!confirm('Are you sure? This will PERMANENTLY delete student account and auth credentials.') || !user) return;
+  const handleDeleteStudent = async (student: any) => {
+    if (!confirm('Are you sure? This will PERMANENTLY delete this student record.') || !user) return;
     try {
       const token = await user.getIdToken();
-      const res = await fetch(`/api/admin/students/${studentId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) alert('Student account deleted');
+      const endpoint = student.source === 'guest'
+        ? `/api/admin/guest-students/${student.id}`
+        : `/api/admin/students/${student.id}`;
+      const res = await fetch(endpoint, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+      if (res.ok) { alert('Student deleted'); fetchAllStudents(); }
       else alert('Failed to delete student');
-    } catch (err) {
-      alert('Network error');
-    }
+    } catch (err) { alert('Network error'); }
   };
 
   const handleBlockStudent = async (student: any) => {
+    if (student.source === 'guest') { alert('Guest students cannot be blocked — they have no login.'); return; }
     const newStatus = student.status === 'blocked' ? 'active' : 'blocked';
     if (!confirm(`Are you sure you want to ${newStatus === 'blocked' ? 'BLOCK' : 'UNBLOCK'} this student?`) || !user) return;
     try {
       const token = await user.getIdToken();
       const res = await fetch(`/api/admin/students/${student.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          name: student.name,
-          phoneNumber: student.phoneNumber,
-          status: newStatus
-        })
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ name: student.name, phoneNumber: student.phoneNumber || student.mobile, status: newStatus })
       });
-      if (res.ok) alert(`Student ${newStatus === 'blocked' ? 'blocked' : 'unblocked'}`);
+      if (res.ok) { alert(`Student ${newStatus === 'blocked' ? 'blocked' : 'unblocked'}`); fetchAllStudents(); }
       else alert('Failed to change student status');
-    } catch (err) {
-      alert('Network error');
-    }
+    } catch (err) { alert('Network error'); }
   };
 
   const handleExportStudents = () => {
     if (students.length === 0) return;
-    const headers = ['Name', 'Mobile', 'Registration Date', 'Tests Taken', 'Score', 'Status'];
-    const csvContent = students.map(s => [
-      s.name,
-      s.phoneNumber,
-      s.registrationDate ? new Date(s.registrationDate).toLocaleDateString() : 'N/A',
-      s.totalTestsTaken || 0,
-      s.cumulativeScore || 0,
-      s.status || 'active'
+    const headers = ['Name', 'Mobile', 'Registered Date', 'Tests Taken', 'Avg Score', '1st Attempt Score', 'Last Active'];
+    const csvContent = students.map((s: any) => [
+      s.name || '',
+      s.mobile || '',
+      s.registeredAt ? new Date(s.registeredAt).toLocaleDateString() : 'N/A',
+      s.totalTests ?? 0,
+      s.avgScore ?? 0,
+      s.firstAttemptScore ?? '',
+      s.lastActiveAt ? new Date(s.lastActiveAt).toLocaleDateString() : 'Never',
     ].join(',')).join('\n');
-    
+
     const blob = new Blob([[headers.join(','), csvContent].join('\n')], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -2916,21 +2929,17 @@ function AdminHome() {
       {activeTab === 'students' && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
           {/* Dashboard Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
             <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Total Students</span>
               <span className="text-3xl font-black text-slate-900">{stats.total}</span>
             </div>
             <div className="bg-emerald-50 p-6 rounded-3xl border border-emerald-100 shadow-sm">
-              <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest block mb-1">Active Now</span>
-              <span className="text-3xl font-black text-emerald-700">{stats.active}</span>
-            </div>
-            <div className="bg-rose-50 p-6 rounded-3xl border border-rose-100 shadow-sm">
-              <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest block mb-1">Blocked Accounts</span>
-              <span className="text-3xl font-black text-rose-700">{stats.blocked}</span>
+              <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest block mb-1">Test-Takers</span>
+              <span className="text-3xl font-black text-emerald-700">{students.filter((s: any) => s.totalTests > 0).length}</span>
             </div>
             <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 shadow-sm">
-              <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block mb-1">Today's Reg.</span>
+              <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block mb-1">Joined Today</span>
               <span className="text-3xl font-black text-indigo-700">{stats.today}</span>
             </div>
           </div>
@@ -2940,42 +2949,39 @@ function AdminHome() {
               <span className="w-2 h-8 bg-indigo-600 rounded-full"></span>
               Student Database
             </h2>
-            <div className="flex flex-wrap gap-4 items-center">
+            <div className="flex flex-wrap gap-3 items-center">
+              <div className="relative">
+                <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Search name or mobile..."
+                  className="pl-11 pr-4 py-2.5 rounded-xl border-2 border-slate-200 focus:border-indigo-600 outline-hidden w-full md:w-56 font-medium text-sm"
+                  value={studentSearch}
+                  onChange={e => setStudentSearch(e.target.value)}
+                />
+              </div>
               <select
+                className="px-4 py-2.5 rounded-xl border-2 border-slate-200 focus:border-indigo-600 outline-hidden font-bold text-sm"
                 value={studentFilter}
                 onChange={e => setStudentFilter(e.target.value)}
-                className="px-4 py-2.5 rounded-xl border-2 border-slate-200 focus:border-indigo-600 outline-hidden font-bold text-sm bg-white"
               >
-                <option value="all">All Students</option>
-                <option value="active">Active Only</option>
-                <option value="blocked">Blocked Only</option>
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="blocked">Blocked</option>
               </select>
-
               <select
+                className="px-4 py-2.5 rounded-xl border-2 border-slate-200 focus:border-amber-500 outline-hidden font-bold text-sm"
                 value={batchFilter}
                 onChange={e => setBatchFilter(e.target.value)}
-                className="px-4 py-2.5 rounded-xl border-2 border-slate-200 focus:border-indigo-600 outline-hidden font-bold text-sm bg-white"
               >
                 <option value="all">All Batches</option>
                 <option value="MANZIL 1.0">MANZIL 1.0</option>
                 <option value="MANZIL 2.0">MANZIL 2.0</option>
                 <option value="MANZIL 3.0">MANZIL 3.0</option>
               </select>
-
-              <div className="relative">
-                <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Search name, mobile or ID..."
-                  className="pl-11 pr-4 py-2.5 rounded-xl border-2 border-slate-200 focus:border-indigo-600 outline-hidden w-full md:w-64 font-medium text-sm"
-                  value={studentSearch}
-                  onChange={e => setStudentSearch(e.target.value)}
-                />
-              </div>
-
-              <button 
+              <button
                 onClick={handleExportStudents}
-                className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:scale-105 active:scale-95 transition-all"
+                className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:scale-105 active:scale-95 transition-all"
               >
                 <Download className="w-4 h-4" />
                 Export CSV
@@ -2983,105 +2989,131 @@ function AdminHome() {
             </div>
           </div>
 
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-100">
               <thead className="bg-slate-50/50">
                 <tr>
-                  <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Name</th>
-                  <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Mobile Number</th>
-                  <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Batch</th>
-                  <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Registration Date</th>
-                  <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Status</th>
-                  <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Last Login</th>
-                  <th className="px-8 py-5 text-right text-xs font-black text-slate-400 uppercase tracking-widest">Actions</th>
+                  <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Name</th>
+                  <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Mobile</th>
+                  <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Type</th>
+                  <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Batch</th>
+                  <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Joined</th>
+                  <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Status</th>
+                  <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Tests</th>
+                  <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Avg</th>
+                  <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">1st</th>
+                  <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Last Active</th>
+                  <th className="px-6 py-5 text-right text-xs font-black text-slate-400 uppercase tracking-widest">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-slate-50">
                 {students
                   .filter(s => {
-                    const matchesSearch = (s.name || '').toLowerCase().includes(studentSearch.toLowerCase()) ||
-                                        (s.phoneNumber || '').includes(studentSearch) ||
-                                        (s.id || '').includes(studentSearch);
-                    const matchesFilter = studentFilter === 'all' ? true :
-                                       studentFilter === 'blocked' ? s.status === 'blocked' :
-                                       s.status !== 'blocked';
-                    const matchesBatch = batchFilter === 'all' ? true : (s.batch || '') === batchFilter;
-                    return matchesSearch && matchesFilter && matchesBatch;
+                    const q = studentSearch.toLowerCase();
+                    const matchSearch = (s.name || '').toLowerCase().includes(q) || (s.mobile || s.phoneNumber || '').includes(q);
+                    const matchStatus = studentFilter === 'all' || (s.status || 'active') === studentFilter;
+                    const matchBatch = batchFilter === 'all' || (s.batch || '') === batchFilter;
+                    return matchSearch && matchStatus && matchBatch;
                   })
                   .map(student => (
-                  <tr key={student.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-8 py-6 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className={`w-10 h-10 ${student.status === 'blocked' ? 'bg-rose-100 text-rose-600' : 'bg-indigo-50 text-indigo-600'} rounded-full flex items-center justify-center font-black mr-4 uppercase`}>
+                  <tr key={student.id} className={`hover:bg-slate-50 transition-colors ${student.status === 'blocked' ? 'opacity-60' : ''}`}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center font-black uppercase text-sm shrink-0">
                           {(student.name || 'S').charAt(0)}
                         </div>
-                        <span className="text-sm font-bold text-slate-800">{student.name}</span>
+                        <span className="text-sm font-bold text-slate-800 truncate max-w-[130px]">{student.name || '—'}</span>
                       </div>
                     </td>
-                    <td className="px-8 py-6 whitespace-nowrap">
-                      <span className="text-sm font-medium text-slate-600">{student.phoneNumber}</span>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm font-medium text-slate-600">{student.mobile || student.phoneNumber || '—'}</span>
                     </td>
-                    <td className="px-8 py-6 whitespace-nowrap">
-                      {student.batch ? (
-                        <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${student.batch === 'Paid' ? 'bg-amber-100 text-amber-700' : 'bg-violet-100 text-violet-700'}`}>
-                          {student.batch}
-                        </span>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {student.source === 'guest' ? (
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">Guest</span>
                       ) : (
-                        <span className="text-xs text-slate-300 font-medium">—</span>
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200">Registered</span>
                       )}
                     </td>
-                    <td className="px-8 py-6 whitespace-nowrap">
-                      <span className="text-sm text-slate-500 font-medium">
-                        {student.registrationDate ? new Date(student.registrationDate).toLocaleDateString() : 'N/A'}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg">
+                        {student.batch || 'General'}
                       </span>
                     </td>
-                    <td className="px-8 py-6 whitespace-nowrap">
-                      <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase w-fit tracking-widest ${student.status === 'blocked' ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                        {student.status === 'blocked' ? 'Blocked' : 'Active'}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-xs text-slate-500 font-medium">
+                        {student.registeredAt ? new Date(student.registeredAt).toLocaleDateString() :
+                         student.registrationDate ? new Date(student.registrationDate).toLocaleDateString() : '—'}
                       </span>
                     </td>
-                    <td className="px-8 py-6 whitespace-nowrap">
-                      <span className="text-sm text-slate-500 font-medium">
-                        {student.lastTestAt ? new Date(student.lastTestAt).toLocaleDateString() : 'Never'}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {student.source === 'guest' ? (
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-slate-100 text-slate-500">—</span>
+                      ) : student.status === 'blocked' ? (
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-rose-100 text-rose-700">Blocked</span>
+                      ) : (
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-700">Active</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm font-black text-indigo-700">{student.totalTests ?? 0}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm font-bold text-slate-700">{student.avgScore ?? '—'}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm font-bold text-emerald-700">
+                        {student.firstAttemptScore !== null && student.firstAttemptScore !== undefined ? student.firstAttemptScore : '—'}
                       </span>
                     </td>
-                    <td className="px-8 py-6 whitespace-nowrap text-right">
-                      <div className="flex justify-end gap-2">
-                        <button 
-                          onClick={() => setEditingStudent({ ...student, focusPassword: false, newPassword: '', batch: student.batch || '' })}
-                          className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all"
-                          title="Edit Name/Mobile"
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-xs text-slate-500 font-medium">
+                        {student.lastActiveAt ? new Date(student.lastActiveAt).toLocaleDateString() : 'Never'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        {/* Edit */}
+                        <button
+                          onClick={() => setEditingStudent({ ...student, newPassword: '' })}
+                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+                          title="Edit Student"
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
-                        <button 
-                          onClick={() => {
-                            setSelectedStudentForAnalysis(student);
-                            setShowStudentAttemptsModal(true);
-                          }}
+                        {/* View Analysis */}
+                        <button
+                          onClick={() => { setSelectedStudentForAnalysis(student); setShowStudentAttemptsModal(true); }}
                           className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
-                          title="Analyze Mock Attempts"
+                          title="View Test Attempts"
                         >
                           <LayoutDashboard className="w-4 h-4" />
                         </button>
-                        <button 
-                          onClick={() => setEditingStudent({ ...student, focusPassword: true, newPassword: '', batch: student.batch || '' })}
-                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
-                          title="Reset Password"
-                        >
-                          <Key className="w-4 h-4" />
-                        </button>
-                        <button 
-                          onClick={() => handleBlockStudent(student)}
-                          className={`p-2 rounded-xl transition-all ${student.status === 'blocked' ? 'text-emerald-500 hover:bg-emerald-50' : 'text-rose-400 hover:text-rose-600 hover:bg-rose-50'}`}
-                          title={student.status === 'blocked' ? 'Unblock Student' : 'Block Student'}
-                        >
-                          {student.status === 'blocked' ? <ShieldCheck className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteStudent(student.id)}
+                        {/* Block/Unblock (registered only) */}
+                        {student.source !== 'guest' && (
+                          <button
+                            onClick={() => handleBlockStudent(student)}
+                            className={`p-2 rounded-xl transition-all ${student.status === 'blocked' ? 'text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50' : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'}`}
+                            title={student.status === 'blocked' ? 'Unblock Student' : 'Block Student'}
+                          >
+                            {student.status === 'blocked' ? <ShieldCheck className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
+                          </button>
+                        )}
+                        {/* Reset Password (registered only) */}
+                        {student.source !== 'guest' && (
+                          <button
+                            onClick={() => setEditingStudent({ ...student, newPassword: '', focusPassword: true })}
+                            className="p-2 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-xl transition-all"
+                            title="Reset Password"
+                          >
+                            <Key className="w-4 h-4" />
+                          </button>
+                        )}
+                        {/* Delete */}
+                        <button
+                          onClick={() => handleDeleteStudent(student)}
                           className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-                          title="Delete Student Forever"
+                          title="Delete Student"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -3090,7 +3122,7 @@ function AdminHome() {
                   </tr>
                 ))}
                 {students.length === 0 && (
-                  <tr><td colSpan={5} className="px-8 py-20 text-center text-slate-300 font-black text-xl uppercase tracking-widest italic">Database Empty</td></tr>
+                  <tr><td colSpan={11} className="px-8 py-20 text-center text-slate-300 font-black text-xl uppercase tracking-widest italic">Database Empty</td></tr>
                 )}
               </tbody>
             </table>
@@ -3123,11 +3155,11 @@ function AdminHome() {
               </div>
               <div className={editingStudent.focusPassword ? 'opacity-50 pointer-events-none' : ''}>
                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Mobile Number</label>
-                <input 
+                <input
                   type="tel" required
                   className="w-full rounded-2xl border-slate-200 border-2 p-4 outline-hidden font-medium focus:border-indigo-600"
-                  value={editingStudent.phoneNumber}
-                  onChange={e => setEditingStudent({...editingStudent, phoneNumber: e.target.value})}
+                  value={editingStudent.phoneNumber || editingStudent.mobile || ''}
+                  onChange={e => setEditingStudent({...editingStudent, phoneNumber: e.target.value, mobile: e.target.value})}
                 />
               </div>
               <div className={`${editingStudent.focusPassword ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -3143,32 +3175,34 @@ function AdminHome() {
                   <option value="MANZIL 3.0">MANZIL 3.0</option>
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-4 text-left">
-                <div className={editingStudent.focusPassword ? 'opacity-50 pointer-events-none' : ''}>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Account Status</label>
-                  <select
-                    className="w-full rounded-2xl border-slate-200 border-2 p-4 outline-hidden font-bold focus:border-indigo-600"
-                    value={editingStudent.status || 'active'}
-                    onChange={e => setEditingStudent({...editingStudent, status: e.target.value})}
-                  >
-                    <option value="active">Active</option>
-                    <option value="blocked">Blocked</option>
-                  </select>
+              {editingStudent.source !== 'guest' && (
+                <div className="grid grid-cols-2 gap-4 text-left">
+                  <div className={editingStudent.focusPassword ? 'opacity-50 pointer-events-none' : ''}>
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Account Status</label>
+                    <select
+                      className="w-full rounded-2xl border-slate-200 border-2 p-4 outline-hidden font-bold focus:border-indigo-600"
+                      value={editingStudent.status || 'active'}
+                      onChange={e => setEditingStudent({...editingStudent, status: e.target.value})}
+                    >
+                      <option value="active">Active</option>
+                      <option value="blocked">Blocked</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-indigo-600 uppercase tracking-widest mb-2">
+                      {editingStudent.focusPassword ? 'Set New Password' : 'New Password (Optional)'}
+                    </label>
+                    <input
+                      ref={passwordInputRef}
+                      type="password"
+                      placeholder="••••••••"
+                      className={`w-full rounded-2xl border-2 p-4 outline-hidden font-medium focus:border-indigo-600 ${editingStudent.focusPassword ? 'border-indigo-500 bg-indigo-50/30' : 'border-slate-200'}`}
+                      value={editingStudent.newPassword}
+                      onChange={e => setEditingStudent({...editingStudent, newPassword: e.target.value})}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-black text-indigo-600 uppercase tracking-widest mb-2">
-                    {editingStudent.focusPassword ? 'Set New Password' : 'New Password (Optional)'}
-                  </label>
-                  <input
-                    ref={passwordInputRef}
-                    type="password"
-                    placeholder="••••••••"
-                    className={`w-full rounded-2xl border-2 p-4 outline-hidden font-medium focus:border-indigo-600 ${editingStudent.focusPassword ? 'border-indigo-500 bg-indigo-50/30' : 'border-slate-200'}`}
-                    value={editingStudent.newPassword}
-                    onChange={e => setEditingStudent({...editingStudent, newPassword: e.target.value})}
-                  />
-                </div>
-              </div>
+              )}
               
               <button 
                 disabled={savingStudent}
@@ -3192,7 +3226,7 @@ function AdminHome() {
               <div>
                 <span className="text-[10px] font-black text-rose-500 uppercase tracking-[0.2em] block mb-1">Advanced Mock Test Analytics</span>
                 <h3 className="text-2xl font-black text-white">{selectedStudentForAnalysis.name}'s Dashboard</h3>
-                <p className="text-xs font-bold text-slate-400 mt-1">Mobile: {selectedStudentForAnalysis.phoneNumber || 'N/A'}</p>
+                <p className="text-xs font-bold text-slate-400 mt-1">Mobile: {selectedStudentForAnalysis.mobile || selectedStudentForAnalysis.phoneNumber || 'N/A'}</p>
               </div>
               <button 
                 onClick={() => {

@@ -14,37 +14,15 @@ function SecurityWrapper({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
 
   useEffect(() => {
-    // 1. Disable Right Click
-    const handleContextMenu = (e: MouseEvent) => {
-      e.preventDefault();
-      return false;
-    };
+    const handleContextMenu = (e: MouseEvent) => { e.preventDefault(); return false; };
 
-    // 2. Disable Developer Shortcuts
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Disable F12
-      if (e.key === 'F12') {
-        e.preventDefault();
-        return false;
-      }
-      // Disable Ctrl+Shift+I, Ctrl+Shift+C, Ctrl+Shift+J (DevTools)
-      if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'C' || e.key === 'J')) {
-        e.preventDefault();
-        return false;
-      }
-      // Disable Ctrl+U (View Source)
-      if (e.ctrlKey && e.key === 'u') {
-        e.preventDefault();
-        return false;
-      }
-      // Disable Ctrl+S (Save Page)
-      if (e.ctrlKey && e.key === 's') {
-        e.preventDefault();
-        return false;
-      }
+      if (e.key === 'F12') { e.preventDefault(); return false; }
+      if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'C' || e.key === 'J')) { e.preventDefault(); return false; }
+      if (e.ctrlKey && e.key === 'u') { e.preventDefault(); return false; }
+      if (e.ctrlKey && e.key === 's') { e.preventDefault(); return false; }
     };
 
-    // 3. Prevent Print Screen (Limited effectiveness but adds friction)
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key === 'PrintScreen') {
         navigator.clipboard.writeText('');
@@ -66,7 +44,6 @@ function SecurityWrapper({ children }: { children: React.ReactNode }) {
   return (
     <>
       {children}
-      {/* Watermark Overlay - Display user info if logged in */}
       <div className="security-watermark">
         {Array.from({ length: 48 }).map((_, i) => (
           <div key={i} className="watermark-item">
@@ -78,13 +55,12 @@ function SecurityWrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
-function ProtectedRoute({ children, adminOnly = false }: { children: React.ReactNode, adminOnly?: boolean }) {
+// Only used for /admin/* — students access the site freely
+function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth();
-
   if (loading) return <div className="flex items-center justify-center min-h-screen text-gray-500">Loading...</div>;
   if (!user) return <Navigate to="/login" replace />;
-  if (adminOnly && profile?.role !== 'admin') return <Navigate to="/dashboard" replace />;
-  
+  if (profile?.role !== 'admin') return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }
 
@@ -94,55 +70,24 @@ export default function App() {
       <BrowserRouter>
         <SecurityWrapper>
           <Routes>
+            {/* Admin login — students go directly to dashboard */}
             <Route path="/login" element={<Login />} />
-            <Route path="/" element={<Navigate to="/login" replace />} />
-            
-            <Route path="/dashboard" element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/test/:testId" element={
-              <ProtectedRoute>
-                <TestRunner />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/typing-test" element={
-              <ProtectedRoute>
-                <TypingTestList />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/typing-test/:id" element={
-              <ProtectedRoute>
-                <TypingTestRunner />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/typing-test/:id/analysis" element={
-              <ProtectedRoute>
-                <TypingTestAnalysis />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/news" element={
-              <ProtectedRoute>
-                <NewsListPage />
-              </ProtectedRoute>
-            } />
 
-            <Route path="/news/:slugOrId" element={
-              <ProtectedRoute>
-                <NewsDetailPage />
-              </ProtectedRoute>
-            } />
+            {/* Root and all student routes — no auth required */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/test/:testId" element={<TestRunner />} />
+            <Route path="/typing-test" element={<TypingTestList />} />
+            <Route path="/typing-test/:id" element={<TypingTestRunner />} />
+            <Route path="/typing-test/:id/analysis" element={<TypingTestAnalysis />} />
+            <Route path="/news" element={<NewsListPage />} />
+            <Route path="/news/:slugOrId" element={<NewsDetailPage />} />
 
+            {/* Admin-only */}
             <Route path="/admin/*" element={
-              <ProtectedRoute adminOnly>
+              <AdminRoute>
                 <AdminDashboard />
-              </ProtectedRoute>
+              </AdminRoute>
             } />
           </Routes>
         </SecurityWrapper>
@@ -150,4 +95,3 @@ export default function App() {
     </AuthProvider>
   );
 }
-

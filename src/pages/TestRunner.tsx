@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthContext';
+import FirstVisitModal from '../components/FirstVisitModal';
 import { RenderMathText } from '../components/MathRenderer';
 import { Clock, AlertTriangle, CheckCircle, ChevronRight, ChevronLeft, Flag, Info, Play, Menu, X, Target, Trophy, Zap, BookOpen, Shield } from 'lucide-react';
 
 export default function TestRunner() {
   const { testId } = useParams();
-  const { user, profile } = useAuth();
+  const { user, profile, profileIncomplete } = useAuth();
   const navigate = useNavigate();
 
   const [test, setTest] = useState<any>(null);
@@ -29,6 +30,7 @@ export default function TestRunner() {
   const [showInstructions, setShowInstructions] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  const [showFirstVisitModal, setShowFirstVisitModal] = useState(false);
   const [leaderboard, setLeaderboard] = useState<{ topRankers: { rank: number; name: string; score: number }[]; myRank: number; totalParticipants: number; uniqueStudents: number; percentile: number } | null>(null);
   const [questionStats, setQuestionStats] = useState<Record<string, { totalAttempts: number; correctPercent: number; avgTimeSecs: number }>>({});
   const leaderboardPollRef = useRef<any>(null);
@@ -296,6 +298,10 @@ export default function TestRunner() {
   };
 
   const handleStartTest = () => {
+    if (profileIncomplete) {
+      setShowFirstVisitModal(true);
+      return;
+    }
     setShowInstructions(false);
   };
 
@@ -348,6 +354,11 @@ export default function TestRunner() {
   // ─── Instructions Screen ──────────────────────────────────────────────────────
   if (showInstructions) {
     return (
+      <>
+      {showFirstVisitModal && (
+        <FirstVisitModal onComplete={() => { setShowFirstVisitModal(false); setShowInstructions(false); }} />
+      )}
+      <div style={{ display: showFirstVisitModal ? 'none' : undefined }}>
       <div className="min-h-screen flex items-center justify-center p-4"
         style={{ background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 55%, #24243e 100%)' }}>
         <div className="fixed top-1/4 left-1/4 w-80 h-80 rounded-full blur-3xl pointer-events-none" style={{ background: 'rgba(99,102,241,0.1)' }} />
@@ -420,6 +431,8 @@ export default function TestRunner() {
           </div>
         </div>
       </div>
+      </div>
+      </>
     );
   }
 

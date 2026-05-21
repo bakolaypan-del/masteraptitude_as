@@ -1,7 +1,7 @@
 ﻿import React, { useEffect, useState } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { collection, query, where, getDocs, orderBy, doc, getDoc, updateDoc } from 'firebase/firestore';
-import { signOut, updatePassword } from 'firebase/auth';
+import { signOut } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
@@ -105,7 +105,7 @@ export default function Dashboard() {
   // Profile Update State
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
-  const [newPassword, setNewPassword] = useState('');
+
   const [updatingProfile, setUpdatingProfile] = useState(false);
 
   useEffect(() => {
@@ -261,7 +261,14 @@ export default function Dashboard() {
   }, [carousels]);
 
   const handleLogout = async () => {
-    await signOut(auth);
+    if (profile?.role === 'admin') {
+      await signOut(auth);
+    } else {
+      // For guest: sign out clears session; AuthContext auto signs in anonymously again (fresh start)
+      if (window.confirm('This will reset your session and you will need to re-enter your name & mobile. Continue?')) {
+        await signOut(auth);
+      }
+    }
   };
 
   const handleDownloadPDF = async (testId: string, testTitle: string, category: string, testType: string) => {
@@ -458,33 +465,16 @@ export default function Dashboard() {
     if (!user) return;
     setUpdatingProfile(true);
     try {
-      // 1. Update Firestore Profile
       const profileRef = doc(db, 'profiles', user.uid);
       await updateDoc(profileRef, {
         name: editName,
         phoneNumber: editPhone,
         updatedAt: new Date().toISOString()
       });
-
-      // 2. Update Password if provided
-      if (newPassword.trim()) {
-        if (newPassword.length < 6) {
-          alert('Password must be at least 6 characters long');
-          setUpdatingProfile(false);
-          return;
-        }
-        await updatePassword(user, newPassword);
-        setNewPassword('');
-      }
-
       alert('Profile updated successfully!');
     } catch (error: any) {
       console.error(error);
-      if (error.code === 'auth/requires-recent-login') {
-        alert('Please log out and log back in to change your password for security reasons.');
-      } else {
-        alert('Error updating profile: ' + error.message);
-      }
+      alert('Error updating profile: ' + error.message);
     } finally {
       setUpdatingProfile(false);
     }
@@ -1157,24 +1147,16 @@ export default function Dashboard() {
                       </div>
                     </div>
 
+                    {profile?.role === 'admin' && (
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email Address (Read-only)</label>
-                      <input 
+                      <input
                         type="email" readOnly
                         value={user?.email || ''}
                         className="w-full bg-slate-100 border-2 border-slate-200 rounded-2xl px-6 py-4 outline-hidden opacity-60 font-bold text-slate-500 cursor-not-allowed"
                       />
                     </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">New Password (Leave blank to keep current)</label>
-                      <input 
-                        type="password"
-                        value={newPassword} onChange={e => setNewPassword(e.target.value)}
-                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 outline-hidden focus:border-rose-400 focus:bg-white transition-all font-bold text-slate-700 shadow-sm"
-                        placeholder="••••••••"
-                      />
-                    </div>
+                    )}
 
                     <div className="pt-6">
                       <button 
