@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthContext';
-import FirstVisitModal from '../components/FirstVisitModal';
 import { Clock, RefreshCcw, ArrowLeft, Trophy, AlertCircle, BarChart3, CheckCircle2, Keyboard, Zap, Target, Star } from 'lucide-react';
 
 interface TypingTest {
@@ -13,8 +12,7 @@ interface TypingTest {
 
 export default function TypingTestRunner() {
   const { id } = useParams<{ id: string }>();
-  const { user, profileIncomplete } = useAuth();
-  const [showFirstVisitModal, setShowFirstVisitModal] = useState(false);
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [test, setTest] = useState<TypingTest | null>(null);
@@ -102,10 +100,6 @@ export default function TypingTestRunner() {
   }, [typedText, test, timeLeft]);
 
   const handleStart = () => {
-    if (profileIncomplete) {
-      setShowFirstVisitModal(true);
-      return;
-    }
     setIsActive(true);
     inputRef.current?.focus();
   };
@@ -220,10 +214,6 @@ export default function TypingTestRunner() {
   );
 
   return (
-    <>
-    {showFirstVisitModal && (
-      <FirstVisitModal onComplete={() => { setShowFirstVisitModal(false); setIsActive(true); inputRef.current?.focus(); }} />
-    )}
     <div
       onCopy={(e) => e.preventDefault()}
       onPaste={(e) => e.preventDefault()}
@@ -518,6 +508,5 @@ export default function TypingTestRunner() {
         )}
       </main>
     </div>
-    </>
   );
 }

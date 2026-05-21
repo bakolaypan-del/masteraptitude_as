@@ -141,11 +141,5 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
-
-    // Guest student records — written by backend Admin SDK only
-    match /guest_students/{guestId} {
-      allow read: if isOwner(guestId) || isAdmin();
-      allow write: if false; // backend-only via Admin SDK
-    }
   }
 }

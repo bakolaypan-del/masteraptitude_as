@@ -765,21 +765,16 @@ ${allUrls.map(u => `  <url>
       const percentile = totalParticipants > 0 ? parseFloat(((scoringBelow / totalParticipants) * 100).toFixed(1)) : 0;
 
       const top10 = sorted.slice(0, 10);
-      const [profileSnaps, guestSnaps] = await Promise.all([
-        Promise.all(top10.map(r => currentDb.collection("profiles").doc(r.userId).get())),
-        Promise.all(top10.map(r => currentDb.collection("guest_students").doc(r.userId).get())),
-      ]);
+      const profileSnaps = await Promise.all(
+        top10.map(r => currentDb.collection("profiles").doc(r.userId).get())
+      );
 
-      const topRankers = top10.map((r, idx) => {
-        const profName = profileSnaps[idx].exists ? profileSnaps[idx].data()?.name : null;
-        const guestName = guestSnaps[idx].exists ? guestSnaps[idx].data()?.name : null;
-        return {
-          rank: idx + 1,
-          name: profName || guestName || 'Student',
-          score: r.score,
-          isCurrentUser: r.userId === user.uid
-        };
-      });
+      const topRankers = top10.map((r, idx) => ({
+        rank: idx + 1,
+        name: profileSnaps[idx].exists ? (profileSnaps[idx].data()?.name || 'Student') : 'Student',
+        score: r.score,
+        isCurrentUser: r.userId === user.uid
+      }));
 
       return res.json({ topRankers, myRank, totalParticipants, uniqueStudents, percentile });
     } catch (error: any) {
@@ -847,20 +842,15 @@ ${allUrls.map(u => `  <url>
       const resultDocs = snap.docs.map(d => ({ id: d.id, ...d.data() as any }));
       const uniqueStudents = resultDocs.length;
 
-      // Fetch all user profiles + guest_students in parallel (batched)
+      // Fetch all user profiles in parallel (batched)
       const userIds = [...new Set(resultDocs.map(r => r.userId as string))];
       const profileChunks: string[][] = [];
       for (let i = 0; i < userIds.length; i += 10) profileChunks.push(userIds.slice(i, i + 10));
       const profileMap: Record<string, string> = {};
       for (const chunk of profileChunks) {
-        const [profs, guests] = await Promise.all([
-          Promise.all(chunk.map(uid => currentDb.collection("profiles").doc(uid).get())),
-          Promise.all(chunk.map(uid => currentDb.collection("guest_students").doc(uid).get())),
-        ]);
+        const profs = await Promise.all(chunk.map(uid => currentDb.collection("profiles").doc(uid).get()));
         profs.forEach((p, idx) => {
-          const name = p.exists ? p.data()?.name : null;
-          const guestName = guests[idx].exists ? guests[idx].data()?.name : null;
-          profileMap[chunk[idx]] = name || guestName || "Student";
+          profileMap[chunk[idx]] = p.exists ? (p.data()?.name || "Student") : "Student";
         });
       }
 
@@ -902,146 +892,6 @@ ${allUrls.map(u => `  <url>
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: "Failed to become admin" });
-    }
-  });
-
-  // ─── Guest Student Registration ────────────────────────────────────────────────
-  // Called after a student submits name+mobile in FirstVisitModal.
-  // The Firebase anonymous auth user already exists at this point;
-  // this route saves their profile into `guest_students` for admin visibility.
-  app.post("/api/guest/register", verifyToken, async (req, res) => {
-    const currentDb = getDb();
-    if (!currentDb) return res.status(503).json({ error: "Database offline" });
-    const user = (req as any).user;
-    const { name, mobile } = req.body;
-
-    if (!name?.trim() || !mobile) {
-      return res.status(400).json({ error: "Name and mobile are required" });
-    }
-    const digits = String(mobile).replace(/\D/g, '');
-    const cleanMobile = digits.length > 10 ? digits.slice(-10) : digits;
-    if (cleanMobile.length < 10) {
-      return res.status(400).json({ error: "Enter a valid 10-digit mobile number" });
-    }
-
-    try {
-      await currentDb.collection("guest_students").doc(user.uid).set({
-        name: name.trim(),
-        mobile: cleanMobile,
-        uid: user.uid,
-        registeredAt: Date.now(),
-        lastActiveAt: Date.now(),
-      }, { merge: true });
-
-      return res.json({ success: true });
-    } catch (err: any) {
-      console.error("[guest/register] failed:", err);
-      return res.status(500).json({ error: "Registration failed", message: err.message });
-    }
-  });
-
-  // Admin: Get all guest students
-  app.get("/api/admin/guest-students", verifyToken, verifyAdmin, async (req, res) => {
-    const currentDb = getDb();
-    if (!currentDb) return res.status(500).json({ error: "Database offline" });
-    try {
-      const [guestsSnap, resultsSnap] = await Promise.all([
-        currentDb.collection("guest_students").get(),
-        currentDb.collection("results").get(),
-      ]);
-
-      // Aggregate result stats per userId
-      const statsMap: Record<string, { totalTests: number; totalScore: number; firstAttemptScore: number | null; lastActive: number }> = {};
-      resultsSnap.docs.forEach(d => {
-        const data = d.data();
-        const uid = data.userId as string;
-        if (!uid) return;
-        if (!statsMap[uid]) statsMap[uid] = { totalTests: 0, totalScore: 0, firstAttemptScore: null, lastActive: 0 };
-        statsMap[uid].totalTests++;
-        statsMap[uid].totalScore += data.score || 0;
-        if (data.isFirstAttempt) statsMap[uid].firstAttemptScore = data.score || 0;
-        if ((data.timestamp || 0) > statsMap[uid].lastActive) statsMap[uid].lastActive = data.timestamp || 0;
-      });
-
-      const students = guestsSnap.docs.map(d => {
-        const data = d.data();
-        const stats = statsMap[d.id] || { totalTests: 0, totalScore: 0, firstAttemptScore: null, lastActive: 0 };
-        return {
-          id: d.id,
-          name: data.name || "—",
-          mobile: data.mobile || "—",
-          phoneNumber: data.mobile || "—",
-          batch: data.batch || "",
-          status: data.status || "active",
-          registeredAt: data.registeredAt || 0,
-          registrationDate: data.registeredAt ? new Date(data.registeredAt).toISOString() : null,
-          lastActiveAt: stats.lastActive || data.lastActiveAt || 0,
-          lastTestAt: stats.lastActive || data.lastActiveAt || 0,
-          totalTests: stats.totalTests,
-          totalTestsTaken: stats.totalTests,
-          cumulativeScore: stats.totalTests > 0 ? parseFloat(stats.totalScore.toFixed(2)) : 0,
-          avgScore: stats.totalTests > 0 ? parseFloat((stats.totalScore / stats.totalTests).toFixed(2)) : 0,
-          firstAttemptScore: stats.firstAttemptScore,
-          source: "guest",
-        };
-      });
-
-      students.sort((a, b) => b.lastActiveAt - a.lastActiveAt);
-      return res.json(students);
-    } catch (err: any) {
-      console.error("[admin/guest-students] failed:", err);
-      return res.status(500).json({ error: "Failed to fetch guest students" });
-    }
-  });
-
-  // Admin: Update guest student (name, mobile, batch)
-  app.put("/api/admin/guest-students/:guestId", verifyToken, verifyAdmin, async (req, res) => {
-    const currentDb = getDb();
-    if (!currentDb) return res.status(500).json({ error: "Database offline" });
-    const { guestId } = req.params;
-    const { name, mobile, batch } = req.body;
-    try {
-      const updateData: any = { updatedAt: Date.now() };
-      if (name?.trim()) updateData.name = name.trim();
-      if (mobile) {
-        const digits = String(mobile).replace(/\D/g, '');
-        updateData.mobile = digits.length > 10 ? digits.slice(-10) : digits;
-      }
-      if (batch !== undefined) updateData.batch = batch;
-      await currentDb.collection("guest_students").doc(guestId).update(updateData);
-      // Also sync name/mobile to profiles collection
-      if (updateData.name || updateData.mobile) {
-        const profileUpdate: any = {};
-        if (updateData.name) profileUpdate.name = updateData.name;
-        if (updateData.mobile) profileUpdate.phoneNumber = updateData.mobile;
-        currentDb.collection("profiles").doc(guestId).update(profileUpdate).catch(() => {});
-      }
-      return res.json({ success: true });
-    } catch (err: any) {
-      console.error("[admin/guest-students PUT] failed:", err);
-      return res.status(500).json({ error: "Update failed", message: err.message });
-    }
-  });
-
-  // Admin: Delete guest student
-  app.delete("/api/admin/guest-students/:guestId", verifyToken, verifyAdmin, async (req, res) => {
-    const currentDb = getDb();
-    if (!currentDb) return res.status(500).json({ error: "Database offline" });
-    const { guestId } = req.params;
-    try {
-      await currentDb.collection("guest_students").doc(guestId).delete();
-      // Delete from profiles and results (best-effort)
-      currentDb.collection("profiles").doc(guestId).delete().catch(() => {});
-      const resultsSnap = await currentDb.collection("results").where("userId", "==", guestId).get();
-      const batch = currentDb.batch();
-      resultsSnap.docs.forEach(d => batch.delete(d.ref));
-      await batch.commit();
-      // Delete anonymous Firebase Auth user (best-effort)
-      admin.auth().deleteUser(guestId).catch(() => {});
-      return res.json({ success: true });
-    } catch (err: any) {
-      console.error("[admin/guest-students DELETE] failed:", err);
-      return res.status(500).json({ error: "Delete failed", message: err.message });
     }
   });
 
@@ -1309,17 +1159,23 @@ ${allUrls.map(u => `  <url>
     const currentDb = getDb();
     if (!currentDb) return res.status(500).json({ error: "Database offline" });
     try {
-      const [allProfiles, guestStudents] = await Promise.all([
-        currentDb.collection("profiles").where("role", "in", ["user", "student", "guest"]).get(),
-        currentDb.collection("guest_students").get(),
-      ]);
+      const allProfiles = await currentDb.collection("profiles").where("role", "in", ["user", "student"]).get();
+      
+      const stats = {
+        total: allProfiles.size,
+        active: 0,
+        blocked: 0,
+        today: 0
+      };
 
       const todayStart = new Date().setHours(0, 0, 0, 0);
-      const stats = { total: guestStudents.size, active: guestStudents.size, blocked: 0, today: 0 };
 
-      guestStudents.docs.forEach(doc => {
+      allProfiles.docs.forEach(doc => {
         const data = doc.data();
-        const regDate = data.registeredAt || 0;
+        if (data.status === 'blocked') stats.blocked++;
+        else stats.active++;
+
+        const regDate = data.registrationDate ? new Date(data.registrationDate).getTime() : 0;
         if (regDate >= todayStart) stats.today++;
       });
 
