@@ -57,8 +57,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Cancel any previous profile listener before setting up a new one
-      unsubscribeProfile();
       setUser(currentUser);
 
       const profileRef = doc(db, 'profiles', currentUser.uid);

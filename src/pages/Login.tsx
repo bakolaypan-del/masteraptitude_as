@@ -17,14 +17,13 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
 
   // Admin already logged in → go to admin panel
-  if (user && !user.isAnonymous && profile?.role === 'admin') {
+  if (user && profile?.role === 'admin') {
     return <Navigate to="/admin" replace />;
   }
-  // Non-anonymous registered user who isn't admin → go to dashboard
-  if (user && !user.isAnonymous && profile && profile.role !== 'admin') {
+  // Non-admin (student/guest) who somehow hits /login → go to dashboard
+  if (user && profile && profile.role !== 'admin') {
     return <Navigate to="/dashboard" replace />;
   }
-  // Anonymous users can stay on this page to log in as admin
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

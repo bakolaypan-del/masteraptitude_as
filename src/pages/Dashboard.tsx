@@ -2728,17 +2728,6 @@ export default function Dashboard() {
       })()}
 
       {/* ── Floating Social Pills (slim, single-line) ─────────────────── */}
-      {/* Tiny hidden admin entry — bottom-left, very subtle */}
-      {profile?.role !== 'admin' && (
-        <a
-          href="/login"
-          className="fixed bottom-2 left-3 z-40 text-[9px] text-slate-700/30 hover:text-slate-400 transition-colors font-medium select-none"
-          tabIndex={-1}
-        >
-          Admin
-        </a>
-      )}
-
       {activeTab === 'home' && (
         <div className="fixed bottom-5 right-4 z-50 flex flex-col items-end gap-1.5 pointer-events-none">
           {currentPopupIndex === 0 && socialLinks.whatsapp && (
