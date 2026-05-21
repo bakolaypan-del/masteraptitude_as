@@ -5,34 +5,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Master Aptitude</title>
 
-    <!-- PWA manifest -->
-    <link rel="manifest" href="/manifest.json" />
-
-    <!-- Theme color (Android chrome toolbar) -->
+    <!-- Theme colour — Android Chrome toolbar + task switcher -->
     <meta name="theme-color" content="#6366f1" />
 
-    <!-- iOS PWA support -->
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="MasterApt" />
-    <link rel="apple-touch-icon" href="/icon.svg" />
-
-    <!-- Standard meta -->
-    <meta name="description" content="Mock tests, practice sets & current affairs by Suman Sir" />
+    <!-- ── Android / Chrome PWA ── -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="application-name" content="Master Aptitude" />
 
-    <!-- App icon -->
+    <!-- ── iOS / Safari PWA ── -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="MasterApt" />
+
+    <!-- iOS home-screen icon -->
+    <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png" />
+
+    <!-- iOS splash screens (covers most common iPhone screen sizes) -->
+    <link rel="apple-touch-startup-image"
+      media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)"
+      href="/splash-390x844.png" />
+    <link rel="apple-touch-startup-image"
+      media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)"
+      href="/splash-375x812.png" />
+    <link rel="apple-touch-startup-image"
+      media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)"
+      href="/splash-414x896.png" />
+    <link rel="apple-touch-startup-image"
+      media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)"
+      href="/splash-375x667.png" />
+
+    <!-- Favicons -->
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
 
-    <!-- Service worker registration -->
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function() {
-          navigator.serviceWorker.register('/sw.js').catch(function() {});
-        });
-      }
-    </script>
+    <!-- SEO -->
+    <meta name="description" content="Mock tests, study materials & live exams by Suman Sir — Master Aptitude" />
   </head>
   <body>
     <div id="root"></div>

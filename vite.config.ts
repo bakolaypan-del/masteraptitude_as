@@ -1,23 +1,116 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig, loadEnv} from 'vite';
+import { defineConfig, loadEnv } from 'vite';
+import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig(({mode}) => {
+export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      VitePWA({
+        registerType: 'autoUpdate',
+        includeAssets: ['icon.svg', 'icon-192.png', 'icon-512.png'],
+
+        // ── Manifest ─────────────────────────────────────────────────────────
+        manifest: {
+          name: 'Master Aptitude',
+          short_name: 'MasterApt',
+          description: 'Mock tests, practice sets & current affairs by Suman Sir',
+          start_url: '/dashboard',
+          scope: '/',
+          display: 'standalone',
+          orientation: 'portrait-primary',
+          background_color: '#0f0c29',
+          theme_color: '#6366f1',
+          categories: ['education'],
+          icons: [
+            {
+              src: '/icon-192.png',
+              sizes: '192x192',
+              type: 'image/png',
+              purpose: 'any',
+            },
+            {
+              src: '/icon-512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'any',
+            },
+            {
+              src: '/icon-512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'maskable',
+            },
+          ],
+        },
+
+        // ── Workbox caching strategy ─────────────────────────────────────────
+        workbox: {
+          // Pre-cache the entire built app shell
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+
+          // Runtime caching
+          runtimeCaching: [
+            {
+              // Firebase API calls — network only, never cache
+              urlPattern: /^https:\/\/firestore\.googleapis\.com\/.*/i,
+              handler: 'NetworkOnly',
+            },
+            {
+              // Firebase Auth — network only
+              urlPattern: /^https:\/\/identitytoolkit\.googleapis\.com\/.*/i,
+              handler: 'NetworkOnly',
+            },
+            {
+              // Our Express API — network first, 3s timeout, fallback to cache
+              urlPattern: /\/api\/.*/i,
+              handler: 'NetworkFirst',
+              options: {
+                cacheName: 'api-cache',
+                networkTimeoutSeconds: 3,
+                expiration: { maxEntries: 50, maxAgeSeconds: 300 },
+              },
+            },
+            {
+              // Google Fonts — stale while revalidate
+              urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+              handler: 'StaleWhileRevalidate',
+              options: { cacheName: 'google-fonts-stylesheets' },
+            },
+            {
+              // Firebase Storage images (question images, carousel)
+              urlPattern: /^https:\/\/firebasestorage\.googleapis\.com\/.*/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'firebase-images',
+                expiration: { maxEntries: 100, maxAgeSeconds: 86400 },
+              },
+            },
+          ],
+        },
+
+        devOptions: {
+          // Enable in dev so you can test the SW locally
+          enabled: false,
+        },
+      }),
+    ],
+
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
     },
+
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
       },
     },
+
     server: {
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
     },
   };

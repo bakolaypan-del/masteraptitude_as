@@ -15,7 +15,13 @@
       "Bash(GOOGLE_APPLICATION_CREDENTIALS=__CMDSUB_OUTPUT__/service-account-key.json node -e ' *)",
       "Bash(grep -v \"^#\\\\|^$\" /c/masteraptitude_as/.env)",
       "mcp__Claude_in_Chrome__tabs_context_mcp",
-      "Bash(npx vite *)"
+      "Bash(npx vite *)",
+      "Bash(node -e \"require\\('canvas'\\); console.log\\('canvas ok'\\)\")",
+      "Bash(node -e \"require\\('sharp'\\); console.log\\('sharp ok'\\)\")",
+      "Bash(node scripts/generate-icons.mjs)",
+      "Bash(node -e \"const fs=require\\('fs'\\); const b=fs.readFileSync\\('C:/masteraptitude_as/public/icon-192.png'\\); console.log\\('192 icon size:', b.length, 'bytes'\\); const sig=b.slice\\(0,8\\); console.log\\('PNG sig valid:', sig[0]===137 && sig[1]===80 && sig[2]===78 && sig[3]===71\\);\")",
+      "Bash(node -e \"require\\('vite-plugin-pwa'\\); console.log\\('installed'\\)\")",
+      "Bash(node scripts/generate-splash.mjs)"
     ]
   }
 }
