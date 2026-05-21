@@ -9,6 +9,8 @@ import TypingTestList from './pages/TypingTestList';
 import TypingTestRunner from './pages/TypingTestRunner';
 import TypingTestAnalysis from './pages/TypingTestAnalysis';
 import { NewsListPage, NewsDetailPage } from './pages/NewsPage';
+import InstallApp from './pages/InstallApp';
+import AnalysisPage from './pages/AnalysisPage';
 
 function SecurityWrapper({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -94,6 +96,7 @@ export default function App() {
         <SecurityWrapper>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/install" element={<InstallApp />} />
             <Route path="/" element={<Navigate to="/login" replace />} />
             
             <Route path="/dashboard" element={
@@ -105,6 +108,12 @@ export default function App() {
             <Route path="/test/:testId" element={
               <ProtectedRoute>
                 <TestRunner />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/analysis/:resultId" element={
+              <ProtectedRoute>
+                <AnalysisPage />
               </ProtectedRoute>
             } />
             

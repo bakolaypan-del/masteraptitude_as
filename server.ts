@@ -563,7 +563,9 @@ ${allUrls.map(u => `  <url>
         correctAnswersMap,
         questionTimes,
         status: "completed",
-        submittedDuringLive
+        submittedDuringLive,
+        marksPerCorrect: posMarks,
+        negativeMarks: negMarks,
       };
 
       const profileRef = currentDb.collection("profiles").doc(user.uid);
@@ -687,10 +689,34 @@ ${allUrls.map(u => `  <url>
         analysis[key] = val;
       });
 
-      return res.json({ ...baseResultData, attemptNumber, isFirstAttempt, rank, analysis });
+      return res.json({ ...baseResultData, resultId: resultDocRef.id, attemptNumber, isFirstAttempt, rank, analysis });
     } catch (error: any) {
       console.error("[API] Failed to submit test:", error);
       return res.status(500).json({ error: "Failed to submit test. Please try again." });
+    }
+  });
+
+  // Fetch a single result by ID (used by AnalysisPage fallback when no navigation state)
+  app.get("/api/my-result/:resultId", verifyToken, async (req, res) => {
+    const { resultId } = req.params;
+    const user = (req as any).user;
+    const currentDb = getDb();
+    if (!currentDb) return res.status(503).json({ error: "Database offline" });
+    try {
+      const resultDoc = await currentDb.collection("results").doc(resultId).get();
+      if (!resultDoc.exists) return res.status(404).json({ error: "Result not found" });
+      const resultData = resultDoc.data()!;
+      if (resultData.userId !== user.uid) return res.status(403).json({ error: "Forbidden" });
+      const testId = resultData.testId;
+      const questionsSnap = await currentDb.collection("questions")
+        .where("testId", "==", testId)
+        .orderBy("qNo", "asc")
+        .get();
+      const questions = questionsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      return res.json({ result: { id: resultId, ...resultData }, questions });
+    } catch (err: any) {
+      console.error("[my-result] failed:", err);
+      return res.status(500).json({ error: "Failed to fetch result" });
     }
   });
 
@@ -742,10 +768,11 @@ ${allUrls.map(u => `  <url>
         firstByUser.set(user.uid, { userId: user.uid, score: myScoreParam, timestamp: Date.now(), duringLive: true });
       }
 
-      // For live tests: leaderboard ranks only live-window submissions
+      // For live tests: leaderboard ranks only live-window submissions.
+      // Always include the requesting user so their rank is always visible in analysis.
       let leaderboardSet = Array.from(firstByUser.values());
       if (isLiveTest) {
-        leaderboardSet = leaderboardSet.filter(e => e.duringLive || (e.userId === user.uid && isFirstAttemptParam));
+        leaderboardSet = leaderboardSet.filter(e => e.duringLive || e.userId === user.uid);
       }
 
       const sorted = leaderboardSet.sort((a, b) => b.score - a.score);
@@ -759,8 +786,15 @@ ${allUrls.map(u => `  <url>
         if (sorted[i].userId === user.uid) { myRank = rank; break; }
       }
 
-      // Percentile: % of participants scoring strictly below current user
-      const myScore = myScoreParam !== null && !isNaN(myScoreParam) ? myScoreParam : (firstByUser.get(user.uid)?.score ?? 0);
+      // Percentile: always use the user's FIRST-attempt score from Firestore for fairness.
+      // myScoreParam is only used as a fallback injection for brand-new first-attempts that
+      // haven't yet replicated to Firestore; for reattempts we ignore myScoreParam.
+      const firstAttemptEntry = firstByUser.get(user.uid);
+      const myScore = firstAttemptEntry
+        ? firstAttemptEntry.score                                  // always use first-attempt score
+        : (isFirstAttemptParam && myScoreParam !== null && !isNaN(myScoreParam)
+          ? myScoreParam                                           // pre-replication fallback
+          : 0);
       const scoringBelow = sorted.filter(r => r.score < myScore).length;
       const percentile = totalParticipants > 0 ? parseFloat(((scoringBelow / totalParticipants) * 100).toFixed(1)) : 0;
 

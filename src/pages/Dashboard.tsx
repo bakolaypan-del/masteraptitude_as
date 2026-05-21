@@ -57,11 +57,24 @@ export default function Dashboard() {
     setSearchParams({ tab: activeTab, cat });
   };
 
-  // Analysis State
-  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
-  const [selectedResult, setSelectedResult] = useState<any>(null);
-  const [analysisLiveRank, setAnalysisLiveRank] = useState<{ myRank: number; totalParticipants: number; uniqueStudents?: number; percentile?: number } | null>(null);
+  // Analysis navigation helper
+  const openAnalysis = (result: any) => {
+    navigate(`/analysis/${result.id}`, { state: { result } });
+  };
+
+  // Format attempt timestamp → "15 Jan 2025, 10:30 AM"
+  const formatAttemptDate = (timestamp: any): string => {
+    if (!timestamp) return 'Unknown date';
+    try {
+      const date = timestamp?.toDate ? timestamp.toDate() : new Date(typeof timestamp === 'number' ? timestamp : timestamp.seconds ? timestamp.seconds * 1000 : timestamp);
+      return date.toLocaleString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: true
+      });
+    } catch { return 'Unknown date'; }
+  };
   const [downloadingPDF, setDownloadingPDF] = useState<string | null>(null);
+  const [openAttemptDropdown, setOpenAttemptDropdown] = useState<string | null>(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isCarouselAnimating, setIsCarouselAnimating] = useState(false);
   const [isMobileView, setIsMobileView] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
@@ -145,31 +158,8 @@ export default function Dashboard() {
   }, [activeTab, categories.length]);
 
   // Track if we are in "Full Analysis" mode
-  const [showFullAnalysis, setShowFullAnalysis] = useState(false);
-  const [testQuestions, setTestQuestions] = useState<any[]>([]);
-  const [loadingQuestions, setLoadingQuestions] = useState(false);
-
   const [selectedVideo, setSelectedVideo] = useState<any | null>(null);
   const [videoNotes, setVideoNotes] = useState<string>('');
-
-  const fetchQuestionsForAnalysis = async (testId: string) => {
-    if (!user) return;
-    setLoadingQuestions(true);
-    try {
-      const token = await user.getIdToken();
-      const res = await fetch(`/api/test-questions/${testId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setTestQuestions(data.questions || []);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoadingQuestions(false);
-    }
-  };
 
   useEffect(() => {
     async function fetchData() {
@@ -1586,27 +1576,14 @@ export default function Dashboard() {
             const upcomingLive = liveTests.filter(t => t.isActive && new Date(t.liveStartDate) > now);
             const pastLive = liveTests.filter(t => new Date(t.liveEndDate) < now || !t.isActive);
 
-            const openLiveAnalysis = async (testId: string, result: any) => {
-              setAnalysisLiveRank(null);
-              setSelectedResult(result);
-              setShowFullAnalysis(false);
-              setShowAnalysisModal(true);
-              try {
-                const token = await user!.getIdToken();
-                const res = await fetch(
-                  `/api/test-leaderboard/${testId}?myScore=${encodeURIComponent(result.score)}`,
-                  { headers: { Authorization: `Bearer ${token}` } }
-                );
-                if (res.ok) {
-                  const lb = await res.json();
-                  setAnalysisLiveRank({ myRank: lb.myRank, totalParticipants: lb.totalParticipants, uniqueStudents: lb.uniqueStudents, percentile: lb.percentile });
-                }
-              } catch {}
-            };
+            const openLiveAnalysis = (_testId: string, result: any) => openAnalysis(result);
 
             const LiveCard = ({ t, badge }: { key?: any; t: any; badge: 'live' | 'upcoming' | 'past' }) => {
-              const prevResult = pastResults.find((r: any) => r.testId === t.id);
-              const hasAttempted = !!prevResult;
+              const attemptsForLive = pastResults
+                .filter((r: any) => r.testId === t.id)
+                .sort((a: any, b: any) => a.timestamp - b.timestamp);
+              const prevResult = attemptsForLive[0]; // first attempt for rank display
+              const hasAttempted = attemptsForLive.length > 0;
 
               return (
               <div className={`bg-white rounded-2xl border shadow-sm p-5 flex flex-col gap-3 transition-all hover:shadow-md ${badge === 'live' ? 'border-rose-200 shadow-rose-50' : 'border-slate-100'}`}>
@@ -1656,19 +1633,66 @@ export default function Dashboard() {
                     Opens on {new Date(t.liveStartDate).toLocaleString()}
                   </div>
                 ) : hasAttempted ? (
-                  /* Already attempted — show two options */
+                  /* Already attempted — Previous Attempt Analysis dropdown + Re-attempt */
                   <div className="flex gap-2">
-                    <button
-                      onClick={() => openLiveAnalysis(t.id, prevResult)}
-                      className="flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-1.5 bg-indigo-600 text-white hover:bg-indigo-700 transition-all active:scale-95"
-                    >
-                      <BarChart3 className="w-3.5 h-3.5" /> Previous Analysis
-                    </button>
+                    {/* Previous Attempt Analysis dropdown */}
+                    <div className="relative flex-1">
+                      <button
+                        onClick={() => setOpenAttemptDropdown(openAttemptDropdown === t.id ? null : t.id)}
+                        className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-all active:scale-95"
+                      >
+                        <BarChart3 className="w-3.5 h-3.5" />
+                        Previous Attempt Analysis
+                        <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${openAttemptDropdown === t.id ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {openAttemptDropdown === t.id && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setOpenAttemptDropdown(null)} />
+                          <div className="absolute left-0 top-full mt-1.5 z-50 bg-white border border-slate-200 rounded-2xl shadow-2xl shadow-slate-300/40 min-w-[300px] overflow-hidden">
+                            <div className="px-4 py-2.5 bg-gradient-to-r from-indigo-50 to-slate-50 border-b border-slate-100 flex items-center gap-2">
+                              <BarChart3 className="w-3.5 h-3.5 text-indigo-500" />
+                              <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">All Attempts — Select to View</p>
+                            </div>
+                            <div className="py-1">
+                              {attemptsForLive.map((r: any, i: number) => (
+                                <button
+                                  key={r.id}
+                                  onClick={() => { openAnalysis(r); setOpenAttemptDropdown(null); }}
+                                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 active:bg-slate-100 transition-colors text-left group/item"
+                                >
+                                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-[11px] font-black shadow-sm ${
+                                    i === 0 ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'
+                                  }`}>
+                                    {i + 1}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[11px] font-black text-slate-800 flex items-center gap-1.5">
+                                      {i === 0 ? '1st' : i === 1 ? '2nd' : i === 2 ? '3rd' : `${i + 1}th`} Attempt
+                                      {i === 0 && (
+                                        <span className="text-[8px] font-black text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">Rank</span>
+                                      )}
+                                    </p>
+                                    <p className="text-[9px] font-medium text-slate-400 mt-0.5 tabular-nums">{formatAttemptDate(r.timestamp)}</p>
+                                  </div>
+                                  <span className={`text-[12px] font-black shrink-0 tabular-nums ${i === 0 ? 'text-indigo-600' : 'text-amber-600'}`}>
+                                    {r.score}
+                                  </span>
+                                  <ChevronRight className="w-3.5 h-3.5 text-slate-300 shrink-0 group-hover/item:text-indigo-400 transition-colors" />
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Reattempt button */}
                     <button
                       onClick={() => navigate(`/test/${t.id}`)}
-                      className="flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all active:scale-95"
+                      className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all active:scale-95 shrink-0"
                     >
-                      <Play className="w-3.5 h-3.5" /> Re-attempt
+                      <Play className="w-3.5 h-3.5" /> Reattempt
                     </button>
                   </div>
                 ) : (
@@ -1895,52 +1919,71 @@ export default function Dashboard() {
                     {/* Test list */}
                     <div className="flex flex-col gap-3">
                       {testsInTopic.map((test, testIdx) => {
-                        const isTaken = pastResults.some(r => r.testId === test.id);
+                        // All attempts for this test, sorted oldest → newest
+                        const attemptsForTest = pastResults
+                          .filter((r: any) => r.testId === test.id)
+                          .sort((a: any, b: any) => a.timestamp - b.timestamp);
+                        const isTaken = attemptsForTest.length > 0;
+                        const attemptCount = attemptsForTest.length;
+                        const latestAttempt = attemptsForTest[attemptCount - 1];
                         return (
-                          <div key={test.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:-translate-y-px hover:border-indigo-100 transition-all duration-200 flex flex-col md:flex-row md:items-center justify-between gap-4 p-4">
-                            {/* LEFT: Test name */}
-                            <div className="flex items-center gap-3 flex-1 min-w-0">
-                              <div className="w-9 h-9 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-xl flex items-center justify-center shrink-0 font-black text-sm">
-                                {testIdx + 1}
-                              </div>
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <h4 className="font-extrabold text-slate-800 text-sm md:text-base leading-snug">{test.title}</h4>
-                                  {test.isPaid
-                                    ? <span className="px-1.5 py-0.5 bg-rose-100 text-rose-600 text-[8px] font-black uppercase tracking-widest rounded-full border border-rose-200 shrink-0">Paid</span>
-                                    : <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded-full border border-emerald-100 shrink-0">Free</span>
-                                  }
-                                  {test.isActive && (
-                                    <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 text-[8px] font-black uppercase tracking-widest rounded border border-indigo-100 flex items-center gap-0.5 shrink-0">
-                                      <span className="w-1 h-1 rounded-full bg-indigo-500 animate-pulse" />
-                                      Live
-                                    </span>
-                                  )}
+                          <div key={test.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:-translate-y-px hover:border-indigo-100 transition-all duration-200 p-4">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                              {/* LEFT: Test name */}
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <div className="w-9 h-9 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-xl flex items-center justify-center shrink-0 font-black text-sm">
+                                  {testIdx + 1}
                                 </div>
-                                {test.subjectName && (
-                                  <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest block leading-none mt-1">{test.subjectName}</span>
-                                )}
-                                {(test.uniqueStudentCount ?? 0) > 0 && (
-                                  <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1 mt-0.5">
-                                    👥 {(test.uniqueStudentCount as number).toLocaleString()} Students
-                                  </span>
-                                )}
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <h4 className="font-extrabold text-slate-800 text-sm md:text-base leading-snug">{test.title}</h4>
+                                    {test.isPaid
+                                      ? <span className="px-1.5 py-0.5 bg-rose-100 text-rose-600 text-[8px] font-black uppercase tracking-widest rounded-full border border-rose-200 shrink-0">Paid</span>
+                                      : <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded-full border border-emerald-100 shrink-0">Free</span>
+                                    }
+                                    {test.isActive && (
+                                      <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 text-[8px] font-black uppercase tracking-widest rounded border border-indigo-100 flex items-center gap-0.5 shrink-0">
+                                        <span className="w-1 h-1 rounded-full bg-indigo-500 animate-pulse" />
+                                        Live
+                                      </span>
+                                    )}
+                                    {isTaken && (
+                                      <span className="px-1.5 py-0.5 bg-emerald-500 text-white text-[8px] font-black uppercase tracking-widest rounded-full shrink-0">
+                                        ✓ Attempted {attemptCount > 1 ? `×${attemptCount}` : ''}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {test.subjectName && (
+                                    <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest block leading-none mt-1">{test.subjectName}</span>
+                                  )}
+                                  <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                                    {(test.uniqueStudentCount ?? 0) > 0 && (
+                                      <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1">
+                                        👥 {(test.uniqueStudentCount as number).toLocaleString()} Students
+                                      </span>
+                                    )}
+                                    {isTaken && latestAttempt && (
+                                      <span className="text-[9px] font-bold text-indigo-500 flex items-center gap-1">
+                                        <Clock className="w-2.5 h-2.5" />
+                                        Latest: {latestAttempt.score} marks
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
-                            </div>
 
-                            {/* MIDDLE: Specs */}
-                            <div className="shrink-0 text-left md:min-w-[130px]">
-                              <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Specs</span>
-                              <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1.5">
-                                <Clock className="w-3 h-3 text-indigo-500" />
-                                {test.duration || 30} min | {test.marksPerCorrect || 1}M
-                              </span>
-                            </div>
+                              {/* MIDDLE: Specs */}
+                              <div className="shrink-0 text-left md:min-w-[130px] hidden md:block">
+                                <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Specs</span>
+                                <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1.5">
+                                  <Clock className="w-3 h-3 text-indigo-500" />
+                                  {test.duration || 30} min | {test.marksPerCorrect || 1}M
+                                </span>
+                              </div>
 
-                            {/* RIGHT: Actions */}
-                            <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
-                              {!test.isPaid && isTaken && (
-                                <>
+                              {/* RIGHT: Actions */}
+                              <div className="flex items-center gap-2 shrink-0 self-end md:self-auto flex-wrap justify-end">
+                                {!test.isPaid && isTaken && (
                                   <button
                                     onClick={() => handleDownloadPDF(test.id, test.title, test.category || 'N/A', test.testType || 'N/A')}
                                     disabled={downloadingPDF === test.id}
@@ -1949,44 +1992,77 @@ export default function Dashboard() {
                                   >
                                     <Download className="w-4 h-4" />
                                   </button>
-                                  <button
-                                    onClick={async () => {
-                                      const res = pastResults.find(r => r.testId === test.id);
-                                      if (res) {
-                                        setAnalysisLiveRank(null);
-                                        setSelectedResult(res);
-                                        setShowAnalysisModal(true);
-                                        setShowFullAnalysis(false);
-                                        fetchQuestionsForAnalysis(test.id);
-                                        try {
-                                          const token = await user!.getIdToken();
-                                          const lbRes = await fetch(`/api/test-leaderboard/${test.id}?myScore=${encodeURIComponent(res.score)}`, { headers: { Authorization: `Bearer ${token}` } });
-                                          if (lbRes.ok) {
-                                            const lb = await lbRes.json();
-                                            setAnalysisLiveRank({ myRank: lb.myRank, totalParticipants: lb.totalParticipants, uniqueStudents: lb.uniqueStudents, percentile: lb.percentile });
-                                          }
-                                        } catch {}
-                                      }
-                                    }}
-                                    className="px-4 py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 transition-all"
+                                )}
+
+                                {/* Previous Attempt Analysis dropdown button */}
+                                {!test.isPaid && isTaken && (
+                                  <div className="relative">
+                                    <button
+                                      onClick={() => setOpenAttemptDropdown(openAttemptDropdown === test.id ? null : test.id)}
+                                      className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-all active:scale-95"
+                                    >
+                                      <BarChart3 className="w-3.5 h-3.5" />
+                                      Previous Attempt Analysis
+                                      <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${openAttemptDropdown === test.id ? 'rotate-180' : ''}`} />
+                                    </button>
+
+                                    {openAttemptDropdown === test.id && (
+                                      <>
+                                        {/* Backdrop to close on outside click */}
+                                        <div className="fixed inset-0 z-40" onClick={() => setOpenAttemptDropdown(null)} />
+                                        <div className="absolute right-0 top-full mt-1.5 z-50 bg-white border border-slate-200 rounded-2xl shadow-2xl shadow-slate-300/40 min-w-[300px] overflow-hidden">
+                                          <div className="px-4 py-2.5 bg-gradient-to-r from-indigo-50 to-slate-50 border-b border-slate-100 flex items-center gap-2">
+                                            <BarChart3 className="w-3.5 h-3.5 text-indigo-500" />
+                                            <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">All Attempts — Select to View</p>
+                                          </div>
+                                          <div className="py-1">
+                                            {attemptsForTest.map((r: any, i: number) => (
+                                              <button
+                                                key={r.id}
+                                                onClick={() => { openAnalysis(r); setOpenAttemptDropdown(null); }}
+                                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 active:bg-slate-100 transition-colors text-left group/item"
+                                              >
+                                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-[11px] font-black shadow-sm ${
+                                                  i === 0 ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'
+                                                }`}>
+                                                  {i + 1}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                  <p className="text-[11px] font-black text-slate-800 flex items-center gap-1.5">
+                                                    {i === 0 ? '1st' : i === 1 ? '2nd' : i === 2 ? '3rd' : `${i + 1}th`} Attempt
+                                                    {i === 0 && (
+                                                      <span className="text-[8px] font-black text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">Rank</span>
+                                                    )}
+                                                  </p>
+                                                  <p className="text-[9px] font-medium text-slate-400 mt-0.5 tabular-nums">{formatAttemptDate(r.timestamp)}</p>
+                                                </div>
+                                                <span className={`text-[12px] font-black shrink-0 tabular-nums ${i === 0 ? 'text-indigo-600' : 'text-amber-600'}`}>
+                                                  {r.score}
+                                                </span>
+                                                <ChevronRight className="w-3.5 h-3.5 text-slate-300 shrink-0 group-hover/item:text-indigo-400 transition-colors" />
+                                              </button>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+
+                                {test.isPaid ? (
+                                  <span className="px-5 py-2.5 bg-rose-100 text-rose-600 font-black text-[9px] uppercase tracking-widest rounded-xl border border-rose-200 flex items-center gap-1.5 cursor-not-allowed">
+                                    🔒 Purchase Required
+                                  </span>
+                                ) : (
+                                  <Link
+                                    to={`/test/${test.id}`}
+                                    className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-black text-[9px] uppercase tracking-widest rounded-xl hover:from-slate-900 hover:to-slate-900 transition-all shadow-md shadow-indigo-200 hover:shadow-lg flex items-center gap-1 active:scale-95"
                                   >
-                                    Analysis
-                                  </button>
-                                </>
-                              )}
-                              {test.isPaid ? (
-                                <span className="px-5 py-2.5 bg-rose-100 text-rose-600 font-black text-[9px] uppercase tracking-widest rounded-xl border border-rose-200 flex items-center gap-1.5 cursor-not-allowed">
-                                  🔒 Purchase Required
-                                </span>
-                              ) : (
-                                <Link
-                                  to={`/test/${test.id}`}
-                                  className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-black text-[9px] uppercase tracking-widest rounded-xl hover:from-slate-900 hover:to-slate-900 transition-all shadow-md shadow-indigo-200 hover:shadow-lg flex items-center gap-1 active:scale-95"
-                                >
-                                  {isTaken ? 'Reattempt' : 'Attempt Mock'}
-                                  <ChevronRight className="w-3.5 h-3.5" />
-                                </Link>
-                              )}
+                                    {isTaken ? 'Reattempt' : 'Attempt Mock'}
+                                    <ChevronRight className="w-3.5 h-3.5" />
+                                  </Link>
+                                )}
+                              </div>
                             </div>
                           </div>
                         );
@@ -2209,304 +2285,6 @@ export default function Dashboard() {
 
         </main>
       </div>
-
-      {/* Detailed Analysis Modal */}
-      {showAnalysisModal && selectedResult && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-3xl rounded-[40px] shadow-2xl overflow-hidden border border-white/20 flex flex-col max-h-[90vh]">
-            <div className="bg-slate-900 p-8 text-white relative flex justify-between items-center shrink-0">
-               <div className="flex-1">
-                 <h2 className="text-2xl font-black mb-1 tracking-tighter uppercase">
-                   {showFullAnalysis ? 'Detailed Question Review' : 'Attempt Analysis'}
-                 </h2>
-                 <p className="text-slate-400 font-bold text-xs">{selectedResult.testTitle || 'Mock Test'}</p>
-               </div>
-              <button
-                onClick={() => { setShowAnalysisModal(false); setShowFullAnalysis(false); setAnalysisLiveRank(null); }}
-                className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-all"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-[#f8f9fa]">
-              {!showFullAnalysis ? (
-                /* Summary Section */
-                <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
-                  {/* Rank & percentile banner */}
-                  {analysisLiveRank && (
-                    <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-5 text-white shadow-lg shadow-amber-100">
-                      <div className="flex items-center justify-between mb-2">
-                        <div>
-                          <p className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-0.5">Your Rank (1st Attempt)</p>
-                          <p className="text-3xl font-black">#{analysisLiveRank.myRank}/{analysisLiveRank.totalParticipants}</p>
-                        </div>
-                        <Trophy className="w-10 h-10 opacity-60" />
-                      </div>
-                      <div className="flex gap-2 flex-wrap">
-                        {analysisLiveRank.percentile !== undefined && (
-                          <span className="bg-white/20 px-3 py-1 rounded-full text-xs font-bold">Percentile: {analysisLiveRank.percentile}%ile</span>
-                        )}
-                        {analysisLiveRank.uniqueStudents !== undefined && (
-                          <span className="bg-white/20 px-3 py-1 rounded-full text-xs font-bold">👥 {analysisLiveRank.uniqueStudents.toLocaleString()} Total Students</span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-center">
-                      <span className="block text-[10px] font-black text-slate-400 uppercase mb-2">Marks Obtained</span>
-                      <span className="text-3xl font-black text-indigo-600">{selectedResult.score}</span>
-                      <span className="block text-[10px] font-bold text-slate-400 mt-1">out of {selectedResult.totalQuestions * (selectedResult.marksPerCorrect || 1)}</span>
-                    </div>
-                    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-center">
-                      <span className="block text-[10px] font-black text-slate-400 uppercase mb-2">Accuracy %</span>
-                      <span className={`text-3xl font-black ${selectedResult.accuracy >= 80 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                        {selectedResult.accuracy || 0}%
-                      </span>
-                    </div>
-                    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-center">
-                      <span className="block text-[10px] font-black text-slate-400 uppercase mb-2">Correct Hits</span>
-                      <span className="text-3xl font-black text-emerald-500">{selectedResult.correctAnswers}</span>
-                    </div>
-                    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-center">
-                      <span className="block text-[10px] font-black text-slate-400 uppercase mb-2">Time Taken</span>
-                      <span className="text-3xl font-black text-slate-700">{selectedResult.timeTaken || 'N/A'}</span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
-                       <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center">
-                         <AlertCircle className="w-6 h-6" />
-                       </div>
-                       <div>
-                         <p className="text-[10px] font-black text-slate-400 uppercase">Wrong Answers</p>
-                         <p className="text-xl font-black text-rose-600">{selectedResult.wrongAnswers}</p>
-                       </div>
-                    </div>
-                    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
-                       <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center">
-                         <BarChart3 className="w-6 h-6" />
-                       </div>
-                       <div>
-                         <p className="text-[10px] font-black text-slate-400 uppercase">Unattempted</p>
-                         <p className="text-xl font-black text-slate-600">{selectedResult.unattempted || 0}</p>
-                       </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-indigo-600 rounded-3xl p-8 text-white flex items-center justify-between shadow-xl shadow-indigo-100">
-                    <div>
-                      <h4 className="text-xl font-black mb-1">Deep Dive into Mistakes?</h4>
-                      <p className="text-indigo-100 text-xs font-medium">See which questions you missed and review explanations.</p>
-                    </div>
-                    <button 
-                      onClick={() => setShowFullAnalysis(true)}
-                      className="bg-white text-indigo-600 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all shadow-lg"
-                    >
-                      Full Analysis
-                    </button>
-                  </div>
-
-                  <div className="text-center pb-4 space-y-1">
-                    {selectedResult.attemptNumber && (
-                      <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${selectedResult.isFirstAttempt ? 'text-indigo-400' : 'text-amber-400'}`}>
-                        Attempt #{selectedResult.attemptNumber} — {selectedResult.isFirstAttempt ? 'Counts for Leaderboard' : 'Reattempt: Not in Leaderboard'}
-                      </p>
-                    )}
-                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Attempted on {new Date(selectedResult.timestamp).toLocaleString()}</p>
-                  </div>
-                </div>
-              ) : (
-                /* Full Analysis View */
-                <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
-                  <button 
-                    onClick={() => setShowFullAnalysis(false)}
-                    className="flex items-center gap-2 text-indigo-600 font-bold text-xs bg-indigo-50 px-4 py-2 rounded-xl hover:bg-indigo-100 transition-all mb-4"
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                    Back to Summary
-                  </button>
-
-                  <div className="space-y-6">
-                    {loadingQuestions ? (
-                      <div className="text-center py-20">
-                        <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                        <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Loading Question Bank...</p>
-                      </div>
-                    ) : testQuestions.map((q, idx) => {
-                      const userAns = selectedResult.userAnswers?.[q.id];
-                      // Normalize answers for comparison - handling potential label vs text issues
-                      const correctAnswerRaw = q.correctAnswer;
-                      const userAnsRaw = userAns;
-                      
-                      const isCorrect = userAnsRaw === correctAnswerRaw;
-                      const isSkipped = !userAnsRaw;
-
-                      return (
-                        <div key={q.id} className={`bg-white rounded-[32px] p-8 border shadow-sm transition-all overflow-hidden ${isCorrect ? 'border-emerald-100' : isSkipped ? 'border-slate-100' : 'border-rose-100'}`}>
-                          <div className="flex items-center justify-between mb-8">
-                            <div className="flex items-center gap-3">
-                              <span className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-sm font-black text-white shadow-lg">
-                                {idx + 1}
-                              </span>
-                              <div className="flex flex-col">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Question</span>
-                                <span className="text-xs font-bold text-slate-600">{q.topic || 'General Mock'}</span>
-                              </div>
-                            </div>
-                            
-                            <div className="flex items-center gap-2">
-                              {isSkipped ? (
-                                <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-full border border-slate-200">
-                                  <Info className="w-4 h-4 text-slate-400" />
-                                  <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Not Attempted</span>
-                                </div>
-                              ) : isCorrect ? (
-                                <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 rounded-full border border-emerald-200">
-                                  <CheckCircle className="w-4 h-4 text-emerald-600" />
-                                  <span className="text-[10px] font-black uppercase text-emerald-600 tracking-wider">Correct</span>
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-2 px-4 py-2 bg-rose-50 rounded-full border border-rose-200">
-                                  <X className="w-4 h-4 text-rose-600" />
-                                  <span className="text-[10px] font-black uppercase text-rose-600 tracking-wider">Incorrect</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          <h4 className="font-bold text-slate-800 text-xl mb-4 leading-relaxed px-2"><RenderMathText text={q.questionText} /></h4>
-                          {q.equationLatex && (
-                            <div className="mb-6 px-2 p-4 bg-indigo-50 border border-indigo-100 rounded-xl text-center text-xl overflow-x-auto">
-                              <RenderMathText text={`$$${q.equationLatex}$$`} />
-                            </div>
-                          )}
-                          {q.imageUrl && (
-                            <div className="mb-8 px-2 flex justify-center">
-                              <img src={q.imageUrl} alt="Question figure" className="max-h-52 rounded-xl object-contain border border-slate-100 bg-slate-50" />
-                            </div>
-                          )}
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                            {q.options.map((opt: string, i: number) => {
-                              const label = String.fromCharCode(65 + i);
-                              const isThisCorrect = opt === correctAnswerRaw;
-                              const isThisUserAns = opt === userAnsRaw;
-                              
-                              let state: 'default' | 'correct' | 'incorrect' = 'default';
-                              if (isThisCorrect) state = 'correct';
-                              else if (isThisUserAns && !isCorrect) state = 'incorrect';
-
-                              return (
-                                <div 
-                                  key={i} 
-                                  className={`p-5 rounded-2xl border-2 flex items-center gap-4 transition-all relative
-                                    ${state === 'correct' 
-                                      ? 'bg-emerald-50 border-emerald-500 text-emerald-900 shadow-md shadow-emerald-100 ring-2 ring-emerald-500/10' 
-                                      : state === 'incorrect'
-                                      ? 'bg-rose-50 border-rose-500 text-rose-900 shadow-md shadow-rose-100 ring-2 ring-rose-500/10'
-                                      : 'bg-white border-slate-100 text-slate-600 hover:border-slate-300'
-                                    }`}
-                                >
-                                  <span className={`w-9 h-9 shrink-0 rounded-xl flex items-center justify-center font-black text-sm
-                                    ${state === 'correct' ? 'bg-emerald-500 text-white shadow-md' : state === 'incorrect' ? 'bg-rose-500 text-white shadow-md' : 'bg-slate-100 text-slate-400'}`}>
-                                    {label}
-                                  </span>
-                                  <span className="font-bold text-sm md:text-base leading-tight pr-6">{opt}</span>
-                                  
-                                  {state === 'correct' && (
-                                    <div className="absolute right-4 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm">
-                                      <CheckCircle className="w-3.5 h-3.5 text-white" />
-                                    </div>
-                                  )}
-                                  {state === 'incorrect' && (
-                                    <div className="absolute right-4 w-6 h-6 bg-rose-500 rounded-full flex items-center justify-center shadow-sm">
-                                      <X className="w-3.5 h-3.5 text-white" />
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-
-                          {/* Timing, Success Rate and Difficulty Stats Dashboard Panel */}
-                          <div className="flex flex-wrap gap-4 mt-6 pt-6 border-t border-slate-100 items-center justify-between text-xs text-slate-500 mb-6">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-slate-400">Time Spent:</span>
-                              <span className="font-extrabold text-slate-800 bg-slate-100 px-3 py-1.5 rounded-lg">
-                                {selectedResult.questionTimes?.[q.id] !== undefined ? `${selectedResult.questionTimes[q.id]} sec` : 'N/A'}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-slate-400">Success Rate:</span>
-                              <span className={`font-extrabold px-3 py-1.5 rounded-lg ${
-                                (q.successPercentage || 100) >= 75 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                                (q.successPercentage || 100) >= 40 ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-                                'bg-rose-50 text-rose-700 border border-rose-200'
-                              }`}>{q.successPercentage !== undefined ? `${q.successPercentage}% students correct` : '100% correct'}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-slate-400">Difficulty:</span>
-                              <span className={`font-extrabold px-3 py-1.5 rounded-lg ${
-                                q.difficulty === 'Easy' ? 'bg-emerald-100 text-emerald-800' :
-                                q.difficulty === 'Moderate' ? 'bg-amber-100 text-amber-800' :
-                                'bg-rose-100 text-rose-800'
-                              }`}>{q.difficulty || 'Easy'}</span>
-                            </div>
-                          </div>
-
-                          {q.explanation && (
-                            <div className="mt-4 bg-[#f8fafc] p-6 md:p-8 rounded-[24px] border border-slate-100 relative group overflow-hidden">
-                              <div className="absolute top-0 right-0 p-4 text-indigo-500/5 transition-transform group-hover:scale-110">
-                                <Info className="w-16 h-16 rotate-12" />
-                              </div>
-                              <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] mb-4 flex items-center gap-2 relative z-10">
-                                <div className="w-1.5 h-3 bg-indigo-500 rounded-full"></div>
-                                Solution Deep Dive
-                              </p>
-                              <div className="text-slate-600 text-sm md:text-base leading-relaxed whitespace-pre-wrap font-medium relative z-10">
-                                {q.explanation}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="p-8 bg-white border-t border-slate-100 flex gap-4 shrink-0">
-               <button 
-                onClick={() => {
-                  const testData = activeTests.find(t => t.id === selectedResult.testId);
-                  handleDownloadPDF(
-                    selectedResult.testId, 
-                    selectedResult.testTitle || 'Mock Test',
-                    testData?.category || 'N/A',
-                    testData?.testType || 'N/A'
-                  );
-                }}
-                disabled={downloadingPDF === selectedResult.testId}
-                className="flex-1 bg-slate-900 text-white font-black py-4 rounded-2xl hover:bg-indigo-600 transition shadow-xl uppercase tracking-widest text-[10px] flex items-center justify-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                {downloadingPDF === selectedResult.testId ? 'Preparing...' : 'Download Analysis PDF'}
-              </button>
-              <button 
-                onClick={() => { setShowAnalysisModal(false); setShowFullAnalysis(false); }}
-                className="flex-1 bg-slate-100 text-slate-600 font-black py-4 rounded-2xl hover:bg-slate-200 transition uppercase tracking-widest text-[10px]"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Premium Internal Video Player Modal */}
       {selectedVideo && (() => {

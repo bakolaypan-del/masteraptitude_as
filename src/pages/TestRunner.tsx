@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthContext';
 import { RenderMathText } from '../components/MathRenderer';
-import { Clock, AlertTriangle, CheckCircle, ChevronRight, ChevronLeft, Flag, Info, Play, Menu, X, Target, Trophy, Zap, BookOpen, Shield } from 'lucide-react';
+import { Clock, AlertTriangle, ChevronRight, ChevronLeft, CheckCircle, Flag, Info, Play, Menu, X, Target, Zap, BookOpen, Shield } from 'lucide-react';
 
 export default function TestRunner() {
   const { testId } = useParams();
@@ -23,16 +23,9 @@ export default function TestRunner() {
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [submitting, setSubmitting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [result, setResult] = useState<any>(null);
-  const [showAnalysis, setShowAnalysis] = useState(false);
   const [warnings, setWarnings] = useState(0);
   const [showInstructions, setShowInstructions] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-  const [leaderboard, setLeaderboard] = useState<{ topRankers: { rank: number; name: string; score: number }[]; myRank: number; totalParticipants: number; uniqueStudents: number; percentile: number } | null>(null);
-  const [questionStats, setQuestionStats] = useState<Record<string, { totalAttempts: number; correctPercent: number; avgTimeSecs: number }>>({});
-  const leaderboardPollRef = useRef<any>(null);
-  const leaderboardPollCountRef = useRef(0);
 
   const isSubmittingRef = useRef(false);
   const timerRef = useRef<any>(null);
@@ -134,10 +127,7 @@ export default function TestRunner() {
     }
 
     loadTest();
-    return () => {
-      active = false;
-      if (leaderboardPollRef.current) clearInterval(leaderboardPollRef.current);
-    };
+    return () => { active = false; };
   }, [testId, user]);
 
   useEffect(() => {
@@ -151,7 +141,7 @@ export default function TestRunner() {
   }, [currentIdx, questions]);
 
   useEffect(() => {
-    if (!showInstructions && !submitting && !result && questions.length > 0 && timeLeft > 0) {
+    if (!showInstructions && !submitting && questions.length > 0 && timeLeft > 0) {
       timerRef.current = setInterval(() => {
         const activeIdx = currentIdxRef.current;
         const currentQuestionId = questions[activeIdx]?.id;
@@ -171,21 +161,21 @@ export default function TestRunner() {
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   // showInstructions added: timer must start the moment instructions are dismissed
-  }, [showInstructions, submitting, result, questions.length, timeLeft]);
+  }, [showInstructions, submitting, questions.length, timeLeft]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden' && !showInstructions && !submitting && !result && questions.length > 0) {
+      if (document.visibilityState === 'hidden' && !showInstructions && !submitting && questions.length > 0) {
         setWarnings(w => w + 1);
         alert('Warning: Switching tabs during a test is strictly prohibited! This has been recorded.');
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [submitting, result, questions.length]);
+  }, [submitting, questions.length]);
 
   const handleSubmission = async (isAuto = false) => {
-    if (isSubmittingRef.current || result || !user || questions.length === 0) return;
+    if (isSubmittingRef.current || !user || questions.length === 0) return;
 
     if (!isAuto && !showConfirmModal) {
       setShowConfirmModal(true);
@@ -231,39 +221,13 @@ export default function TestRunner() {
       }
 
       const responseData = await res.json();
-      setResult(responseData);
 
-      const submittedScore = parseFloat(responseData.score);
-      const firstAttempt: boolean = !!responseData.isFirstAttempt;
-
-      // Fetch question community stats once (lazy, for analysis view)
-      user.getIdToken().then(tk => {
-        fetch(`/api/test-question-stats/${testId}`, { headers: { Authorization: `Bearer ${tk}` } })
-          .then(r => r.ok ? r.json() : null)
-          .then(d => { if (d?.stats) setQuestionStats(d.stats); })
-          .catch(() => {});
+      // Navigate to the canonical analysis page, passing all data via state
+      // so it renders immediately without a loading screen.
+      navigate(`/analysis/${responseData.resultId}`, {
+        state: { result: responseData, questions, test },
+        replace: true,   // don't let the user "back" into the test after submission
       });
-
-      // Poll leaderboard max 3 times to limit Firestore reads
-      leaderboardPollCountRef.current = 0;
-      const fetchLeaderboard = async () => {
-        try {
-          const tk = await user.getIdToken();
-          const lbRes = await fetch(
-            `/api/test-leaderboard/${testId}?myScore=${encodeURIComponent(submittedScore)}&isFirstAttempt=${firstAttempt}`,
-            { headers: { Authorization: `Bearer ${tk}` } }
-          );
-          if (lbRes.ok) {
-            setLeaderboard(await lbRes.json());
-            leaderboardPollCountRef.current++;
-            if (leaderboardPollCountRef.current >= 3) {
-              clearInterval(leaderboardPollRef.current);
-            }
-          }
-        } catch {}
-      };
-      fetchLeaderboard();
-      leaderboardPollRef.current = setInterval(fetchLeaderboard, 15000);
     } catch (err: any) {
       console.error("Client submission error:", err);
       isSubmittingRef.current = false;
@@ -418,401 +382,6 @@ export default function TestRunner() {
               Back to Dashboard
             </button>
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ─── Analysis Screen ──────────────────────────────────────────────────────────
-  if (result && showAnalysis) {
-    return (
-      <div className="flex flex-col min-h-screen bg-[#f0f2f5] font-sans text-slate-900">
-        {/* Sticky header — compact on mobile */}
-        <header className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm shrink-0">
-          <div className="flex items-center justify-between px-3 sm:px-6 h-14 gap-2">
-            <button onClick={() => setShowAnalysis(false)}
-              className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-all text-xs font-bold active:scale-95 shrink-0">
-              <ChevronLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Back</span>
-            </button>
-            <h1 className="text-sm sm:text-base font-black tracking-tight text-slate-800 truncate">Test Analysis</h1>
-            <div className="flex items-center gap-2 shrink-0">
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 border border-indigo-100 rounded-full">
-                <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest hidden sm:inline">Score</span>
-                <span className="text-xs font-black text-indigo-600">{result.score}</span>
-              </div>
-              <button onClick={handleExit}
-                className="px-2.5 sm:px-4 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-black transition-colors">
-                Exit
-              </button>
-            </div>
-          </div>
-        </header>
-
-        <main className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 sm:py-8">
-          <div className="max-w-3xl mx-auto space-y-5 pb-20">
-
-            {/* Topic-wise summary */}
-            {(() => {
-              const tMap: Record<string, { total: number; correct: number; wrong: number; skip: number }> = {};
-              questions.forEach(q => {
-                const topic = q.topic || 'General';
-                if (!tMap[topic]) tMap[topic] = { total: 0, correct: 0, wrong: 0, skip: 0 };
-                tMap[topic].total++;
-                const correctAns = result.analysis[q.id];
-                const storedIdx = answers[q.id];
-                const choice = storedIdx !== undefined ? (q.options[parseInt(storedIdx)] || '') : '';
-                if (!choice) tMap[topic].skip++;
-                else if (choice === correctAns) tMap[topic].correct++;
-                else tMap[topic].wrong++;
-              });
-              const entries = Object.entries(tMap);
-              if (entries.length <= 1) return null;
-              return (
-                <div className="bg-white rounded-2xl border border-indigo-100 p-4 sm:p-6 shadow-sm">
-                  <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <Target className="w-4 h-4 text-indigo-500" /> Topic-wise Analysis
-                  </h3>
-                  <div className="space-y-4">
-                    {entries.map(([topic, s]) => {
-                      const pct = s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0;
-                      return (
-                        <div key={topic}>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-bold text-slate-700 truncate max-w-[60%]">{topic}</span>
-                            <span className="text-[10px] font-black text-slate-500 shrink-0">{s.correct}/{s.total} ({pct}%)</span>
-                          </div>
-                          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: pct >= 70 ? '#10b981' : pct >= 40 ? '#f59e0b' : '#ef4444' }} />
-                          </div>
-                          <div className="flex gap-3 mt-1 text-[9px] font-bold uppercase tracking-widest flex-wrap">
-                            <span className="text-emerald-600">{s.correct} correct</span>
-                            <span className="text-rose-500">{s.wrong} wrong</span>
-                            <span className="text-slate-400">{s.skip} skipped</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
-
-            {questions.map((q, idx) => {
-              const correctAnswer = result.analysis[q.id];
-              const storedIdx = answers[q.id];
-              const origQ = questions.find((oq: any) => oq.id === q.id);
-              const userChoice = (storedIdx !== undefined && origQ) ? (origQ.options[parseInt(storedIdx)] || '') : '';
-              const isCorrect = !!userChoice && userChoice === correctAnswer;
-              const isUnattempted = !userChoice;
-              const solutionText = q.explanation || q.solution || '';
-              const extraInfoText = q.extraInfo || q.note || q.hint || '';
-
-              return (
-                <div key={q.id} className={`bg-white rounded-2xl sm:rounded-3xl border shadow-sm overflow-hidden
-                  ${isCorrect ? 'border-l-4 border-l-emerald-500 border-y-emerald-100 border-r-emerald-100' :
-                    isUnattempted ? 'border-l-4 border-l-amber-400 border-y-slate-100 border-r-slate-100' :
-                    'border-l-4 border-l-rose-500 border-y-rose-100 border-r-rose-100'}`}
-                  style={{ animationDelay: `${idx * 30}ms` }}>
-
-                  {/* Question header bar */}
-                  <div className={`flex items-center justify-between px-4 py-2.5 text-[10px] font-black uppercase tracking-widest
-                    ${isCorrect ? 'bg-emerald-50 text-emerald-700' : isUnattempted ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700'}`}>
-                    <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 bg-white/70 rounded-lg flex items-center justify-center font-black text-xs shadow-sm">
-                        {idx + 1}
-                      </span>
-                      <span className="truncate max-w-[120px] sm:max-w-none">{q.topic || 'General'}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {isUnattempted ? (
-                        <><Info className="w-3.5 h-3.5" /><span>Skipped</span></>
-                      ) : isCorrect ? (
-                        <><CheckCircle className="w-3.5 h-3.5" /><span>Correct</span></>
-                      ) : (
-                        <><X className="w-3.5 h-3.5" /><span>Wrong</span></>
-                      )}
-                      <span className="ml-2 px-1.5 py-0.5 bg-white/60 rounded text-[9px]">
-                        {isCorrect ? `+${test?.marksPerCorrect || 1}` : isUnattempted ? '0' : `-${test?.negativeMarks || 0.25}`}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="p-4 sm:p-6">
-                    {/* Question text */}
-                    <div className="text-sm sm:text-base font-semibold text-slate-800 leading-relaxed mb-4 break-words">
-                      <RenderMathText text={q.questionText} />
-                    </div>
-
-                    {q.equationLatex && (
-                      <div className="mb-4 p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-center text-base overflow-x-auto">
-                        <RenderMathText text={`$$${q.equationLatex}$$`} />
-                      </div>
-                    )}
-                    {q.imageUrl && (
-                      <div className="mb-4 flex justify-center">
-                        <img src={q.imageUrl} alt="Question figure" loading="lazy"
-                          className="rounded-xl border border-slate-100 max-w-full"
-                          style={{ maxHeight: 220, objectFit: 'contain' }}
-                          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-                      </div>
-                    )}
-
-                    {/* Options — always vertical on mobile */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-4">
-                      {q.options.map((opt: string, i: number) => {
-                        const optionLabel = String.fromCharCode(65 + i);
-                        const origOpt = origQ?.options[i] ?? opt;
-                        const isOptionCorrect = origOpt === correctAnswer;
-                        const isOptionSelected = origOpt === userChoice;
-                        let state: 'default' | 'correct' | 'incorrect' = 'default';
-                        if (isOptionCorrect) state = 'correct';
-                        else if (isOptionSelected && !isCorrect) state = 'incorrect';
-
-                        return (
-                          <div key={i} className={`flex items-start gap-3 p-3 sm:p-4 rounded-xl border-2 transition-all
-                            ${state === 'correct' ? 'bg-emerald-50 border-emerald-400 text-emerald-900' : ''}
-                            ${state === 'incorrect' ? 'bg-rose-50 border-rose-400 text-rose-900' : ''}
-                            ${state === 'default' ? 'bg-slate-50 border-slate-200 text-slate-600' : ''}`}>
-                            <span className={`w-7 h-7 shrink-0 rounded-lg flex items-center justify-center font-black text-xs mt-0.5
-                              ${state === 'correct' ? 'bg-emerald-500 text-white' : state === 'incorrect' ? 'bg-rose-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
-                              {optionLabel}
-                            </span>
-                            <span className="font-medium text-sm leading-snug break-words min-w-0 flex-1 pt-0.5">{opt}</span>
-                            {state === 'correct' && <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />}
-                            {state === 'incorrect' && <X className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />}
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Answer summary strip */}
-                    <div className={`rounded-xl p-3 mb-3 text-xs font-bold flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4
-                      ${isUnattempted ? 'bg-amber-50 border border-amber-200' : isCorrect ? 'bg-emerald-50 border border-emerald-200' : 'bg-rose-50 border border-rose-200'}`}>
-                      <div className="flex items-center gap-2">
-                        <span className="text-slate-500 font-medium">Your Answer:</span>
-                        <span className={`font-black ${isUnattempted ? 'text-amber-700' : isCorrect ? 'text-emerald-700' : 'text-rose-700'}`}>
-                          {userChoice || '— Not Attempted'}
-                        </span>
-                      </div>
-                      {!isCorrect && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-slate-500 font-medium">Correct Answer:</span>
-                          <span className="font-black text-emerald-700">{correctAnswer}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Community stats */}
-                    {questionStats[q.id] && (
-                      <div className="flex flex-wrap gap-1.5 mb-3">
-                        <div className="flex items-center gap-1 px-2 py-1 bg-violet-50 text-violet-700 rounded-lg border border-violet-100 text-[9px] font-black uppercase tracking-widest">
-                          Avg correct: {questionStats[q.id].correctPercent}%
-                        </div>
-                        <div className="flex items-center gap-1 px-2 py-1 bg-sky-50 text-sky-700 rounded-lg border border-sky-100 text-[9px] font-black uppercase tracking-widest">
-                          <Clock className="w-3 h-3" /> {questionStats[q.id].avgTimeSecs}s avg
-                        </div>
-                        {(() => {
-                          const secs = result.questionTimes?.[q.id] ?? questionTimesRef.current[q.id] ?? 0;
-                          return (
-                            <div className="flex items-center gap-1 px-2 py-1 bg-indigo-50 text-indigo-600 rounded-lg border border-indigo-100 text-[9px] font-black uppercase tracking-widest">
-                              <Clock className="w-3 h-3" /> Your: {secs >= 60 ? `${Math.floor(secs/60)}m ` : ''}{secs % 60}s
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    )}
-
-                    {/* Solution */}
-                    {solutionText && (
-                      <div className="mt-3 bg-gradient-to-br from-indigo-50 to-violet-50 p-4 sm:p-5 rounded-xl border border-indigo-100">
-                        <p className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5">
-                          <div className="w-1.5 h-3 bg-indigo-500 rounded-full"></div>
-                          Solution
-                        </p>
-                        <div className="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap font-medium break-words">
-                          <RenderMathText text={solutionText} />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Extra info / trick */}
-                    {extraInfoText && (
-                      <div className="mt-2.5 bg-amber-50 p-4 rounded-xl border border-amber-200">
-                        <p className="text-[10px] font-black text-amber-700 uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5">
-                          <div className="w-1.5 h-3 bg-amber-500 rounded-full"></div>
-                          Quick Tip / Extra Info
-                        </p>
-                        <div className="text-amber-900 text-sm leading-relaxed font-medium break-words">
-                          <RenderMathText text={extraInfoText} />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Solution image */}
-                    {q.solutionImageUrl && (
-                      <div className="mt-2.5 flex justify-center">
-                        <img src={q.solutionImageUrl} alt="Solution reference"
-                          className="rounded-xl border border-slate-200 max-w-full"
-                          style={{ maxHeight: 200, objectFit: 'contain' }}
-                          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </main>
-
-        <div className="sticky bottom-0 bg-white border-t border-slate-200 px-4 py-3 flex items-center justify-center z-10">
-          <button onClick={() => { setShowAnalysis(false); window.scrollTo(0, 0); }}
-            className="w-full max-w-sm py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-black rounded-xl hover:from-indigo-700 hover:to-violet-700 transition-all shadow-lg active:scale-95 text-sm uppercase tracking-wider">
-            Back to Summary
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ─── Result Summary Screen ────────────────────────────────────────────────────
-  if (result) {
-    const rankDisplay = leaderboard
-      ? `${leaderboard.myRank}/${leaderboard.totalParticipants}`
-      : '...';
-    const accuracy = result.totalQuestions > 0
-      ? ((result.correctAnswers / result.totalQuestions) * 100).toFixed(1)
-      : result.accuracy ?? 0;
-    const accuracyNum = parseFloat(String(accuracy));
-    const isReattempt = result.attemptNumber > 1;
-
-    const feedback = accuracyNum >= 90
-      ? { msg: 'Excellent! You are exam ready. Keep it up!', color: 'text-emerald-300', bg: 'rgba(16,185,129,0.12)', emoji: '🔥' }
-      : accuracyNum >= 70
-      ? { msg: 'Good performance! Practice more to improve speed and accuracy.', color: 'text-sky-300', bg: 'rgba(14,165,233,0.12)', emoji: '👍' }
-      : accuracyNum >= 50
-      ? { msg: 'Average performance. Focus on weak areas and regular practice.', color: 'text-amber-300', bg: 'rgba(245,158,11,0.12)', emoji: '📈' }
-      : { msg: 'You need more practice. Analyze your mistakes carefully and improve concepts.', color: 'text-rose-300', bg: 'rgba(239,68,68,0.12)', emoji: '⚠️' };
-
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4"
-        style={{ background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 55%, #24243e 100%)' }}>
-        <div className="fixed top-1/4 left-1/4 w-96 h-96 rounded-full blur-3xl pointer-events-none" style={{ background: 'rgba(99,102,241,0.12)' }} />
-        <div className="fixed bottom-1/4 right-1/4 w-64 h-64 rounded-full blur-3xl pointer-events-none" style={{ background: 'rgba(16,185,129,0.08)' }} />
-
-        <div className="w-full max-w-4xl flex flex-col lg:flex-row gap-6 items-start">
-
-          {/* ── Left: result card ── */}
-          <div className="flex-1 rounded-3xl border border-white/10 overflow-hidden shadow-2xl"
-            style={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(30px)' }}>
-
-            <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-violet-500 to-emerald-500" />
-
-            <div className="p-8 text-center">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-500/20 to-indigo-500/20 border-2 border-emerald-400/30 flex items-center justify-center mx-auto mb-4 shadow-2xl hover:scale-110 transition-transform duration-500">
-                <Trophy className="w-10 h-10 text-yellow-400" />
-              </div>
-              <h2 className="text-3xl font-black text-white mb-1 tracking-tight">Test Completed! 🎉</h2>
-              <p className="text-slate-400 text-sm font-medium">
-                {isReattempt ? `Reattempt #${result.attemptNumber} — Does not affect leaderboard ranking.` : 'Your performance has been evaluated and recorded.'}
-              </p>
-            </div>
-
-            {/* Performance feedback */}
-            <div className="mx-6 mb-4 rounded-2xl p-4 flex items-start gap-3 border border-white/10" style={{ background: feedback.bg }}>
-              <span className="text-2xl shrink-0">{feedback.emoji}</span>
-              <p className={`text-sm font-bold leading-snug ${feedback.color}`}>{feedback.msg}</p>
-            </div>
-
-            <div className="px-6 pb-6 grid grid-cols-2 gap-3">
-              {[
-                { label: 'Your Score', value: result.score, textColor: 'text-indigo-300', border: 'border-indigo-500/20' },
-                { label: 'Rank (1st Attempt)', value: leaderboard ? `#${rankDisplay}` : '...', textColor: 'text-amber-300', border: 'border-amber-500/20' },
-                { label: 'Percentile', value: leaderboard ? `${leaderboard.percentile}%ile` : '...', textColor: 'text-violet-300', border: 'border-violet-500/20' },
-                { label: 'Accuracy', value: `${accuracy}%`, textColor: 'text-emerald-300', border: 'border-emerald-500/20' },
-                { label: 'Correct', value: result.correctAnswers, textColor: 'text-teal-300', border: 'border-teal-500/20' },
-                { label: 'Wrong', value: result.wrongAnswers, textColor: 'text-rose-300', border: 'border-rose-500/20' },
-                { label: 'Skipped', value: result.unattempted, textColor: 'text-slate-400', border: 'border-slate-500/20' },
-                { label: 'Total Students', value: leaderboard ? leaderboard.uniqueStudents.toLocaleString() : '...', textColor: 'text-sky-300', border: 'border-sky-500/20' },
-              ].map((stat) => (
-                <div key={stat.label} className={`rounded-2xl border p-4 text-center ${stat.border}`}
-                  style={{ background: 'rgba(255,255,255,0.04)' }}>
-                  <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${stat.textColor}`}>{stat.label}</p>
-                  <p className={`text-3xl font-black ${stat.textColor}`}>{stat.value}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="px-6 pb-6 flex flex-col gap-3">
-              <button onClick={() => { setShowAnalysis(true); window.scrollTo(0, 0); }}
-                className="w-full py-4 text-white font-black rounded-2xl flex items-center justify-center gap-3 shadow-xl uppercase tracking-widest text-sm transition-all hover:opacity-90 active:scale-95"
-                style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}>
-                Analyze Your Performance <ChevronRight className="w-5 h-5" />
-              </button>
-              <button onClick={handleExit}
-                className="w-full py-4 text-slate-400 font-black rounded-2xl border border-white/10 hover:bg-white/5 transition-all uppercase tracking-widest text-sm"
-                style={{ background: 'rgba(255,255,255,0.03)' }}>
-                Back to Dashboard
-              </button>
-            </div>
-          </div>
-
-          {/* ── Right: live leaderboard ── */}
-          <div className="w-full lg:w-72 rounded-3xl border border-white/10 overflow-hidden shadow-2xl shrink-0"
-            style={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(30px)' }}>
-
-            <div className="h-1.5 bg-gradient-to-r from-amber-400 via-orange-400 to-rose-400" />
-
-            <div className="p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">
-                  <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                  Live Rankings
-                </h3>
-                <span className="text-[10px] text-slate-400 font-bold">{leaderboard ? `${leaderboard.totalParticipants} student${leaderboard.totalParticipants !== 1 ? 's' : ''}` : '...'}</span>
-              </div>
-
-              {!leaderboard ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="w-6 h-6 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-                </div>
-              ) : leaderboard.topRankers.length === 0 ? (
-                <p className="text-slate-500 text-xs text-center py-6">No rankings yet</p>
-              ) : (
-                <div className="space-y-2">
-                  {leaderboard.topRankers.map((r) => {
-                    const medal = r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : null;
-                    const isMe = (r as any).isCurrentUser === true;
-                    return (
-                      <div key={r.rank}
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${isMe ? 'border border-amber-400/40' : 'border border-white/5'}`}
-                        style={{ background: isMe ? 'rgba(251,191,36,0.1)' : 'rgba(255,255,255,0.03)' }}>
-                        <span className="text-sm font-black text-slate-400 w-5 text-center">
-                          {medal || `${r.rank}`}
-                        </span>
-                        <span className={`flex-1 text-sm font-bold truncate ${isMe ? 'text-amber-300' : 'text-slate-200'}`}>
-                          {r.name}{isMe ? ' (You)' : ''}
-                        </span>
-                        <span className="text-xs font-black text-slate-400">{r.score}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {leaderboard && leaderboard.myRank > 10 && (
-                <div className="mt-3 pt-3 border-t border-white/10">
-                  <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-amber-400/40"
-                    style={{ background: 'rgba(251,191,36,0.1)' }}>
-                    <span className="text-sm font-black text-amber-400 w-5 text-center">{leaderboard.myRank}</span>
-                    <span className="flex-1 text-sm font-bold text-amber-300 truncate">You</span>
-                    <span className="text-xs font-black text-slate-400">{result.score}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
         </div>
       </div>
     );
