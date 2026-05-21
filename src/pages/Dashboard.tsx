@@ -7,6 +7,9 @@ import { useAuth } from '../components/AuthContext';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { RenderMathText } from '../components/MathRenderer';
 import PWAInstallPrompt, { InstallAppSidebarButton } from '../components/PWAInstallPrompt';
+import AppInstallGate from '../components/AppInstallGate';
+import AppBottomNav from '../components/AppBottomNav';
+import AppUpdateToast from '../components/AppUpdateToast';
 import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ChevronLeft, ArrowLeft, ExternalLink, Menu, X, Youtube, MessageCircle, Send, LayoutDashboard, History, ChevronDown, ArrowRight, User, Info, Phone, Download, Printer, AlertCircle, BarChart3, Keyboard, Globe, Layers, CheckSquare, Volume2, VolumeX, Maximize, NotebookPen } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -743,11 +746,21 @@ export default function Dashboard() {
       <div className="flex-1 flex flex-col h-full relative overflow-y-auto w-full md:w-auto">
         
         {/* Top Header */}
-        <header className="h-16 backdrop-blur-xl flex items-center justify-between px-4 sm:px-8 shrink-0 sticky top-0 z-10 w-full" style={{background: 'rgba(255,255,255,0.9)', borderBottom: '1px solid #e8ecf3', boxShadow: '0 1px 8px rgba(0,0,0,0.04)'}}>
-          <div className="flex items-center flex-1">
+        <header className="h-14 md:h-16 backdrop-blur-xl flex items-center justify-between px-4 sm:px-8 shrink-0 sticky top-0 z-10 w-full" style={{background: 'rgba(255,255,255,0.96)', borderBottom: '1px solid #e8ecf3', boxShadow: '0 1px 8px rgba(0,0,0,0.04)'}}>
+          {/* Mobile: App logo — Desktop: hamburger hidden, breadcrumb shown */}
+          <div className="flex items-center flex-1 gap-3">
+            {/* Mobile app logo (replaces hamburger — bottom nav handles navigation) */}
+            <button onClick={() => setActiveTab('home')}
+              className="md:hidden flex items-center gap-2.5">
+              <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center shadow-md">
+                <span className="text-white text-sm font-black">M</span>
+              </div>
+              <span className="text-sm font-black" style={{color: '#1e293b'}}>Master<span style={{color: '#6366f1'}}>Aptitude</span></span>
+            </button>
+            {/* Desktop sidebar toggle (keep for desktop) */}
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className="md:hidden p-2 mr-3 -ml-1 rounded-xl transition-colors"
+              className="hidden p-2 -ml-1 rounded-xl transition-colors"
               style={{color: '#64748b'}}
             >
               <Menu className="w-6 h-6" />
@@ -758,7 +771,7 @@ export default function Dashboard() {
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {profile?.role === 'admin' && (
               <Link to="/admin" className="hidden sm:flex items-center gap-1.5 text-[10px] font-black bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-4 py-2 rounded-xl hover:opacity-90 transition-all" style={{boxShadow: '0 2px 12px rgba(99,102,241,0.3)'}} >
                 <LayoutDashboard className="w-3 h-3" />
@@ -774,9 +787,15 @@ export default function Dashboard() {
                 <span className="text-[9px] font-medium" style={{color: '#94a3b8'}}>{profile?.phoneNumber || ''}</span>
               </div>
             </div>
+            {/* Mobile: user avatar tap → profile */}
+            <button onClick={() => setActiveTab('profile')}
+              className="md:hidden w-8 h-8 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center text-white text-sm font-black select-none"
+              style={{boxShadow: '0 2px 10px rgba(99,102,241,0.3)'}}>
+              {(profile?.name || 'S').charAt(0).toUpperCase()}
+            </button>
             <button
               onClick={handleLogout}
-              className="w-9 h-9 flex items-center justify-center rounded-xl transition-all"
+              className="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-xl transition-all"
               style={{background: '#f1f5f9', color: '#64748b'}}
               title="Log out"
             >
@@ -785,8 +804,8 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {/* Scrollable Main Content */}
-        <main className="p-5 md:p-8 w-full animate-in fade-in duration-500">
+        {/* Scrollable Main Content — extra bottom padding on mobile for bottom nav */}
+        <main className="p-5 md:p-8 pb-24 md:pb-8 w-full animate-in fade-in duration-500">
           
           {/* Home Tab – Design D */}
           {activeTab === 'home' && (
@@ -2803,6 +2822,15 @@ export default function Dashboard() {
 
       {/* PWA install prompt — shows for non-admin users on mobile/Android */}
       {profile?.role !== 'admin' && <PWAInstallPrompt />}
+
+      {/* Bottom navigation bar — mobile only, non-admin */}
+      {profile?.role !== 'admin' && <AppBottomNav />}
+
+      {/* App install gate — prompts mobile browser users to install */}
+      {profile?.role !== 'admin' && <AppInstallGate />}
+
+      {/* SW update toast — notifies when a new version is deployed */}
+      <AppUpdateToast />
     </div>
   );
 }

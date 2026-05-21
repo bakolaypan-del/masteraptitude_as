@@ -151,6 +151,95 @@ export default function PWAInstallPrompt() {
   );
 }
 
+// ── Mobile floating install button (bottom-right FAB) ────────────────────────
+export function MobileInstallFAB() {
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showIOS, setShowIOS] = useState(false);
+  const [installed, setInstalled] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setInstalled(true);
+      return;
+    }
+    const handler = (e: Event) => { e.preventDefault(); setDeferredPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = useCallback(async () => {
+    if (isIOS()) { setShowIOS(true); setExpanded(false); return; }
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') setInstalled(true);
+    }
+    setExpanded(false);
+  }, [deferredPrompt]);
+
+  if (installed) return null;
+
+  return (
+    <>
+      <AnimatePresence>
+        {showIOS && <IOSInstructions onClose={() => setShowIOS(false)} />}
+      </AnimatePresence>
+
+      {/* Backdrop to close on tap-outside */}
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            key="fab-backdrop"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9990] md:hidden"
+            onClick={() => setExpanded(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      <div className="fixed bottom-5 right-4 z-[9995] md:hidden flex flex-col items-end gap-2">
+        {/* Expanded card */}
+        <AnimatePresence>
+          {expanded && (
+            <motion.div
+              key="fab-card"
+              initial={{ opacity: 0, scale: 0.85, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.85, y: 12 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+              className="bg-white rounded-2xl shadow-2xl border border-indigo-100 p-4 w-56"
+              style={{ boxShadow: '0 8px 32px rgba(99,102,241,0.22)' }}
+            >
+              <p className="text-xs font-black text-slate-800 mb-0.5">Install Master Aptitude</p>
+              <p className="text-[10px] text-slate-500 mb-3 leading-snug">Get the full app experience — faster, offline-ready & full-screen.</p>
+              <button
+                onClick={handleInstall}
+                className="w-full py-2.5 rounded-xl text-white text-xs font-black flex items-center justify-center gap-2 active:scale-95 transition-transform"
+                style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', boxShadow: '0 4px 14px rgba(99,102,241,0.35)' }}
+              >
+                <Download className="w-3.5 h-3.5" />
+                {isIOS() ? 'How to Install' : 'Install Now'}
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* FAB button */}
+        <motion.button
+          onClick={() => setExpanded(v => !v)}
+          whileTap={{ scale: 0.92 }}
+          className="flex items-center gap-2 pl-3.5 pr-4 py-3 rounded-2xl text-white text-xs font-black shadow-xl"
+          style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', boxShadow: '0 6px 24px rgba(99,102,241,0.45)' }}
+        >
+          <Download className="w-4 h-4" />
+          <span>Install App</span>
+        </motion.button>
+      </div>
+    </>
+  );
+}
+
 // ── Sidebar install button (always visible) ───────────────────────────────────
 export function InstallAppSidebarButton() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
