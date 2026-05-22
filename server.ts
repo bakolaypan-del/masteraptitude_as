@@ -2066,6 +2066,188 @@ ${allUrls.map(u => `  <url>
     }
   });
 
+  // ── Review System ────────────────────────────────────────────────────────────
+
+  // Public: approved reviews for homepage slider
+  app.get("/api/reviews/public", async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const snap = await currentDb.collection("student_reviews")
+        .where("status", "==", "approved")
+        .where("showHomepage", "==", true)
+        .orderBy("createdAt", "desc")
+        .get();
+      res.json({ reviews: snap.docs.map(d => ({ id: d.id, ...d.data() })) });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch reviews" });
+    }
+  });
+
+  // Public: get review link details by code
+  app.get("/api/review-link/:code", async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const snap = await currentDb.collection("review_links")
+        .where("uniqueCode", "==", req.params.code).get();
+      if (snap.empty) return res.status(404).json({ error: "Review link not found" });
+      const d = snap.docs[0];
+      const data = d.data();
+      if (data.status !== "active") return res.status(410).json({ error: "This review link has been deactivated" });
+      if (data.expiryDate && new Date(data.expiryDate) < new Date()) {
+        return res.status(410).json({ error: "This review link has expired" });
+      }
+      res.json({ id: d.id, ...data });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch review link" });
+    }
+  });
+
+  // Submit a review (no auth required for public link submissions)
+  app.post("/api/reviews/submit", async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    const { studentId, fullName, reviewText, rating, reviewLinkId, category } = req.body;
+    if (!fullName?.trim() || !reviewText?.trim()) {
+      return res.status(400).json({ error: "Name and review text are required" });
+    }
+    try {
+      if (studentId) {
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - 30);
+        const existing = await currentDb.collection("student_reviews")
+          .where("studentId", "==", studentId)
+          .where("createdAt", ">=", cutoff).get();
+        if (!existing.empty) {
+          return res.status(429).json({ error: "You already submitted a review recently. Please wait 30 days." });
+        }
+      }
+      const data: any = {
+        fullName: fullName.trim(),
+        reviewText: reviewText.trim(),
+        rating: Math.max(1, Math.min(5, Number(rating) || 5)),
+        status: "pending",
+        showHomepage: false,
+        featured: false,
+        category: category || "General",
+        createdAt: new Date(),
+      };
+      if (studentId) data.studentId = studentId;
+      if (reviewLinkId) data.reviewLinkId = reviewLinkId;
+      const ref = await currentDb.collection("student_reviews").add(data);
+      if (studentId) {
+        currentDb.collection("profiles").doc(studentId).update({
+          lastReviewDate: new Date().toISOString(),
+          reviewSubmitted: true,
+        }).catch(() => {});
+      }
+      res.json({ id: ref.id, message: "Review submitted! It will appear after admin approval." });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to submit review" });
+    }
+  });
+
+  // Admin: all reviews
+  app.get("/api/admin/reviews", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const snap = await currentDb.collection("student_reviews").orderBy("createdAt", "desc").get();
+      res.json({ reviews: snap.docs.map(d => ({ id: d.id, ...d.data() })) });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch reviews" });
+    }
+  });
+
+  // Admin: update review (approve/reject/edit/toggle)
+  app.put("/api/admin/reviews/:id", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const allowed = ['status', 'showHomepage', 'featured', 'reviewText', 'rating'];
+      const updates: any = {};
+      allowed.forEach(k => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
+      await currentDb.collection("student_reviews").doc(req.params.id).update(updates);
+      res.json({ message: "Review updated" });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to update review" });
+    }
+  });
+
+  // Admin: delete review
+  app.delete("/api/admin/reviews/:id", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      await currentDb.collection("student_reviews").doc(req.params.id).delete();
+      res.json({ message: "Review deleted" });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to delete review" });
+    }
+  });
+
+  // Admin: get all review links
+  app.get("/api/admin/review-links", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const snap = await currentDb.collection("review_links").orderBy("createdAt", "desc").get();
+      res.json({ links: snap.docs.map(d => ({ id: d.id, ...d.data() })) });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch review links" });
+    }
+  });
+
+  // Admin: create review link
+  app.post("/api/admin/review-links", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    const { category, expiryDays } = req.body;
+    try {
+      const uniqueCode = Math.random().toString(36).slice(2, 9) + Date.now().toString(36);
+      const data: any = {
+        uniqueCode,
+        category: category || "General",
+        status: "active",
+        createdAt: new Date(),
+      };
+      if (Number(expiryDays) > 0) {
+        const exp = new Date();
+        exp.setDate(exp.getDate() + Number(expiryDays));
+        data.expiryDate = exp.toISOString();
+      }
+      const docRef = await currentDb.collection("review_links").add(data);
+      res.json({ id: docRef.id, ...data });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to create review link" });
+    }
+  });
+
+  // Admin: toggle review link status
+  app.put("/api/admin/review-links/:id", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      await currentDb.collection("review_links").doc(req.params.id).update({ status: req.body.status });
+      res.json({ message: "Link updated" });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to update link" });
+    }
+  });
+
+  // Admin: delete review link
+  app.delete("/api/admin/review-links/:id", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      await currentDb.collection("review_links").doc(req.params.id).delete();
+      res.json({ message: "Link deleted" });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to delete link" });
+    }
+  });
+
 // Vite Integration
 async function startVite() {
   try {

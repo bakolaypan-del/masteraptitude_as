@@ -21,7 +21,13 @@
       "Bash(node scripts/generate-icons.mjs)",
       "Bash(node -e \"const fs=require\\('fs'\\); const b=fs.readFileSync\\('C:/masteraptitude_as/public/icon-192.png'\\); console.log\\('192 icon size:', b.length, 'bytes'\\); const sig=b.slice\\(0,8\\); console.log\\('PNG sig valid:', sig[0]===137 && sig[1]===80 && sig[2]===78 && sig[3]===71\\);\")",
       "Bash(node -e \"require\\('vite-plugin-pwa'\\); console.log\\('installed'\\)\")",
-      "Bash(node scripts/generate-splash.mjs)"
+      "Bash(node scripts/generate-splash.mjs)",
+      "Bash(findstr \"name\\\\|homepage\\\\|version\")",
+      "Bash(findstr -i \"sharp\\\\|jimp\\\\|canvas\")",
+      "PowerShell(Get-ChildItem \"C:\\\\masteraptitude_as\\\\node_modules\" -Directory | Where-Object { $_.Name -match \"sharp|jimp|canvas\" } | Select-Object Name)",
+      "Bash(awk 'NR>=3820 && NR<=3870' /c/masteraptitude_as/src/pages/AdminDashboard.tsx)",
+      "Bash(grep -n \"^\\\\s*}\\\\s*$\\\\|activeTab === 'home'\" /c/masteraptitude_as/src/pages/Dashboard.tsx)",
+      "Bash(awk 'NR>1 && NR<5')"
     ]
   }
 }

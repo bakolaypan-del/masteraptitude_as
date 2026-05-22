@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { Routes, Route, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { collection, query, getDocs, orderBy, doc, deleteDoc, where, addDoc, serverTimestamp, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { LogOut, ArrowLeft, Plus, Pencil, Trash2, FileText, BookOpen, Play, CheckCircle, Clock, X, User as UserIcon, Download, ShieldAlert, ShieldCheck, Key, Edit2, Search, LayoutDashboard, Layers, TrendingUp, Link2, Check } from 'lucide-react';
+import { LogOut, ArrowLeft, Plus, Pencil, Trash2, FileText, BookOpen, Play, CheckCircle, Clock, X, User as UserIcon, Download, ShieldAlert, ShieldCheck, Key, Edit2, Search, LayoutDashboard, Layers, TrendingUp, Link2, Check, Star, MessageSquare, Globe, Copy, ExternalLink, RefreshCw } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -14,7 +15,7 @@ import AdminTypingTests from '../components/AdminTypingTests';
 import { Keyboard } from 'lucide-react';
 import { RenderMathText } from '../components/MathRenderer';
 
-type AdminTab = 'students' | 'mock' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'blog';
+type AdminTab = 'students' | 'mock' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'blog' | 'reviews';
 
 // ─── Image Cropper Modal ─────────────────────────────────────────────────────
 function ImageCropper({
@@ -393,6 +394,21 @@ function AdminHome() {
   const [blogSlug, setBlogSlug] = useState('');
   const [blogIsTrending, setBlogIsTrending] = useState(false);
   const [blogSavingPost, setBlogSavingPost] = useState(false);
+
+  // ── Reviews state ─────────────────────────────────────────────────────────
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviewLinks, setReviewLinks] = useState<any[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewFilter, setReviewFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [editingReview, setEditingReview] = useState<any>(null);
+  const [editReviewText, setEditReviewText] = useState('');
+  const [editReviewRating, setEditReviewRating] = useState(5);
+  const [editReviewHover, setEditReviewHover] = useState(0);
+  const [newLinkCategory, setNewLinkCategory] = useState('App Experience');
+  const [newLinkExpiry, setNewLinkExpiry] = useState(30);
+  const [creatingLink, setCreatingLink] = useState(false);
+  const [copiedLink, setCopiedLink] = useState<string | null>(null);
+  const [showQRFor, setShowQRFor] = useState<string | null>(null);
 
   const { user, profile } = useAuth();
   const passwordInputRef = useRef<HTMLInputElement>(null);
@@ -1607,6 +1623,34 @@ function AdminHome() {
         >
           <BookOpen className="w-4 h-4" />
           News & Blog
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab('reviews');
+            if (reviews.length === 0) {
+              setReviewsLoading(true);
+              user?.getIdToken().then(token => {
+                Promise.all([
+                  fetch('/api/admin/reviews', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+                  fetch('/api/admin/review-links', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+                ]).then(([rd, ld]) => {
+                  setReviews(rd.reviews || []);
+                  setReviewLinks(ld.links || []);
+                  setReviewsLoading(false);
+                }).catch(() => setReviewsLoading(false));
+              });
+            }
+          }}
+          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all
+            ${activeTab === 'reviews' ? 'bg-pink-600 text-white shadow-md shadow-pink-100' : 'text-slate-500 hover:text-pink-600 hover:bg-pink-50'}`}
+        >
+          <MessageSquare className="w-4 h-4" />
+          Reviews
+          {reviews.filter(r => r.status === 'pending').length > 0 && (
+            <span className="bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+              {reviews.filter(r => r.status === 'pending').length}
+            </span>
+          )}
         </button>
       </div>
 
@@ -3966,6 +4010,377 @@ function AdminHome() {
           </div>
         </div>
       )}
+
+      {/* ── Reviews Tab ──────────────────────────────────────────────────────── */}
+      {activeTab === 'reviews' && (() => {
+        const APP_URL = 'https://masteraptitude.vercel.app';
+
+        const refreshReviews = async () => {
+          if (!user) return;
+          setReviewsLoading(true);
+          const token = await user.getIdToken();
+          const [rd, ld] = await Promise.all([
+            fetch('/api/admin/reviews', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+            fetch('/api/admin/review-links', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+          ]);
+          setReviews(rd.reviews || []);
+          setReviewLinks(ld.links || []);
+          setReviewsLoading(false);
+        };
+
+        const updateReview = async (id: string, updates: any) => {
+          const token = await user?.getIdToken();
+          await fetch(`/api/admin/reviews/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify(updates),
+          });
+          setReviews(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
+        };
+
+        const deleteReview = async (id: string) => {
+          if (!confirm('Delete this review permanently?')) return;
+          const token = await user?.getIdToken();
+          await fetch(`/api/admin/reviews/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+          setReviews(prev => prev.filter(r => r.id !== id));
+        };
+
+        const createLink = async () => {
+          setCreatingLink(true);
+          const token = await user?.getIdToken();
+          const res = await fetch('/api/admin/review-links', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ category: newLinkCategory, expiryDays: newLinkExpiry }),
+          });
+          const d = await res.json();
+          setReviewLinks(prev => [d, ...prev]);
+          setCreatingLink(false);
+        };
+
+        const toggleLink = async (id: string, current: string) => {
+          const token = await user?.getIdToken();
+          const next = current === 'active' ? 'inactive' : 'active';
+          await fetch(`/api/admin/review-links/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ status: next }),
+          });
+          setReviewLinks(prev => prev.map(l => l.id === id ? { ...l, status: next } : l));
+        };
+
+        const deleteLink = async (id: string) => {
+          if (!confirm('Delete this review link?')) return;
+          const token = await user?.getIdToken();
+          await fetch(`/api/admin/review-links/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+          setReviewLinks(prev => prev.filter(l => l.id !== id));
+        };
+
+        const copyToClipboard = (text: string, id: string) => {
+          navigator.clipboard.writeText(text).then(() => {
+            setCopiedLink(id);
+            setTimeout(() => setCopiedLink(null), 2000);
+          });
+        };
+
+        const filteredReviews = reviews.filter(r =>
+          reviewFilter === 'all' ? true : r.status === reviewFilter
+        );
+
+        const CATEGORIES = ['App Experience', 'Mock Test Review', 'Course Review', 'Faculty Review', 'Website Experience', 'Practice Set Review', 'Overall Platform Review'];
+
+        const totalApproved = reviews.filter(r => r.status === 'approved').length;
+        const avgRating = reviews.length ? (reviews.reduce((s, r) => s + (r.rating || 5), 0) / reviews.length).toFixed(1) : '0';
+
+        return (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
+
+            {/* Header */}
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+                <span className="w-2 h-8 bg-pink-600 rounded-full" />
+                Student Reviews
+              </h2>
+              <button onClick={refreshReviews} disabled={reviewsLoading}
+                className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-50">
+                <RefreshCw className={`w-3.5 h-3.5 ${reviewsLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {[
+                { label: 'Total', value: reviews.length, color: 'indigo' },
+                { label: 'Pending', value: reviews.filter(r => r.status === 'pending').length, color: 'amber' },
+                { label: 'Approved', value: totalApproved, color: 'emerald' },
+                { label: 'Avg Rating', value: avgRating + '⭐', color: 'pink' },
+              ].map(({ label, value, color }) => (
+                <div key={label} className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm text-center">
+                  <p className={`text-2xl font-black text-${color}-600`}>{value}</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{label}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* ── Reviews List ── */}
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+              {/* Filter tabs */}
+              <div className="flex gap-1 p-4 border-b border-slate-100 flex-wrap">
+                {(['all', 'pending', 'approved', 'rejected'] as const).map(f => (
+                  <button key={f} onClick={() => setReviewFilter(f)}
+                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${reviewFilter === f
+                      ? f === 'all' ? 'bg-slate-800 text-white'
+                        : f === 'pending' ? 'bg-amber-500 text-white'
+                        : f === 'approved' ? 'bg-emerald-500 text-white'
+                        : 'bg-rose-500 text-white'
+                      : 'text-slate-500 hover:bg-slate-100'}`}>
+                    {f} ({f === 'all' ? reviews.length : reviews.filter(r => r.status === f).length})
+                  </button>
+                ))}
+              </div>
+
+              {reviewsLoading ? (
+                <div className="py-16 text-center text-slate-400 font-bold text-sm">Loading reviews...</div>
+              ) : filteredReviews.length === 0 ? (
+                <div className="py-16 text-center">
+                  <MessageSquare className="w-10 h-10 text-slate-200 mx-auto mb-3" />
+                  <p className="text-slate-400 font-bold text-sm">No reviews found</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-50">
+                  {filteredReviews.map(review => (
+                    <div key={review.id} className="p-5 hover:bg-slate-50/60 transition-colors">
+                      {editingReview?.id === review.id ? (
+                        /* Edit mode */
+                        <div className="space-y-3">
+                          <div className="flex gap-1 mb-2">
+                            {[1,2,3,4,5].map(s => (
+                              <button key={s}
+                                onMouseEnter={() => setEditReviewHover(s)}
+                                onMouseLeave={() => setEditReviewHover(0)}
+                                onClick={() => setEditReviewRating(s)}>
+                                <Star className={`w-6 h-6 transition-colors ${s <= (editReviewHover || editReviewRating) ? 'text-yellow-400 fill-yellow-400' : 'text-slate-200'}`} />
+                              </button>
+                            ))}
+                          </div>
+                          <textarea
+                            value={editReviewText}
+                            onChange={e => setEditReviewText(e.target.value)}
+                            rows={3}
+                            className="w-full rounded-xl border-2 border-slate-200 p-3 text-sm font-medium outline-hidden focus:border-indigo-500 resize-none"
+                          />
+                          <div className="flex gap-2">
+                            <button onClick={async () => {
+                              await updateReview(review.id, { reviewText: editReviewText, rating: editReviewRating });
+                              setEditingReview(null);
+                            }} className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-black hover:bg-indigo-700 transition-all">
+                              Save
+                            </button>
+                            <button onClick={() => setEditingReview(null)} className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-black hover:bg-slate-200 transition-all">
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        /* View mode */
+                        <div>
+                          <div className="flex items-start justify-between gap-3 mb-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-black text-slate-800 text-sm">{review.fullName}</span>
+                              <div className="flex gap-0.5">
+                                {[1,2,3,4,5].map(s => (
+                                  <Star key={s} className={`w-3.5 h-3.5 ${s <= review.rating ? 'text-yellow-400 fill-yellow-400' : 'text-slate-200'}`} />
+                                ))}
+                              </div>
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                                review.status === 'approved' ? 'bg-emerald-100 text-emerald-700'
+                                : review.status === 'rejected' ? 'bg-rose-100 text-rose-700'
+                                : 'bg-amber-100 text-amber-700'
+                              }`}>{review.status}</span>
+                              {review.showHomepage && (
+                                <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-700">On Homepage</span>
+                              )}
+                              {review.featured && (
+                                <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-pink-100 text-pink-700">⭐ Featured</span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-slate-400 shrink-0">
+                              {review.createdAt?.seconds ? new Date(review.createdAt.seconds * 1000).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                            </span>
+                          </div>
+
+                          <p className="text-sm text-slate-600 leading-relaxed mb-3">{review.reviewText}</p>
+
+                          {/* Action buttons */}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {review.status !== 'approved' && (
+                              <button onClick={() => updateReview(review.id, { status: 'approved' })}
+                                className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-black hover:bg-emerald-100 transition-all flex items-center gap-1">
+                                <CheckCircle className="w-3 h-3" /> Approve
+                              </button>
+                            )}
+                            {review.status !== 'rejected' && (
+                              <button onClick={() => updateReview(review.id, { status: 'rejected' })}
+                                className="px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 text-[10px] font-black hover:bg-rose-100 transition-all flex items-center gap-1">
+                                <X className="w-3 h-3" /> Reject
+                              </button>
+                            )}
+                            <button onClick={() => updateReview(review.id, { showHomepage: !review.showHomepage })}
+                              className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all flex items-center gap-1 ${
+                                review.showHomepage ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                              }`}>
+                              <Globe className="w-3 h-3" />
+                              {review.showHomepage ? 'Hide from Home' : 'Show on Home'}
+                            </button>
+                            <button onClick={() => updateReview(review.id, { featured: !review.featured })}
+                              className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all flex items-center gap-1 ${
+                                review.featured ? 'bg-pink-100 text-pink-700 hover:bg-pink-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                              }`}>
+                              <Star className="w-3 h-3" />
+                              {review.featured ? 'Unfeature' : 'Feature'}
+                            </button>
+                            <button onClick={() => {
+                              setEditingReview(review);
+                              setEditReviewText(review.reviewText);
+                              setEditReviewRating(review.rating);
+                            }} className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-[10px] font-black hover:bg-slate-200 transition-all flex items-center gap-1">
+                              <Edit2 className="w-3 h-3" /> Edit
+                            </button>
+                            <button onClick={() => deleteReview(review.id)}
+                              className="px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 text-[10px] font-black hover:bg-rose-100 transition-all flex items-center gap-1">
+                              <Trash2 className="w-3 h-3" /> Delete
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ── Review Links ── */}
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-6">
+              <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                <Link2 className="w-5 h-5 text-indigo-500" />
+                Generate Review Links
+              </h3>
+
+              {/* Create new link */}
+              <div className="bg-slate-50 rounded-2xl p-4 space-y-4 border border-slate-100">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Create New Link</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Category</label>
+                    <select value={newLinkCategory} onChange={e => setNewLinkCategory(e.target.value)}
+                      className="w-full rounded-xl border-2 border-slate-200 p-2.5 font-medium text-sm outline-hidden focus:border-indigo-500">
+                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Expiry (Days)</label>
+                    <select value={newLinkExpiry} onChange={e => setNewLinkExpiry(Number(e.target.value))}
+                      className="w-full rounded-xl border-2 border-slate-200 p-2.5 font-medium text-sm outline-hidden focus:border-indigo-500">
+                      <option value={0}>No Expiry</option>
+                      <option value={7}>7 Days</option>
+                      <option value={30}>30 Days</option>
+                      <option value={90}>90 Days</option>
+                    </select>
+                  </div>
+                  <div className="flex items-end">
+                    <button onClick={createLink} disabled={creatingLink}
+                      className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-indigo-100">
+                      <Plus className="w-4 h-4" />
+                      {creatingLink ? 'Creating...' : 'Generate Link'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Links list */}
+              {reviewLinks.length === 0 ? (
+                <div className="text-center py-8">
+                  <Link2 className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+                  <p className="text-slate-400 font-bold text-sm">No review links yet. Generate one above.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {reviewLinks.map(link => {
+                    const fullUrl = `${APP_URL}/review/${link.uniqueCode}`;
+                    return (
+                      <div key={link.id} className="rounded-2xl border border-slate-100 p-4 hover:border-slate-200 transition-all">
+                        <div className="flex items-start justify-between gap-3 flex-wrap">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <span className="font-black text-slate-700 text-sm">{link.category}</span>
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${link.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                                {link.status}
+                              </span>
+                              {link.expiryDate && (
+                                <span className="text-[10px] text-slate-400">Expires: {new Date(link.expiryDate).toLocaleDateString('en-IN')}</span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-400 font-mono truncate">{fullUrl}</p>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                            <button onClick={() => copyToClipboard(fullUrl, link.id)}
+                              className="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 text-[10px] font-black hover:bg-indigo-100 transition-all flex items-center gap-1">
+                              {copiedLink === link.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                              {copiedLink === link.id ? 'Copied!' : 'Copy'}
+                            </button>
+                            <button onClick={() => setShowQRFor(showQRFor === link.id ? null : link.id)}
+                              className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-[10px] font-black hover:bg-slate-200 transition-all">
+                              QR
+                            </button>
+                            <a href={fullUrl} target="_blank" rel="noopener noreferrer"
+                              className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-[10px] font-black hover:bg-slate-200 transition-all flex items-center gap-1">
+                              <ExternalLink className="w-3 h-3" /> Open
+                            </a>
+                            <button onClick={() => toggleLink(link.id, link.status)}
+                              className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${link.status === 'active' ? 'bg-rose-50 text-rose-700 hover:bg-rose-100' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}>
+                              {link.status === 'active' ? 'Deactivate' : 'Activate'}
+                            </button>
+                            <button onClick={() => deleteLink(link.id)}
+                              className="px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 text-[10px] font-black hover:bg-rose-100 transition-all">
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* QR Code */}
+                        {showQRFor === link.id && (
+                          <div className="mt-4 flex flex-col items-center gap-3 py-4 bg-slate-50 rounded-2xl">
+                            <div className="bg-white p-4 rounded-2xl shadow-sm">
+                              <QRCodeSVG value={fullUrl} size={160} fgColor="#0f0c29" bgColor="#ffffff" level="H"
+                                imageSettings={{ src: '/icon-192.png', height: 32, width: 32, excavate: true }} />
+                            </div>
+                            <p className="text-[10px] text-slate-400 font-bold">Scan to open review form</p>
+                            <div className="flex gap-2">
+                              {[
+                                { label: 'WhatsApp', href: `https://wa.me/?text=Share%20your%20review%20here:%20${encodeURIComponent(fullUrl)}`, color: 'bg-emerald-500 hover:bg-emerald-600' },
+                                { label: 'Telegram', href: `https://t.me/share/url?url=${encodeURIComponent(fullUrl)}&text=Share%20your%20review`, color: 'bg-sky-500 hover:bg-sky-600' },
+                              ].map(({ label, href, color }) => (
+                                <a key={label} href={href} target="_blank" rel="noopener noreferrer"
+                                  className={`px-4 py-2 rounded-xl text-white text-xs font-black ${color} transition-all`}>
+                                  {label}
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+          </div>
+        );
+      })()}
 
     </div>
   );

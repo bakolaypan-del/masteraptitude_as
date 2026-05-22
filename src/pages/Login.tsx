@@ -4,7 +4,7 @@ import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'fire
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
-import { Phone, AlertCircle, User as UserIcon, GraduationCap, Lock, ArrowRight, UserPlus, LogIn, Mail, Eye, EyeOff, ShieldCheck, CheckSquare, Square } from 'lucide-react';
+import { Phone, AlertCircle, User as UserIcon, Lock, ArrowRight, UserPlus, LogIn, Mail, Eye, EyeOff, ShieldCheck, CheckSquare, Square } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 type AuthMode = 'login' | 'register' | 'forgot';
@@ -212,8 +212,8 @@ export default function Login() {
       
       <div className="sm:mx-auto sm:w-full sm:max-w-md z-10">
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-tr from-indigo-500 to-fuchsia-500 rounded-2xl text-white shadow-lg shadow-indigo-500/30 mb-4 transform -rotate-12 hover:rotate-0 transition-transform duration-300">
-            <GraduationCap size={36} />
+          <div className="inline-flex items-center justify-center mb-4">
+            <img src="/icon-192.png" alt="Master Aptitude" className="w-20 h-20 rounded-2xl shadow-lg shadow-indigo-500/30 object-cover hover:scale-105 transition-transform duration-300" />
           </div>
           
           <h1 className="text-4xl md:text-5xl font-black bg-gradient-to-r from-indigo-400 via-purple-300 to-fuchsia-400 bg-clip-text text-transparent tracking-tighter uppercase leading-tight drop-shadow-sm">

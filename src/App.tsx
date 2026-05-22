@@ -11,6 +11,7 @@ import TypingTestAnalysis from './pages/TypingTestAnalysis';
 import { NewsListPage, NewsDetailPage } from './pages/NewsPage';
 import InstallApp from './pages/InstallApp';
 import AnalysisPage from './pages/AnalysisPage';
+import ReviewPage from './pages/ReviewPage';
 
 function SecurityWrapper({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -97,6 +98,7 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/install" element={<InstallApp />} />
+            <Route path="/review/:code" element={<ReviewPage />} />
             <Route path="/" element={<Navigate to="/login" replace />} />
             
             <Route path="/dashboard" element={

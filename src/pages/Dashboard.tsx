@@ -10,6 +10,8 @@ import PWAInstallPrompt, { InstallAppSidebarButton } from '../components/PWAInst
 import AppInstallGate from '../components/AppInstallGate';
 import AppBottomNav from '../components/AppBottomNav';
 import AppUpdateToast from '../components/AppUpdateToast';
+import ReviewPopup from '../components/ReviewPopup';
+import ReviewSlider from '../components/ReviewSlider';
 import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ChevronLeft, ArrowLeft, ExternalLink, Menu, X, Youtube, MessageCircle, Send, LayoutDashboard, History, ChevronDown, ArrowRight, User, Info, Phone, Download, Printer, AlertCircle, BarChart3, Keyboard, Globe, Layers, CheckSquare, Volume2, VolumeX, Maximize, NotebookPen } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -1133,6 +1135,9 @@ export default function Dashboard() {
                   <ChevronRight className="w-3.5 h-3.5" style={{color: 'rgba(165,180,252,0.7)'}} />
                 </span>
               </a>
+
+              {/* ── Student Reviews Slider ── */}
+              <ReviewSlider />
 
             </div>
           )}
@@ -2597,6 +2602,9 @@ export default function Dashboard() {
           )}
         </div>
       )}
+
+      {/* Review popup — auto-shows to students every 30 days */}
+      {profile?.role !== 'admin' && <ReviewPopup />}
 
       {/* PWA install prompt — shows for non-admin users on mobile/Android */}
       {profile?.role !== 'admin' && <PWAInstallPrompt />}
