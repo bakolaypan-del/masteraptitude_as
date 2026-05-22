@@ -16,7 +16,7 @@ import { Keyboard } from 'lucide-react';
 import { RenderMathText } from '../components/MathRenderer';
 import RichTextEditor, { RenderQuestionHTML } from '../components/RichTextEditor';
 
-type AdminTab = 'students' | 'mock' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'blog' | 'reviews';
+type AdminTab = 'students' | 'mock' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'blog' | 'reviews' | 'paid_mock';
 
 // ─── Image Cropper Modal ─────────────────────────────────────────────────────
 function ImageCropper({
@@ -410,6 +410,19 @@ function AdminHome() {
   const [creatingLink, setCreatingLink] = useState(false);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
   const [showQRFor, setShowQRFor] = useState<string | null>(null);
+
+  // ── Paid Mock state ────────────────────────────────────────────────────────
+  const [paidBatches, setPaidBatches] = useState<any[]>([]);
+  const [paidBatchLoading, setPaidBatchLoading] = useState(false);
+  const [editingBatch, setEditingBatch] = useState<any>(null);
+  const [paidPayments, setPaidPayments] = useState<any[]>([]);
+  const [paidPaymentsLoading, setPaidPaymentsLoading] = useState(false);
+  const [paidMockSubTab, setPaidMockSubTab] = useState<'batches' | 'payments'>('batches');
+  const [batchForm, setBatchForm] = useState({
+    examName: '', description: '', price: '', thumbnailUrl: '',
+    validity: '30 Days', totalMocks: '', features: '', isActive: true, isPopular: false,
+  });
+  const [batchSaving, setBatchSaving] = useState(false);
 
   const { user, profile } = useAuth();
   const passwordInputRef = useRef<HTMLInputElement>(null);
@@ -1652,6 +1665,25 @@ function AdminHome() {
               {reviews.filter(r => r.status === 'pending').length}
             </span>
           )}
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab('paid_mock');
+            if (paidBatches.length === 0) {
+              setPaidBatchLoading(true);
+              user?.getIdToken().then(token =>
+                fetch('/api/admin/paid-batches', { headers: { Authorization: `Bearer ${token}` } })
+                  .then(r => r.json())
+                  .then(d => setPaidBatches(Array.isArray(d) ? d : []))
+                  .catch(() => {})
+                  .finally(() => setPaidBatchLoading(false))
+              );
+            }
+          }}
+          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all
+            ${activeTab === 'paid_mock' ? 'bg-amber-500 text-white shadow-md shadow-amber-100' : 'text-slate-500 hover:text-amber-600 hover:bg-amber-50'}`}
+        >
+          👑 Paid Mock
         </button>
       </div>
 
@@ -4382,6 +4414,279 @@ function AdminHome() {
           </div>
         );
       })()}
+
+      {/* ── Paid Mock Tab ──────────────────────────────────────────────────────── */}
+      {activeTab === 'paid_mock' && (
+        <div className="space-y-6 animate-in fade-in duration-300">
+          {/* Sub-tabs */}
+          <div className="flex gap-2">
+            {(['batches', 'payments'] as const).map(t => (
+              <button key={t} onClick={() => {
+                setPaidMockSubTab(t);
+                if (t === 'payments' && paidPayments.length === 0) {
+                  setPaidPaymentsLoading(true);
+                  user?.getIdToken().then(token =>
+                    fetch('/api/admin/payments', { headers: { Authorization: `Bearer ${token}` } })
+                      .then(r => r.json())
+                      .then(d => setPaidPayments(Array.isArray(d) ? d : []))
+                      .catch(() => {})
+                      .finally(() => setPaidPaymentsLoading(false))
+                  );
+                }
+              }}
+              className={`px-5 py-2 rounded-xl font-black text-sm transition-all ${paidMockSubTab === t ? 'bg-amber-500 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:border-amber-300'}`}>
+                {t === 'batches' ? '📦 Batches' : '💰 Payments'}
+              </button>
+            ))}
+          </div>
+
+          {/* ── Batches sub-tab ── */}
+          {paidMockSubTab === 'batches' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Form */}
+              <div className="rounded-2xl p-6 space-y-4" style={{ background: '#fff', border: '1px solid #e8ecf3', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
+                <h3 className="font-black text-base text-slate-800">{editingBatch ? '✏️ Edit Batch' : '➕ Create New Batch'}</h3>
+                {(['examName', 'description', 'thumbnailUrl'] as const).map(field => (
+                  <div key={field}>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">
+                      {field === 'examName' ? 'Exam Name *' : field === 'description' ? 'Description *' : 'Thumbnail URL'}
+                    </label>
+                    {field === 'description' ? (
+                      <textarea rows={3} value={batchForm[field]} onChange={e => setBatchForm(f => ({ ...f, [field]: e.target.value }))}
+                        className="w-full rounded-xl px-3 py-2 text-sm border border-slate-200 focus:border-indigo-400 outline-none resize-none" />
+                    ) : (
+                      <input value={batchForm[field]} onChange={e => setBatchForm(f => ({ ...f, [field]: e.target.value }))}
+                        placeholder={field === 'examName' ? 'e.g. PSC Clerkship Premium Batch' : 'https://...'}
+                        className="w-full rounded-xl px-3 py-2 text-sm border border-slate-200 focus:border-indigo-400 outline-none" />
+                    )}
+                  </div>
+                ))}
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Price (₹) *</label>
+                    <input type="number" value={batchForm.price} onChange={e => setBatchForm(f => ({ ...f, price: e.target.value }))}
+                      placeholder="149" className="w-full rounded-xl px-3 py-2 text-sm border border-slate-200 focus:border-indigo-400 outline-none" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Total Mocks</label>
+                    <input type="number" value={batchForm.totalMocks} onChange={e => setBatchForm(f => ({ ...f, totalMocks: e.target.value }))}
+                      placeholder="20" className="w-full rounded-xl px-3 py-2 text-sm border border-slate-200 focus:border-indigo-400 outline-none" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Validity</label>
+                    <select value={batchForm.validity} onChange={e => setBatchForm(f => ({ ...f, validity: e.target.value }))}
+                      className="w-full rounded-xl px-3 py-2 text-sm border border-slate-200 focus:border-indigo-400 outline-none">
+                      {['30 Days', '60 Days', '90 Days', '6 Months', '1 Year', 'Unlimited'].map(v => <option key={v}>{v}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Features (comma-separated)</label>
+                  <input value={batchForm.features} onChange={e => setBatchForm(f => ({ ...f, features: e.target.value }))}
+                    placeholder="Latest Pattern, Full Analysis, PYQ Included, Smart Ranking"
+                    className="w-full rounded-xl px-3 py-2 text-sm border border-slate-200 focus:border-indigo-400 outline-none" />
+                </div>
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={batchForm.isActive} onChange={e => setBatchForm(f => ({ ...f, isActive: e.target.checked }))} className="rounded" />
+                    <span className="text-sm font-bold text-slate-700">Active (visible to students)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={batchForm.isPopular} onChange={e => setBatchForm(f => ({ ...f, isPopular: e.target.checked }))} className="rounded" />
+                    <span className="text-sm font-bold text-slate-700">🔥 Most Popular</span>
+                  </label>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={async () => {
+                      if (!batchForm.examName.trim() || !batchForm.price) return;
+                      setBatchSaving(true);
+                      try {
+                        const token = await user!.getIdToken();
+                        const body = {
+                          ...batchForm,
+                          features: batchForm.features.split(',').map(s => s.trim()).filter(Boolean),
+                        };
+                        const url = editingBatch ? `/api/admin/paid-batches/${editingBatch.id}` : '/api/admin/paid-batches';
+                        const method = editingBatch ? 'PUT' : 'POST';
+                        const res = await fetch(url, { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                        const data = await res.json();
+                        if (editingBatch) {
+                          setPaidBatches(prev => prev.map(b => b.id === editingBatch.id ? { ...b, ...body } : b));
+                        } else {
+                          setPaidBatches(prev => [{ id: data.id, ...body, enrolledCount: 0, createdAt: new Date().toISOString() }, ...prev]);
+                        }
+                        setEditingBatch(null);
+                        setBatchForm({ examName: '', description: '', price: '', thumbnailUrl: '', validity: '30 Days', totalMocks: '', features: '', isActive: true, isPopular: false });
+                      } catch { alert('Failed to save batch'); }
+                      setBatchSaving(false);
+                    }}
+                    disabled={batchSaving}
+                    className="flex-1 py-2.5 rounded-xl font-black text-sm text-white transition-all hover:brightness-110 disabled:opacity-60"
+                    style={{ background: 'linear-gradient(135deg,#f59e0b,#ef4444)' }}
+                  >
+                    {batchSaving ? 'Saving...' : editingBatch ? 'Update Batch' : 'Create Batch'}
+                  </button>
+                  {editingBatch && (
+                    <button onClick={() => { setEditingBatch(null); setBatchForm({ examName: '', description: '', price: '', thumbnailUrl: '', validity: '30 Days', totalMocks: '', features: '', isActive: true, isPopular: false }); }}
+                      className="px-4 py-2.5 rounded-xl font-bold text-sm bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Batch List */}
+              <div className="space-y-3">
+                <h3 className="font-black text-base text-slate-800">📋 All Batches ({paidBatches.length})</h3>
+                {paidBatchLoading && <p className="text-slate-400 text-sm animate-pulse">Loading...</p>}
+                {paidBatches.map(batch => (
+                  <div key={batch.id} className="rounded-2xl p-4" style={{ background: '#fff', border: batch.isActive ? '1px solid #fde68a' : '1px solid #e8ecf3', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="font-black text-sm text-slate-800">{batch.examName}</span>
+                          {batch.isPopular && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">🔥 POPULAR</span>}
+                          {!batch.isActive && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">HIDDEN</span>}
+                        </div>
+                        <p className="text-xs text-slate-500 truncate mb-2">{batch.description}</p>
+                        <div className="flex gap-3 text-xs font-bold text-slate-600">
+                          <span>₹{batch.price}</span>
+                          <span>{batch.totalMocks} mocks</span>
+                          <span>{batch.validity}</span>
+                          <span>{batch.enrolledCount || 0} enrolled</span>
+                        </div>
+                      </div>
+                      <div className="flex gap-1.5 shrink-0">
+                        <button onClick={() => {
+                          setEditingBatch(batch);
+                          setBatchForm({
+                            examName: batch.examName || '', description: batch.description || '',
+                            price: String(batch.price || ''), thumbnailUrl: batch.thumbnailUrl || '',
+                            validity: batch.validity || '30 Days', totalMocks: String(batch.totalMocks || ''),
+                            features: (batch.features || []).join(', '),
+                            isActive: batch.isActive !== false, isPopular: !!batch.isPopular,
+                          });
+                        }} className="w-8 h-8 flex items-center justify-center rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors text-xs font-black">✏️</button>
+                        <button onClick={async () => {
+                          if (!confirm(`Delete "${batch.examName}"?`)) return;
+                          const token = await user!.getIdToken();
+                          await fetch(`/api/admin/paid-batches/${batch.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+                          setPaidBatches(prev => prev.filter(b => b.id !== batch.id));
+                        }} className="w-8 h-8 flex items-center justify-center rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors text-xs">🗑️</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {!paidBatchLoading && paidBatches.length === 0 && (
+                  <div className="rounded-2xl p-8 text-center" style={{ background: '#f8fafc', border: '2px dashed #e2e8f0' }}>
+                    <p className="text-3xl mb-2">👑</p>
+                    <p className="font-black text-slate-600 text-sm">No paid batches yet</p>
+                    <p className="text-xs text-slate-400 mt-1">Create your first premium batch using the form</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── Payments sub-tab ── */}
+          {paidMockSubTab === 'payments' && (
+            <div className="space-y-4">
+              {/* Stats */}
+              {(() => {
+                const total = paidPayments.reduce((s, p) => s + (p.amount || 0), 0);
+                const today = paidPayments.filter(p => p.createdAt?.startsWith(new Date().toISOString().slice(0, 10))).reduce((s, p) => s + (p.amount || 0), 0);
+                return (
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { label: 'Total Revenue', value: `₹${total.toLocaleString()}`, color: '#10b981' },
+                      { label: "Today's Earnings", value: `₹${today.toLocaleString()}`, color: '#f59e0b' },
+                      { label: 'Total Purchases', value: paidPayments.length, color: '#6366f1' },
+                    ].map(s => (
+                      <div key={s.label} className="rounded-2xl p-4 text-center" style={{ background: '#fff', border: '1px solid #e8ecf3' }}>
+                        <p className="text-xl font-black" style={{ color: s.color }}>{s.value}</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mt-0.5">{s.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+
+              {/* Table */}
+              {paidPaymentsLoading && <p className="text-slate-400 text-sm animate-pulse">Loading payments...</p>}
+              <div className="rounded-2xl overflow-hidden" style={{ background: '#fff', border: '1px solid #e8ecf3' }}>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e8ecf3' }}>
+                        {['Student', 'Batch', 'Amount', 'Transaction ID', 'Date', 'Status', 'Action'].map(h => (
+                          <th key={h} className="px-3 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paidPayments.map(p => {
+                        const isPending = p.status === 'pending_verification';
+                        return (
+                          <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9', background: isPending ? '#fffbeb' : undefined }}>
+                            <td className="px-3 py-3 text-xs font-bold text-slate-700">{p.studentName || p.studentId?.slice(0, 8)}</td>
+                            <td className="px-3 py-3 text-xs text-slate-500">{paidBatches.find(b => b.id === p.batchId)?.examName || p.batchId?.slice(0, 10)}</td>
+                            <td className="px-3 py-3 text-xs font-black text-emerald-600">₹{p.amount}</td>
+                            <td className="px-3 py-3 text-xs text-slate-400 font-mono">{(p.transactionId || '').slice(0, 14)}</td>
+                            <td className="px-3 py-3 text-xs text-slate-400">{p.createdAt?.slice(0, 10)}</td>
+                            <td className="px-3 py-3">
+                              <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${
+                                p.status === 'success' ? 'bg-green-100 text-green-700' :
+                                p.status === 'rejected' ? 'bg-rose-100 text-rose-700' :
+                                'bg-amber-100 text-amber-700'
+                              }`}>
+                                {p.status === 'success' ? '✔ PAID' : p.status === 'rejected' ? '✕ REJECTED' : '⏳ PENDING'}
+                              </span>
+                            </td>
+                            <td className="px-3 py-3">
+                              {isPending && (
+                                <div className="flex gap-1">
+                                  <button
+                                    onClick={async () => {
+                                      const token = await user!.getIdToken();
+                                      const res = await fetch(`/api/admin/payments/${p.id}/verify`, {
+                                        method: 'PUT',
+                                        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ action: 'approve', batchId: p.batchId }),
+                                      });
+                                      if (res.ok) setPaidPayments(prev => prev.map(x => x.id === p.id ? { ...x, status: 'success' } : x));
+                                    }}
+                                    className="text-[9px] font-black px-2 py-1 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
+                                  >✔ Approve</button>
+                                  <button
+                                    onClick={async () => {
+                                      const token = await user!.getIdToken();
+                                      const res = await fetch(`/api/admin/payments/${p.id}/verify`, {
+                                        method: 'PUT',
+                                        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ action: 'reject', batchId: p.batchId }),
+                                      });
+                                      if (res.ok) setPaidPayments(prev => prev.map(x => x.id === p.id ? { ...x, status: 'rejected' } : x));
+                                    }}
+                                    className="text-[9px] font-black px-2 py-1 rounded-lg bg-rose-100 text-rose-700 hover:bg-rose-200 transition-colors"
+                                  >✕ Reject</button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {!paidPaymentsLoading && paidPayments.length === 0 && (
+                    <p className="text-center text-slate-400 text-sm py-8">No payments yet</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
     </div>
   );

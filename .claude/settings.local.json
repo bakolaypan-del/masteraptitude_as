@@ -28,7 +28,8 @@
       "Bash(awk 'NR>=3820 && NR<=3870' /c/masteraptitude_as/src/pages/AdminDashboard.tsx)",
       "Bash(grep -n \"^\\\\s*}\\\\s*$\\\\|activeTab === 'home'\" /c/masteraptitude_as/src/pages/Dashboard.tsx)",
       "Bash(awk 'NR>1 && NR<5')",
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Bash(python -c \"import sys,json; p=json.load\\(sys.stdin\\); print\\('\\\\n'.join\\(p.get\\('dependencies',{}\\).keys\\(\\)\\)\\)\")"
     ]
   }
 }

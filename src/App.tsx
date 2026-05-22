@@ -12,6 +12,7 @@ import { NewsListPage, NewsDetailPage } from './pages/NewsPage';
 import InstallApp from './pages/InstallApp';
 import AnalysisPage from './pages/AnalysisPage';
 import ReviewPage from './pages/ReviewPage';
+import PaidMockPage from './pages/PaidMockPage';
 
 function SecurityWrapper({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -119,6 +120,12 @@ export default function App() {
               </ProtectedRoute>
             } />
             
+            <Route path="/paid-mock" element={
+              <ProtectedRoute>
+                <PaidMockPage />
+              </ProtectedRoute>
+            } />
+
             <Route path="/typing-test" element={
               <ProtectedRoute>
                 <TypingTestList />

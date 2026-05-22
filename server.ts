@@ -74,6 +74,7 @@ import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 import cookieParser from "cookie-parser";
 import fs from "fs";
+import crypto from "crypto";
 import { GoogleGenAI } from "@google/genai";
 let sqliteDb: any = null;
 
@@ -2245,6 +2246,233 @@ ${allUrls.map(u => `  <url>
       res.json({ message: "Link deleted" });
     } catch (err) {
       res.status(500).json({ error: "Failed to delete link" });
+    }
+  });
+
+  // ── Paid Mock Batches (public) ────────────────────────
+  app.get("/api/paid-batches", async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const snap = await currentDb.collection("paid_mock_batches")
+        .where("isActive", "==", true)
+        .orderBy("createdAt", "desc")
+        .get();
+      res.json(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch batches" });
+    }
+  });
+
+  app.get("/api/paid-batches/:id", async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const docSnap = await currentDb.collection("paid_mock_batches").doc(req.params.id).get();
+      if (!docSnap.exists) return res.status(404).json({ error: "Batch not found" });
+      res.json({ id: docSnap.id, ...docSnap.data() });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch batch" });
+    }
+  });
+
+  // ── Admin: Paid Mock Batches ───────────────────────────
+  app.get("/api/admin/paid-batches", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const snap = await currentDb.collection("paid_mock_batches").orderBy("createdAt", "desc").get();
+      res.json(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch batches" });
+    }
+  });
+
+  app.post("/api/admin/paid-batches", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const { examName, description, price, thumbnailUrl, validity, totalMocks, features, isActive, isPopular } = req.body;
+      const ref = await currentDb.collection("paid_mock_batches").add({
+        examName, description,
+        price: Number(price) || 0,
+        thumbnailUrl: thumbnailUrl || '',
+        validity: validity || 'Unlimited',
+        totalMocks: Number(totalMocks) || 0,
+        features: features || [],
+        isActive: isActive !== false,
+        isPopular: !!isPopular,
+        enrolledCount: 0,
+        createdAt: new Date().toISOString(),
+      });
+      res.json({ id: ref.id, message: "Batch created" });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to create batch" });
+    }
+  });
+
+  app.put("/api/admin/paid-batches/:id", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const { examName, description, price, thumbnailUrl, validity, totalMocks, features, isActive, isPopular } = req.body;
+      await currentDb.collection("paid_mock_batches").doc(req.params.id).update({
+        examName, description,
+        price: Number(price) || 0,
+        thumbnailUrl: thumbnailUrl || '',
+        validity: validity || 'Unlimited',
+        totalMocks: Number(totalMocks) || 0,
+        features: features || [],
+        isActive: isActive !== false,
+        isPopular: !!isPopular,
+        updatedAt: new Date().toISOString(),
+      });
+      res.json({ message: "Batch updated" });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to update batch" });
+    }
+  });
+
+  app.delete("/api/admin/paid-batches/:id", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      await currentDb.collection("paid_mock_batches").doc(req.params.id).delete();
+      res.json({ message: "Batch deleted" });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to delete batch" });
+    }
+  });
+
+  // ── Admin: Payments Dashboard ─────────────────────────
+  app.get("/api/admin/payments", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const snap = await currentDb.collection("payments").orderBy("createdAt", "desc").limit(500).get();
+      res.json(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch payments" });
+    }
+  });
+
+  // ── Student: My Purchases ──────────────────────────────
+  app.get("/api/my-purchases", verifyToken, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const studentId = (req as any).user.uid;
+      const snap = await currentDb.collection("payments")
+        .where("studentId", "==", studentId)
+        .where("status", "==", "success")
+        .get();
+      res.json({ purchasedBatches: snap.docs.map(d => (d.data() as any).batchId) });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch purchases" });
+    }
+  });
+
+  // ── Payment: Public config (razorpay.me URL + whether API is ready) ────────
+  app.get("/api/payment-config", (req, res) => {
+    res.json({
+      razorpayMeUrl: process.env.RAZORPAY_ME_URL || 'https://razorpay.me/@masteraptitude',
+      apiReady: !!(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET),
+    });
+  });
+
+  // ── Payment: Manual (UPI ref after razorpay.me redirect) ─────────────────
+  app.post("/api/payments/submit-manual", verifyToken, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const { batchId, transactionId, amount, studentName, screenshotUrl } = req.body;
+      const studentId = (req as any).user.uid;
+      // Prevent duplicate submission for same batch
+      const existing = await currentDb.collection("payments")
+        .where("studentId", "==", studentId)
+        .where("batchId", "==", batchId)
+        .get();
+      if (!existing.empty) {
+        return res.status(400).json({ error: "Payment already submitted for this batch" });
+      }
+      await currentDb.collection("payments").add({
+        studentId, batchId, amount: Number(amount), status: "pending_verification",
+        transactionId: transactionId || '', studentName: studentName || '',
+        screenshotUrl: screenshotUrl || '', paymentMethod: 'manual_upi',
+        createdAt: new Date().toISOString(),
+      });
+      res.json({ success: true, message: "Submitted for verification" });
+    } catch (err: any) {
+      res.status(500).json({ error: "Submission failed", details: err.message });
+    }
+  });
+
+  // ── Admin: Approve / Reject manual payment ───────────────────────────────
+  app.put("/api/admin/payments/:id/verify", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const { action, batchId } = req.body; // action: 'approve' | 'reject'
+      const docRef = currentDb.collection("payments").doc(req.params.id);
+      const docSnap = await docRef.get();
+      if (!docSnap.exists) return res.status(404).json({ error: "Payment not found" });
+      const paymentData = docSnap.data() as any;
+      if (action === 'approve') {
+        await docRef.update({ status: "success", verifiedAt: new Date().toISOString() });
+        await currentDb.collection("paid_mock_batches").doc(batchId || paymentData.batchId).update({
+          enrolledCount: admin.firestore.FieldValue.increment(1),
+        });
+      } else {
+        await docRef.update({ status: "rejected", verifiedAt: new Date().toISOString() });
+      }
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: "Update failed", details: err.message });
+    }
+  });
+
+  // ── Payment: Create Razorpay Order ────────────────────
+  app.post("/api/payments/create-order", verifyToken, async (req, res) => {
+    try {
+      if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+        return res.status(503).json({ error: "Payment gateway not configured. Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to .env" });
+      }
+      const { amount } = req.body;
+      const Razorpay = (await import("razorpay")).default;
+      const rz = new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET });
+      const order = await rz.orders.create({ amount: Math.round(Number(amount) * 100), currency: "INR", receipt: `rcpt_${Date.now()}` });
+      res.json({ orderId: order.id, amount: order.amount, currency: order.currency });
+    } catch (err: any) {
+      res.status(500).json({ error: "Order creation failed", details: err.message });
+    }
+  });
+
+  // ── Payment: Verify Razorpay Signature ────────────────
+  app.post("/api/payments/verify", verifyToken, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const { razorpay_order_id, razorpay_payment_id, razorpay_signature, batchId, amount, studentName } = req.body;
+      const secret = process.env.RAZORPAY_KEY_SECRET || '';
+      const expected = crypto.createHmac("sha256", secret)
+        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+        .digest("hex");
+      if (expected !== razorpay_signature) {
+        return res.status(400).json({ error: "Invalid payment signature" });
+      }
+      const studentId = (req as any).user.uid;
+      await currentDb.collection("payments").add({
+        studentId, batchId, amount: Number(amount), status: "success",
+        transactionId: razorpay_payment_id, razorpayOrderId: razorpay_order_id,
+        razorpayPaymentId: razorpay_payment_id, studentName: studentName || '',
+        createdAt: new Date().toISOString(),
+      });
+      await currentDb.collection("paid_mock_batches").doc(batchId).update({
+        enrolledCount: admin.firestore.FieldValue.increment(1),
+      });
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: "Verification failed", details: err.message });
     }
   });
 

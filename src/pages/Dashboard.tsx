@@ -1065,84 +1065,126 @@ export default function Dashboard() {
                 );
               })()}
 
-              {/* ── Quick Access Grid ── */}
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{color: '#94a3b8'}}>Quick Access</p>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-
-                  <button onClick={() => setActiveTab('live_test')} className="rounded-2xl p-5 text-left transition-all hover:-translate-y-0.5 relative overflow-hidden" style={{background: '#fff', border: '1px solid #e8ecf3', boxShadow: '0 1px 6px rgba(0,0,0,0.04)'}}>
-                    <div className="absolute top-0 right-0 rounded-full pointer-events-none" style={{width: 80, height: 80, background: 'rgba(239,68,68,0.06)', transform: 'translate(20px,-20px)'}} />
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl mb-4" style={{background: 'rgba(239,68,68,0.12)'}}>🔴</div>
-                    <p className="font-black text-sm" style={{color: '#1e293b'}}>Live Tests</p>
-                    <p className="text-xs font-medium mt-1 mb-3" style={{color: '#94a3b8'}}>{liveTests.length} tests</p>
-                    <div className="h-1 rounded-full overflow-hidden" style={{background: 'rgba(255,255,255,0.06)'}}><div className="h-full rounded-full animate-pulse" style={{width: '100%', background: 'linear-gradient(90deg,#ef4444,#f87171)'}} /></div>
-                    <p className="text-xs font-bold mt-2" style={{color: '#f87171'}}>Active</p>
-                  </button>
-
-                  <button onClick={() => setActiveTab('mock_landing')} className="rounded-2xl p-5 text-left transition-all hover:-translate-y-0.5 relative overflow-hidden" style={{background: '#fff', border: '1px solid #e8ecf3', boxShadow: '0 1px 6px rgba(0,0,0,0.04)'}}>
-                    <div className="absolute top-0 right-0 rounded-full pointer-events-none" style={{width: 80, height: 80, background: 'rgba(99,102,241,0.06)', transform: 'translate(20px,-20px)'}} />
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl mb-4" style={{background: 'rgba(99,102,241,0.12)'}}>🎯</div>
-                    <p className="font-black text-sm" style={{color: '#1e293b'}}>Mock Tests</p>
-                    <p className="text-xs font-medium mt-1 mb-3" style={{color: '#94a3b8'}}>{activeTests.length} tests</p>
-                    <div className="h-1 rounded-full overflow-hidden" style={{background: 'rgba(255,255,255,0.06)'}}><div className="h-full rounded-full" style={{width: `${Math.min(100, performanceStats.totalTests > 0 ? Math.round((performanceStats.totalTests / Math.max(activeTests.length, 1)) * 100) : 0)}%`, background: 'linear-gradient(90deg,#6366f1,#8b5cf6)'}} /></div>
-                    <p className="text-xs font-bold mt-2" style={{color: '#818cf8'}}>{performanceStats.totalTests > 0 ? Math.round((performanceStats.totalTests / Math.max(activeTests.length, 1)) * 100) + '% done' : 'Not started'}</p>
-                  </button>
-
-                  <button onClick={() => setActiveTab('learn_landing')} className="rounded-2xl p-5 text-left transition-all hover:-translate-y-0.5 relative overflow-hidden" style={{background: '#fff', border: '1px solid #e8ecf3', boxShadow: '0 1px 6px rgba(0,0,0,0.04)'}}>
-                    <div className="absolute top-0 right-0 rounded-full pointer-events-none" style={{width: 80, height: 80, background: 'rgba(16,185,129,0.06)', transform: 'translate(20px,-20px)'}} />
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl mb-4" style={{background: 'rgba(16,185,129,0.12)'}}>📚</div>
-                    <p className="font-black text-sm" style={{color: '#1e293b'}}>Learn</p>
-                    <p className="text-xs font-medium mt-1 mb-3" style={{color: '#94a3b8'}}>{notes.length + videos.length} resources</p>
-                    <div className="h-1 rounded-full overflow-hidden" style={{background: 'rgba(255,255,255,0.06)'}}><div className="h-full rounded-full" style={{width: '60%', background: 'linear-gradient(90deg,#10b981,#34d399)'}} /></div>
-                    <p className="text-xs font-bold mt-2" style={{color: '#34d399'}}>Explore</p>
-                  </button>
-
-                  <button onClick={() => navigate('/typing-test')} className="rounded-2xl p-5 text-left transition-all hover:-translate-y-0.5 relative overflow-hidden" style={{background: '#fff', border: '1px solid #e8ecf3', boxShadow: '0 1px 6px rgba(0,0,0,0.04)'}}>
-                    <div className="absolute top-0 right-0 rounded-full pointer-events-none" style={{width: 80, height: 80, background: 'rgba(245,158,11,0.06)', transform: 'translate(20px,-20px)'}} />
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl mb-4" style={{background: 'rgba(245,158,11,0.12)'}}>⌨️</div>
-                    <p className="font-black text-sm" style={{color: '#1e293b'}}>Typing Test</p>
-                    <p className="text-xs font-medium mt-1 mb-3" style={{color: '#94a3b8'}}>NTPC / CLERK / CGL</p>
-                    <div className="h-1 rounded-full overflow-hidden" style={{background: 'rgba(255,255,255,0.06)'}}><div className="h-full rounded-full" style={{width: '45%', background: 'linear-gradient(90deg,#f59e0b,#fbbf24)'}} /></div>
-                    <p className="text-xs font-bold mt-2" style={{color: '#fbbf24'}}>Practice</p>
-                  </button>
-
-                </div>
-              </div>
-
-              {/* ── Study Resources ── */}
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{color: '#94a3b8'}}>Study Resources</p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-
-                  <button onClick={() => setActiveTab('notes')} className="rounded-2xl p-4 md:p-5 flex items-center gap-4 text-left transition-all hover:-translate-y-0.5" style={{background: '#fff', border: '1px solid #e8ecf3', boxShadow: '0 1px 4px rgba(0,0,0,0.03)'}}>
-                    <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{background: '#eef2ff'}}>📚</div>
-                    <div className="flex-1">
-                      <p className="font-black text-sm" style={{color: '#1e293b'}}>Study Notes</p>
-                      <p className="text-xs font-medium mt-0.5" style={{color: '#94a3b8'}}>{notes.length} PDFs available</p>
+              {/* ── Category Grid (Neon Premium) ── */}
+              {(() => {
+                const cats = [
+                  { w1: 'FREE',    w2: 'MOCK',    icon: '📋', neon: '#00cfff', bg: '#050d1a', badge: 'FREE',    sub: 'Practice Without Limits, Improve Every Day!',        action: () => setActiveTab('mock_landing') },
+                  { w1: 'PAID',    w2: 'MOCK',    icon: '👑', neon: '#bf5fff', bg: '#0d0617', badge: 'PREMIUM', sub: 'Premium Mocks, Real Exam Experience!',                action: () => navigate('/paid-mock') },
+                  { w1: 'TYPING',  w2: 'TEST',    icon: '⌨️', neon: '#00ff88', bg: '#011208', badge: null,      sub: 'Check Your Speed, Improve Accuracy!',                 action: () => navigate('/typing-test') },
+                  { w1: 'EBOOK',   w2: '',        icon: '📖', neon: '#ffaa00', bg: '#130c00', badge: null,      sub: 'Smart Learning, Anytime Anywhere!',                   action: () => setActiveTab('notes') },
+                  { w1: 'CURRENT', w2: 'AFFAIRS', icon: '📰', neon: '#00ffe5', bg: '#001412', badge: null,      sub: 'Stay Updated, Stay Ahead!',                           action: () => setActiveTab('affairs') },
+                  { w1: 'PYQs',    w2: '',        icon: '📚', neon: '#ff3fa4', bg: '#150008', badge: null,      sub: 'Previous Year Questions, Practice for Success!',      action: () => setActiveTab('pyq') },
+                  { w1: 'STUDY',   w2: 'NOTES',   icon: '📄', neon: '#a855f7', bg: '#0d0518', badge: null,      sub: 'Smart Notes for Quick Revision!',                     action: () => setActiveTab('notes') },
+                  { w1: 'VIDEO',   w2: 'CLASS',   icon: '🎬', neon: '#ff6230', bg: '#140600', badge: null,      sub: 'Learn from Expert Video Lectures!',                   action: () => setActiveTab('video') },
+                ];
+                return (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <p className="text-xs font-black uppercase tracking-widest" style={{color:'#64748b'}}>Explore</p>
+                      <div className="flex-1 h-px" style={{background:'linear-gradient(to right,#e2e8f0,transparent)'}}/>
                     </div>
-                    <ChevronRight className="w-4 h-4 flex-shrink-0" style={{color: '#cbd5e1'}} />
-                  </button>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {cats.map(({ w1, w2, icon, neon, bg, badge, sub, action }) => (
+                        <button
+                          key={w1 + w2}
+                          onClick={action}
+                          className="group relative flex flex-col items-center rounded-2xl overflow-hidden text-white transition-all duration-250 hover:-translate-y-1.5 hover:scale-[1.02] active:scale-[0.96]"
+                          style={{
+                            background: bg,
+                            boxShadow: `0 0 0 1.5px ${neon}55, 0 0 18px ${neon}30, 0 6px 28px rgba(0,0,0,0.55)`,
+                            padding: '20px 14px 16px',
+                          }}
+                        >
+                          {/* Dot-grid texture */}
+                          <div className="absolute inset-0 pointer-events-none" style={{
+                            backgroundImage: `radial-gradient(circle, ${neon}18 1px, transparent 1px)`,
+                            backgroundSize: '16px 16px',
+                          }}/>
 
-                  <button onClick={() => setActiveTab('video')} className="rounded-2xl p-4 md:p-5 flex items-center gap-4 text-left transition-all hover:-translate-y-0.5" style={{background: '#fff', border: '1px solid #e8ecf3', boxShadow: '0 1px 4px rgba(0,0,0,0.03)'}}>
-                    <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{background: '#f5f3ff'}}>🎬</div>
-                    <div className="flex-1">
-                      <p className="font-black text-sm" style={{color: '#1e293b'}}>Video Lectures</p>
-                      <p className="text-xs font-medium mt-0.5" style={{color: '#94a3b8'}}>{videos.length} videos</p>
+                          {/* Corner bracket top-left */}
+                          <div className="absolute top-0 left-0 w-7 h-7 pointer-events-none" style={{
+                            borderTop: `1.5px solid ${neon}70`, borderLeft: `1.5px solid ${neon}70`,
+                            borderRadius: '10px 0 0 0',
+                          }}/>
+                          {/* Corner bracket top-right */}
+                          <div className="absolute top-0 right-0 w-7 h-7 pointer-events-none" style={{
+                            borderTop: `1.5px solid ${neon}70`, borderRight: `1.5px solid ${neon}70`,
+                            borderRadius: '0 10px 0 0',
+                          }}/>
+
+                          {/* Glowing icon circle */}
+                          <div className="relative z-10 flex items-center justify-center rounded-full mb-3 transition-transform duration-250 group-hover:scale-105" style={{
+                            width: 72, height: 72,
+                            border: `2px solid ${neon}`,
+                            boxShadow: `0 0 14px ${neon}70, 0 0 28px ${neon}30, inset 0 0 14px ${neon}18`,
+                            background: `radial-gradient(circle, ${neon}18 0%, transparent 70%)`,
+                          }}>
+                            {/* Badge on circle */}
+                            {badge && (
+                              <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[8px] font-black px-2 py-[2px] rounded-full" style={{
+                                background: `linear-gradient(90deg,${neon},${neon}bb)`,
+                                color: bg,
+                                boxShadow: `0 0 8px ${neon}`,
+                                letterSpacing: '0.06em',
+                              }}>
+                                {badge}
+                              </span>
+                            )}
+                            <span className="text-[2rem] select-none" style={{
+                              lineHeight: 1,
+                              filter: `drop-shadow(0 0 8px ${neon}90)`,
+                            }}>{icon}</span>
+                          </div>
+
+                          {/* Two-tone title */}
+                          <div className="relative z-10 text-center mb-1.5 leading-tight">
+                            {w2 ? (
+                              <p className="font-black tracking-wide" style={{fontSize:'clamp(15px,4.5vw,20px)', lineHeight:1.1}}>
+                                <span style={{color:'#ffffff'}}>{w1} </span>
+                                <span style={{color: neon, textShadow:`0 0 10px ${neon}`}}>{w2}</span>
+                              </p>
+                            ) : (
+                              <p className="font-black tracking-wide" style={{fontSize:'clamp(15px,4.5vw,20px)', color: neon, textShadow:`0 0 10px ${neon}`, lineHeight:1.1}}>
+                                {w1}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Subtitle */}
+                          <p className="relative z-10 text-center mb-3 leading-snug" style={{
+                            fontSize:'clamp(9px,2.5vw,11px)',
+                            color:'rgba(255,255,255,0.58)',
+                            fontStyle:'italic',
+                            maxWidth: 160,
+                          }}>{sub}</p>
+
+                          {/* Bottom radial light ray */}
+                          <div className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none" style={{
+                            background: `radial-gradient(ellipse 80% 60% at 50% 110%, ${neon}35 0%, transparent 70%)`,
+                          }}/>
+
+                          {/* Arrow button */}
+                          <div className="relative z-10 flex items-center justify-center rounded-full transition-all duration-200 group-hover:scale-110" style={{
+                            width: 28, height: 28,
+                            background: `${neon}20`,
+                            border: `1.5px solid ${neon}90`,
+                            boxShadow: `0 0 10px ${neon}45`,
+                          }}>
+                            <svg viewBox="0 0 10 10" width="10" height="10" fill="none">
+                              <path d="M3.5 2L6.5 5L3.5 8" stroke={neon} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </div>
+
+                          {/* Hover border intensify */}
+                          <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-250 pointer-events-none" style={{
+                            boxShadow: `inset 0 0 0 1.5px ${neon}90, 0 0 28px ${neon}40`,
+                          }}/>
+                        </button>
+                      ))}
                     </div>
-                    <ChevronRight className="w-4 h-4 flex-shrink-0" style={{color: '#cbd5e1'}} />
-                  </button>
-
-                  <button onClick={() => setActiveTab('affairs')} className="rounded-2xl p-4 md:p-5 flex items-center gap-4 text-left transition-all hover:-translate-y-0.5" style={{background: '#fff', border: '1px solid #e8ecf3', boxShadow: '0 1px 4px rgba(0,0,0,0.03)'}}>
-                    <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{background: '#fffbeb'}}>📰</div>
-                    <div className="flex-1">
-                      <p className="font-black text-sm" style={{color: '#1e293b'}}>Current Affairs</p>
-                      <p className="text-xs font-medium mt-0.5" style={{color: '#94a3b8'}}>Updated daily</p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 flex-shrink-0" style={{color: '#cbd5e1'}} />
-                  </button>
-
-                </div>
-              </div>
+                  </div>
+                );
+              })()}
 
               {/* ── Assistant Bar ── */}
               <a href="tel:8900011708" className="flex items-center gap-3 w-full rounded-2xl px-4 py-3 text-white hover:brightness-110 active:scale-[0.99] transition-all" style={{background: 'linear-gradient(90deg,#1e1b4b 0%,#1e3a5f 100%)', border: '1px solid rgba(99,102,241,0.15)'}}>
