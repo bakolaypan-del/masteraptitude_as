@@ -18,6 +18,171 @@ import autoTable from 'jspdf-autotable';
 
 type DashboardTab = 'home' | 'profile' | 'mock_topic' | 'mock_sectional' | 'mock_full' | 'notes' | 'video' | 'pyq' | 'pattern' | 'affairs' | 'practice' | 'about' | 'contact' | 'learn_landing' | 'mock_landing' | 'live_test';
 
+const WELCOME_QUOTES = [
+  "Success doesn't come from luck — it comes from daily practice.",
+  "Every mock test brings you one step closer to your dream.",
+  "Consistency beats talent when talent doesn't work hard.",
+  "The harder you prepare today, the luckier you'll get tomorrow.",
+  "Champions train while others sleep.",
+  "Your rank tomorrow depends on your practice today.",
+  "One more test, one step closer to the top.",
+];
+
+function WelcomeHero({ name }: { name?: string }) {
+  const startIndex = new Date().getDay() % WELCOME_QUOTES.length;
+  const [displayText, setDisplayText] = useState('');
+  const [qIdx, setQIdx] = useState(startIndex);
+  const [charIdx, setCharIdx] = useState(0);
+  const [pausing, setPausing] = useState(false);
+
+  useEffect(() => {
+    if (pausing) {
+      const t = setTimeout(() => {
+        setDisplayText('');
+        setCharIdx(0);
+        setQIdx(i => (i + 1) % WELCOME_QUOTES.length);
+        setPausing(false);
+      }, 2200);
+      return () => clearTimeout(t);
+    }
+    const target = WELCOME_QUOTES[qIdx];
+    if (charIdx < target.length) {
+      const t = setTimeout(() => {
+        setDisplayText(target.slice(0, charIdx + 1));
+        setCharIdx(c => c + 1);
+      }, 40);
+      return () => clearTimeout(t);
+    }
+    setPausing(true);
+  }, [charIdx, pausing, qIdx]);
+
+  const firstName = name?.split(' ')[0] || 'Student';
+  const quoteDone = displayText.length === WELCOME_QUOTES[qIdx].length;
+
+  return (
+    <>
+      <style>{`
+        @keyframes quoteColorCycle {
+          0%   { color: #60a5fa; text-shadow: 0 0 10px rgba(96,165,250,0.35); }
+          25%  { color: #22d3ee; text-shadow: 0 0 10px rgba(34,211,238,0.35); }
+          50%  { color: #a78bfa; text-shadow: 0 0 10px rgba(167,139,250,0.35); }
+          75%  { color: #fbbf24; text-shadow: 0 0 12px rgba(251,191,36,0.35); }
+          100% { color: #60a5fa; text-shadow: 0 0 10px rgba(96,165,250,0.35); }
+        }
+        @keyframes cursorBlink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0; }
+        }
+      `}</style>
+      <div className="relative rounded-2xl overflow-hidden" style={{
+        background: 'linear-gradient(135deg, #0f0c29 0%, #1a1040 50%, #16213e 100%)',
+        border: '1px solid rgba(99,102,241,0.22)',
+        boxShadow: '0 8px 28px rgba(99,102,241,0.18)',
+      }}>
+        {/* Background study image */}
+        <div className="absolute inset-0 pointer-events-none select-none">
+          <img
+            src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=1200&q=80&auto=format&fit=crop&crop=right"
+            alt=""
+            aria-hidden="true"
+            className="w-full h-full object-cover object-right"
+            style={{ filter: 'blur(2px) brightness(0.28) saturate(0.7)', transform: 'scale(1.04)' }}
+            loading="eager"
+            draggable={false}
+          />
+          <div className="absolute inset-0" style={{
+            background: 'linear-gradient(to right, rgba(15,12,41,0.98) 0%, rgba(15,12,41,0.88) 35%, rgba(15,12,41,0.60) 60%, rgba(15,12,41,0.10) 100%)',
+          }} />
+          <div className="absolute inset-0" style={{
+            background: 'linear-gradient(to bottom, rgba(15,12,41,0.4) 0%, transparent 25%, transparent 75%, rgba(15,12,41,0.5) 100%)',
+          }} />
+        </div>
+
+        {/* Right-side image panel — desktop only */}
+        <div className="hidden md:block absolute inset-y-0 right-0 pointer-events-none select-none" style={{ width: '42%' }}>
+          <img
+            src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=1200&q=80&auto=format&fit=crop&crop=right"
+            alt=""
+            aria-hidden="true"
+            className="w-full h-full object-cover object-right"
+            style={{ filter: 'blur(0px) brightness(0.45) saturate(0.8)' }}
+            loading="eager"
+            draggable={false}
+          />
+          <div className="absolute inset-0" style={{
+            background: 'linear-gradient(to right, rgba(15,12,41,1) 0%, rgba(15,12,41,0.55) 30%, transparent 65%)',
+          }} />
+          <span className="absolute top-4 right-8 text-2xl drop-shadow-lg">📚</span>
+          <span className="absolute top-1/2 right-5 text-xl drop-shadow-lg" style={{ transform: 'translateY(-50%)' }}>✏️</span>
+          <span className="absolute bottom-5 right-10 text-xl drop-shadow-lg">🏆</span>
+        </div>
+
+        {/* Dot-grid texture */}
+        <div className="absolute inset-0 pointer-events-none" style={{
+          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.025) 1px, transparent 1px)',
+          backgroundSize: '20px 20px',
+        }} />
+
+        <div className="relative z-10 p-5 sm:p-6 md:max-w-[58%]">
+          {/* Brand pill */}
+          <div className="inline-flex items-center gap-1.5 mb-3 px-2.5 py-1 rounded-full" style={{
+            background: 'rgba(99,102,241,0.15)',
+            border: '1px solid rgba(99,102,241,0.28)',
+            color: '#a5b4fc',
+            fontSize: 9,
+            fontWeight: 900,
+            letterSpacing: '0.14em',
+          }}>
+            🎓 MASTER APTITUDE
+          </div>
+
+          {/* Welcome heading */}
+          <h2 style={{ fontWeight: 900, fontSize: 22, lineHeight: 1.15, letterSpacing: '-0.01em', color: '#fff', margin: '0 0 16px' }}>
+            Welcome,{' '}
+            <span style={{
+              backgroundImage: 'linear-gradient(90deg, #fbbf24 0%, #fde68a 50%, #fbbf24 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}>{firstName}</span>!
+          </h2>
+
+          {/* Typewriter quote */}
+          <div style={{ minHeight: 44 }}>
+            <p style={{
+              animation: 'quoteColorCycle 10s linear infinite',
+              fontStyle: 'italic',
+              fontWeight: 500,
+              fontSize: 13,
+              lineHeight: 1.65,
+              maxWidth: 440,
+              margin: 0,
+            }}>
+              <span style={{ opacity: 0.45, fontStyle: 'normal' }}>"</span>
+              {displayText}
+              <span style={{
+                display: 'inline-block',
+                width: 2,
+                height: 13,
+                background: 'currentColor',
+                marginLeft: 1,
+                verticalAlign: 'middle',
+                animation: 'cursorBlink 0.9s ease-in-out infinite',
+                opacity: pausing ? 0 : 1,
+                borderRadius: 1,
+              }} />
+              {quoteDone && <span style={{ opacity: 0.45, fontStyle: 'normal' }}>"</span>}
+            </p>
+          </div>
+
+          <p style={{ color: 'rgba(165,180,252,0.4)', fontSize: 10, fontWeight: 700, letterSpacing: '0.09em', marginTop: 8 }}>
+            — Master Aptitude
+          </p>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function Dashboard() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
@@ -802,154 +967,8 @@ export default function Dashboard() {
           {/* Home Tab – Design D */}
           {activeTab === 'home' && (
             <div className="animate-in fade-in duration-500 space-y-5">
-              {/* ── Premium Welcome Hero ── */}
-              {(() => {
-                const quotes = [
-                  { text: "Success doesn't come from luck — it comes from daily practice.", author: "Master Aptitude" },
-                  { text: "Every mock test brings you one step closer to your dream.", author: "Master Aptitude" },
-                  { text: "Consistency beats talent when talent doesn't work hard.", author: "Master Aptitude" },
-                  { text: "The harder you prepare today, the luckier you'll get tomorrow.", author: "Master Aptitude" },
-                  { text: "Champions train while others sleep. Start your next test now.", author: "Master Aptitude" },
-                  { text: "Your rank tomorrow depends on your practice today.", author: "Master Aptitude" },
-                  { text: "One more test, one step closer to the top.", author: "Master Aptitude" },
-                ];
-                const q = quotes[new Date().getDay() % quotes.length];
-                return (
-                  <div className="relative" style={{ borderRadius: '22px' }}>
-                    {/* Inner card */}
-                    <div className="relative overflow-hidden text-white" style={{
-                      borderRadius: '22px',
-                      zIndex: 1,
-                      minHeight: 200,
-                      background: 'linear-gradient(135deg, #0f0c29 0%, #1a1040 45%, #16213e 100%)',
-                    }}>
-                      {/* Background study image — blurred, right-aligned */}
-                      <div className="absolute inset-0 pointer-events-none select-none">
-                        <img
-                          src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=1200&q=80&auto=format&fit=crop&crop=right"
-                          alt=""
-                          aria-hidden="true"
-                          className="w-full h-full object-cover object-right"
-                          style={{ filter: 'blur(2px) brightness(0.28) saturate(0.7)', transform: 'scale(1.04)' }}
-                          loading="eager"
-                          draggable={false}
-                        />
-                        {/* Left-to-right dark-to-transparent overlay for text legibility */}
-                        <div className="absolute inset-0" style={{
-                          background: 'linear-gradient(to right, rgba(15,12,41,0.98) 0%, rgba(15,12,41,0.88) 35%, rgba(15,12,41,0.60) 60%, rgba(15,12,41,0.10) 100%)',
-                        }} />
-                        {/* Subtle top/bottom vignette */}
-                        <div className="absolute inset-0" style={{
-                          background: 'linear-gradient(to bottom, rgba(15,12,41,0.4) 0%, transparent 25%, transparent 75%, rgba(15,12,41,0.5) 100%)',
-                        }} />
-                      </div>
-
-                      {/* Right-side blurred image panel — desktop only */}
-                      <div className="hidden md:block absolute inset-y-0 right-0 pointer-events-none select-none" style={{ width: '42%' }}>
-                        <img
-                          src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=1200&q=80&auto=format&fit=crop&crop=right"
-                          alt=""
-                          aria-hidden="true"
-                          className="w-full h-full object-cover object-right"
-                          style={{ filter: 'blur(0px) brightness(0.45) saturate(0.8)' }}
-                          loading="eager"
-                          draggable={false}
-                        />
-                        {/* Fade from left to reveal the clearer right-side image */}
-                        <div className="absolute inset-0" style={{
-                          background: 'linear-gradient(to right, rgba(15,12,41,1) 0%, rgba(15,12,41,0.55) 30%, transparent 65%)',
-                        }} />
-                        {/* Floating emoji accents */}
-                        <span className="absolute top-4 right-8 text-2xl drop-shadow-lg" style={{ animation: 'ma-spin-border 0s', animationName: 'none' }}>📚</span>
-                        <span className="absolute top-1/2 right-5 text-xl drop-shadow-lg" style={{ transform: 'translateY(-50%)' }}>✏️</span>
-                        <span className="absolute bottom-5 right-10 text-xl drop-shadow-lg">🏆</span>
-                      </div>
-
-                      {/* Dot-grid texture */}
-                      <div className="absolute inset-0 opacity-[0.025] pointer-events-none" style={{
-                        backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
-                        backgroundSize: '22px 22px',
-                      }} />
-
-                      {/* ── Left: Welcome text ── */}
-                      <div className="relative z-10 p-6 sm:p-8 md:p-10 flex flex-col justify-center md:max-w-[58%]" style={{ minHeight: 200 }}>
-                        {/* Brand pill */}
-                        <div className="inline-flex items-center gap-1.5 mb-4 px-3 py-1.5 rounded-full w-fit" style={{
-                          background: 'rgba(99,102,241,0.18)',
-                          border: '1px solid rgba(99,102,241,0.35)',
-                          color: '#a5b4fc',
-                          fontSize: 10,
-                          fontWeight: 900,
-                          letterSpacing: '0.12em',
-                          textTransform: 'uppercase',
-                        }}>
-                          🎓 Master Aptitude
-                        </div>
-
-                        {/* Welcome heading */}
-                        <h2 style={{ fontWeight: 900, lineHeight: 1.15, letterSpacing: '-0.02em', marginBottom: 12 }}
-                          className="text-2xl sm:text-3xl md:text-4xl">
-                          Welcome,{' '}
-                          <span className="text-transparent bg-clip-text" style={{
-                            backgroundImage: 'linear-gradient(90deg, #fbbf24 0%, #fde68a 40%, #fbbf24 80%)',
-                            backgroundSize: '200% auto',
-                            WebkitBackgroundClip: 'text',
-                          }}>
-                            {profile?.name?.split(' ')[0] || 'Student'}
-                          </span>
-                          !
-                        </h2>
-
-                        {/* Motivational quote */}
-                        <p className="text-sm sm:text-base leading-relaxed mb-1" style={{
-                          color: 'rgba(255,255,255,0.72)',
-                          fontStyle: 'italic',
-                          fontWeight: 500,
-                          maxWidth: 400,
-                        }}>
-                          "{q.text}"
-                        </p>
-                        <p style={{
-                          color: 'rgba(165,180,252,0.75)',
-                          fontSize: 11,
-                          fontWeight: 700,
-                          letterSpacing: '0.06em',
-                          marginBottom: 20,
-                        }}>
-                          — {q.author}
-                        </p>
-
-                        {/* CTA buttons */}
-                        <div className="flex gap-3 flex-wrap">
-                          <button
-                            onClick={() => setActiveTab('live_test')}
-                            className="flex items-center gap-2 font-bold text-sm text-white transition-all hover:opacity-90 active:scale-[0.97]"
-                            style={{
-                              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                              boxShadow: '0 4px 20px rgba(99,102,241,0.4)',
-                              borderRadius: 12, padding: '10px 20px',
-                            }}
-                          >
-                            ⚡ Attempt Live Test
-                          </button>
-                          <button
-                            onClick={() => setActiveTab('mock_landing')}
-                            className="flex items-center gap-2 font-bold text-sm transition-all hover:brightness-125 active:scale-[0.97]"
-                            style={{
-                              background: 'rgba(255,255,255,0.07)',
-                              border: '1px solid rgba(255,255,255,0.12)',
-                              color: '#cbd5e1',
-                              borderRadius: 12, padding: '10px 20px',
-                            }}
-                          >
-                            View Mock Tests
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
+              {/* ── Welcome Hero ── */}
+              <WelcomeHero name={profile?.name} />
 
               {/* ── Live Test Banner (only when a test is actually live) ── */}
               {(() => {
