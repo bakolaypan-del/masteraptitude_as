@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthContext';
 import { RenderMathText } from '../components/MathRenderer';
+import { RenderQuestionHTML } from '../components/RichTextEditor';
 import { Clock, AlertTriangle, ChevronRight, ChevronLeft, CheckCircle, Flag, Info, Play, Menu, X, Target, Zap, BookOpen, Shield } from 'lucide-react';
 
 export default function TestRunner() {
@@ -509,9 +510,18 @@ export default function TestRunner() {
 
           {/* Question card */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 md:p-8 flex-1 flex flex-col" style={{ borderLeft: '4px solid #4f46e5' }}>
-            <h2 className="text-base md:text-xl font-semibold leading-relaxed mb-4 md:mb-6 text-slate-800">
-              <RenderMathText text={currentQuestion.questionText} />
-            </h2>
+            <div className="mb-4 md:mb-5">
+              <h2 className="text-base md:text-xl font-semibold leading-relaxed text-slate-800">
+                <RenderQuestionHTML html={currentQuestion.questionText} />
+              </h2>
+              {currentQuestion.sourceExam && (
+                <div className="mt-2 flex justify-end">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-700 text-white shadow-sm">
+                    📌 {currentQuestion.sourceExam}
+                  </span>
+                </div>
+              )}
+            </div>
             {currentQuestion.equationLatex && (
               <div className="mb-4 md:mb-6 p-4 bg-indigo-50 border border-indigo-100 rounded-xl text-center text-xl overflow-x-auto">
                 <RenderMathText text={`$$${currentQuestion.equationLatex}$$`} />

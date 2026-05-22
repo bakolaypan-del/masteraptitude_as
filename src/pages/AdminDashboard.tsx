@@ -14,6 +14,7 @@ import 'jspdf-autotable';
 import AdminTypingTests from '../components/AdminTypingTests';
 import { Keyboard } from 'lucide-react';
 import { RenderMathText } from '../components/MathRenderer';
+import RichTextEditor, { RenderQuestionHTML } from '../components/RichTextEditor';
 
 type AdminTab = 'students' | 'mock' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'blog' | 'reviews';
 
@@ -4481,6 +4482,7 @@ function QuestionManager() {
   const [qImageUrl, setQImageUrl] = useState<string>('');
   const [uploadingQImage, setUploadingQImage] = useState(false);
   const [qEquation, setQEquation] = useState('');
+  const [qSourceExam, setQSourceExam] = useState('');
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
   const [showPreview, setShowPreview] = useState(true);
 
@@ -4552,13 +4554,14 @@ function QuestionManager() {
           correctAnswer: qCorrect,
           solution: qSolution,
           imageUrl: finalImageUrl,
-          equationLatex: qEquation
+          equationLatex: qEquation,
+          sourceExam: qSourceExam.trim() || undefined
         })
       });
       if (res.ok) {
         setQText(''); setQTopic(''); setQOptions(['', '', '', '']); setQCorrect(''); setQSolution('');
         setQImageFile(null); setQImagePreview(''); setQImageUrl('');
-        setQEquation('');
+        setQEquation(''); setQSourceExam('');
         setEditingQuestionId(null);
         alert(editingQuestionId ? 'Question updated!' : 'Question added!');
       } else alert(await res.text());
@@ -4580,6 +4583,7 @@ function QuestionManager() {
     setQImageFile(null);
     setQImagePreview(q.imageUrl || '');
     setQEquation(q.equationLatex || '');
+    setQSourceExam(q.sourceExam || '');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -4640,11 +4644,33 @@ function QuestionManager() {
          <form onSubmit={handleAddQuestion} className="space-y-6">
            <div>
              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Question Description</label>
-             <textarea
-               className="w-full rounded-2xl border-slate-200 border-2 p-4 outline-hidden font-medium"
-               rows={3} value={qText} onChange={e => setQText(e.target.value)} required
-               placeholder="Write the question here..."
+             <RichTextEditor
+               value={qText}
+               onChange={setQText}
+               placeholder="Write the question here... (select text to format)"
+               minHeight={100}
              />
+           </div>
+
+           {/* Source Exam */}
+           <div>
+             <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
+               Asked In / Source Exam <span className="text-slate-300 normal-case font-normal">(optional)</span>
+             </label>
+             <input
+               type="text"
+               value={qSourceExam}
+               onChange={e => setQSourceExam(e.target.value)}
+               placeholder="e.g. SSC CGL 2023, WBP Constable 2022, RRB NTPC Previous Year"
+               list="source-exam-suggestions"
+               className="w-full rounded-xl border-2 border-slate-200 px-4 py-2.5 text-sm font-medium outline-none focus:border-emerald-500 transition-colors"
+               style={{ background: '#f0fdf4' }}
+             />
+             <datalist id="source-exam-suggestions">
+               {['SSC CGL', 'SSC CHSL', 'SSC MTS', 'SSC GD', 'WBP Constable', 'WBP SI', 'WBPSC Clerkship', 'RRB NTPC', 'RRB Group D', 'RRB ALP', 'WBPSC Food SI', 'KP Constable'].map(s => (
+                 <option key={s} value={s} />
+               ))}
+             </datalist>
            </div>
 
            <div>
@@ -4845,7 +4871,16 @@ function QuestionManager() {
                 <span className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 font-black mr-4 shrink-0">
                   {i+1}
                 </span>
-                <h4 className="font-bold text-slate-800 text-lg pr-20 leading-tight">{q.questionText}</h4>
+                <div className="flex-1 pr-20">
+                  <h4 className="font-bold text-slate-800 text-base leading-snug">
+                    <RenderQuestionHTML html={q.questionText} />
+                  </h4>
+                  {q.sourceExam && (
+                    <span className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-emerald-700 text-white">
+                      📌 {q.sourceExam}
+                    </span>
+                  )}
+                </div>
              </div>
              {q.equationLatex && (
                <div className="mb-4 ml-14 p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-center text-lg overflow-x-auto">
@@ -4929,8 +4964,20 @@ function QuestionManager() {
 
                   {/* Question text */}
                   <div className="font-semibold text-slate-800 leading-relaxed min-h-[40px]">
-                    {qText || <span className="text-slate-300 italic">Question will appear here...</span>}
+                    {qText
+                      ? <RenderQuestionHTML html={qText} />
+                      : <span className="text-slate-300 italic">Question will appear here...</span>
+                    }
                   </div>
+
+                  {/* Source exam badge */}
+                  {qSourceExam && (
+                    <div className="flex justify-end mt-1">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-emerald-700 text-white">
+                        📌 {qSourceExam}
+                      </span>
+                    </div>
+                  )}
 
                   {/* Math equation */}
                   {qEquation.trim() && (

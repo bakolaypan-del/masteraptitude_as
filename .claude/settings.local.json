@@ -27,7 +27,8 @@
       "PowerShell(Get-ChildItem \"C:\\\\masteraptitude_as\\\\node_modules\" -Directory | Where-Object { $_.Name -match \"sharp|jimp|canvas\" } | Select-Object Name)",
       "Bash(awk 'NR>=3820 && NR<=3870' /c/masteraptitude_as/src/pages/AdminDashboard.tsx)",
       "Bash(grep -n \"^\\\\s*}\\\\s*$\\\\|activeTab === 'home'\" /c/masteraptitude_as/src/pages/Dashboard.tsx)",
-      "Bash(awk 'NR>1 && NR<5')"
+      "Bash(awk 'NR>1 && NR<5')",
+      "Bash(grep -v \"^$\")"
     ]
   }
 }

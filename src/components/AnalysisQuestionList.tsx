@@ -13,6 +13,7 @@
 import React, { useState } from 'react';
 import { CheckCircle, X, Clock, Target, ChevronDown, Lightbulb, BookOpen } from 'lucide-react';
 import { RenderMathText } from './MathRenderer';
+import { RenderQuestionHTML } from './RichTextEditor';
 
 export interface AnalysisQuestion {
   id: string;
@@ -136,7 +137,14 @@ function QuestionCard({
 
         {/* ── Question text ──────────────────────────────────────────── */}
         <div className="text-[13px] sm:text-sm font-semibold text-slate-800 leading-snug break-words">
-          <RenderMathText text={q.questionText} />
+          <RenderQuestionHTML html={q.questionText} />
+          {(q as any).sourceExam && (
+            <div className="mt-1.5">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-emerald-700 text-white">
+                📌 {(q as any).sourceExam}
+              </span>
+            </div>
+          )}
         </div>
 
         {q.equationLatex && (
