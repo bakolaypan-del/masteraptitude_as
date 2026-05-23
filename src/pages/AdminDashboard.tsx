@@ -299,6 +299,11 @@ function AdminHome() {
   const [noteLink, setNoteLink] = useState('');
   const [noteSubject, setNoteSubject] = useState('');
   const [noteFile, setNoteFile] = useState<File | null>(null);
+  const [noteDesc, setNoteDesc] = useState('');
+  const [noteTags, setNoteTags] = useState('');
+  const [noteThumb, setNoteThumb] = useState<File | null>(null);
+  const [noteStatus, setNoteStatus] = useState<'published' | 'draft'>('published');
+  const [notePin, setNotePin] = useState(false);
   const [uploadingNote, setUploadingNote] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
 
@@ -306,6 +311,12 @@ function AdminHome() {
   const [affairTitle, setAffairTitle] = useState('');
   const [affairDate, setAffairDate] = useState('');
   const [affairLink, setAffairLink] = useState('');
+  const [affairDesc, setAffairDesc] = useState('');
+  const [affairTags, setAffairTags] = useState('');
+  const [affairThumb, setAffairThumb] = useState<File | null>(null);
+  const [affairStatus, setAffairStatus] = useState<'published' | 'draft'>('published');
+  const [affairPin, setAffairPin] = useState(false);
+  const [affairSlug, setAffairSlug] = useState('');
   const [uploadingAffair, setUploadingAffair] = useState(false);
 
   // Practice Set Form
@@ -313,6 +324,11 @@ function AdminHome() {
   const [practiceSubject, setPracticeSubject] = useState('');
   const [practiceFile, setPracticeFile] = useState<File | null>(null);
   const [practiceLink, setPracticeLink] = useState('');
+  const [practiceDesc, setPracticeDesc] = useState('');
+  const [practiceTags, setPracticeTags] = useState('');
+  const [practiceThumb, setPracticeThumb] = useState<File | null>(null);
+  const [practiceStatus, setPracticeStatus] = useState<'published' | 'draft'>('published');
+  const [practicePin, setPracticePin] = useState(false);
   const [uploadingPractice, setUploadingPractice] = useState(false);
 
   // Site Info Form
@@ -337,6 +353,10 @@ function AdminHome() {
   const [videoTitle, setVideoTitle] = useState('');
   const [videoLink, setVideoLink] = useState('');
   const [videoSubject, setVideoSubject] = useState('');
+  const [videoDesc, setVideoDesc] = useState('');
+  const [videoTags, setVideoTags] = useState('');
+  const [videoStatus, setVideoStatus] = useState<'published' | 'draft'>('published');
+  const [videoPin, setVideoPin] = useState(false);
 
   // Carousel Form
   const [carouselFile, setCarouselFile] = useState<File | null>(null);
@@ -748,11 +768,20 @@ function AdminHome() {
         return;
       }
 
+      let thumbUrl = '';
+      if (noteThumb) thumbUrl = await uploadThumb(noteThumb, 'notes_thumbs');
       const noteData: any = {
         title: noteTitle,
+        slug: toSlug(noteTitle),
         subject: noteSubject || 'General',
+        description: noteDesc,
+        tags: noteTags.split(',').map(t => t.trim()).filter(Boolean),
+        thumbnailUrl: thumbUrl,
+        status: noteStatus,
+        pinToHomepage: notePin,
+        viewCount: 0,
         updatedAt: serverTimestamp(),
-        authorId: user.uid
+        authorId: user.uid,
       };
       if (finalLink) noteData.link = finalLink;
 
@@ -761,14 +790,13 @@ function AdminHome() {
       } else {
         await addDoc(collection(db, 'notes'), {
           ...noteData,
-          createdAt: serverTimestamp()
+          createdAt: serverTimestamp(),
         });
       }
 
-      setNoteTitle('');
-      setNoteLink('');
-      setNoteSubject('');
-      setNoteFile(null);
+      setNoteTitle(''); setNoteLink(''); setNoteSubject(''); setNoteFile(null);
+      setNoteDesc(''); setNoteTags(''); setNoteThumb(null);
+      setNoteStatus('published'); setNotePin(false);
       setEditingNoteId(null);
       const fileInput = document.getElementById('note-file-input') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
@@ -930,14 +958,20 @@ function AdminHome() {
     try {
       await addDoc(collection(db, 'videos'), {
         title: videoTitle,
+        slug: toSlug(videoTitle),
         link: videoLink,
         subject: videoSubject || 'General',
+        description: videoDesc,
+        tags: videoTags.split(',').map(t => t.trim()).filter(Boolean),
+        status: videoStatus,
+        pinToHomepage: videoPin,
+        viewCount: 0,
         createdAt: serverTimestamp(),
-        authorId: user.uid
+        authorId: user.uid,
       });
-      setVideoTitle('');
-      setVideoLink('');
-      setVideoSubject('');
+      setVideoTitle(''); setVideoLink(''); setVideoSubject('');
+      setVideoDesc(''); setVideoTags('');
+      setVideoStatus('published'); setVideoPin(false);
     } catch (err) {
       console.error(err);
       alert('Error adding video');
@@ -1114,21 +1148,40 @@ function AdminHome() {
     }
   };
 
+  const toSlug = (text: string) =>
+    text.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').slice(0, 80);
+
+  const uploadThumb = async (file: File, folder: string): Promise<string> => {
+    const name = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}_${file.name}`;
+    const snap = await uploadBytes(ref(storage, name), file);
+    return getDownloadURL(snap.ref);
+  };
+
   const handleAddAffair = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!affairTitle || !user) return;
     setUploadingAffair(true);
     try {
+      let thumbUrl = '';
+      if (affairThumb) thumbUrl = await uploadThumb(affairThumb, 'affairs');
+      const slug = affairSlug || toSlug(affairTitle);
       await addDoc(collection(db, 'affairs'), {
         title: affairTitle,
+        slug,
         date: affairDate || new Date().toISOString().split('T')[0],
         link: affairLink,
+        description: affairDesc,
+        tags: affairTags.split(',').map(t => t.trim()).filter(Boolean),
+        thumbnailUrl: thumbUrl,
+        status: affairStatus,
+        pinToHomepage: affairPin,
+        viewCount: 0,
         createdAt: serverTimestamp(),
-        authorId: user.uid
+        authorId: user.uid,
       });
-      setAffairTitle('');
-      setAffairDate('');
-      setAffairLink('');
+      setAffairTitle(''); setAffairDate(''); setAffairLink('');
+      setAffairDesc(''); setAffairTags(''); setAffairThumb(null);
+      setAffairStatus('published'); setAffairPin(false); setAffairSlug('');
       alert('Current Affair added successfully!');
     } catch (err) {
       console.error(err);
@@ -1151,17 +1204,25 @@ function AdminHome() {
         const snapshot = await uploadBytes(fileRef, practiceFile);
         finalLink = await getDownloadURL(snapshot.ref);
       }
-
+      let thumbUrl = '';
+      if (practiceThumb) thumbUrl = await uploadThumb(practiceThumb, 'practice_thumbs');
       await addDoc(collection(db, 'practice_sets'), {
         title: practiceTitle,
+        slug: toSlug(practiceTitle),
         subject: practiceSubject || 'General',
         link: finalLink,
+        description: practiceDesc,
+        tags: practiceTags.split(',').map(t => t.trim()).filter(Boolean),
+        thumbnailUrl: thumbUrl,
+        status: practiceStatus,
+        pinToHomepage: practicePin,
+        viewCount: 0,
         createdAt: serverTimestamp(),
-        authorId: user.uid
+        authorId: user.uid,
       });
-      setPracticeTitle('');
-      setPracticeSubject('');
-      setPracticeLink('');
+      setPracticeTitle(''); setPracticeSubject(''); setPracticeLink('');
+      setPracticeDesc(''); setPracticeTags(''); setPracticeThumb(null);
+      setPracticeStatus('published'); setPracticePin(false);
       setPracticeFile(null);
       const fileInput = document.getElementById('practice-file-input') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
@@ -2149,69 +2210,68 @@ function AdminHome() {
           </h2>
           
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
-            <h3 className="text-lg font-bold text-slate-800 mb-6">{editingNoteId ? 'Update Study Material' : 'Upload / Link New Study Material'}</h3>
-            <form onSubmit={handleAddNote} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+            <h3 className="text-lg font-bold text-slate-800 mb-5">{editingNoteId ? 'Update Study Material' : 'Upload / Link New Study Material'}</h3>
+            <form onSubmit={handleAddNote} className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Note Title <span className="text-rose-500">*</span></label>
-                  <input 
-                    type="text" required
-                    className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
-                    value={noteTitle} onChange={e => setNoteTitle(e.target.value)} 
-                    placeholder="e.g. Organic Chemistry Guide"
-                  />
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Note Title *</label>
+                  <input type="text" required className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
+                    value={noteTitle} onChange={e => setNoteTitle(e.target.value)} placeholder="e.g. WBP GK Complete Notes 2026" />
                 </div>
                 <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Subject / Category (Optional)</label>
-                  <input 
-                    type="text"
-                    className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
-                    value={noteSubject} onChange={e => setNoteSubject(e.target.value)} 
-                    placeholder="e.g. Chemistry"
-                  />
-                </div>
-                <div className="md:col-span-1">
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Resource Link (Optional)</label>
-                  <input 
-                    type="url"
-                    className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
-                    value={noteLink} onChange={e => setNoteLink(e.target.value)} 
-                    placeholder="https://..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">OR Upload File (Optional)</label>
-                  <input 
-                    id="note-file-input"
-                    type="file" 
-                    className="w-full rounded-xl border-slate-200 border-2 p-2 outline-hidden font-medium text-xs file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
-                    onChange={e => {
-                      if (e.target.files && e.target.files[0]) {
-                        setNoteFile(e.target.files[0]);
-                      }
-                    }}
-                  />
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Subject / Category</label>
+                  <input type="text" className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
+                    value={noteSubject} onChange={e => setNoteSubject(e.target.value)} placeholder="e.g. GK / Maths / History" />
                 </div>
               </div>
-              <div className="flex justify-end pt-2">
-                <button 
-                  disabled={uploadingNote}
-                  type="submit" 
-                  className="bg-emerald-600 disabled:opacity-50 text-white px-8 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-emerald-50 flex items-center justify-center gap-2"
-                >
-                  {uploadingNote ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-5 h-5" />
-                      {editingNoteId ? 'Update Note' : 'Add Note'}
-                    </>
-                  )}
-                </button>
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Short Description / SEO Meta (max 160 chars)</label>
+                <input type="text" maxLength={160} className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
+                  value={noteDesc} onChange={e => setNoteDesc(e.target.value)} placeholder="Download complete WBP GK notes with important topics..." />
+                <p className="text-[10px] text-slate-400 mt-1 text-right">{noteDesc.length}/160</p>
               </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Tags (comma separated)</label>
+                  <input type="text" className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
+                    value={noteTags} onChange={e => setNoteTags(e.target.value)} placeholder="WBP, PSC, GK, Notes" />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">File Upload (PDF/DOCX)</label>
+                  <input id="note-file-input" type="file" accept=".pdf,.doc,.docx,.zip"
+                    className="w-full rounded-xl border-slate-200 border-2 p-2 text-xs file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-emerald-50 file:text-emerald-700 file:font-bold"
+                    onChange={e => setNoteFile(e.target.files?.[0] || null)} />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">OR External Link</label>
+                  <input type="url" className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
+                    value={noteLink} onChange={e => setNoteLink(e.target.value)} placeholder="https://..." />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Featured Image (optional)</label>
+                  <input type="file" accept="image/*" className="w-full rounded-xl border-slate-200 border-2 p-2 text-xs file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-emerald-50 file:text-emerald-700 file:font-bold"
+                    onChange={e => setNoteThumb(e.target.files?.[0] || null)} />
+                </div>
+                <div className="flex gap-6 items-end pb-1">
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Status</label>
+                    <select className="rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium text-sm"
+                      value={noteStatus} onChange={e => setNoteStatus(e.target.value as 'published' | 'draft')}>
+                      <option value="published">✅ Published</option>
+                      <option value="draft">📝 Draft</option>
+                    </select>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer pb-2">
+                    <input type="checkbox" checked={notePin} onChange={e => setNotePin(e.target.checked)} className="w-4 h-4 accent-emerald-600" />
+                    <span className="text-sm font-bold text-slate-600">📌 Pin to Homepage</span>
+                  </label>
+                </div>
+              </div>
+              <button disabled={uploadingNote} type="submit" className="bg-emerald-600 disabled:opacity-50 text-white px-8 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg flex items-center gap-2">
+                {uploadingNote ? <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"/> Uploading...</> : <><Plus className="w-5 h-5" />{editingNoteId ? 'Update Note' : 'Publish Note'}</>}
+              </button>
             </form>
           </div>
 
@@ -2265,38 +2325,54 @@ function AdminHome() {
           </h2>
           
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
-            <h3 className="text-lg font-bold text-slate-800 mb-6">Submit New Educational Video</h3>
-            <form onSubmit={handleAddVideo} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Video Title</label>
-                <input 
-                  type="text" required
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
-                  value={videoTitle} onChange={e => setVideoTitle(e.target.value)} 
-                  placeholder="e.g. Newton's Laws Explained"
-                />
+            <h3 className="text-lg font-bold text-slate-800 mb-5">Add Vlog / Video</h3>
+            <form onSubmit={handleAddVideo} className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Video Title *</label>
+                  <input type="text" required className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
+                    value={videoTitle} onChange={e => setVideoTitle(e.target.value)} placeholder="e.g. WBP GK Live Class — June 2026" />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">YouTube / Vimeo Link *</label>
+                  <input type="url" required className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
+                    value={videoLink} onChange={e => setVideoLink(e.target.value)} placeholder="https://youtube.com/watch?v=..." />
+                </div>
               </div>
               <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Subject</label>
-                <input 
-                  type="text" required
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
-                  value={videoSubject} onChange={e => setVideoSubject(e.target.value)} 
-                  placeholder="e.g. Physics"
-                />
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Short Description / SEO Meta (max 160 chars)</label>
+                <input type="text" maxLength={160} className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
+                  value={videoDesc} onChange={e => setVideoDesc(e.target.value)} placeholder="Watch WBP live class on GK topics by Suman Sir..." />
+                <p className="text-[10px] text-slate-400 mt-1 text-right">{videoDesc.length}/160</p>
               </div>
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Video Link (YouTube/Vimeo)</label>
-                <input 
-                  type="url" required
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
-                  value={videoLink} onChange={e => setVideoLink(e.target.value)} 
-                  placeholder="https://youtube.com/..."
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Subject / Exam Category</label>
+                  <input type="text" className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
+                    value={videoSubject} onChange={e => setVideoSubject(e.target.value)} placeholder="e.g. WBP / PSC / Maths" />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Tags (comma separated)</label>
+                  <input type="text" className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
+                    value={videoTags} onChange={e => setVideoTags(e.target.value)} placeholder="WBP, PSC, Vlog, GK Class" />
+                </div>
               </div>
-              <button type="submit" className="bg-rose-600 text-white px-6 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-rose-50 flex items-center justify-center gap-2">
-                <Plus className="w-5 h-5" />
-                Add Video
+              <div className="flex gap-6 items-end">
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Status</label>
+                  <select className="rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium text-sm"
+                    value={videoStatus} onChange={e => setVideoStatus(e.target.value as 'published' | 'draft')}>
+                    <option value="published">✅ Published</option>
+                    <option value="draft">📝 Draft</option>
+                  </select>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer pb-2">
+                  <input type="checkbox" checked={videoPin} onChange={e => setVideoPin(e.target.checked)} className="w-4 h-4 accent-rose-600" />
+                  <span className="text-sm font-bold text-slate-600">📌 Pin to Homepage</span>
+                </label>
+              </div>
+              <button type="submit" className="bg-rose-600 text-white px-8 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg flex items-center gap-2">
+                <Plus className="w-5 h-5" /> Publish Video
               </button>
             </form>
           </div>
@@ -2807,41 +2883,71 @@ function AdminHome() {
             Current Affairs Management
           </h2>
           
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
-            <h3 className="text-lg font-bold text-slate-800 mb-6">Add Current Affair</h3>
-            <form onSubmit={handleAddAffair} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Title</label>
-                <input 
-                  type="text" required
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
-                  value={affairTitle} onChange={e => setAffairTitle(e.target.value)} 
-                  placeholder="Title"
-                />
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8 space-y-6">
+            <h3 className="text-lg font-bold text-slate-800">Add Current Affair</h3>
+            <form onSubmit={handleAddAffair} className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Title *</label>
+                  <input type="text" required className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
+                    value={affairTitle} onChange={e => { setAffairTitle(e.target.value); setAffairSlug(toSlug(e.target.value)); }}
+                    placeholder="e.g. Important Current Affairs for WBP June 2026" />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">SEO Slug (auto)</label>
+                  <input type="text" className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-mono text-sm text-slate-500"
+                    value={affairSlug} onChange={e => setAffairSlug(e.target.value)} placeholder="auto-generated-from-title" />
+                </div>
               </div>
               <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Date (YYYY-MM-DD)</label>
-                <input 
-                  type="date"
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
-                  value={affairDate} onChange={e => setAffairDate(e.target.value)} 
-                />
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Short Description / SEO Meta (max 160 chars)</label>
+                <input type="text" maxLength={160} className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
+                  value={affairDesc} onChange={e => setAffairDesc(e.target.value)}
+                  placeholder="Download WBP, KP and PSC current affairs with MCQ practice..." />
+                <p className="text-[10px] text-slate-400 mt-1 text-right">{affairDesc.length}/160</p>
               </div>
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">External Link (Optional)</label>
-                <input 
-                  type="url"
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
-                  value={affairLink} onChange={e => setAffairLink(e.target.value)} 
-                  placeholder="https://..."
-                />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Date</label>
+                  <input type="date" className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
+                    value={affairDate} onChange={e => setAffairDate(e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">External Link (optional)</label>
+                  <input type="url" className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
+                    value={affairLink} onChange={e => setAffairLink(e.target.value)} placeholder="https://..." />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Tags (comma separated)</label>
+                  <input type="text" className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
+                    value={affairTags} onChange={e => setAffairTags(e.target.value)} placeholder="WBP, PSC, Current Affairs" />
+                </div>
               </div>
-              <div className="md:col-span-3">
-                <button disabled={uploadingAffair} type="submit" className="w-full md:w-auto bg-orange-600 disabled:opacity-50 text-white px-8 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg flex items-center justify-center gap-2">
-                  <Plus className="w-5 h-5" />
-                  {uploadingAffair ? 'Saving...' : 'Add Current Affair'}
-                </button>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Featured Image (optional)</label>
+                  <input type="file" accept="image/*" className="w-full rounded-xl border-slate-200 border-2 p-2 text-xs file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-orange-50 file:text-orange-700 file:font-bold"
+                    onChange={e => setAffairThumb(e.target.files?.[0] || null)} />
+                </div>
+                <div className="flex gap-6 items-end pb-1">
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Status</label>
+                    <select className="rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium text-sm"
+                      value={affairStatus} onChange={e => setAffairStatus(e.target.value as 'published' | 'draft')}>
+                      <option value="published">✅ Published</option>
+                      <option value="draft">📝 Draft</option>
+                    </select>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer pb-2">
+                    <input type="checkbox" checked={affairPin} onChange={e => setAffairPin(e.target.checked)} className="w-4 h-4 accent-orange-600" />
+                    <span className="text-sm font-bold text-slate-600">📌 Pin to Homepage</span>
+                  </label>
+                </div>
               </div>
+              <button disabled={uploadingAffair} type="submit" className="bg-orange-600 disabled:opacity-50 text-white px-8 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg flex items-center gap-2">
+                <Plus className="w-5 h-5" />
+                {uploadingAffair ? 'Saving...' : 'Publish Current Affair'}
+              </button>
             </form>
           </div>
 
@@ -2875,51 +2981,70 @@ function AdminHome() {
             Practice Set Management
           </h2>
           
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
-            <h3 className="text-lg font-bold text-slate-800 mb-6">Add Practice Set</h3>
-            <form onSubmit={handleAddPractice} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Title</label>
-                <input 
-                  type="text" required
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
-                  value={practiceTitle} onChange={e => setPracticeTitle(e.target.value)} 
-                  placeholder="Set Title"
-                />
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8 space-y-5">
+            <h3 className="text-lg font-bold text-slate-800">Add Practice Set</h3>
+            <form onSubmit={handleAddPractice} className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Title *</label>
+                  <input type="text" required className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
+                    value={practiceTitle} onChange={e => setPracticeTitle(e.target.value)} placeholder="e.g. WBP Practice Set PDF — GK 2026" />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Subject / Exam Category</label>
+                  <input type="text" className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
+                    value={practiceSubject} onChange={e => setPracticeSubject(e.target.value)} placeholder="e.g. GK / Maths / Reasoning" />
+                </div>
               </div>
               <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Subject</label>
-                <input 
-                  type="text"
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
-                  value={practiceSubject} onChange={e => setPracticeSubject(e.target.value)} 
-                  placeholder="Subject"
-                />
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Short Description / SEO Meta (max 160 chars)</label>
+                <input type="text" maxLength={160} className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
+                  value={practiceDesc} onChange={e => setPracticeDesc(e.target.value)} placeholder="Download WBP Practice Set PDF with answers..." />
+                <p className="text-[10px] text-slate-400 mt-1 text-right">{practiceDesc.length}/160</p>
               </div>
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">OR Upload File</label>
-                <input 
-                  id="practice-file-input"
-                  type="file"
-                  className="w-full rounded-xl border-slate-200 border-2 p-2 outline-hidden font-medium text-xs" 
-                  onChange={e => setPracticeFile(e.target.files ? e.target.files[0] : null)}
-                />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Tags (comma separated)</label>
+                  <input type="text" className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
+                    value={practiceTags} onChange={e => setPracticeTags(e.target.value)} placeholder="WBP, PSC, Maths, GK" />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">File Upload (PDF/DOCX)</label>
+                  <input id="practice-file-input" type="file" accept=".pdf,.doc,.docx,.zip"
+                    className="w-full rounded-xl border-slate-200 border-2 p-2 text-xs file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-teal-50 file:text-teal-700 file:font-bold"
+                    onChange={e => setPracticeFile(e.target.files?.[0] || null)} />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">OR External Link</label>
+                  <input type="url" className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
+                    value={practiceLink} onChange={e => setPracticeLink(e.target.value)} placeholder="https://..." />
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">External Link</label>
-                <input 
-                  type="url"
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
-                  value={practiceLink} onChange={e => setPracticeLink(e.target.value)} 
-                  placeholder="https://..."
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Featured Image (optional)</label>
+                  <input type="file" accept="image/*" className="w-full rounded-xl border-slate-200 border-2 p-2 text-xs file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-teal-50 file:text-teal-700 file:font-bold"
+                    onChange={e => setPracticeThumb(e.target.files?.[0] || null)} />
+                </div>
+                <div className="flex gap-6 items-end pb-1">
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Status</label>
+                    <select className="rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium text-sm"
+                      value={practiceStatus} onChange={e => setPracticeStatus(e.target.value as 'published' | 'draft')}>
+                      <option value="published">✅ Published</option>
+                      <option value="draft">📝 Draft</option>
+                    </select>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer pb-2">
+                    <input type="checkbox" checked={practicePin} onChange={e => setPracticePin(e.target.checked)} className="w-4 h-4 accent-teal-600" />
+                    <span className="text-sm font-bold text-slate-600">📌 Pin to Homepage</span>
+                  </label>
+                </div>
               </div>
-              <div className="md:col-span-3">
-                <button disabled={uploadingPractice} type="submit" className="w-full md:w-auto bg-teal-600 disabled:opacity-50 text-white px-8 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg flex items-center justify-center gap-2">
-                  <Plus className="w-5 h-5" />
-                  {uploadingPractice ? 'Saving...' : 'Add Practice Set'}
-                </button>
-              </div>
+              <button disabled={uploadingPractice} type="submit" className="bg-teal-600 disabled:opacity-50 text-white px-8 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg flex items-center gap-2">
+                <Plus className="w-5 h-5" />
+                {uploadingPractice ? 'Uploading...' : 'Publish Practice Set'}
+              </button>
             </form>
           </div>
 

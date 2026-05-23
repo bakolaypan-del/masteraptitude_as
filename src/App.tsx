@@ -13,6 +13,7 @@ import InstallApp from './pages/InstallApp';
 import AnalysisPage from './pages/AnalysisPage';
 import ReviewPage from './pages/ReviewPage';
 import PaidMockPage from './pages/PaidMockPage';
+import ContentListPage from './pages/ContentListPage';
 
 function SecurityWrapper({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -144,6 +145,11 @@ export default function App() {
               </ProtectedRoute>
             } />
             
+            <Route path="/current-affairs" element={<ProtectedRoute><ContentListPage category="affairs" /></ProtectedRoute>} />
+            <Route path="/practice-set" element={<ProtectedRoute><ContentListPage category="practice" /></ProtectedRoute>} />
+            <Route path="/study-notes" element={<ProtectedRoute><ContentListPage category="notes" /></ProtectedRoute>} />
+            <Route path="/vlog" element={<ProtectedRoute><ContentListPage category="video" /></ProtectedRoute>} />
+
             <Route path="/news" element={
               <ProtectedRoute>
                 <NewsListPage />

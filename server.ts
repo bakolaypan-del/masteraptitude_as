@@ -325,25 +325,35 @@ app.use((req, res, next) => {
   app.get("/sitemap.xml", async (req, res) => {
     const currentDb = getDb();
     const baseUrl = process.env.BASE_URL || "https://masteraptitude.vercel.app";
-    const staticUrls = [
+    type SitemapUrl = { loc: string; priority: string; changefreq: string; lastmod?: string };
+    const staticUrls: SitemapUrl[] = [
       { loc: `${baseUrl}/`, priority: "1.0", changefreq: "daily" },
       { loc: `${baseUrl}/news`, priority: "0.9", changefreq: "daily" },
+      { loc: `${baseUrl}/current-affairs`, priority: "0.9", changefreq: "daily" },
+      { loc: `${baseUrl}/practice-set`, priority: "0.8", changefreq: "weekly" },
+      { loc: `${baseUrl}/study-notes`, priority: "0.8", changefreq: "weekly" },
+      { loc: `${baseUrl}/vlog`, priority: "0.7", changefreq: "weekly" },
     ];
-    let dynamicUrls: { loc: string; priority: string; changefreq: string; lastmod?: string }[] = [];
+    let dynamicUrls: SitemapUrl[] = [];
     if (currentDb) {
       try {
-        const snap = await currentDb.collection("news_posts").get();
-        dynamicUrls = snap.docs.map(d => {
-          const data = d.data();
-          return {
-            loc: `${baseUrl}/news/${data.slug || d.id}`,
-            priority: "0.8",
-            changefreq: "weekly",
-            lastmod: data.publishDate || (data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString().split("T")[0] : undefined),
-          };
-        });
+        const [newsSnap, affairsSnap, practiceSnap, notesSnap, videosSnap] = await Promise.all([
+          currentDb.collection("news_posts").get(),
+          currentDb.collection("affairs").where("status", "==", "published").get().catch(() => ({ docs: [] as any[] })),
+          currentDb.collection("practice_sets").where("status", "==", "published").get().catch(() => ({ docs: [] as any[] })),
+          currentDb.collection("notes").where("status", "==", "published").get().catch(() => ({ docs: [] as any[] })),
+          currentDb.collection("videos").where("status", "==", "published").get().catch(() => ({ docs: [] as any[] })),
+        ]);
+        const toDate = (d: any) => d?.toDate ? d.toDate().toISOString().split("T")[0] : undefined;
+        dynamicUrls = [
+          ...newsSnap.docs.map(d => { const data = d.data(); return { loc: `${baseUrl}/news/${data.slug || d.id}`, priority: "0.8", changefreq: "weekly", lastmod: data.publishDate || toDate(data.updatedAt) }; }),
+          ...affairsSnap.docs.map(d => { const data = d.data(); return { loc: `${baseUrl}/current-affairs`, priority: "0.7", changefreq: "daily", lastmod: data.date || toDate(data.createdAt) }; }),
+          ...practiceSnap.docs.map(d => { const data = d.data(); return { loc: `${baseUrl}/practice-set`, priority: "0.7", changefreq: "weekly", lastmod: toDate(data.createdAt) }; }),
+          ...notesSnap.docs.map(d => { const data = d.data(); return { loc: `${baseUrl}/study-notes`, priority: "0.7", changefreq: "weekly", lastmod: toDate(data.createdAt) }; }),
+          ...videosSnap.docs.map(d => { const data = d.data(); return { loc: `${baseUrl}/vlog`, priority: "0.6", changefreq: "weekly", lastmod: toDate(data.createdAt) }; }),
+        ];
       } catch (err) {
-        console.error("[sitemap] Failed to fetch news_posts:", err);
+        console.error("[sitemap] Failed to fetch collections:", err);
       }
     }
     const allUrls = [...staticUrls, ...dynamicUrls];
