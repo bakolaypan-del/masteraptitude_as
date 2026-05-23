@@ -1133,7 +1133,7 @@ export default function Dashboard() {
                       <p className="text-xs font-black uppercase tracking-widest" style={{color:'#64748b'}}>Explore</p>
                       <div className="flex-1 h-px" style={{background:'linear-gradient(to right,#e2e8f0,transparent)'}}/>
                     </div>
-                    <div className="grid gap-2" style={{ gridTemplateColumns:'repeat(3, 82px)', justifyContent:'center' }}>
+                    <div className="grid gap-2" style={{ gridTemplateColumns:'repeat(3, 90px)', justifyContent:'center' }}>
                       {cats.map(c => <NeonCard key={c.w1+c.w2} {...c} {...L1} />)}
                     </div>
                   </div>
@@ -1250,6 +1250,70 @@ export default function Dashboard() {
                         </span>
                       </div>
                     </div>
+                  </div>
+
+                  {/* ── Overall Mock Performance ── */}
+                  <div className="mt-8 pt-8 border-t border-slate-100">
+                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <div className="w-1 h-4 bg-indigo-500 rounded-full"/>
+                      Overall Mock Performance
+                    </h3>
+                    {performanceStats.totalTests === 0 ? (
+                      <div className="text-center py-6 text-slate-400 text-xs font-bold">
+                        No tests taken yet. Start a mock test to see your stats!
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100 text-center">
+                          <span className="block text-[9px] font-black text-indigo-400 uppercase tracking-tight mb-1">Tests Taken</span>
+                          <span className="text-2xl font-black text-indigo-700">{performanceStats.totalTests}</span>
+                        </div>
+                        <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 text-center">
+                          <span className="block text-[9px] font-black text-emerald-400 uppercase tracking-tight mb-1">Best Score</span>
+                          <span className="text-2xl font-black text-emerald-700">{performanceStats.bestScore}</span>
+                        </div>
+                        <div className="bg-sky-50 p-4 rounded-2xl border border-sky-100 text-center">
+                          <span className="block text-[9px] font-black text-sky-400 uppercase tracking-tight mb-1">Avg Score</span>
+                          <span className="text-2xl font-black text-sky-700">{performanceStats.avgScore}</span>
+                        </div>
+                        <div className="bg-violet-50 p-4 rounded-2xl border border-violet-100 text-center">
+                          <span className="block text-[9px] font-black text-violet-400 uppercase tracking-tight mb-1">Avg Accuracy</span>
+                          <span className="text-2xl font-black text-violet-700">{performanceStats.avgAccuracy}%</span>
+                        </div>
+                        <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 text-center">
+                          <span className="block text-[9px] font-black text-amber-400 uppercase tracking-tight mb-1">Latest Score</span>
+                          <span className="text-2xl font-black text-amber-700">{performanceStats.latestScore}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ── Purchased Batches ── */}
+                  <div className="mt-6 pt-6 border-t border-slate-100">
+                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <div className="w-1 h-4 bg-rose-500 rounded-full"/>
+                      Purchased Batch / Mock Details
+                    </h3>
+                    {profile?.batch ? (
+                      <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-5 rounded-2xl border border-amber-100 flex items-center gap-4">
+                        <div className="w-10 h-10 bg-amber-400 rounded-xl flex items-center justify-center shadow-lg shadow-amber-200 shrink-0">
+                          <Trophy className="w-5 h-5 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <span className="block text-[9px] font-black text-amber-500 uppercase tracking-widest mb-0.5">Active Batch</span>
+                          <span className="text-sm font-black text-amber-900">{profile.batch}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-slate-400 text-xs font-bold">No active batch purchased yet.</div>
+                    )}
+                    <button
+                      onClick={() => navigate('/paid-mock')}
+                      className="mt-4 w-full flex items-center justify-center gap-2 bg-rose-600 text-white rounded-2xl py-4 font-black text-xs uppercase tracking-widest hover:bg-slate-900 transition-all shadow-lg shadow-rose-200"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      View My Purchases
+                    </button>
                   </div>
                 </div>
                 <div className="absolute left-0 bottom-0 -translate-x-1/4 translate-y-1/4 w-96 h-96 bg-rose-50 rounded-full blur-3xl pointer-events-none opacity-40"></div>
@@ -1466,7 +1530,7 @@ export default function Dashboard() {
                   { w1:'FULL',      w2:'MOCK', icon:'🏆', neon:'#ffaa00', bg:'#130c00', badge:'COMPLETE', action:()=>setActiveTab('mock_full') },
                 ];
                 return (
-                  <div className="grid gap-2" style={{ gridTemplateColumns:'repeat(3, 82px)', justifyContent:'center' }}>
+                  <div className="grid gap-2" style={{ gridTemplateColumns:'repeat(3, 90px)', justifyContent:'center' }}>
                     {subs.map(s => <NeonCard key={s.w1+s.w2} {...s} {...L2} />)}
                   </div>
                 );
@@ -2560,53 +2624,54 @@ export default function Dashboard() {
         );
       })()}
 
-      {/* ── Floating Social Pills (slim, single-line) ─────────────────── */}
-      {activeTab === 'home' && (
-        <div className="fixed bottom-5 right-4 z-50 flex flex-col items-end gap-1.5 pointer-events-none">
-          {currentPopupIndex === 0 && socialLinks.whatsapp && (
-            <a
-              href={socialLinks.whatsapp}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="pointer-events-auto flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white pl-2.5 pr-3.5 py-1.5 rounded-full shadow-lg shadow-emerald-500/30 text-[11px] font-bold transition-all duration-200 active:scale-95 animate-in slide-in-from-right-4 duration-300"
-            >
-              <span className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center shrink-0">
-                <MessageCircle className="w-3 h-3 fill-current" />
-              </span>
-              Join WhatsApp
-              <ExternalLink className="w-3 h-3 opacity-70" />
-            </a>
-          )}
-          {currentPopupIndex === 1 && socialLinks.telegram && (
-            <a
-              href={socialLinks.telegram}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="pointer-events-auto flex items-center gap-2 bg-sky-500 hover:bg-sky-600 text-white pl-2.5 pr-3.5 py-1.5 rounded-full shadow-lg shadow-sky-500/30 text-[11px] font-bold transition-all duration-200 active:scale-95 animate-in slide-in-from-right-4 duration-300"
-            >
-              <span className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center shrink-0">
-                <Send className="w-3 h-3 fill-current ml-px" />
-              </span>
-              Join Telegram
-              <ExternalLink className="w-3 h-3 opacity-70" />
-            </a>
-          )}
-          {currentPopupIndex === 2 && socialLinks.youtube && (
-            <a
-              href={socialLinks.youtube}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="pointer-events-auto flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white pl-2.5 pr-3.5 py-1.5 rounded-full shadow-lg shadow-red-500/30 text-[11px] font-bold transition-all duration-200 active:scale-95 animate-in slide-in-from-right-4 duration-300"
-            >
-              <span className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center shrink-0">
-                <Youtube className="w-3 h-3 fill-current" />
-              </span>
-              Subscribe YouTube
-              <ExternalLink className="w-3 h-3 opacity-70" />
-            </a>
-          )}
-        </div>
-      )}
+      {/* HIDDEN_SOCIAL_PILLS — uncomment to restore floating WhatsApp/Telegram/YouTube pills
+            {activeTab === 'home' && (
+              <div className="fixed bottom-5 right-4 z-50 flex flex-col items-end gap-1.5 pointer-events-none">
+                {currentPopupIndex === 0 && socialLinks.whatsapp && (
+                  <a
+                    href={socialLinks.whatsapp}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="pointer-events-auto flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white pl-2.5 pr-3.5 py-1.5 rounded-full shadow-lg shadow-emerald-500/30 text-[11px] font-bold transition-all duration-200 active:scale-95 animate-in slide-in-from-right-4 duration-300"
+                  >
+                    <span className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center shrink-0">
+                      <MessageCircle className="w-3 h-3 fill-current" />
+                    </span>
+                    Join WhatsApp
+                    <ExternalLink className="w-3 h-3 opacity-70" />
+                  </a>
+                )}
+                {currentPopupIndex === 1 && socialLinks.telegram && (
+                  <a
+                    href={socialLinks.telegram}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="pointer-events-auto flex items-center gap-2 bg-sky-500 hover:bg-sky-600 text-white pl-2.5 pr-3.5 py-1.5 rounded-full shadow-lg shadow-sky-500/30 text-[11px] font-bold transition-all duration-200 active:scale-95 animate-in slide-in-from-right-4 duration-300"
+                  >
+                    <span className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center shrink-0">
+                      <Send className="w-3 h-3 fill-current ml-px" />
+                    </span>
+                    Join Telegram
+                    <ExternalLink className="w-3 h-3 opacity-70" />
+                  </a>
+                )}
+                {currentPopupIndex === 2 && socialLinks.youtube && (
+                  <a
+                    href={socialLinks.youtube}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="pointer-events-auto flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white pl-2.5 pr-3.5 py-1.5 rounded-full shadow-lg shadow-red-500/30 text-[11px] font-bold transition-all duration-200 active:scale-95 animate-in slide-in-from-right-4 duration-300"
+                  >
+                    <span className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center shrink-0">
+                      <Youtube className="w-3 h-3 fill-current" />
+                    </span>
+                    Subscribe YouTube
+                    <ExternalLink className="w-3 h-3 opacity-70" />
+                  </a>
+                )}
+              </div>
+            )}
+      END_HIDDEN_SOCIAL_PILLS */}
 
       {/* Review popup — auto-shows to students every 30 days */}
       {profile?.role !== 'admin' && <ReviewPopup />}
@@ -2625,6 +2690,7 @@ export default function Dashboard() {
     </div>
   );
 }
+
 
 
 
