@@ -4389,28 +4389,31 @@ function AdminHome() {
               )}
             </div>
 
-            {/* ── Review Links ── */}
+            {/* ── Shareable Review Links ── */}
             <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-6">
-              <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
-                <Link2 className="w-5 h-5 text-indigo-500" />
-                Generate Review Links
-              </h3>
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                  <Link2 className="w-5 h-5 text-indigo-500" />
+                  Shareable Review Links
+                </h3>
+                <p className="text-[10px] text-slate-400 font-bold">Generate a link → share via WhatsApp / Telegram / QR</p>
+              </div>
 
               {/* Create new link */}
-              <div className="bg-slate-50 rounded-2xl p-4 space-y-4 border border-slate-100">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Create New Link</p>
+              <div className="bg-gradient-to-br from-indigo-50 to-violet-50 rounded-2xl p-5 space-y-4 border border-indigo-100">
+                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Create New Shareable Link</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Category</label>
                     <select value={newLinkCategory} onChange={e => setNewLinkCategory(e.target.value)}
-                      className="w-full rounded-xl border-2 border-slate-200 p-2.5 font-medium text-sm outline-hidden focus:border-indigo-500">
+                      className="w-full rounded-xl border-2 border-slate-200 p-2.5 font-medium text-sm outline-hidden focus:border-indigo-500 bg-white">
                       {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Expiry (Days)</label>
                     <select value={newLinkExpiry} onChange={e => setNewLinkExpiry(Number(e.target.value))}
-                      className="w-full rounded-xl border-2 border-slate-200 p-2.5 font-medium text-sm outline-hidden focus:border-indigo-500">
+                      className="w-full rounded-xl border-2 border-slate-200 p-2.5 font-medium text-sm outline-hidden focus:border-indigo-500 bg-white">
                       <option value={0}>No Expiry</option>
                       <option value={7}>7 Days</option>
                       <option value={30}>30 Days</option>
@@ -4419,7 +4422,7 @@ function AdminHome() {
                   </div>
                   <div className="flex items-end">
                     <button onClick={createLink} disabled={creatingLink}
-                      className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-indigo-100">
+                      className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-indigo-200">
                       <Plus className="w-4 h-4" />
                       {creatingLink ? 'Creating...' : 'Generate Link'}
                     </button>
@@ -4429,75 +4432,84 @@ function AdminHome() {
 
               {/* Links list */}
               {reviewLinks.length === 0 ? (
-                <div className="text-center py-8">
-                  <Link2 className="w-8 h-8 text-slate-200 mx-auto mb-2" />
-                  <p className="text-slate-400 font-bold text-sm">No review links yet. Generate one above.</p>
+                <div className="text-center py-10 rounded-2xl border-2 border-dashed border-slate-100">
+                  <Link2 className="w-10 h-10 text-slate-200 mx-auto mb-3" />
+                  <p className="text-slate-400 font-bold text-sm">No review links yet.</p>
+                  <p className="text-slate-300 text-xs mt-1">Generate one above and share with your students.</p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {reviewLinks.map(link => {
                     const fullUrl = `${APP_URL}/review/${link.uniqueCode}`;
+                    const shareMsg = encodeURIComponent(`📝 Share your review of Master Aptitude by Suman Sir!\n\n👉 ${fullUrl}\n\nYour feedback helps other aspirants. Takes just 1 minute! ⭐`);
+                    const sharePlatforms = [
+                      { label: 'WhatsApp',  emoji: '💬', bg: 'bg-emerald-500 hover:bg-emerald-600', href: `https://wa.me/?text=${shareMsg}` },
+                      { label: 'Telegram',  emoji: '✈️', bg: 'bg-sky-500 hover:bg-sky-600',     href: `https://t.me/share/url?url=${encodeURIComponent(fullUrl)}&text=${shareMsg}` },
+                      { label: 'Facebook',  emoji: '📘', bg: 'bg-blue-600 hover:bg-blue-700',   href: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(fullUrl)}` },
+                    ];
                     return (
-                      <div key={link.id} className="rounded-2xl border border-slate-100 p-4 hover:border-slate-200 transition-all">
-                        <div className="flex items-start justify-between gap-3 flex-wrap">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap mb-1">
-                              <span className="font-black text-slate-700 text-sm">{link.category}</span>
-                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${link.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                                {link.status}
-                              </span>
-                              {link.expiryDate && (
-                                <span className="text-[10px] text-slate-400">Expires: {new Date(link.expiryDate).toLocaleDateString('en-IN')}</span>
-                              )}
-                            </div>
-                            <p className="text-xs text-slate-400 font-mono truncate">{fullUrl}</p>
+                      <div key={link.id} className="rounded-2xl border border-slate-200 overflow-hidden">
+                        {/* Link header */}
+                        <div className="p-4 bg-slate-50 flex items-center justify-between gap-3 flex-wrap">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-black text-slate-700 text-sm">{link.category}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${link.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                              {link.status}
+                            </span>
+                            {link.expiryDate && (
+                              <span className="text-[10px] text-slate-400 font-medium">Expires {new Date(link.expiryDate).toLocaleDateString('en-IN')}</span>
+                            )}
                           </div>
-
-                          {/* Actions */}
-                          <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
-                            <button onClick={() => copyToClipboard(fullUrl, link.id)}
-                              className="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 text-[10px] font-black hover:bg-indigo-100 transition-all flex items-center gap-1">
-                              {copiedLink === link.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                              {copiedLink === link.id ? 'Copied!' : 'Copy'}
-                            </button>
-                            <button onClick={() => setShowQRFor(showQRFor === link.id ? null : link.id)}
-                              className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-[10px] font-black hover:bg-slate-200 transition-all">
-                              QR
-                            </button>
-                            <a href={fullUrl} target="_blank" rel="noopener noreferrer"
-                              className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-[10px] font-black hover:bg-slate-200 transition-all flex items-center gap-1">
-                              <ExternalLink className="w-3 h-3" /> Open
-                            </a>
+                          <div className="flex items-center gap-1.5">
                             <button onClick={() => toggleLink(link.id, link.status)}
                               className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${link.status === 'active' ? 'bg-rose-50 text-rose-700 hover:bg-rose-100' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}>
                               {link.status === 'active' ? 'Deactivate' : 'Activate'}
                             </button>
                             <button onClick={() => deleteLink(link.id)}
-                              className="px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 text-[10px] font-black hover:bg-rose-100 transition-all">
-                              <Trash2 className="w-3 h-3" />
+                              className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-all">
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </div>
 
-                        {/* QR Code */}
+                        {/* URL bar */}
+                        <div className="px-4 py-3 flex items-center gap-2 border-b border-slate-100">
+                          <p className="flex-1 text-xs text-slate-500 font-mono truncate">{fullUrl}</p>
+                          <button onClick={() => copyToClipboard(fullUrl, link.id)}
+                            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all shrink-0 ${copiedLink === link.id ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'}`}>
+                            {copiedLink === link.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                            {copiedLink === link.id ? 'Copied!' : 'Copy Link'}
+                          </button>
+                          <a href={fullUrl} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-[10px] font-black hover:bg-slate-200 transition-all shrink-0">
+                            <ExternalLink className="w-3 h-3" /> Open
+                          </a>
+                        </div>
+
+                        {/* Share buttons — always visible */}
+                        <div className="px-4 py-3 flex items-center gap-2 flex-wrap bg-white">
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-1">Share via:</span>
+                          {sharePlatforms.map(({ label, emoji, bg, href }) => (
+                            <a key={label} href={href} target="_blank" rel="noopener noreferrer"
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white text-xs font-black ${bg} transition-all shadow-sm`}>
+                              <span>{emoji}</span> {label}
+                            </a>
+                          ))}
+                          <button onClick={() => setShowQRFor(showQRFor === link.id ? null : link.id)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all border ${showQRFor === link.id ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50'}`}>
+                            📷 QR Code
+                          </button>
+                        </div>
+
+                        {/* QR Code panel */}
                         {showQRFor === link.id && (
-                          <div className="mt-4 flex flex-col items-center gap-3 py-4 bg-slate-50 rounded-2xl">
-                            <div className="bg-white p-4 rounded-2xl shadow-sm">
-                              <QRCodeSVG value={fullUrl} size={160} fgColor="#0f0c29" bgColor="#ffffff" level="H"
-                                imageSettings={{ src: '/icon-192.png', height: 32, width: 32, excavate: true }} />
+                          <div className="flex flex-col items-center gap-3 py-6 px-4 bg-slate-50 border-t border-slate-100">
+                            <div className="bg-white p-4 rounded-2xl shadow-md">
+                              <QRCodeSVG value={fullUrl} size={180} fgColor="#0f0c29" bgColor="#ffffff" level="H"
+                                imageSettings={{ src: '/icon-192.png', height: 36, width: 36, excavate: true }} />
                             </div>
-                            <p className="text-[10px] text-slate-400 font-bold">Scan to open review form</p>
-                            <div className="flex gap-2">
-                              {[
-                                { label: 'WhatsApp', href: `https://wa.me/?text=Share%20your%20review%20here:%20${encodeURIComponent(fullUrl)}`, color: 'bg-emerald-500 hover:bg-emerald-600' },
-                                { label: 'Telegram', href: `https://t.me/share/url?url=${encodeURIComponent(fullUrl)}&text=Share%20your%20review`, color: 'bg-sky-500 hover:bg-sky-600' },
-                              ].map(({ label, href, color }) => (
-                                <a key={label} href={href} target="_blank" rel="noopener noreferrer"
-                                  className={`px-4 py-2 rounded-xl text-white text-xs font-black ${color} transition-all`}>
-                                  {label}
-                                </a>
-                              ))}
-                            </div>
+                            <p className="text-[11px] text-slate-500 font-bold">Scan to open review form</p>
+                            <p className="text-[10px] text-slate-400 font-mono">{link.uniqueCode}</p>
                           </div>
                         )}
                       </div>
