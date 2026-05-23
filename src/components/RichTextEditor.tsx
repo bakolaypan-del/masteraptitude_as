@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 
 interface RichTextEditorProps {
   value: string;
@@ -6,6 +6,12 @@ interface RichTextEditorProps {
   placeholder?: string;
   minHeight?: number;
 }
+
+const BENGALI_FONTS = [
+  { name: 'Hind Siliguri', label: 'হিন্দ', desc: 'Clean & readable' },
+  { name: 'Baloo Da 2',    label: 'বালু',  desc: 'Stylish & bold' },
+  { name: 'Noto Sans Bengali', label: 'নোটো', desc: 'Universal' },
+];
 
 const TEXT_COLORS = [
   { c: '#dc2626', label: 'Red' },
@@ -30,6 +36,9 @@ const MATH_SYMBOLS = ['²', '³', '½', '¼', '√', '∛', '∞', '≠', '≈',
 export default function RichTextEditor({ value, onChange, placeholder, minHeight = 120 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const emittedRef = useRef('');
+  const [bengaliMode, setBengaliMode] = useState(false);
+  const [selectedBengaliFont, setSelectedBengaliFont] = useState(BENGALI_FONTS[0].name);
+  const [showFontMenu, setShowFontMenu] = useState(false);
 
   // Sync DOM when value changes from outside (edit load / form reset)
   useEffect(() => {
@@ -58,6 +67,28 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
     editorRef.current?.focus();
     document.execCommand('insertText', false, sym);
     emit();
+  };
+
+  const applyBengaliFont = (fontName = selectedBengaliFont) => {
+    editorRef.current?.focus();
+    document.execCommand('fontName', false, fontName);
+    emit();
+  };
+
+  const toggleBengaliMode = () => {
+    const next = !bengaliMode;
+    setBengaliMode(next);
+    if (editorRef.current) {
+      editorRef.current.style.fontFamily = next ? `'${selectedBengaliFont}', sans-serif` : 'inherit';
+    }
+  };
+
+  const selectBengaliFont = (fontName: string) => {
+    setSelectedBengaliFont(fontName);
+    setShowFontMenu(false);
+    if (bengaliMode && editorRef.current) {
+      editorRef.current.style.fontFamily = `'${fontName}', sans-serif`;
+    }
   };
 
   const isEmpty = !value || value === '<br>' || value === '<div><br></div>' || value.replace(/<[^>]*>/g, '').trim() === '';
@@ -150,6 +181,66 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
 
         <Sep />
 
+        {/* ── Bengali Font Section ── */}
+        <div className="flex items-center gap-1" onMouseDown={noBlur}>
+          {/* Bengali mode toggle */}
+          <button
+            type="button"
+            onClick={toggleBengaliMode}
+            title={bengaliMode ? 'Exit Bengali Mode' : 'Enable Bengali Mode (whole editor)'}
+            className={`px-2 h-7 rounded-lg text-xs font-black transition-all shrink-0 ${
+              bengaliMode
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-indigo-600 hover:bg-indigo-50 border border-indigo-200'
+            }`}
+            style={{ fontFamily: `'Hind Siliguri', sans-serif`, fontSize: 13 }}
+          >
+            বাং
+          </button>
+
+          {/* Font picker */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowFontMenu(p => !p)}
+              title="Choose Bengali Font"
+              className="h-7 px-2 rounded-lg text-[10px] font-black text-slate-500 hover:bg-slate-100 border border-slate-200 transition-colors flex items-center gap-1 shrink-0"
+            >
+              <span style={{ fontFamily: `'${selectedBengaliFont}', sans-serif`, fontSize: 12 }}>অ</span>
+              ▾
+            </button>
+            {showFontMenu && (
+              <div className="absolute top-8 left-0 z-50 bg-white rounded-xl shadow-xl border border-slate-200 py-1 min-w-[160px]">
+                {BENGALI_FONTS.map(f => (
+                  <button
+                    key={f.name}
+                    type="button"
+                    onClick={() => selectBengaliFont(f.name)}
+                    className={`w-full text-left px-3 py-2 hover:bg-indigo-50 transition-colors flex flex-col gap-0.5 ${selectedBengaliFont === f.name ? 'bg-indigo-50' : ''}`}
+                  >
+                    <span className="font-black text-sm text-slate-800" style={{ fontFamily: `'${f.name}', sans-serif` }}>
+                      {f.label} — {f.name}
+                    </span>
+                    <span className="text-[10px] text-slate-400">{f.desc}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Apply Bengali font to selection */}
+          <button
+            type="button"
+            onClick={() => applyBengaliFont()}
+            title={`Apply ${selectedBengaliFont} to selected text`}
+            className="h-7 px-2 rounded-lg text-[10px] font-black text-slate-600 hover:bg-slate-100 border border-slate-200 transition-colors shrink-0"
+          >
+            Apply
+          </button>
+        </div>
+
+        <Sep />
+
         {/* Clear formatting */}
         <ToolBtn onClick={() => exec('removeFormat')} title="Clear Formatting">
           <span className="text-rose-500 font-black text-xs">✕</span>
@@ -157,7 +248,7 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
       </div>
 
       {/* ── Editable area ── */}
-      <div className="relative">
+      <div className="relative" onClick={() => setShowFontMenu(false)}>
         <div
           ref={editorRef}
           contentEditable
@@ -167,10 +258,17 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
             if (e.key === 'Tab') { e.preventDefault(); exec('insertText', '    '); }
           }}
           className="w-full p-4 outline-none text-slate-800 leading-relaxed"
-          style={{ minHeight, fontFamily: 'inherit', fontSize: 14 }}
+          style={{
+            minHeight,
+            fontFamily: bengaliMode ? `'${selectedBengaliFont}', sans-serif` : 'inherit',
+            fontSize: 14,
+          }}
         />
         {isEmpty && (
-          <div className="absolute top-4 left-4 text-slate-400 pointer-events-none select-none text-sm">
+          <div
+            className="absolute top-4 left-4 text-slate-400 pointer-events-none select-none text-sm"
+            style={{ fontFamily: bengaliMode ? `'${selectedBengaliFont}', sans-serif` : 'inherit' }}
+          >
             {placeholder || 'Write the question here...'}
           </div>
         )}
@@ -206,11 +304,18 @@ export function RenderQuestionHTML({ html, className = '' }: { html: string; cla
       <span className={className} style={{ whiteSpace: 'pre-wrap' }}>{html}</span>
     );
   }
+  // Inject Bengali font @font-face so <font face="Hind Siliguri"> renders correctly
+  const needsBengali = /font-family|Hind Siliguri|Baloo Da 2|Noto Sans Bengali/i.test(html);
   return (
-    <span
-      className={className}
-      style={{ whiteSpace: 'pre-wrap' }}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
+    <>
+      {needsBengali && (
+        <style>{`@import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600&family=Baloo+Da+2:wght@400;600&family=Noto+Sans+Bengali:wght@400;600&display=swap');`}</style>
+      )}
+      <span
+        className={className}
+        style={{ whiteSpace: 'pre-wrap' }}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    </>
   );
 }
