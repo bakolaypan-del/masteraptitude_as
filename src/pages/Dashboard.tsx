@@ -191,6 +191,14 @@ export default function Dashboard() {
   const [activeTests, setActiveTests] = useState<any[]>([]);
   const [liveTests, setLiveTests] = useState<any[]>([]);
   const [pastResults, setPastResults] = useState<any[]>([]);
+  const [paidBatches, setPaidBatches] = useState<any[]>([]);
+  const [myPurchases, setMyPurchases] = useState<string[]>([]);
+  const [pendingPurchases, setPendingPurchases] = useState<string[]>([]);
+  const [buyingBatch, setBuyingBatch] = useState<any | null>(null);
+  const [buyStep, setBuyStep] = useState<'pay' | 'submit'>('pay');
+  const [txnId, setTxnId] = useState('');
+  const [buySubmitting, setBuySubmitting] = useState(false);
+  const [buyError, setBuyError] = useState('');
   const [notes, setNotes] = useState<any[]>([]);
   const [videos, setVideos] = useState<any[]>([]);
   const [pyqs, setPyqs] = useState<any[]>([]);
@@ -402,6 +410,21 @@ export default function Dashboard() {
         const results = resultsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }) as any);
         results.sort((a, b) => b.timestamp - a.timestamp);
         setPastResults(results);
+
+        // Fetch Paid Batches + My Purchases (parallel)
+        try {
+          const [batchRes, purchaseRes] = await Promise.all([
+            fetch('/api/paid-batches'),
+            user.getIdToken().then(tok =>
+              fetch('/api/my-purchases', { headers: { Authorization: `Bearer ${tok}` } })
+            ),
+          ]);
+          if (batchRes.ok) setPaidBatches(await batchRes.json());
+          if (purchaseRes.ok) {
+            const pd = await purchaseRes.json();
+            setMyPurchases(pd.purchasedBatches || []);
+          }
+        } catch { /* non-fatal */ }
 
       } catch (error) {
         handleFirestoreError(error, OperationType.GET, 'multiple collections');
@@ -1140,6 +1163,80 @@ export default function Dashboard() {
                 );
               })()}
 
+              {/* ── Premium Mock Batches ── */}
+              {paidBatches.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <p className="text-xs font-black uppercase tracking-widest" style={{color:'#64748b'}}>👑 Premium Batches</p>
+                    <div className="flex-1 h-px" style={{background:'linear-gradient(to right,#e2e8f0,transparent)'}}/>
+                  </div>
+                  <div className="space-y-3">
+                    {paidBatches.map(batch => {
+                      const owned   = myPurchases.includes(batch.id);
+                      const pending = pendingPurchases.includes(batch.id);
+                      const paidTestCount = activeTests.filter((t: any) => t.isPaid).length;
+                      return (
+                        <div key={batch.id} className="rounded-2xl overflow-hidden"
+                          style={{ background:'#fff', border: owned ? '2px solid #10b981' : pending ? '2px solid #f59e0b' : '1px solid #e8ecf3', boxShadow:'0 2px 12px rgba(0,0,0,0.06)' }}>
+                          {/* Thumbnail or gradient header */}
+                          {batch.thumbnailUrl ? (
+                            <img src={batch.thumbnailUrl} alt={batch.examName} className="w-full h-32 object-cover" />
+                          ) : (
+                            <div className="w-full h-28 flex items-center justify-center text-4xl"
+                              style={{background:'linear-gradient(135deg,#1e1b4b,#312e81)'}}>🎯</div>
+                          )}
+                          <div className="p-4">
+                            {/* Badges */}
+                            <div className="flex flex-wrap gap-1.5 mb-2">
+                              {batch.isPopular && <span className="text-[9px] font-black px-2 py-0.5 rounded-full" style={{background:'linear-gradient(90deg,#f59e0b,#ef4444)',color:'#fff'}}>🔥 POPULAR</span>}
+                              {owned && <span className="text-[9px] font-black px-2 py-0.5 rounded-full" style={{background:'#d1fae5',color:'#065f46'}}>✔ PURCHASED</span>}
+                              {pending && !owned && <span className="text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1" style={{background:'#fef3c7',color:'#92400e'}}><Clock className="w-2.5 h-2.5"/>PENDING</span>}
+                              <span className="text-[9px] font-black px-2 py-0.5 rounded-full" style={{background:'#eef2ff',color:'#4338ca'}}>{batch.validity}</span>
+                            </div>
+                            <h3 className="font-black text-sm text-slate-800 mb-1">{batch.examName}</h3>
+                            <p className="text-[11px] text-slate-500 mb-3 line-clamp-2">{batch.description}</p>
+                            {/* Stats */}
+                            <div className="flex gap-3 text-[11px] font-black mb-4">
+                              <span className="text-indigo-600">📝 {owned ? paidTestCount : batch.totalMocks || 0} Mocks</span>
+                              <span className="text-emerald-600">👥 {batch.enrolledCount || 0}+ Enrolled</span>
+                              <span className="text-amber-600">₹{batch.price}</span>
+                            </div>
+                            {/* Features */}
+                            {batch.features?.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mb-3">
+                                {batch.features.slice(0,3).map((f: string) => (
+                                  <span key={f} className="text-[10px] font-semibold px-2 py-0.5 rounded-lg" style={{background:'#f0fdf4',color:'#166534',border:'1px solid #bbf7d0'}}>✔ {f}</span>
+                                ))}
+                              </div>
+                            )}
+                            {/* CTA */}
+                            {owned ? (
+                              <button
+                                onClick={() => setActiveTab('mock_landing')}
+                                className="w-full py-3 rounded-xl font-black text-sm text-white flex items-center justify-center gap-2"
+                                style={{background:'linear-gradient(135deg,#10b981,#059669)',boxShadow:'0 4px 14px rgba(16,185,129,0.3)'}}>
+                                ✔ Open Mock Tests ({paidTestCount} available)
+                              </button>
+                            ) : pending ? (
+                              <div className="w-full py-3 rounded-xl font-black text-sm text-center" style={{background:'#fef3c7',color:'#92400e'}}>
+                                ⏳ Verification Pending (1–2 hrs)
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => { setBuyingBatch(batch); setBuyStep('pay'); setBuyError(''); setTxnId(''); }}
+                                className="w-full py-3 rounded-xl font-black text-sm text-white flex items-center justify-center gap-2 transition-all hover:brightness-110 active:scale-[0.98]"
+                                style={{background:'linear-gradient(135deg,#10b981,#059669)',boxShadow:'0 4px 14px rgba(16,185,129,0.35)'}}>
+                                🛒 Buy Now — ₹{batch.price}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* ── Assistant Bar ── */}
               <a href="tel:8900011708" className="flex items-center gap-3 w-full rounded-2xl px-4 py-3 text-white hover:brightness-110 active:scale-[0.99] transition-all" style={{background: 'linear-gradient(90deg,#1e1b4b 0%,#1e3a5f 100%)', border: '1px solid rgba(99,102,241,0.15)'}}>
                 <span className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-base" style={{background: 'rgba(99,102,241,0.3)'}}>🤖</span>
@@ -1154,6 +1251,84 @@ export default function Dashboard() {
               {/* ── Student Reviews Slider ── */}
               <ReviewSlider />
 
+            </div>
+          )}
+
+          {/* ── Inline Buy Modal ── */}
+          {buyingBatch && (
+            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style={{background:'rgba(0,0,0,0.6)'}} onClick={() => setBuyingBatch(null)}>
+              <div className="w-full max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden" style={{background:'#fff'}} onClick={e => e.stopPropagation()}>
+                {/* Header */}
+                <div className="px-5 pt-5 pb-4" style={{background:'linear-gradient(135deg,#1e1b4b,#312e81)'}}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-black uppercase tracking-widest" style={{color:'#a5b4fc'}}>
+                      {buyStep === 'pay' ? 'Step 1 — Pay' : 'Step 2 — Confirm'}
+                    </span>
+                    <button onClick={() => setBuyingBatch(null)} className="text-white/50 hover:text-white text-lg leading-none">✕</button>
+                  </div>
+                  <h3 className="font-black text-white text-base">{buyingBatch.examName}</h3>
+                  <p className="text-sm font-black mt-0.5" style={{color:'#fbbf24'}}>₹{buyingBatch.price}</p>
+                </div>
+                <div className="p-5 space-y-4">
+                  {buyStep === 'pay' ? (
+                    <>
+                      <a href={`https://razorpay.me/@masteraptitude?amount=${buyingBatch.price * 100}&description=${encodeURIComponent(buyingBatch.examName)}`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl font-black text-white text-base"
+                        style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)',boxShadow:'0 6px 24px rgba(99,102,241,0.4)'}}>
+                        <ExternalLink className="w-4 h-4"/>Pay ₹{buyingBatch.price} via UPI / Card
+                      </a>
+                      <div className="flex items-center justify-center gap-3 text-xs font-semibold text-slate-400">
+                        <span>📱 Google Pay</span><span>·</span><span>📱 PhonePe</span><span>·</span><span>💳 Card</span>
+                      </div>
+                      <div className="rounded-xl p-3 text-xs text-amber-800 leading-relaxed" style={{background:'#fffbeb',border:'1px solid #fde68a'}}>
+                        <strong>After payment:</strong> click below and enter your UPI Reference Number to confirm.
+                      </div>
+                      <button onClick={() => setBuyStep('submit')}
+                        className="w-full py-3 rounded-xl font-black text-sm text-slate-600 transition-all hover:bg-slate-100"
+                        style={{background:'#f8fafc',border:'1px solid #e2e8f0'}}>
+                        ✔ I have paid — Submit Reference →
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="text-xs font-black uppercase tracking-widest text-slate-400 block mb-2">UPI Reference / Transaction ID *</label>
+                        <input value={txnId} onChange={e => { setTxnId(e.target.value); setBuyError(''); }}
+                          placeholder="e.g. 425813679201"
+                          className="w-full rounded-xl px-4 py-3 text-sm font-mono border border-slate-200 focus:border-indigo-400 outline-none" autoFocus />
+                        {buyError && <p className="text-xs text-rose-500 font-bold mt-1.5">{buyError}</p>}
+                      </div>
+                      <div className="rounded-xl p-3 text-xs text-slate-600 leading-relaxed" style={{background:'#f0fdf4',border:'1px solid #bbf7d0'}}>
+                        📋 Your transaction ID is in your UPI app under "Payment History".
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => setBuyStep('pay')} className="px-4 py-3 rounded-xl font-bold text-sm bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">← Back</button>
+                        <button disabled={buySubmitting} onClick={async () => {
+                          if (!txnId.trim()) { setBuyError('Enter your Transaction ID'); return; }
+                          setBuySubmitting(true); setBuyError('');
+                          try {
+                            const token = await user!.getIdToken();
+                            const res = await fetch('/api/payments/submit-manual', {
+                              method: 'POST',
+                              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ batchId: buyingBatch.id, transactionId: txnId.trim(), amount: buyingBatch.price, studentName: profile?.name || '' }),
+                            });
+                            const data = await res.json();
+                            if (!res.ok) { setBuyError(data.error || 'Submission failed'); }
+                            else { setPendingPurchases(p => [...p, buyingBatch.id]); setBuyingBatch(null); }
+                          } catch { setBuyError('Network error. Please try again.'); }
+                          setBuySubmitting(false);
+                        }}
+                          className="flex-1 py-3 rounded-xl font-black text-sm text-white flex items-center justify-center gap-2 disabled:opacity-60"
+                          style={{background:'linear-gradient(135deg,#10b981,#059669)',boxShadow:'0 4px 16px rgba(16,185,129,0.3)'}}>
+                          {buySubmitting ? 'Submitting...' : '✔ Submit for Verification'}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
@@ -2011,9 +2186,11 @@ export default function Dashboard() {
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-2 flex-wrap">
                                     <h4 className="font-extrabold text-slate-800 text-sm md:text-base leading-snug">{test.title}</h4>
-                                    {test.isPaid
-                                      ? <span className="px-1.5 py-0.5 bg-rose-100 text-rose-600 text-[8px] font-black uppercase tracking-widest rounded-full border border-rose-200 shrink-0">Paid</span>
-                                      : <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded-full border border-emerald-100 shrink-0">Free</span>
+                                    {test.isPaid && myPurchases.length === 0
+                                      ? <span className="px-1.5 py-0.5 bg-rose-100 text-rose-600 text-[8px] font-black uppercase tracking-widest rounded-full border border-rose-200 shrink-0">👑 Premium</span>
+                                      : test.isPaid
+                                        ? <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[8px] font-black uppercase tracking-widest rounded-full border border-emerald-200 shrink-0">✔ Unlocked</span>
+                                        : <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded-full border border-emerald-100 shrink-0">Free</span>
                                     }
                                     {test.isActive && (
                                       <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 text-[8px] font-black uppercase tracking-widest rounded border border-indigo-100 flex items-center gap-0.5 shrink-0">
@@ -2123,10 +2300,13 @@ export default function Dashboard() {
                                   </div>
                                 )}
 
-                                {test.isPaid ? (
-                                  <span className="px-5 py-2.5 bg-rose-100 text-rose-600 font-black text-[9px] uppercase tracking-widest rounded-xl border border-rose-200 flex items-center gap-1.5 cursor-not-allowed">
-                                    🔒 Purchase Required
-                                  </span>
+                                {test.isPaid && myPurchases.length === 0 ? (
+                                  <button
+                                    onClick={() => { const b = paidBatches[0]; if (b) { setBuyingBatch(b); setBuyStep('pay'); setBuyError(''); setTxnId(''); } else navigate('/paid-mock'); }}
+                                    className="px-4 py-2.5 font-black text-[9px] uppercase tracking-widest rounded-xl flex items-center gap-1.5 transition-all hover:brightness-110 active:scale-95 text-white"
+                                    style={{background:'linear-gradient(135deg,#10b981,#059669)'}}>
+                                    🛒 Buy Now
+                                  </button>
                                 ) : (
                                   <Link
                                     to={`/test/${test.id}`}
