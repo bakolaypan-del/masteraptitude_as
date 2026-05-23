@@ -1065,17 +1065,67 @@ export default function Dashboard() {
                 );
               })()}
 
-              {/* ── Category Grid (Neon Premium) ── */}
+              {/* ── Category Grid — 3×2 neon cards ── */}
               {(() => {
+                const NeonCard = ({
+                  w1, w2, icon, neon, bg, badge, action,
+                  pad, circle, iconRem, titlePx, arrowPx, bktPx, dotPx, rayH,
+                }: {
+                  w1:string; w2:string; icon:string; neon:string; bg:string; badge:string|null;
+                  action:()=>void; pad:string; circle:number; iconRem:number; titlePx:string;
+                  arrowPx:number; bktPx:number; dotPx:number; rayH:number;
+                }) => (
+                  <button
+                    onClick={action}
+                    className="group relative flex flex-col items-center rounded-2xl text-white transition-all duration-200 hover:-translate-y-0.5 hover:scale-[1.04] active:scale-[0.96]"
+                    style={{ background:bg, boxShadow:`0 0 0 1.5px ${neon}60, 0 0 22px ${neon}40, 0 6px 28px rgba(0,0,0,0.7)`, padding:pad, overflow:'visible', justifyContent:'center', gap:5 }}
+                  >
+                    {/* Top colour wash */}
+                    <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ background:`radial-gradient(ellipse 100% 70% at 50% 0%,${neon}25 0%,transparent 65%)` }}/>
+                    {/* Dot grid */}
+                    <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ backgroundImage:`radial-gradient(circle,${neon}28 1px,transparent 1px)`, backgroundSize:`${dotPx}px ${dotPx}px` }}/>
+                    {/* Corner brackets */}
+                    <div className="absolute top-0 left-0 pointer-events-none" style={{ width:bktPx, height:bktPx, borderTop:`2px solid ${neon}88`, borderLeft:`2px solid ${neon}88`, borderRadius:'8px 0 0 0' }}/>
+                    <div className="absolute top-0 right-0 pointer-events-none" style={{ width:bktPx, height:bktPx, borderTop:`2px solid ${neon}88`, borderRight:`2px solid ${neon}88`, borderRadius:'0 8px 0 0' }}/>
+                    {/* Glowing icon circle */}
+                    <div className="relative z-10 flex items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-110"
+                      style={{ width:circle, height:circle, flexShrink:0, border:`2px solid ${neon}`, boxShadow:`0 0 16px ${neon}85,0 0 34px ${neon}45,inset 0 0 18px ${neon}30`, background:`radial-gradient(circle,${neon}35 0%,${neon}12 55%,transparent 100%)` }}>
+                      {badge && (
+                        <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap font-black rounded-full z-20"
+                          style={{ fontSize:7, padding:'2px 8px', background:`linear-gradient(90deg,${neon},${neon}bb)`, color:'#000', boxShadow:`0 0 10px ${neon}`, letterSpacing:'0.1em' }}>
+                          {badge}
+                        </span>
+                      )}
+                      <span className="select-none" style={{ fontSize:`${iconRem}rem`, lineHeight:1, filter:`drop-shadow(0 0 10px ${neon}bb)` }}>{icon}</span>
+                    </div>
+                    {/* Stacked two-line title */}
+                    <div className="relative z-10 text-center" style={{ lineHeight:1.08 }}>
+                      <div className="font-black" style={{ fontSize:titlePx, color:'#ffffff', textShadow:`0 0 20px ${neon}80, 0 1px 0 rgba(0,0,0,0.6)`, letterSpacing:'-0.01em' }}>{w1}</div>
+                      {w2 && <div className="font-black" style={{ fontSize:titlePx, color:neon, textShadow:`0 0 18px ${neon}, 0 0 36px ${neon}88`, letterSpacing:'-0.01em' }}>{w2}</div>}
+                    </div>
+                    {/* Bottom ray */}
+                    <div className="absolute bottom-0 left-0 right-0 rounded-b-2xl pointer-events-none" style={{ height:rayH, background:`radial-gradient(ellipse 90% 75% at 50% 115%,${neon}55 0%,transparent 70%)` }}/>
+                    {/* Arrow */}
+                    <div className="relative z-10 flex items-center justify-center rounded-full transition-all duration-200 group-hover:scale-110"
+                      style={{ width:arrowPx, height:arrowPx, background:`${neon}30`, border:`1.5px solid ${neon}`, boxShadow:`0 0 12px ${neon}60` }}>
+                      <svg viewBox="0 0 10 10" width={arrowPx*0.45} height={arrowPx*0.45} fill="none">
+                        <path d="M3.5 2L6.5 5L3.5 8" stroke={neon} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                    {/* Hover ring */}
+                    <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" style={{ boxShadow:`inset 0 0 0 2px ${neon}, 0 0 32px ${neon}55` }}/>
+                  </button>
+                );
+
+                const L1 = { pad:'6px 4px 8px', circle:36, iconRem:1.15, titlePx:'clamp(11px,3.6vw,14px)', arrowPx:15, bktPx:12, dotPx:10, rayH:22 };
+
                 const cats = [
-                  { w1: 'FREE',    w2: 'MOCK',    icon: '📋', neon: '#00cfff', bg: '#050d1a', badge: 'FREE',    sub: 'Practice Without Limits, Improve Every Day!',        action: () => setActiveTab('mock_landing') },
-                  { w1: 'PAID',    w2: 'MOCK',    icon: '👑', neon: '#bf5fff', bg: '#0d0617', badge: 'PREMIUM', sub: 'Premium Mocks, Real Exam Experience!',                action: () => navigate('/paid-mock') },
-                  { w1: 'TYPING',  w2: 'TEST',    icon: '⌨️', neon: '#00ff88', bg: '#011208', badge: null,      sub: 'Check Your Speed, Improve Accuracy!',                 action: () => navigate('/typing-test') },
-                  { w1: 'EBOOK',   w2: '',        icon: '📖', neon: '#ffaa00', bg: '#130c00', badge: null,      sub: 'Smart Learning, Anytime Anywhere!',                   action: () => setActiveTab('notes') },
-                  { w1: 'CURRENT', w2: 'AFFAIRS', icon: '📰', neon: '#00ffe5', bg: '#001412', badge: null,      sub: 'Stay Updated, Stay Ahead!',                           action: () => setActiveTab('affairs') },
-                  { w1: 'PYQs',    w2: '',        icon: '📚', neon: '#ff3fa4', bg: '#150008', badge: null,      sub: 'Previous Year Questions, Practice for Success!',      action: () => setActiveTab('pyq') },
-                  { w1: 'STUDY',   w2: 'NOTES',   icon: '📄', neon: '#a855f7', bg: '#0d0518', badge: null,      sub: 'Smart Notes for Quick Revision!',                     action: () => setActiveTab('notes') },
-                  { w1: 'VIDEO',   w2: 'CLASS',   icon: '🎬', neon: '#ff6230', bg: '#140600', badge: null,      sub: 'Learn from Expert Video Lectures!',                   action: () => setActiveTab('video') },
+                  { w1:'FREE',    w2:'MOCK',    icon:String.fromCodePoint(0x1F4CB), neon:'#00d4ff', bg:'linear-gradient(155deg,#062240,#0a3566)',  badge:null,      action:()=>setActiveTab('mock_landing') },
+                  { w1:'PAID',    w2:'MOCK',    icon:String.fromCodePoint(0x1F6E1), neon:'#c084fc', bg:'linear-gradient(155deg,#1c0a42,#30126e)', badge:'PREMIUM', action:()=>navigate('/paid-mock') },
+                  { w1:'TYPING',  w2:'TEST',    icon:String.fromCodePoint(0x2328),  neon:'#00ff88', bg:'linear-gradient(155deg,#042618,#083f28)',  badge:null,      action:()=>navigate('/typing-test') },
+                  { w1:'EBOOK',   w2:'',        icon:String.fromCodePoint(0x1F4D6), neon:'#ffa820', bg:'linear-gradient(155deg,#251400,#3f2200)',  badge:null,      action:()=>setActiveTab('notes') },
+                  { w1:'CURRENT', w2:'AFFAIRS', icon:String.fromCodePoint(0x1F4F0), neon:'#00ffe0', bg:'linear-gradient(155deg,#002828,#004040)',  badge:null,      action:()=>setActiveTab('affairs') },
+                  { w1:'PYQs',    w2:'',        icon:String.fromCodePoint(0x1F4DD), neon:'#ff3fa4', bg:'linear-gradient(155deg,#280018,#420030)',  badge:null,      action:()=>setActiveTab('pyq') },
                 ];
                 return (
                   <div>
@@ -1083,104 +1133,8 @@ export default function Dashboard() {
                       <p className="text-xs font-black uppercase tracking-widest" style={{color:'#64748b'}}>Explore</p>
                       <div className="flex-1 h-px" style={{background:'linear-gradient(to right,#e2e8f0,transparent)'}}/>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {cats.map(({ w1, w2, icon, neon, bg, badge, sub, action }) => (
-                        <button
-                          key={w1 + w2}
-                          onClick={action}
-                          className="group relative flex flex-col items-center rounded-2xl overflow-hidden text-white transition-all duration-250 hover:-translate-y-1.5 hover:scale-[1.02] active:scale-[0.96]"
-                          style={{
-                            background: bg,
-                            boxShadow: `0 0 0 1.5px ${neon}55, 0 0 18px ${neon}30, 0 6px 28px rgba(0,0,0,0.55)`,
-                            padding: '20px 14px 16px',
-                          }}
-                        >
-                          {/* Dot-grid texture */}
-                          <div className="absolute inset-0 pointer-events-none" style={{
-                            backgroundImage: `radial-gradient(circle, ${neon}18 1px, transparent 1px)`,
-                            backgroundSize: '16px 16px',
-                          }}/>
-
-                          {/* Corner bracket top-left */}
-                          <div className="absolute top-0 left-0 w-7 h-7 pointer-events-none" style={{
-                            borderTop: `1.5px solid ${neon}70`, borderLeft: `1.5px solid ${neon}70`,
-                            borderRadius: '10px 0 0 0',
-                          }}/>
-                          {/* Corner bracket top-right */}
-                          <div className="absolute top-0 right-0 w-7 h-7 pointer-events-none" style={{
-                            borderTop: `1.5px solid ${neon}70`, borderRight: `1.5px solid ${neon}70`,
-                            borderRadius: '0 10px 0 0',
-                          }}/>
-
-                          {/* Glowing icon circle */}
-                          <div className="relative z-10 flex items-center justify-center rounded-full mb-3 transition-transform duration-250 group-hover:scale-105" style={{
-                            width: 72, height: 72,
-                            border: `2px solid ${neon}`,
-                            boxShadow: `0 0 14px ${neon}70, 0 0 28px ${neon}30, inset 0 0 14px ${neon}18`,
-                            background: `radial-gradient(circle, ${neon}18 0%, transparent 70%)`,
-                          }}>
-                            {/* Badge on circle */}
-                            {badge && (
-                              <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[8px] font-black px-2 py-[2px] rounded-full" style={{
-                                background: `linear-gradient(90deg,${neon},${neon}bb)`,
-                                color: bg,
-                                boxShadow: `0 0 8px ${neon}`,
-                                letterSpacing: '0.06em',
-                              }}>
-                                {badge}
-                              </span>
-                            )}
-                            <span className="text-[2rem] select-none" style={{
-                              lineHeight: 1,
-                              filter: `drop-shadow(0 0 8px ${neon}90)`,
-                            }}>{icon}</span>
-                          </div>
-
-                          {/* Two-tone title */}
-                          <div className="relative z-10 text-center mb-1.5 leading-tight">
-                            {w2 ? (
-                              <p className="font-black tracking-wide" style={{fontSize:'clamp(15px,4.5vw,20px)', lineHeight:1.1}}>
-                                <span style={{color:'#ffffff'}}>{w1} </span>
-                                <span style={{color: neon, textShadow:`0 0 10px ${neon}`}}>{w2}</span>
-                              </p>
-                            ) : (
-                              <p className="font-black tracking-wide" style={{fontSize:'clamp(15px,4.5vw,20px)', color: neon, textShadow:`0 0 10px ${neon}`, lineHeight:1.1}}>
-                                {w1}
-                              </p>
-                            )}
-                          </div>
-
-                          {/* Subtitle */}
-                          <p className="relative z-10 text-center mb-3 leading-snug" style={{
-                            fontSize:'clamp(9px,2.5vw,11px)',
-                            color:'rgba(255,255,255,0.58)',
-                            fontStyle:'italic',
-                            maxWidth: 160,
-                          }}>{sub}</p>
-
-                          {/* Bottom radial light ray */}
-                          <div className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none" style={{
-                            background: `radial-gradient(ellipse 80% 60% at 50% 110%, ${neon}35 0%, transparent 70%)`,
-                          }}/>
-
-                          {/* Arrow button */}
-                          <div className="relative z-10 flex items-center justify-center rounded-full transition-all duration-200 group-hover:scale-110" style={{
-                            width: 28, height: 28,
-                            background: `${neon}20`,
-                            border: `1.5px solid ${neon}90`,
-                            boxShadow: `0 0 10px ${neon}45`,
-                          }}>
-                            <svg viewBox="0 0 10 10" width="10" height="10" fill="none">
-                              <path d="M3.5 2L6.5 5L3.5 8" stroke={neon} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          </div>
-
-                          {/* Hover border intensify */}
-                          <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-250 pointer-events-none" style={{
-                            boxShadow: `inset 0 0 0 1.5px ${neon}90, 0 0 28px ${neon}40`,
-                          }}/>
-                        </button>
-                      ))}
+                    <div className="grid gap-2" style={{ gridTemplateColumns:'repeat(3, 82px)', justifyContent:'center' }}>
+                      {cats.map(c => <NeonCard key={c.w1+c.w2} {...c} {...L1} />)}
                     </div>
                   </div>
                 );
@@ -1440,101 +1394,91 @@ export default function Dashboard() {
           {activeTab === 'mock_landing' && (
             <div className="animate-in fade-in duration-500">
               {/* Header */}
-              <div className="flex items-center gap-3 mb-8">
+              <div className="flex items-center gap-3 mb-6">
                 <button onClick={() => setActiveTab('home')} className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors shadow-sm">
                   <ArrowLeft className="w-4 h-4 text-slate-600" />
                 </button>
                 <div>
-                  <h2 className="text-xl font-black text-slate-900 tracking-tight">🎯 Mock Tests</h2>
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight">🎯 Free Mock Tests</h2>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">Choose your test format and start practising</p>
                 </div>
               </div>
 
-              {/* Category Cards */}
-              <div className="grid grid-cols-1 gap-4">
+              {/* Neon sub-category cards — Level 2 (size 15) */}
+              {(() => {
+                // ─ NeonCard renderer (same design as L1, smaller tokens) ───────
+                const NeonCard = ({
+                  w1, w2, icon, neon, bg, badge, action,
+                  pad, circle, iconRem, titlePx, arrowPx, bktPx, dotPx, rayH, mb,
+                }: {
+                  w1:string; w2:string; icon:string; neon:string; bg:string; badge:string|null;
+                  action:()=>void; pad:string; circle:number; iconRem:number; titlePx:string;
+                  arrowPx:number; bktPx:number; dotPx:number; rayH:number; mb:number;
+                }) => (
+                  <button
+                    onClick={action}
+                    className="group relative flex flex-col items-center rounded-2xl text-white transition-all duration-200 hover:-translate-y-1 hover:scale-[1.03] active:scale-[0.95]"
+                    style={{ background:bg, boxShadow:`0 0 0 1.5px ${neon}55, 0 0 16px ${neon}28, 0 5px 22px rgba(0,0,0,0.55)`, padding:pad, overflow:'visible', justifyContent:'center', gap:5 }}
+                  >
+                    {/* Dot grid */}
+                    <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage:`radial-gradient(circle,${neon}16 1px,transparent 1px)`, backgroundSize:`${dotPx}px ${dotPx}px` }}/>
+                    {/* Corner brackets */}
+                    <div className="absolute top-0 left-0 pointer-events-none" style={{ width:bktPx, height:bktPx, borderTop:`1.5px solid ${neon}65`, borderLeft:`1.5px solid ${neon}65`, borderRadius:'8px 0 0 0' }}/>
+                    <div className="absolute top-0 right-0 pointer-events-none" style={{ width:bktPx, height:bktPx, borderTop:`1.5px solid ${neon}65`, borderRight:`1.5px solid ${neon}65`, borderRadius:'0 8px 0 0' }}/>
+                    {/* Glowing circle */}
+                    <div className="relative z-10 flex items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-110"
+                      style={{ width:circle, height:circle, flexShrink:0, border:`1.5px solid ${neon}`, boxShadow:`0 0 12px ${neon}65,0 0 24px ${neon}28,inset 0 0 12px ${neon}15`, background:`radial-gradient(circle,${neon}15 0%,transparent 70%)` }}>
+                      {badge && (
+                        <span className="absolute -top-2 left-1/2 -translate-x-1/2 whitespace-nowrap font-black rounded-full"
+                          style={{ fontSize:6, padding:'2px 6px', background:`linear-gradient(90deg,${neon},${neon}bb)`, color:bg, boxShadow:`0 0 7px ${neon}`, letterSpacing:'0.07em' }}>
+                          {badge}
+                        </span>
+                      )}
+                      <span className="select-none" style={{ fontSize:`${iconRem}rem`, lineHeight:1, filter:`drop-shadow(0 0 7px ${neon}88)` }}>{icon}</span>
+                    </div>
+                    {/* Two-tone title */}
+                    <p className="relative z-10 font-black text-center leading-tight" style={{ fontSize:titlePx, lineHeight:1.1 }}>
+                      {w2
+                        ? <><span style={{color:'#fff'}}>{w1} </span><span style={{color:neon,textShadow:`0 0 9px ${neon}`}}>{w2}</span></>
+                        : <span style={{color:neon,textShadow:`0 0 9px ${neon}`}}>{w1}</span>
+                      }
+                    </p>
+                    {/* Bottom ray */}
+                    <div className="absolute bottom-0 left-0 right-0 pointer-events-none" style={{ height:rayH, background:`radial-gradient(ellipse 80% 65% at 50% 110%,${neon}38 0%,transparent 70%)` }}/>
+                    {/* Arrow */}
+                    <div className="relative z-10 flex items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-110"
+                      style={{ width:arrowPx, height:arrowPx, background:`${neon}1a`, border:`1px solid ${neon}85`, boxShadow:`0 0 8px ${neon}40` }}>
+                      <svg viewBox="0 0 10 10" width={arrowPx*0.45} height={arrowPx*0.45} fill="none">
+                        <path d="M3.5 2L6.5 5L3.5 8" stroke={neon} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                    {/* Hover ring */}
+                    <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" style={{ boxShadow:`inset 0 0 0 1.5px ${neon}85,0 0 24px ${neon}38` }}/>
+                  </button>
+                );
 
-                {/* Topic Wise */}
-                <button
-                  onClick={() => setActiveTab('mock_topic')}
-                  className="group relative overflow-hidden rounded-3xl p-6 text-left bg-white border border-indigo-100 shadow-sm hover:shadow-xl hover:shadow-indigo-100 hover:-translate-y-1 transition-all duration-300"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 to-violet-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-3xl" />
-                  <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-400/8 rounded-full translate-x-1/4 -translate-y-1/4 group-hover:scale-150 transition-transform duration-500 pointer-events-none" />
-                  <div className="relative flex items-center gap-5">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-200 group-hover:scale-110 transition-transform duration-300 shrink-0">
-                      <Layers className="w-8 h-8 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="text-lg font-black text-slate-800 tracking-tight">Topic Wise Mock</h3>
-                        <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">Focused</span>
-                      </div>
-                      <p className="text-sm text-slate-500 font-medium leading-relaxed">Practice chapter-by-chapter. Perfect for targeted revision on specific subjects or topics.</p>
-                      <div className="mt-3 flex items-center gap-1 text-indigo-600 text-[11px] font-black uppercase tracking-wider">
-                        Start Now <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                      </div>
-                    </div>
+                // ─ Level-2 tokens (size 15 — 75% of L1, square) ─────────────
+                const L2 = { pad:'4px 2px 4px', circle:32, iconRem:1.0, titlePx:'clamp(12px,3.7vw,16px)', arrowPx:14, bktPx:11, dotPx:10, rayH:22, mb:0 };
+
+                const subs = [
+                  { w1:'TOPIC',     w2:'WISE', icon:'🎯', neon:'#00cfff', bg:'#050d1a', badge:'FOCUSED',  action:()=>setActiveTab('mock_topic') },
+                  { w1:'SECTIONAL', w2:'MOCK', icon:'📊', neon:'#ff3fa4', bg:'#150008', badge:'SECTION',  action:()=>setActiveTab('mock_sectional') },
+                  { w1:'FULL',      w2:'MOCK', icon:'🏆', neon:'#ffaa00', bg:'#130c00', badge:'COMPLETE', action:()=>setActiveTab('mock_full') },
+                ];
+                return (
+                  <div className="grid gap-2" style={{ gridTemplateColumns:'repeat(3, 82px)', justifyContent:'center' }}>
+                    {subs.map(s => <NeonCard key={s.w1+s.w2} {...s} {...L2} />)}
                   </div>
-                </button>
+                );
+              })()}
 
-                {/* Sectional Mock */}
-                <button
-                  onClick={() => setActiveTab('mock_sectional')}
-                  className="group relative overflow-hidden rounded-3xl p-6 text-left bg-white border border-rose-100 shadow-sm hover:shadow-xl hover:shadow-rose-100 hover:-translate-y-1 transition-all duration-300"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-br from-rose-50 to-pink-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-3xl" />
-                  <div className="absolute top-0 right-0 w-40 h-40 bg-rose-400/8 rounded-full translate-x-1/4 -translate-y-1/4 group-hover:scale-150 transition-transform duration-500 pointer-events-none" />
-                  <div className="relative flex items-center gap-5">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center shadow-lg shadow-rose-200 group-hover:scale-110 transition-transform duration-300 shrink-0">
-                      <CheckSquare className="w-8 h-8 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="text-lg font-black text-slate-800 tracking-tight">Sectional Mock</h3>
-                        <span className="text-[10px] font-black uppercase tracking-wider text-rose-600 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-full">Section</span>
-                      </div>
-                      <p className="text-sm text-slate-500 font-medium leading-relaxed">Test your knowledge section-by-section. Ideal for identifying weak areas before the full exam.</p>
-                      <div className="mt-3 flex items-center gap-1 text-rose-600 text-[11px] font-black uppercase tracking-wider">
-                        Start Now <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                      </div>
-                    </div>
-                  </div>
-                </button>
-
-                {/* Full Mock */}
-                <button
-                  onClick={() => setActiveTab('mock_full')}
-                  className="group relative overflow-hidden rounded-3xl p-6 text-left bg-white border border-amber-100 shadow-sm hover:shadow-xl hover:shadow-amber-100 hover:-translate-y-1 transition-all duration-300"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-br from-amber-50 to-orange-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-3xl" />
-                  <div className="absolute top-0 right-0 w-40 h-40 bg-amber-400/8 rounded-full translate-x-1/4 -translate-y-1/4 group-hover:scale-150 transition-transform duration-500 pointer-events-none" />
-                  <div className="relative flex items-center gap-5">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-200 group-hover:scale-110 transition-transform duration-300 shrink-0">
-                      <Trophy className="w-8 h-8 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="text-lg font-black text-slate-800 tracking-tight">Full Mock Test</h3>
-                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-full">Complete</span>
-                      </div>
-                      <p className="text-sm text-slate-500 font-medium leading-relaxed">Full-length exam simulation with real exam timing & pressure. The ultimate test of your preparation.</p>
-                      <div className="mt-3 flex items-center gap-1 text-amber-600 text-[11px] font-black uppercase tracking-wider">
-                        Start Now <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                      </div>
-                    </div>
-                  </div>
-                </button>
-              </div>
-
-              {/* Bottom tip */}
-              <div className="mt-6 flex items-start gap-3 bg-indigo-50 border border-indigo-100 rounded-2xl p-4">
-                <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
-                  <AlertCircle className="w-4 h-4 text-indigo-600" />
-                </div>
-                <div>
-                  <p className="text-xs font-black text-indigo-700 uppercase tracking-wider mb-0.5">Pro Tip</p>
-                  <p className="text-xs text-indigo-600 font-medium leading-relaxed">Start with Topic Wise tests to build a strong base, then move to Sectional and finally Full Mock for complete exam readiness.</p>
-                </div>
+              {/* Pro tip */}
+              <div className="mt-5 flex items-center gap-3 rounded-2xl px-4 py-3" style={{ background:'#0f172a', border:'1px solid rgba(99,102,241,0.25)' }}>
+                <span className="text-lg shrink-0">💡</span>
+                <p className="text-xs font-semibold leading-relaxed" style={{ color:'rgba(165,180,252,0.8)' }}>
+                  <span className="font-black text-white">Pro Tip: </span>
+                  Start with Topic Wise → Sectional → Full Mock for complete exam readiness.
+                </p>
               </div>
             </div>
           )}
@@ -2681,4 +2625,6 @@ export default function Dashboard() {
     </div>
   );
 }
+
+
 
