@@ -6,7 +6,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { LogOut, ArrowLeft, Plus, Pencil, Trash2, FileText, BookOpen, Play, CheckCircle, Clock, X, User as UserIcon, Download, ShieldAlert, ShieldCheck, Key, Edit2, Search, LayoutDashboard, Layers, TrendingUp, Link2, Check, Star, MessageSquare, Globe, Copy, ExternalLink, RefreshCw } from 'lucide-react';
+import { LogOut, ArrowLeft, Plus, Pencil, Trash2, FileText, BookOpen, Play, CheckCircle, Clock, X, User as UserIcon, Download, ShieldAlert, ShieldCheck, Key, Edit2, Search, LayoutDashboard, Layers, TrendingUp, Link2, Check, Star, MessageSquare, Globe, Copy, ExternalLink, RefreshCw, BarChart3 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -4155,6 +4155,102 @@ function AdminHome() {
                 </div>
               ))}
             </div>
+
+            {/* ── Analytics ── */}
+            {reviews.length > 0 && (() => {
+              const fiveStar = reviews.filter(r => r.rating === 5).length;
+              const fiveStarPct = Math.round((fiveStar / reviews.length) * 100);
+              const rejected = reviews.filter(r => r.status === 'rejected').length;
+              const featured = reviews.filter(r => r.featured).length;
+
+              // Rating distribution
+              const ratingDist = [5,4,3,2,1].map(star => ({
+                star,
+                count: reviews.filter(r => r.rating === star).length,
+                pct: Math.round((reviews.filter(r => r.rating === star).length / reviews.length) * 100),
+              }));
+
+              // Category breakdown (top 5)
+              const catMap: Record<string, number> = {};
+              reviews.forEach(r => { if (r.category) catMap[r.category] = (catMap[r.category] || 0) + 1; });
+              const topCats = Object.entries(catMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
+              const maxCat = topCats[0]?.[1] || 1;
+
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Rating Distribution */}
+                  <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
+                      Rating Distribution
+                    </p>
+                    <div className="space-y-2.5">
+                      {ratingDist.map(({ star, count, pct }) => (
+                        <div key={star} className="flex items-center gap-2.5">
+                          <span className="text-[10px] font-black text-slate-500 w-4 shrink-0">{star}★</span>
+                          <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-500"
+                              style={{
+                                width: `${pct}%`,
+                                background: star === 5 ? '#22c55e' : star === 4 ? '#84cc16' : star === 3 ? '#eab308' : star === 2 ? '#f97316' : '#ef4444',
+                              }}
+                            />
+                          </div>
+                          <span className="text-[10px] font-black text-slate-400 w-8 text-right shrink-0">{count}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-3 gap-2 text-center">
+                      <div>
+                        <p className="text-lg font-black text-emerald-600">{fiveStarPct}%</p>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">5★ Rate</p>
+                      </div>
+                      <div>
+                        <p className="text-lg font-black text-rose-500">{rejected}</p>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Rejected</p>
+                      </div>
+                      <div>
+                        <p className="text-lg font-black text-pink-500">{featured}</p>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Featured</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Category Breakdown */}
+                  <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <BarChart3 className="w-3 h-3 text-indigo-500" />
+                      Top Categories
+                    </p>
+                    {topCats.length === 0 ? (
+                      <p className="text-slate-300 text-sm font-bold text-center py-4">No category data yet</p>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {topCats.map(([cat, count]) => (
+                          <div key={cat} className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-bold text-slate-600 truncate max-w-[70%]">{cat}</span>
+                              <span className="text-[10px] font-black text-slate-400">{count}</span>
+                            </div>
+                            <div className="bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-indigo-500 transition-all duration-500"
+                                style={{ width: `${Math.round((count / maxCat) * 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="mt-4 pt-4 border-t border-slate-100 text-center">
+                      <p className="text-xs font-black text-indigo-600">{topCats[0]?.[0] || '—'}</p>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mt-0.5">Most Active Category</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* ── Reviews List ── */}
             <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
