@@ -50,6 +50,7 @@ export default defineConfig(({ mode }) => {
 
         // ── Workbox caching strategy ─────────────────────────────────────────
         workbox: {
+          maximumFileSizeToCacheInBytes: 4 * 1024 * 1024, // allow up to 4 MB
           // Pre-cache the entire built app shell
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
 
