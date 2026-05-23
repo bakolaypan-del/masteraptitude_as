@@ -1133,7 +1133,7 @@ export default function Dashboard() {
                       <p className="text-xs font-black uppercase tracking-widest" style={{color:'#64748b'}}>Explore</p>
                       <div className="flex-1 h-px" style={{background:'linear-gradient(to right,#e2e8f0,transparent)'}}/>
                     </div>
-                    <div className="grid gap-2" style={{ gridTemplateColumns:'repeat(3, 100px)', justifyContent:'center' }}>
+                    <div className="grid gap-2" style={{ gridTemplateColumns:'repeat(3, 110px)', justifyContent:'center' }}>
                       {cats.map(c => <NeonCard key={c.w1+c.w2} {...c} {...L1} />)}
                     </div>
                   </div>
@@ -1530,7 +1530,7 @@ export default function Dashboard() {
                   { w1:'FULL',      w2:'MOCK', icon:'🏆', neon:'#ffaa00', bg:'#130c00', badge:'COMPLETE', action:()=>setActiveTab('mock_full') },
                 ];
                 return (
-                  <div className="grid gap-2" style={{ gridTemplateColumns:'repeat(3, 100px)', justifyContent:'center' }}>
+                  <div className="grid gap-2" style={{ gridTemplateColumns:'repeat(3, 110px)', justifyContent:'center' }}>
                     {subs.map(s => <NeonCard key={s.w1+s.w2} {...s} {...L2} />)}
                   </div>
                 );
