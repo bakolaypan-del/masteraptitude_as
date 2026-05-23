@@ -1378,6 +1378,41 @@ ${allUrls.map(u => `  <url>
     }
   });
 
+  // ── Image upload via Admin SDK (bypasses Storage Rules) ────────────────────
+  app.post("/api/admin/upload-image", verifyToken, verifyAdmin, async (req, res) => {
+    try {
+      const { base64, mimeType, fileName } = req.body;
+      if (!base64 || !mimeType || !fileName) {
+        return res.status(400).json({ error: "base64, mimeType and fileName are required" });
+      }
+
+      const { getStorage } = await import("firebase-admin/storage");
+      const bucketName = process.env.FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket;
+      if (!bucketName) return res.status(500).json({ error: "Storage bucket not configured" });
+
+      const buffer = Buffer.from(base64, "base64");
+      const token  = crypto.randomUUID();
+      const bucket = getStorage().bucket(bucketName);
+      const file   = bucket.file(`question_images/${fileName}`);
+
+      await file.save(buffer, {
+        metadata: {
+          contentType: mimeType,
+          metadata: { firebaseStorageDownloadTokens: token },
+        },
+      });
+
+      const downloadUrl =
+        `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/` +
+        `${encodeURIComponent(`question_images/${fileName}`)}?alt=media&token=${token}`;
+
+      res.json({ url: downloadUrl });
+    } catch (err: any) {
+      console.error("[upload-image]", err);
+      res.status(500).json({ error: err.message || "Upload failed" });
+    }
+  });
+
   app.delete("/api/admin/pyqs/:id", verifyToken, verifyAdmin, async (req, res) => {
     const currentDb = getDb();
     if (!currentDb) return res.status(500).json({ error: "Database offline" });

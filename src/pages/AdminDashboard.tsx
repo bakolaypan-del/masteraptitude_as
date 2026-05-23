@@ -5049,27 +5049,28 @@ function QuestionManager() {
       let finalImageUrl = qImageUrl;
       if (qImageFile) {
         setUploadingQImage(true);
-        // Compress before upload — PNG preserved as-is for equations/diagrams
-        const compressed = await compressImage(qImageFile, 1200, 0.82);
-        const randomId = Math.random().toString(36).substring(2, 8);
-        // Use the actual output format extension (.png for PNG, .jpg for JPEG)
-        const ext = compressed.type === 'image/png' ? '.png' : '.jpg';
-        const fileName = `${Date.now()}_${randomId}_q${ext}`;
-        const fileRef = ref(storage, `question_images/${fileName}`);
-        let snapshot;
         try {
-          snapshot = await uploadBytes(fileRef, compressed);
-        } catch (storageErr: any) {
+          const compressed = await compressImage(qImageFile, 1200, 0.82);
+          const randomId = Math.random().toString(36).substring(2, 8);
+          const ext = compressed.type === 'image/png' ? '.png' : '.jpg';
+          const fileName = `${Date.now()}_${randomId}_q${ext}`;
+          // Convert to base64 and upload via server (bypasses Storage Rules)
+          const arrayBuf = await compressed.arrayBuffer();
+          const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuf)));
+          const token = await user.getIdToken();
+          const upRes = await fetch('/api/admin/upload-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ base64, mimeType: compressed.type, fileName }),
+          });
+          const upData = await upRes.json();
+          if (!upRes.ok) throw new Error(upData.error || 'Upload failed');
+          finalImageUrl = upData.url;
+        } catch (err: any) {
           setUploadingQImage(false);
-          const code = storageErr?.code || '';
-          if (code === 'storage/unauthorized') {
-            alert('Image upload failed: Storage permission denied.\n\nPlease deploy updated storage.rules to Firebase:\n  firebase deploy --only storage');
-          } else {
-            alert(`Image upload failed: ${storageErr?.message || storageErr}`);
-          }
+          alert(`Image upload failed: ${err.message}`);
           return;
         }
-        finalImageUrl = await getDownloadURL(snapshot.ref);
         setUploadingQImage(false);
       }
 
