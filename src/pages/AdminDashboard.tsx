@@ -443,6 +443,8 @@ function AdminHome() {
     validity: '30 Days', totalMocks: '', features: '', isActive: true, isPopular: false,
   });
   const [batchSaving, setBatchSaving] = useState(false);
+  const [batchThumbFile, setBatchThumbFile] = useState<File | null>(null);
+  const [batchThumbPreview, setBatchThumbPreview] = useState('');
 
   const { user, profile } = useAuth();
   const passwordInputRef = useRef<HTMLInputElement>(null);
@@ -4679,21 +4681,54 @@ function AdminHome() {
               {/* Form */}
               <div className="rounded-2xl p-6 space-y-4" style={{ background: '#fff', border: '1px solid #e8ecf3', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
                 <h3 className="font-black text-base text-slate-800">{editingBatch ? '✏️ Edit Batch' : '➕ Create New Batch'}</h3>
-                {(['examName', 'description', 'thumbnailUrl'] as const).map(field => (
-                  <div key={field}>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">
-                      {field === 'examName' ? 'Exam Name *' : field === 'description' ? 'Description *' : 'Thumbnail URL'}
+                {/* Exam Name */}
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Exam Name *</label>
+                  <input value={batchForm.examName} onChange={e => setBatchForm(f => ({ ...f, examName: e.target.value }))}
+                    placeholder="e.g. PSC Clerkship Premium Batch"
+                    className="w-full rounded-xl px-3 py-2 text-sm border border-slate-200 focus:border-indigo-400 outline-none" />
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Description *</label>
+                  <textarea rows={3} value={batchForm.description} onChange={e => setBatchForm(f => ({ ...f, description: e.target.value }))}
+                    className="w-full rounded-xl px-3 py-2 text-sm border border-slate-200 focus:border-indigo-400 outline-none resize-none" />
+                </div>
+
+                {/* Thumbnail Upload */}
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Batch Thumbnail</label>
+                  {batchThumbPreview || batchForm.thumbnailUrl ? (
+                    <div className="flex items-center gap-3 p-3 rounded-xl border border-indigo-100 bg-indigo-50/30">
+                      <img src={batchThumbPreview || batchForm.thumbnailUrl} alt="thumbnail"
+                        className="w-20 h-14 object-cover rounded-lg border border-indigo-100 shrink-0" />
+                      <div className="flex flex-col gap-1.5">
+                        <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-indigo-600 hover:text-indigo-800 px-3 py-1.5 rounded-lg border border-indigo-200 bg-white transition-all w-fit">
+                          🔄 Replace Image
+                          <input type="file" accept="image/*" className="hidden" onChange={e => {
+                            const f = e.target.files?.[0];
+                            if (f) { setBatchThumbFile(f); setBatchThumbPreview(URL.createObjectURL(f)); setBatchForm(frm => ({ ...frm, thumbnailUrl: '' })); }
+                          }} />
+                        </label>
+                        <button type="button" onClick={() => { setBatchThumbFile(null); setBatchThumbPreview(''); setBatchForm(f => ({ ...f, thumbnailUrl: '' })); }}
+                          className="text-xs font-bold text-rose-500 hover:text-rose-700 px-3 py-1.5 rounded-lg border border-rose-100 bg-white transition-all w-fit">
+                          🗑 Remove
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center gap-2 p-6 cursor-pointer rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 hover:border-indigo-300 hover:bg-indigo-50/20 transition-all">
+                      <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-xl">🖼️</div>
+                      <span className="text-xs font-bold text-slate-500">Click to upload thumbnail</span>
+                      <span className="text-[10px] text-slate-400">PNG, JPG — shown on student dashboard</span>
+                      <input type="file" accept="image/*" className="hidden" onChange={e => {
+                        const f = e.target.files?.[0];
+                        if (f) { setBatchThumbFile(f); setBatchThumbPreview(URL.createObjectURL(f)); setBatchForm(frm => ({ ...frm, thumbnailUrl: '' })); }
+                      }} />
                     </label>
-                    {field === 'description' ? (
-                      <textarea rows={3} value={batchForm[field]} onChange={e => setBatchForm(f => ({ ...f, [field]: e.target.value }))}
-                        className="w-full rounded-xl px-3 py-2 text-sm border border-slate-200 focus:border-indigo-400 outline-none resize-none" />
-                    ) : (
-                      <input value={batchForm[field]} onChange={e => setBatchForm(f => ({ ...f, [field]: e.target.value }))}
-                        placeholder={field === 'examName' ? 'e.g. PSC Clerkship Premium Batch' : 'https://...'}
-                        className="w-full rounded-xl px-3 py-2 text-sm border border-slate-200 focus:border-indigo-400 outline-none" />
-                    )}
-                  </div>
-                ))}
+                  )}
+                </div>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Price (₹) *</label>
@@ -4736,8 +4771,27 @@ function AdminHome() {
                       setBatchSaving(true);
                       try {
                         const token = await user!.getIdToken();
+                        let thumbUrl = batchForm.thumbnailUrl;
+
+                        // Upload thumbnail via server if a file was picked
+                        if (batchThumbFile) {
+                          const arrayBuf = await batchThumbFile.arrayBuffer();
+                          const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuf)));
+                          const ext = batchThumbFile.type === 'image/png' ? '.png' : '.jpg';
+                          const fileName = `batch_thumb_${Date.now()}${ext}`;
+                          const upRes = await fetch('/api/admin/upload-image', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                            body: JSON.stringify({ base64, mimeType: batchThumbFile.type, fileName }),
+                          });
+                          const upData = await upRes.json();
+                          if (!upRes.ok) throw new Error(upData.error || 'Thumbnail upload failed');
+                          thumbUrl = upData.url;
+                        }
+
                         const body = {
                           ...batchForm,
+                          thumbnailUrl: thumbUrl,
                           features: batchForm.features.split(',').map(s => s.trim()).filter(Boolean),
                         };
                         const url = editingBatch ? `/api/admin/paid-batches/${editingBatch.id}` : '/api/admin/paid-batches';
@@ -4751,7 +4805,8 @@ function AdminHome() {
                         }
                         setEditingBatch(null);
                         setBatchForm({ examName: '', description: '', price: '', thumbnailUrl: '', validity: '30 Days', totalMocks: '', features: '', isActive: true, isPopular: false });
-                      } catch { alert('Failed to save batch'); }
+                        setBatchThumbFile(null); setBatchThumbPreview('');
+                      } catch (e: any) { alert(e.message || 'Failed to save batch'); }
                       setBatchSaving(false);
                     }}
                     disabled={batchSaving}
@@ -4761,7 +4816,7 @@ function AdminHome() {
                     {batchSaving ? 'Saving...' : editingBatch ? 'Update Batch' : 'Create Batch'}
                   </button>
                   {editingBatch && (
-                    <button onClick={() => { setEditingBatch(null); setBatchForm({ examName: '', description: '', price: '', thumbnailUrl: '', validity: '30 Days', totalMocks: '', features: '', isActive: true, isPopular: false }); }}
+                    <button onClick={() => { setEditingBatch(null); setBatchThumbFile(null); setBatchThumbPreview(''); setBatchForm({ examName: '', description: '', price: '', thumbnailUrl: '', validity: '30 Days', totalMocks: '', features: '', isActive: true, isPopular: false }); }}
                       className="px-4 py-2.5 rounded-xl font-bold text-sm bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">
                       Cancel
                     </button>
@@ -4793,6 +4848,7 @@ function AdminHome() {
                       <div className="flex gap-1.5 shrink-0">
                         <button onClick={() => {
                           setEditingBatch(batch);
+                          setBatchThumbFile(null); setBatchThumbPreview('');
                           setBatchForm({
                             examName: batch.examName || '', description: batch.description || '',
                             price: String(batch.price || ''), thumbnailUrl: batch.thumbnailUrl || '',
