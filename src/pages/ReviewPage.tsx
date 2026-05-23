@@ -22,10 +22,15 @@ export default function ReviewPage() {
     fetch(`/api/review-link/${code}`)
       .then(r => r.json())
       .then(d => {
-        if (d.error) setLinkError(d.error);
-        else setLinkData(d);
+        if (d.error) {
+          // Only block on explicitly deactivated links; missing links still allow review
+          if (d.status === 'inactive' || d.status === 'expired') setLinkError(d.error);
+          else setLinkData(null); // show form without link metadata
+        } else {
+          setLinkData(d);
+        }
       })
-      .catch(() => setLinkError('Failed to load review form.'))
+      .catch(() => setLinkData(null)) // network error → show form anyway
       .finally(() => setLoading(false));
   }, [code]);
 
