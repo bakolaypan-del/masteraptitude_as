@@ -2041,28 +2041,6 @@ ${allUrls.map(u => `  <url>
     }
   });
 
-  // --- API ROUTE CATCH-ALL ---
-  // This ensures that any unmatched /api/* request returns JSON, not HTML
-  app.all("/api/*", (req, res) => {
-    console.warn(`[API 404] Unmatched route: ${req.method} ${req.url}`);
-    res.status(404).json({ 
-      error: "API Route Not Found", 
-      method: req.method,
-      path: req.url 
-    });
-  });
-
-  // Global Error Handler for API
-  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.error("Unhandled API Error:", err);
-    if (res.headersSent) return next(err);
-    if (req.path.startsWith('/api/')) {
-       res.status(500).json({ success: false, error: "Internal Server Error", message: "A server-side error occurred." });
-    } else {
-       next(err);
-    }
-  });
-
   // ── Live Tests — reads from tests collection where isLive==true ───────────
   app.get("/api/live-tests", async (req, res) => {
     const currentDb = getDb();
@@ -2483,6 +2461,23 @@ ${allUrls.map(u => `  <url>
       res.json({ success: true });
     } catch (err: any) {
       res.status(500).json({ error: "Verification failed", details: err.message });
+    }
+  });
+
+  // --- API ROUTE CATCH-ALL (must be after all routes) ---
+  app.all("/api/*", (req, res) => {
+    console.warn(`[API 404] Unmatched route: ${req.method} ${req.url}`);
+    res.status(404).json({ error: "API Route Not Found", method: req.method, path: req.url });
+  });
+
+  // Global Error Handler (must be after all routes)
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error("Unhandled API Error:", err);
+    if (res.headersSent) return next(err);
+    if (req.path.startsWith('/api/')) {
+      res.status(500).json({ success: false, error: "Internal Server Error" });
+    } else {
+      next(err);
     }
   });
 
