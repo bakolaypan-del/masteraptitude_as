@@ -13,6 +13,7 @@ import 'jspdf-autotable';
 
 import AdminTypingTests from '../components/AdminTypingTests';
 import AdminCurrentAffairs from '../components/AdminCurrentAffairs';
+import AdminStudyNotes from '../components/AdminStudyNotes';
 import { Keyboard } from 'lucide-react';
 import { RenderMathText } from '../components/MathRenderer';
 import RichTextEditor, { RenderQuestionHTML } from '../components/RichTextEditor';
@@ -2205,120 +2206,7 @@ function AdminHome() {
         <AdminTypingTests />
       )}
 
-      {activeTab === 'notes' && (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-2">
-            <span className="w-2 h-8 bg-emerald-600 rounded-full"></span>
-            Study Notes Repository
-          </h2>
-          
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
-            <h3 className="text-lg font-bold text-slate-800 mb-5">{editingNoteId ? 'Update Study Material' : 'Upload / Link New Study Material'}</h3>
-            <form onSubmit={handleAddNote} className="space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Note Title *</label>
-                  <input type="text" required className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
-                    value={noteTitle} onChange={e => setNoteTitle(e.target.value)} placeholder="e.g. WBP GK Complete Notes 2026" />
-                </div>
-                <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Subject / Category</label>
-                  <input type="text" className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
-                    value={noteSubject} onChange={e => setNoteSubject(e.target.value)} placeholder="e.g. GK / Maths / History" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Short Description / SEO Meta (max 160 chars)</label>
-                <input type="text" maxLength={160} className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
-                  value={noteDesc} onChange={e => setNoteDesc(e.target.value)} placeholder="Download complete WBP GK notes with important topics..." />
-                <p className="text-[10px] text-slate-400 mt-1 text-right">{noteDesc.length}/160</p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Tags (comma separated)</label>
-                  <input type="text" className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
-                    value={noteTags} onChange={e => setNoteTags(e.target.value)} placeholder="WBP, PSC, GK, Notes" />
-                </div>
-                <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">File Upload (PDF/DOCX)</label>
-                  <input id="note-file-input" type="file" accept=".pdf,.doc,.docx,.zip"
-                    className="w-full rounded-xl border-slate-200 border-2 p-2 text-xs file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-emerald-50 file:text-emerald-700 file:font-bold"
-                    onChange={e => setNoteFile(e.target.files?.[0] || null)} />
-                </div>
-                <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">OR External Link</label>
-                  <input type="url" className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
-                    value={noteLink} onChange={e => setNoteLink(e.target.value)} placeholder="https://..." />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Featured Image (optional)</label>
-                  <input type="file" accept="image/*" className="w-full rounded-xl border-slate-200 border-2 p-2 text-xs file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-emerald-50 file:text-emerald-700 file:font-bold"
-                    onChange={e => setNoteThumb(e.target.files?.[0] || null)} />
-                </div>
-                <div className="flex gap-6 items-end pb-1">
-                  <div>
-                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Status</label>
-                    <select className="rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium text-sm"
-                      value={noteStatus} onChange={e => setNoteStatus(e.target.value as 'published' | 'draft')}>
-                      <option value="published">✅ Published</option>
-                      <option value="draft">📝 Draft</option>
-                    </select>
-                  </div>
-                  <label className="flex items-center gap-2 cursor-pointer pb-2">
-                    <input type="checkbox" checked={notePin} onChange={e => setNotePin(e.target.checked)} className="w-4 h-4 accent-emerald-600" />
-                    <span className="text-sm font-bold text-slate-600">📌 Pin to Homepage</span>
-                  </label>
-                </div>
-              </div>
-              <button disabled={uploadingNote} type="submit" className="bg-emerald-600 disabled:opacity-50 text-white px-8 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg flex items-center gap-2">
-                {uploadingNote ? <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"/> Uploading...</> : <><Plus className="w-5 h-5" />{editingNoteId ? 'Update Note' : 'Publish Note'}</>}
-              </button>
-            </form>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {notes.map(note => (
-              <div key={note.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group hover:shadow-md transition-all">
-                <div className="absolute top-4 right-4 flex gap-1">
-                  <button
-                    onClick={() => copyLink(note.link || note.fileUrl || '', `note-${note.id}`)}
-                    className={`p-2 rounded-xl transition-colors ${copiedId === `note-${note.id}` ? 'text-emerald-600 bg-emerald-50' : 'text-violet-500 hover:bg-violet-50'}`}
-                    title="Copy shareable link"
-                  >
-                    {copiedId === `note-${note.id}` ? <Check className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
-                  </button>
-                  <button
-                    onClick={() => handleEditNote(note)}
-                    className="text-indigo-500 hover:bg-indigo-50 p-2 rounded-xl transition-colors"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteContent('notes', note.id)}
-                    className="text-rose-500 hover:bg-rose-50 p-2 rounded-xl transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 mb-4 group-hover:bg-emerald-600 group-hover:text-white transition-all">
-                  <BookOpen className="w-6 h-6" />
-                </div>
-                <h4 className="font-bold text-slate-800 mb-1">{note.title}</h4>
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">{note.subject}</p>
-                <a 
-                  href={note.link} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center text-emerald-600 font-bold text-sm bg-emerald-50 px-4 py-2 rounded-xl hover:bg-emerald-100 transition-colors"
-                >
-                  View Resource
-                </a>
-              </div>
-            ))}
-            {notes.length === 0 && <div className="col-span-full py-12 text-center text-slate-400 font-bold">No study notes uploaded yet.</div>}
-          </div>
-        </div>
-      )}
+      {activeTab === 'notes' && <AdminStudyNotes />}
 
       {activeTab === 'video' && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
