@@ -1517,6 +1517,88 @@ ${allUrls.map(u => `  <url>
     }
   });
 
+  // ── Study Notes CRUD ──────────────────────────────────────────────────────
+
+  app.get("/api/admin/study-notes", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const snap = await currentDb.collection("study_notes").orderBy("createdAt", "desc").get();
+      const posts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      res.json({ posts });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch study notes", message: error.message });
+    }
+  });
+
+  app.post("/api/admin/study-notes", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    const user = (req as any).user;
+    try {
+      const data = {
+        ...req.body,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        authorId: user.uid,
+        viewCount: 0,
+      };
+      const ref = await currentDb.collection("study_notes").add(data);
+      res.json({ id: ref.id });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to create study note", message: error.message });
+    }
+  });
+
+  app.put("/api/admin/study-notes/:id", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ error: "Missing ID" });
+    try {
+      const data = { ...req.body, updatedAt: admin.firestore.FieldValue.serverTimestamp() };
+      await currentDb.collection("study_notes").doc(id).update(data);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to update study note", message: error.message });
+    }
+  });
+
+  app.delete("/api/admin/study-notes/:id", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ error: "Missing ID" });
+    try {
+      await currentDb.collection("study_notes").doc(id).delete();
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to delete study note", message: error.message });
+    }
+  });
+
+  app.get("/api/admin/study-note-categories", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const snap = await currentDb.collection("settings").doc("study_note_categories").get();
+      res.json({ cats: snap.exists ? (snap.data()?.cats || []) : [] });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch categories", message: error.message });
+    }
+  });
+
+  app.post("/api/admin/study-note-categories", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      await currentDb.collection("settings").doc("study_note_categories").set({ cats: req.body.cats });
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to save categories", message: error.message });
+    }
+  });
+
   app.delete("/api/admin/practice_sets/:id", verifyToken, verifyAdmin, async (req, res) => {
     const currentDb = getDb();
     if (!currentDb) return res.status(500).json({ error: "Database offline" });

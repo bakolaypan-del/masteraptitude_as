@@ -1,17 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  collection, query, getDocs, addDoc, updateDoc, deleteDoc,
-  doc, orderBy, serverTimestamp, getDoc, setDoc,
-} from 'firebase/firestore';
 import { ref as sRef, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../lib/firebase';
+import { storage, auth } from '../lib/firebase';
 import { useAuth } from './AuthContext';
 import RichTextEditor from './RichTextEditor';
 import {
   Plus, Trash2, Edit2, GripVertical, Save, X, ArrowLeft,
-  Settings, ChevronDown, Eye, Layers, Upload,
+  Settings, ChevronDown, Layers, Upload,
   Image as ImgIcon, FileText as PdfIcon, RefreshCw,
-  Copy, Check, Link2, BookOpen,
+  Check, Link2,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -53,7 +49,6 @@ interface StudyNotePost {
   tags?: string[];
   sections?: NoteSection[];
   viewCount?: number;
-  createdAt?: any;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -87,6 +82,29 @@ const COLOR_OPTIONS = [
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 const toSlug = (t: string) =>
   t.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').slice(0, 80);
+
+async function apiToken() {
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error('Not authenticated');
+  return token;
+}
+
+async function apiFetch(path: string, options: RequestInit = {}) {
+  const token = await apiToken();
+  const res = await fetch(path, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      ...(options.headers || {}),
+    },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `Request failed: ${res.status}`);
+  }
+  return res.json();
+}
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -163,20 +181,16 @@ export default function AdminStudyNotes() {
 
   const fetchPosts = async () => {
     try {
-      const snap = await getDocs(query(collection(db, 'study_notes'), orderBy('createdAt', 'desc')));
-      setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() } as StudyNotePost)));
+      const data = await apiFetch('/api/admin/study-notes');
+      setPosts(data.posts || []);
     } catch { setPosts([]); }
   };
 
   const fetchCategories = async () => {
     try {
-      const snap = await getDoc(doc(db, 'settings', 'study_note_categories'));
-      if (snap.exists()) {
-        const cats = (snap.data().cats || []) as NoteCategory[];
-        setCategories(cats.length > 0 ? cats : defaultCategories());
-      } else {
-        setCategories(defaultCategories());
-      }
+      const data = await apiFetch('/api/admin/study-note-categories');
+      const cats = data.cats || [];
+      setCategories(cats.length > 0 ? cats : defaultCategories());
     } catch {
       setCategories(defaultCategories());
     }
@@ -187,7 +201,10 @@ export default function AdminStudyNotes() {
 
   const seedDefaults = async () => {
     const cats = DEFAULT_CATEGORY_PRESETS.map((p, i) => ({ ...p, id: uid(), order: i }));
-    await setDoc(doc(db, 'settings', 'study_note_categories'), { cats });
+    await apiFetch('/api/admin/study-note-categories', {
+      method: 'POST',
+      body: JSON.stringify({ cats }),
+    });
     setCategories(cats);
   };
 
@@ -288,7 +305,7 @@ export default function AdminStudyNotes() {
         const snap = await uploadBytes(sRef(storage, name), thumbFile);
         thumbFinalUrl = await getDownloadURL(snap.ref);
       }
-      const data = {
+      const body = {
         title: title.trim(),
         slug: slug || toSlug(title),
         subject: subject.trim(),
@@ -300,21 +317,23 @@ export default function AdminStudyNotes() {
         tags: tags.split(',').map(t => t.trim()).filter(Boolean),
         thumbnailUrl: thumbFinalUrl,
         sections,
-        updatedAt: serverTimestamp(),
       };
       if (editPost) {
-        await updateDoc(doc(db, 'study_notes', editPost.id), data);
+        await apiFetch(`/api/admin/study-notes/${editPost.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(body),
+        });
       } else {
-        await addDoc(collection(db, 'study_notes'), {
-          ...data, viewCount: 0,
-          createdAt: serverTimestamp(), authorId: user.uid,
+        await apiFetch('/api/admin/study-notes', {
+          method: 'POST',
+          body: JSON.stringify(body),
         });
       }
       await fetchPosts();
       setView('list');
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Error saving study note');
+      alert('Error saving study note: ' + (err.message || 'Unknown error'));
     } finally {
       setSaving(false);
     }
@@ -322,8 +341,12 @@ export default function AdminStudyNotes() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this study note permanently?')) return;
-    await deleteDoc(doc(db, 'study_notes', id));
-    await fetchPosts();
+    try {
+      await apiFetch(`/api/admin/study-notes/${id}`, { method: 'DELETE' });
+      await fetchPosts();
+    } catch (err: any) {
+      alert('Error deleting: ' + (err.message || 'Unknown error'));
+    }
   };
 
   // ── Category CRUD ──────────────────────────────────────────────────────────
@@ -335,7 +358,10 @@ export default function AdminStudyNotes() {
   };
 
   const persistCategories = async (updated: NoteCategory[]) => {
-    await setDoc(doc(db, 'settings', 'study_note_categories'), { cats: updated });
+    await apiFetch('/api/admin/study-note-categories', {
+      method: 'POST',
+      body: JSON.stringify({ cats: updated }),
+    });
     setCategories(updated);
   };
 
@@ -417,42 +443,24 @@ export default function AdminStudyNotes() {
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden divide-y divide-slate-50">
           {posts.map(post => (
             <div key={post.id} className="flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50 transition-colors group">
-              {/* Status dot */}
               <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${post.status === 'published' ? 'bg-green-500' : 'bg-amber-400'}`} />
-
-              {/* Title */}
               <span className="font-bold text-slate-800 text-sm flex-1 truncate">{post.title}</span>
-
-              {/* Subject - hidden on mobile */}
               {post.subject && (
                 <span className="text-xs text-slate-400 font-medium shrink-0 hidden sm:block">{post.subject}</span>
               )}
-
-              {/* Section count */}
               <span className="text-xs text-slate-500 shrink-0 hidden sm:inline-flex items-center gap-1">
                 <Layers className="w-3 h-3" />{(post.sections || []).length}
               </span>
-
-              {/* Actions */}
               <div className="flex items-center gap-1.5 shrink-0">
-                <button onClick={() => openEditor(post)}
-                  title="Edit"
+                <button onClick={() => openEditor(post)} title="Edit"
                   className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all">
                   <Edit2 className="w-3.5 h-3.5" />
                 </button>
-                <button
-                  onClick={() => copyShareLink(post.id)}
-                  title="Copy shareable link"
-                  className={`p-1.5 rounded-lg transition-all ${
-                    copiedId === post.id
-                      ? 'bg-green-50 text-green-600'
-                      : 'text-slate-400 hover:bg-blue-50 hover:text-blue-600'
-                  }`}
-                >
+                <button onClick={() => copyShareLink(post.id)} title="Copy shareable link"
+                  className={`p-1.5 rounded-lg transition-all ${copiedId === post.id ? 'bg-green-50 text-green-600' : 'text-slate-400 hover:bg-blue-50 hover:text-blue-600'}`}>
                   {copiedId === post.id ? <Check className="w-3.5 h-3.5" /> : <Link2 className="w-3.5 h-3.5" />}
                 </button>
-                <button onClick={() => handleDelete(post.id)}
-                  title="Delete"
+                <button onClick={() => handleDelete(post.id)} title="Delete"
                   className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -572,7 +580,6 @@ export default function AdminStudyNotes() {
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Header */}
       <div className="flex items-center gap-4 mb-6 flex-wrap">
         <button onClick={() => setView('list')} className="p-2 rounded-xl hover:bg-slate-100 text-slate-500 transition-colors">
           <ArrowLeft className="w-5 h-5" />
@@ -591,7 +598,6 @@ export default function AdminStudyNotes() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* ── Left: Basic Info ─────────────────────────────────────────────── */}
         <div className="xl:col-span-1 space-y-5">
-
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
             <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest border-b border-slate-100 pb-2">Basic Info</h3>
 
@@ -696,7 +702,6 @@ export default function AdminStudyNotes() {
                 <p className="text-[10px] text-slate-400 mt-0.5">Drag the gradient headers to reorder sections</p>
               </div>
 
-              {/* Add Section dropdown */}
               <div className="relative" ref={addSectionRef}>
                 <button
                   onClick={() => setShowAddSection(p => !p)}
@@ -760,7 +765,6 @@ export default function AdminStudyNotes() {
               </div>
             </div>
 
-            {/* Sections list */}
             {sections.length === 0 ? (
               <div className="border-2 border-dashed border-slate-200 rounded-2xl py-16 flex flex-col items-center justify-center gap-3 text-slate-400">
                 <Layers className="w-10 h-10 opacity-40" />
@@ -776,12 +780,9 @@ export default function AdminStudyNotes() {
                     onDrop={() => handleDrop(i)}
                     onDragLeave={() => setDragOverIdx(null)}
                     className={`rounded-2xl overflow-hidden border-2 transition-all duration-150 ${
-                      dragOverIdx === i && dragIdx !== i
-                        ? 'border-emerald-400 shadow-lg scale-[1.005]'
-                        : 'border-slate-200'
+                      dragOverIdx === i && dragIdx !== i ? 'border-emerald-400 shadow-lg scale-[1.005]' : 'border-slate-200'
                     } ${dragIdx === i ? 'opacity-40' : 'opacity-100'}`}
                   >
-                    {/* Draggable gradient header */}
                     <div
                       draggable
                       onDragStart={() => setDragIdx(i)}
@@ -796,12 +797,10 @@ export default function AdminStudyNotes() {
                     >
                       <GripVertical className="w-4 h-4 text-white/60 shrink-0" />
                       <span className="text-lg leading-none">
-                        {section.type === 'category' ? section.categoryIcon
-                          : section.type === 'image' ? '📷' : '📄'}
+                        {section.type === 'category' ? section.categoryIcon : section.type === 'image' ? '📷' : '📄'}
                       </span>
                       <span className="text-white font-black text-sm flex-1">
-                        {section.type === 'category' ? section.categoryName
-                          : section.type === 'image' ? 'Image Block' : 'PDF Document'}
+                        {section.type === 'category' ? section.categoryName : section.type === 'image' ? 'Image Block' : 'PDF Document'}
                       </span>
                       <button type="button" onClick={() => deleteSection(section.id)}
                         className="p-1 text-white/70 hover:text-white hover:bg-black/20 rounded-lg transition-all">
@@ -809,10 +808,7 @@ export default function AdminStudyNotes() {
                       </button>
                     </div>
 
-                    {/* Section body */}
                     <div className="bg-white p-4" onDragStart={(e) => e.stopPropagation()}>
-
-                      {/* ── Category / Subject section ── */}
                       {section.type === 'category' && (
                         <RichTextEditor
                           value={section.content || ''}
@@ -822,7 +818,6 @@ export default function AdminStudyNotes() {
                         />
                       )}
 
-                      {/* ── Image section ── */}
                       {section.type === 'image' && (
                         <div className="space-y-3">
                           {section.imageUrl ? (
@@ -850,7 +845,6 @@ export default function AdminStudyNotes() {
                         </div>
                       )}
 
-                      {/* ── PDF section ── */}
                       {section.type === 'pdf' && (
                         <div className="space-y-3">
                           <input type="text" value={section.pdfTitle || ''}
