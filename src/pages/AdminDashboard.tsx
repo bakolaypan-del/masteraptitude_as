@@ -4362,7 +4362,7 @@ function AdminHome() {
                           {/* Action buttons */}
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {review.status !== 'approved' && (
-                              <button onClick={() => updateReview(review.id, { status: 'approved' })}
+                              <button onClick={() => updateReview(review.id, { status: 'approved', showHomepage: true })}
                                 className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-black hover:bg-emerald-100 transition-all flex items-center gap-1">
                                 <CheckCircle className="w-3 h-3" /> Approve
                               </button>

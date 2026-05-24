@@ -2181,7 +2181,6 @@ ${allUrls.map(u => `  <url>
     try {
       const snap = await currentDb.collection("student_reviews")
         .where("status", "==", "approved")
-        .where("showHomepage", "==", true)
         .orderBy("createdAt", "desc")
         .get();
       res.json({ reviews: snap.docs.map(d => ({ id: d.id, ...d.data() })) });
