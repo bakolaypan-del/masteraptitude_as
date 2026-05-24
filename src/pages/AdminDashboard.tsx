@@ -12,6 +12,7 @@ import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 
 import AdminTypingTests from '../components/AdminTypingTests';
+import AdminCurrentAffairs from '../components/AdminCurrentAffairs';
 import { Keyboard } from 'lucide-react';
 import { RenderMathText } from '../components/MathRenderer';
 import RichTextEditor, { RenderQuestionHTML } from '../components/RichTextEditor';
@@ -2878,13 +2879,15 @@ function AdminHome() {
         </div>
       )}
 
-      {activeTab === 'affairs' && (
+      {activeTab === 'affairs' && <AdminCurrentAffairs />}
+
+      {false && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
           <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-2">
             <span className="w-2 h-8 bg-orange-600 rounded-full"></span>
             Current Affairs Management
           </h2>
-          
+
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8 space-y-6">
             <h3 className="text-lg font-bold text-slate-800">Add Current Affair</h3>
             <form onSubmit={handleAddAffair} className="space-y-5">

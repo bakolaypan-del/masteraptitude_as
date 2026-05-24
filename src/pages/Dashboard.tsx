@@ -780,9 +780,9 @@ export default function Dashboard() {
                 >
                   Study Notes
                 </button>
-                <button 
-                  onClick={() => { setActiveTab('affairs'); setIsSidebarOpen(false); }} 
-                  className={`w-full sub-category sub-learn-affairs ${activeTab === 'affairs' ? 'active' : ''}`}
+                <button
+                  onClick={() => { navigate('/current-affairs'); setIsSidebarOpen(false); }}
+                  className="w-full sub-category sub-learn-affairs"
                 >
                   Current Affairs
                 </button>
@@ -1145,7 +1145,7 @@ export default function Dashboard() {
                   { w1:'PAID',    w2:'MOCK',    icon:String.fromCodePoint(0x1F6E1), neon:'#c084fc', bg:'linear-gradient(155deg,#1c0a42,#30126e)', badge:'PREMIUM', action:()=>navigate('/paid-mock') },
                   { w1:'TYPING',  w2:'TEST',    icon:String.fromCodePoint(0x2328),  neon:'#00ff88', bg:'linear-gradient(155deg,#042618,#083f28)',  badge:null,      action:()=>navigate('/typing-test') },
                   { w1:'EBOOK',   w2:'',        icon:String.fromCodePoint(0x1F4D6), neon:'#ffa820', bg:'linear-gradient(155deg,#251400,#3f2200)',  badge:null,      action:()=>setActiveTab('notes') },
-                  { w1:'CURRENT', w2:'AFFAIRS', icon:String.fromCodePoint(0x1F4F0), neon:'#00ffe0', bg:'linear-gradient(155deg,#002828,#004040)',  badge:null,      action:()=>setActiveTab('affairs') },
+                  { w1:'CURRENT', w2:'AFFAIRS', icon:String.fromCodePoint(0x1F4F0), neon:'#00ffe0', bg:'linear-gradient(155deg,#002828,#004040)',  badge:null,      action:()=>navigate('/current-affairs') },
                   { w1:'PYQs',    w2:'',        icon:String.fromCodePoint(0x1F4DD), neon:'#ff3fa4', bg:'linear-gradient(155deg,#280018,#420030)',  badge:null,      action:()=>setActiveTab('pyq') },
                 ];
                 return (
@@ -1486,42 +1486,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Affairs Tab Content */}
-          {activeTab === 'affairs' && (
-            <div className="space-y-6 animate-in fade-in duration-700">
-              <div className="flex items-center gap-3">
-                <div className="w-1.5 h-8 bg-gradient-to-b from-blue-500 to-indigo-600 rounded-full"></div>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight">📰 Current Affairs</h2>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {affairs.map(item => (
-                  <div key={item.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group hover:shadow-xl hover:shadow-blue-50 hover:-translate-y-1 transition-all duration-300 overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full translate-x-1/2 -translate-y-1/2 group-hover:scale-150 transition-transform duration-500 pointer-events-none"></div>
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center text-white mb-4 shadow-lg shadow-blue-200 group-hover:scale-110 transition-transform duration-300">
-                      <FileText className="w-6 h-6" />
-                    </div>
-                    <h4 className="font-black text-slate-800 text-base mb-1 tracking-tight line-clamp-2">{item.title}</h4>
-                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-5 bg-blue-50 inline-block px-2 py-0.5 rounded-md">{item.date || 'Latest'}</p>
-                    <a
-                      href={item.link} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center justify-between w-full text-blue-700 font-bold text-xs uppercase tracking-wider bg-blue-50 border border-blue-100 px-4 py-2.5 rounded-xl hover:bg-blue-600 hover:text-white hover:border-transparent transition-all"
-                    >
-                      Read Now
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
-                  </div>
-                ))}
-                {affairs.length === 0 && (
-                  <div className="col-span-full bg-white rounded-3xl p-16 border border-slate-100 text-center shadow-sm">
-                    <div className="w-16 h-16 bg-blue-50 rounded-3xl flex items-center justify-center mx-auto mb-4">
-                      <FileText className="w-8 h-8 text-blue-200" />
-                    </div>
-                    <p className="font-black text-sm uppercase tracking-widest text-slate-400">No Current Affairs uploaded yet.</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          {/* Affairs tab — navigates to /current-affairs full page */}
 
           {/* Practice Set Tab Content */}
           {activeTab === 'practice' && (
@@ -1769,7 +1734,7 @@ export default function Dashboard() {
 
                 {/* Current Affairs */}
                 <button
-                  onClick={() => setActiveTab('affairs')}
+                  onClick={() => navigate('/current-affairs')}
                   className="group relative overflow-hidden rounded-3xl p-5 text-left bg-white border border-sky-100 shadow-sm hover:shadow-xl hover:shadow-sky-100 hover:-translate-y-1 transition-all duration-300"
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-sky-50 to-cyan-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl" />
