@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   collection, query, getDocs, where, orderBy,
   doc, updateDoc, increment,
@@ -53,6 +53,7 @@ const saveBookmarks = (bks: string[]) => localStorage.setItem(BKEY, JSON.stringi
 
 export default function CurrentAffairsPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [posts, setPosts] = useState<AffairPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -66,6 +67,14 @@ export default function CurrentAffairsPage() {
     fetchPosts();
     return () => { document.title = 'Master Aptitude'; };
   }, []);
+
+  // Auto-open article from ?post=<id> deep link
+  useEffect(() => {
+    const postId = searchParams.get('post');
+    if (!postId || loading || posts.length === 0) return;
+    const target = posts.find(p => p.id === postId);
+    if (target) openArticle(target);
+  }, [searchParams, posts, loading]);
 
   const fetchPosts = async () => {
     try {

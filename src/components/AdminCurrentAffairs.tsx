@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   collection, query, getDocs, addDoc, updateDoc, deleteDoc,
-  doc, orderBy, serverTimestamp,
+  doc, orderBy, serverTimestamp, getDoc, setDoc,
 } from 'firebase/firestore';
 import { ref as sRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../lib/firebase';
@@ -11,6 +11,7 @@ import {
   Plus, Trash2, Edit2, GripVertical, Save, X, ArrowLeft,
   Settings, ChevronDown, Eye, Layers, Upload,
   Image as ImgIcon, FileText as PdfIcon, RefreshCw,
+  Copy, Check, Link2,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -116,6 +117,18 @@ export default function AdminCurrentAffairs() {
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
+  // ── Copy link state ──
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const APP_URL = 'https://masteraptitude.vercel.app';
+
+  const copyShareLink = (postId: string) => {
+    const url = `${APP_URL}/current-affairs?post=${postId}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedId(postId);
+      setTimeout(() => setCopiedId(null), 2000);
+    }).catch(() => alert(`Share link:\n${url}`));
+  };
+
   // ── Category form state ──
   const [catName, setCatName] = useState('');
   const [catIcon, setCatIcon] = useState('📰');
@@ -153,21 +166,26 @@ export default function AdminCurrentAffairs() {
 
   const fetchCategories = async () => {
     try {
-      const snap = await getDocs(query(collection(db, 'affair_categories'), orderBy('order')));
-      setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() } as AffairCategory)));
-    } catch { setCategories([]); }
+      const snap = await getDoc(doc(db, 'settings', 'affair_categories'));
+      if (snap.exists()) {
+        const cats = (snap.data().cats || []) as AffairCategory[];
+        setCategories(cats.length > 0 ? cats : defaultCategories());
+      } else {
+        // No doc yet — use presets directly so the editor works immediately
+        setCategories(defaultCategories());
+      }
+    } catch {
+      setCategories(defaultCategories());
+    }
   };
 
+  const defaultCategories = (): AffairCategory[] =>
+    DEFAULT_CATEGORY_PRESETS.map((p, i) => ({ ...p, id: `default_${i}`, order: i }));
+
   const seedDefaults = async () => {
-    for (let i = 0; i < DEFAULT_CATEGORY_PRESETS.length; i++) {
-      const p = DEFAULT_CATEGORY_PRESETS[i];
-      await addDoc(collection(db, 'affair_categories'), {
-        name: p.name, icon: p.icon,
-        colorFrom: p.colorFrom, colorTo: p.colorTo,
-        order: i, createdAt: serverTimestamp(),
-      });
-    }
-    await fetchCategories();
+    const cats = DEFAULT_CATEGORY_PRESETS.map((p, i) => ({ ...p, id: uid(), order: i }));
+    await setDoc(doc(db, 'settings', 'affair_categories'), { cats });
+    setCategories(cats);
   };
 
   // ── Editor helpers ─────────────────────────────────────────────────────────
@@ -311,24 +329,31 @@ export default function AdminCurrentAffairs() {
     setCatColorFrom(cat.colorFrom); setCatColorTo(cat.colorTo);
   };
 
+  const persistCategories = async (updated: AffairCategory[]) => {
+    await setDoc(doc(db, 'settings', 'affair_categories'), { cats: updated });
+    setCategories(updated);
+  };
+
   const handleSaveCat = async () => {
     if (!catName.trim()) return;
     setSavingCat(true);
     try {
+      let updated: AffairCategory[];
       if (editCatId) {
-        await updateDoc(doc(db, 'affair_categories', editCatId), {
-          name: catName, icon: catIcon, colorFrom: catColorFrom, colorTo: catColorTo,
-        });
+        updated = categories.map(c =>
+          c.id === editCatId
+            ? { ...c, name: catName, icon: catIcon, colorFrom: catColorFrom, colorTo: catColorTo }
+            : c
+        );
       } else {
-        await addDoc(collection(db, 'affair_categories'), {
-          name: catName, icon: catIcon,
-          colorFrom: catColorFrom, colorTo: catColorTo,
-          order: categories.length, createdAt: serverTimestamp(),
-        });
+        updated = [
+          ...categories,
+          { id: uid(), name: catName, icon: catIcon, colorFrom: catColorFrom, colorTo: catColorTo, order: categories.length },
+        ];
       }
+      await persistCategories(updated);
       setCatName(''); setCatIcon('📰'); setEditCatId(null);
       setCatColorFrom(COLOR_OPTIONS[0].from); setCatColorTo(COLOR_OPTIONS[0].to);
-      await fetchCategories();
     } finally {
       setSavingCat(false);
     }
@@ -336,8 +361,7 @@ export default function AdminCurrentAffairs() {
 
   const handleDeleteCat = async (id: string) => {
     if (!confirm('Delete this category?')) return;
-    await deleteDoc(doc(db, 'affair_categories', id));
-    await fetchCategories();
+    await persistCategories(categories.filter(c => c.id !== id));
   };
 
   // ── Loading ────────────────────────────────────────────────────────────────
@@ -420,6 +444,19 @@ export default function AdminCurrentAffairs() {
                   <button onClick={() => openEditor(post)}
                     className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-slate-50 text-slate-700 font-bold text-xs hover:bg-orange-50 hover:text-orange-600 transition-all">
                     <Edit2 className="w-3.5 h-3.5" /> Edit
+                  </button>
+                  <button
+                    onClick={() => copyShareLink(post.id)}
+                    title="Copy shareable link"
+                    className={`p-2 rounded-xl transition-all ${
+                      copiedId === post.id
+                        ? 'bg-green-50 text-green-600'
+                        : 'text-slate-400 hover:bg-blue-50 hover:text-blue-600'
+                    }`}
+                  >
+                    {copiedId === post.id
+                      ? <Check className="w-3.5 h-3.5" />
+                      : <Link2 className="w-3.5 h-3.5" />}
                   </button>
                   <button onClick={() => handleDelete(post.id)}
                     className="p-2 rounded-xl text-rose-500 hover:bg-rose-50 transition-all">

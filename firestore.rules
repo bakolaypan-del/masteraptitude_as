@@ -112,6 +112,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /affair_categories/{catId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
     match /practice_sets/{setId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
