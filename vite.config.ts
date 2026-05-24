@@ -67,14 +67,21 @@ export default defineConfig(({ mode }) => {
               handler: 'NetworkOnly',
             },
             {
-              // Our Express API — network first, 3s timeout, fallback to cache
-              urlPattern: /\/api\/.*/i,
+              // Our Express API — GET reads: network first, 10s timeout, fallback to cache
+              urlPattern: ({ request, url }: { request: Request; url: URL }) =>
+                request.method === 'GET' && url.pathname.startsWith('/api/'),
               handler: 'NetworkFirst',
               options: {
                 cacheName: 'api-cache',
-                networkTimeoutSeconds: 3,
+                networkTimeoutSeconds: 10,
                 expiration: { maxEntries: 50, maxAgeSeconds: 300 },
               },
+            },
+            {
+              // Admin write operations (POST/PUT/DELETE) — always go to network, never cache
+              urlPattern: ({ request, url }: { request: Request; url: URL }) =>
+                request.method !== 'GET' && url.pathname.startsWith('/api/'),
+              handler: 'NetworkOnly',
             },
             {
               // Google Fonts — stale while revalidate

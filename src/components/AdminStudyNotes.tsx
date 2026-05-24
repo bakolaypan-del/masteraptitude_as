@@ -89,21 +89,30 @@ async function apiToken() {
   return token;
 }
 
-async function apiFetch(path: string, options: RequestInit = {}) {
+async function apiFetch(path: string, options: RequestInit = {}, attempt = 0): Promise<any> {
   const token = await apiToken();
-  const res = await fetch(path, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      ...(options.headers || {}),
-    },
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `Request failed: ${res.status}`);
+  try {
+    const res = await fetch(path, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        ...(options.headers || {}),
+      },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Server error ${res.status}`);
+    }
+    return res.json();
+  } catch (err: any) {
+    // Retry once on network-level failure (handles SW timeout / Vercel cold start)
+    if (attempt === 0 && (err.name === 'TypeError' || err.message?.includes('fetch'))) {
+      await new Promise(r => setTimeout(r, 1500));
+      return apiFetch(path, options, 1);
+    }
+    throw err;
   }
-  return res.json();
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
