@@ -38,7 +38,8 @@
       "PowerShell(git push origin main 2>&1)",
       "Bash(xargs grep -l \"affairs\\\\|practice.*set\\\\|current.*affair\")",
       "Bash(firebase projects:list)",
-      "Bash(curl -s http://localhost:5173)"
+      "Bash(curl -s http://localhost:5173)",
+      "Bash(npx firebase *)"
     ]
   }
 }
