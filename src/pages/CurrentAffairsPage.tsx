@@ -122,12 +122,12 @@ export default function CurrentAffairsPage() {
   const openArticle = (post: AffairPost) => {
     setOpenPost(post);
     updateDoc(doc(db, 'affairs', post.id), { viewCount: increment(1) }).catch(() => {});
-    document.body.style.overflow = 'hidden';
+    window.scrollTo(0, 0);
   };
 
   const closeArticle = () => {
     setOpenPost(null);
-    document.body.style.overflow = '';
+    window.scrollTo(0, 0);
   };
 
   return (
@@ -146,148 +146,231 @@ export default function CurrentAffairsPage() {
       {/* ── Sticky Top Bar ─────────────────────────────────────────────────── */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
-          <button onClick={() => navigate('/dashboard')}
+          <button onClick={openPost ? closeArticle : () => navigate('/dashboard')}
             className="p-2 rounded-xl hover:bg-slate-100 text-slate-500 transition-colors shrink-0">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <span className="text-xl shrink-0">📰</span>
-          <h1 className="font-black text-slate-800 text-base flex-1 truncate">Current Affairs</h1>
-          <div className="relative w-40 sm:w-56 shrink-0">
-            <input value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Search..."
-              className="w-full bg-slate-100 rounded-xl py-2 pl-8 pr-8 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-300" />
-            <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            {search && (
-              <button onClick={() => setSearch('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                <X className="w-3.5 h-3.5" />
+          {openPost ? (
+            <>
+              <h1 className="font-black text-slate-800 text-base flex-1 truncate line-clamp-1">{openPost.title}</h1>
+              <button onClick={() => toggleBookmark(openPost.id)}
+                title={bookmarks.includes(openPost.id) ? 'Remove bookmark' : 'Bookmark this article'}
+                className={`p-2 rounded-xl transition-all shrink-0 ${bookmarks.includes(openPost.id) ? 'text-amber-500 bg-amber-50' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'}`}>
+                {bookmarks.includes(openPost.id) ? <Bookmark className="w-4 h-4 fill-current" /> : <BookmarkPlus className="w-4 h-4" />}
               </button>
-            )}
-          </div>
-          <button onClick={() => setShowBookmarksOnly(p => !p)}
-            title={showBookmarksOnly ? 'Show all' : 'Show bookmarks'}
-            className={`p-2 rounded-xl transition-colors shrink-0 ${showBookmarksOnly ? 'bg-amber-100 text-amber-600' : 'hover:bg-slate-100 text-slate-400'}`}>
-            <Bookmark className="w-4 h-4" />
-          </button>
+              <a href={`https://wa.me/?text=${encodeURIComponent(`${openPost.title}\nhttps://masteraptitude.vercel.app/current-affairs`)}`}
+                target="_blank" rel="noopener noreferrer" title="Share on WhatsApp"
+                className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-xl transition-all shrink-0">
+                <Share2 className="w-4 h-4" />
+              </a>
+            </>
+          ) : (
+            <>
+              <span className="text-xl shrink-0">📰</span>
+              <h1 className="font-black text-slate-800 text-base flex-1 truncate">Current Affairs</h1>
+              <div className="relative w-40 sm:w-56 shrink-0">
+                <input value={search} onChange={e => setSearch(e.target.value)}
+                  placeholder="Search..."
+                  className="w-full bg-slate-100 rounded-xl py-2 pl-8 pr-8 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-300" />
+                <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                {search && (
+                  <button onClick={() => setSearch('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+              <button onClick={() => setShowBookmarksOnly(p => !p)}
+                title={showBookmarksOnly ? 'Show all' : 'Show bookmarks'}
+                className={`p-2 rounded-xl transition-colors shrink-0 ${showBookmarksOnly ? 'bg-amber-100 text-amber-600' : 'hover:bg-slate-100 text-slate-400'}`}>
+                <Bookmark className="w-4 h-4" />
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4">
+      {openPost ? (
+        // ── Inline Article Detail View ─────────────────────────────────────
+        <div className="max-w-3xl mx-auto px-4 py-6 pb-10">
+          {/* Thumbnail */}
+          {openPost.thumbnailUrl && (
+            <div className="rounded-2xl overflow-hidden bg-slate-100 mb-6 shadow-md">
+              <img src={openPost.thumbnailUrl} alt={openPost.title} className="w-full aspect-video object-cover" />
+            </div>
+          )}
 
-        {/* ── Bengali Intro Section ────────────────────────────────────────── */}
-        <div className="relative overflow-hidden rounded-3xl my-6 shadow-2xl"
-          style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #312e81 50%, #0f172a 100%)' }}>
-          {/* Animated background blobs */}
-          <div className="blob1 absolute top-0 left-0 w-80 h-80 rounded-full pointer-events-none"
-            style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.18) 0%, transparent 70%)' }} />
-          <div className="blob2 absolute bottom-0 right-0 w-64 h-64 rounded-full pointer-events-none"
-            style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.18) 0%, transparent 70%)' }} />
+          {/* Article meta */}
+          <div className="mb-6">
+            <h1 className="text-2xl md:text-3xl font-black text-slate-900 mb-3 leading-tight">{openPost.title}</h1>
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              {openPost.date && (
+                <span className="flex items-center gap-1 text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">
+                  <Calendar className="w-3 h-3" />{openPost.date}
+                </span>
+              )}
+              {(openPost.tags || []).map(t => (
+                <span key={t} className="flex items-center gap-0.5 text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
+                  <TagIcon className="w-2.5 h-2.5" />{t}
+                </span>
+              ))}
+            </div>
+            {openPost.description && (
+              <p className="text-base text-slate-600 leading-relaxed p-4 bg-blue-50/50 rounded-xl border border-blue-100/50">
+                {openPost.description}
+              </p>
+            )}
+          </div>
 
-          <div className="relative z-10 px-6 py-8 md:py-10">
-            <div className="flex items-start gap-4 md:gap-6">
-              <div className="text-5xl md:text-6xl shrink-0" style={{ animation: 'bounce 2s ease-in-out infinite' }}>📰</div>
-              <div>
-                <h2 className="text-xl md:text-2xl font-black text-white mb-3 leading-tight"
-                  style={{ fontFamily: "'Baloo Da 2', sans-serif" }}>
-                  Current Affairs Portal
-                </h2>
-                <p className="text-blue-200 leading-relaxed text-sm md:text-base mb-4"
-                  style={{ fontFamily: "'Hind Siliguri', sans-serif", lineHeight: 1.9 }}>
-                  বর্তমান সময়ে সকল Competitive Exam-এ Current Affairs অত্যন্ত গুরুত্বপূর্ণ একটি অংশ।
-                  প্রতিদিনের জাতীয়, আন্তর্জাতিক, রাজ্য, গুরুত্বপূর্ণ দিবস, খেলাধুলা, বিজ্ঞান ও প্রযুক্তি
-                  সম্পর্কিত আপডেট নিয়মিত পড়া সফলতার জন্য অপরিহার্য।
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {['📋 জাতীয়', '🌍 আন্তর্জাতিক', '🏛️ রাজ্য', '⚽ খেলাধুলা', '🔬 বিজ্ঞান', '💰 অর্থনীতি', '🏆 পুরস্কার'].map(tag => (
-                    <span key={tag} className="px-3 py-1 text-xs font-medium text-blue-100 rounded-full"
-                      style={{
-                        fontFamily: "'Hind Siliguri', sans-serif",
-                        background: 'rgba(255,255,255,0.1)',
-                        border: '1px solid rgba(255,255,255,0.15)',
-                        backdropFilter: 'blur(4px)',
-                      }}>
-                      {tag}
-                    </span>
-                  ))}
+          {/* Sections */}
+          <div className="space-y-5 mb-6">
+            {(openPost.sections || []).length > 0 ? (
+              (openPost.sections || []).map(section => (
+                <SectionRenderer key={section.id} section={section} />
+              ))
+            ) : openPost.link ? null : (
+              <div className="text-center py-8 text-slate-400">
+                <p className="text-sm font-medium">No content sections yet.</p>
+              </div>
+            )}
+          </div>
+
+          {/* External link */}
+          {openPost.link && (
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-5 mb-6">
+              <p className="text-sm font-black text-blue-800 mb-3">📖 Read Full Article</p>
+              <a href={openPost.link} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all active:scale-95">
+                Open Article <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          )}
+
+          {/* Share footer */}
+          <div className="border-t border-slate-200 pt-4">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Share this article</p>
+            <div className="flex gap-2 flex-wrap">
+              <a href={`https://wa.me/?text=${encodeURIComponent(`${openPost.title}\nhttps://masteraptitude.vercel.app/current-affairs`)}`}
+                target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-xl hover:bg-green-700 transition-all active:scale-95">
+                💬 WhatsApp
+              </a>
+              <a href={`https://t.me/share/url?url=${encodeURIComponent('https://masteraptitude.vercel.app/current-affairs')}&text=${encodeURIComponent(openPost.title)}`}
+                target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 bg-sky-500 text-white text-sm font-bold rounded-xl hover:bg-sky-600 transition-all active:scale-95">
+                ✈️ Telegram
+              </a>
+            </div>
+          </div>
+        </div>
+      ) : (
+        // ── List View ──────────────────────────────────────────────────────
+        <div className="max-w-5xl mx-auto px-4">
+          {/* ── Bengali Intro Section ──────────────────────────────────────── */}
+          <div className="relative overflow-hidden rounded-3xl my-6 shadow-2xl"
+            style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #312e81 50%, #0f172a 100%)' }}>
+            {/* Animated background blobs */}
+            <div className="blob1 absolute top-0 left-0 w-80 h-80 rounded-full pointer-events-none"
+              style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.18) 0%, transparent 70%)' }} />
+            <div className="blob2 absolute bottom-0 right-0 w-64 h-64 rounded-full pointer-events-none"
+              style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.18) 0%, transparent 70%)' }} />
+
+            <div className="relative z-10 px-6 py-8 md:py-10">
+              <div className="flex items-start gap-4 md:gap-6">
+                <div className="text-5xl md:text-6xl shrink-0" style={{ animation: 'bounce 2s ease-in-out infinite' }}>📰</div>
+                <div>
+                  <h2 className="text-xl md:text-2xl font-black text-white mb-3 leading-tight"
+                    style={{ fontFamily: "'Baloo Da 2', sans-serif" }}>
+                    Current Affairs Portal
+                  </h2>
+                  <p className="text-blue-200 leading-relaxed text-sm md:text-base mb-4"
+                    style={{ fontFamily: "'Hind Siliguri', sans-serif", lineHeight: 1.9 }}>
+                    বর্তমান সময়ে সকল Competitive Exam-এ Current Affairs অত্যন্ত গুরুত্বপূর্ণ একটি অংশ।
+                    প্রতিদিনের জাতীয়, আন্তর্জাতিক, রাজ্য, গুরুত্বপূর্ণ দিবস, খেলাধুলা, বিজ্ঞান ও প্রযুক্তি
+                    সম্পর্কিত আপডেট নিয়মিত পড়া সফলতার জন্য অপরিহার্য।
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {['📋 জাতীয়', '🌍 আন্তর্জাতিক', '🏛️ রাজ্য', '⚽ খেলাধুলা', '🔬 বিজ্ঞান', '💰 অর্থনীতি', '🏆 পুরস্কার'].map(tag => (
+                      <span key={tag} className="px-3 py-1 text-xs font-medium text-blue-100 rounded-full"
+                        style={{
+                          fontFamily: "'Hind Siliguri', sans-serif",
+                          background: 'rgba(255,255,255,0.1)',
+                          border: '1px solid rgba(255,255,255,0.15)',
+                          backdropFilter: 'blur(4px)',
+                        }}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* ── Category Filter Tabs ────────────────────────────────────────── */}
-        {allCategories.length > 0 && (
-          <div className="flex gap-2 overflow-x-auto pb-2 mb-5 scrollbar-none">
-            <button onClick={() => setActiveFilter('all')}
-              className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all shrink-0 ${
-                activeFilter === 'all'
-                  ? 'bg-blue-600 text-white shadow-sm shadow-blue-200'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300'
-              }`}>
-              All Topics
-            </button>
-            {allCategories.map(cat => (
-              <button key={cat} onClick={() => setActiveFilter(cat === activeFilter ? 'all' : cat)}
+          {/* ── Category Filter Tabs ────────────────────────────────────────── */}
+          {allCategories.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto pb-2 mb-5 scrollbar-none">
+              <button onClick={() => setActiveFilter('all')}
                 className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all shrink-0 ${
-                  activeFilter === cat
+                  activeFilter === 'all'
                     ? 'bg-blue-600 text-white shadow-sm shadow-blue-200'
                     : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300'
                 }`}>
-                {cat}
+                All Topics
               </button>
-            ))}
-          </div>
-        )}
+              {allCategories.map(cat => (
+                <button key={cat} onClick={() => setActiveFilter(cat === activeFilter ? 'all' : cat)}
+                  className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all shrink-0 ${
+                    activeFilter === cat
+                      ? 'bg-blue-600 text-white shadow-sm shadow-blue-200'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300'
+                  }`}>
+                  {cat}
+                </button>
+              ))}
+            </div>
+          )}
 
-        {/* ── Article Grid ────────────────────────────────────────────────── */}
-        {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 pb-8">
-            {[1, 2, 3, 4, 5, 6].map(i => (
-              <div key={i} className="bg-white rounded-3xl border border-slate-100 animate-pulse">
-                <div className="aspect-video bg-slate-100 rounded-t-3xl" />
-                <div className="p-5 space-y-3">
-                  <div className="h-3 bg-slate-100 rounded w-1/3" />
-                  <div className="h-4 bg-slate-100 rounded w-full" />
-                  <div className="h-4 bg-slate-100 rounded w-3/4" />
-                  <div className="h-8 bg-slate-100 rounded-xl w-1/2 mt-2" />
+          {/* ── Article Grid ────────────────────────────────────────────────── */}
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 pb-8">
+              {[1, 2, 3, 4, 5, 6].map(i => (
+                <div key={i} className="bg-white rounded-3xl border border-slate-100 animate-pulse">
+                  <div className="aspect-video bg-slate-100 rounded-t-3xl" />
+                  <div className="p-5 space-y-3">
+                    <div className="h-3 bg-slate-100 rounded w-1/3" />
+                    <div className="h-4 bg-slate-100 rounded w-full" />
+                    <div className="h-4 bg-slate-100 rounded w-3/4" />
+                    <div className="h-8 bg-slate-100 rounded-xl w-1/2 mt-2" />
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-20">
-            <div className="text-5xl mb-4">📰</div>
-            <p className="text-slate-400 font-bold text-sm">
-              {showBookmarksOnly
-                ? 'No bookmarked articles yet. Tap the bookmark icon on any article!'
-                : search
-                ? `No results for "${search}"`
-                : 'No current affairs articles available yet.'}
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 pb-8">
-            {filtered.map(post => (
-              <ArticleCard
-                key={post.id}
-                post={post}
-                isBookmarked={bookmarks.includes(post.id)}
-                onToggleBookmark={() => toggleBookmark(post.id)}
-                onOpen={() => openArticle(post)}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ── Article Detail Modal ─────────────────────────────────────────── */}
-      {openPost && (
-        <ArticleModal
-          post={openPost}
-          isBookmarked={bookmarks.includes(openPost.id)}
-          onToggleBookmark={() => toggleBookmark(openPost.id)}
-          onClose={closeArticle}
-        />
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-20">
+              <div className="text-5xl mb-4">📰</div>
+              <p className="text-slate-400 font-bold text-sm">
+                {showBookmarksOnly
+                  ? 'No bookmarked articles yet. Tap the bookmark icon on any article!'
+                  : search
+                  ? `No results for "${search}"`
+                  : 'No current affairs articles available yet.'}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 pb-8">
+              {filtered.map(post => (
+                <ArticleCard
+                  key={post.id}
+                  post={post}
+                  isBookmarked={bookmarks.includes(post.id)}
+                  onToggleBookmark={() => toggleBookmark(post.id)}
+                  onOpen={() => openArticle(post)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
@@ -325,7 +408,7 @@ function ArticleCard({
   };
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-blue-50/60 hover:-translate-y-1 transition-all duration-300 overflow-hidden group flex flex-col">
+    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-blue-50/60 hover:-translate-y-1 transition-all duration-300 overflow-hidden group flex flex-col cursor-pointer">
       {/* Thumbnail */}
       {post.thumbnailUrl ? (
         <div className="aspect-video overflow-hidden bg-slate-100 shrink-0">
@@ -395,138 +478,10 @@ function ArticleCard({
           </div>
           {(hasSections || post.link) && (
             <button onClick={handlePrimaryAction}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 text-white text-xs font-black rounded-xl hover:bg-blue-700 active:scale-95 transition-all">
+              className="px-3.5 py-2 bg-blue-600 text-white text-xs font-black rounded-xl hover:bg-blue-700 active:scale-95 transition-all">
               Read More
-              <ExternalLink className="w-3 h-3" />
             </button>
           )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Article Modal ────────────────────────────────────────────────────────────
-
-function ArticleModal({
-  post, isBookmarked, onToggleBookmark, onClose,
-}: {
-  post: AffairPost;
-  isBookmarked: boolean;
-  onToggleBookmark: () => void;
-  onClose: () => void;
-}) {
-  // Close on Escape key
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [onClose]);
-
-  const displayDate = post.date
-    || (post.createdAt?.seconds
-      ? new Date(post.createdAt.seconds * 1000).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-      : '');
-
-  const pageUrl = 'https://masteraptitude.vercel.app/current-affairs';
-  const shareText = encodeURIComponent(`${post.title}\n${pageUrl}`);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-
-      {/* Modal panel */}
-      <div className="relative z-10 flex flex-col bg-slate-50 w-full max-w-3xl max-h-[96dvh] md:max-h-[92vh] rounded-t-3xl md:rounded-3xl overflow-hidden shadow-2xl">
-
-        {/* Sticky modal header */}
-        <div className="flex items-center gap-3 px-5 py-3.5 bg-white border-b border-slate-100 shrink-0">
-          <button onClick={onClose}
-            className="p-2 rounded-xl hover:bg-slate-100 text-slate-500 transition-colors shrink-0">
-            <X className="w-5 h-5" />
-          </button>
-          <h2 className="font-black text-slate-800 text-sm leading-tight flex-1 line-clamp-1">{post.title}</h2>
-          <button onClick={onToggleBookmark}
-            className={`p-2 rounded-xl transition-all shrink-0 ${isBookmarked ? 'text-amber-500 bg-amber-50' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'}`}>
-            {isBookmarked ? <Bookmark className="w-4 h-4 fill-current" /> : <BookmarkPlus className="w-4 h-4" />}
-          </button>
-          <a href={`https://wa.me/?text=${shareText}`} target="_blank" rel="noopener noreferrer"
-            title="Share on WhatsApp"
-            className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-xl transition-all shrink-0">
-            <Share2 className="w-4 h-4" />
-          </a>
-        </div>
-
-        {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto">
-          {/* Thumbnail */}
-          {post.thumbnailUrl && (
-            <div className="aspect-video overflow-hidden bg-slate-200 shrink-0">
-              <img src={post.thumbnailUrl} alt={post.title} className="w-full h-full object-cover" />
-            </div>
-          )}
-
-          <div className="p-5 space-y-5">
-            {/* Article meta */}
-            <div>
-              <h1 className="text-lg font-black text-slate-900 mb-3 leading-tight">{post.title}</h1>
-              <div className="flex flex-wrap items-center gap-2">
-                {displayDate && (
-                  <span className="flex items-center gap-1 text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">
-                    <Calendar className="w-3 h-3" />{displayDate}
-                  </span>
-                )}
-                {(post.tags || []).map(t => (
-                  <span key={t} className="flex items-center gap-0.5 text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
-                    <TagIcon className="w-2.5 h-2.5" />{t}
-                  </span>
-                ))}
-              </div>
-              {post.description && (
-                <p className="text-sm text-slate-600 leading-relaxed mt-3 p-3 bg-blue-50/50 rounded-xl border border-blue-100/50">
-                  {post.description}
-                </p>
-              )}
-            </div>
-
-            {/* Sections */}
-            {(post.sections || []).length > 0 ? (
-              (post.sections || []).map(section => (
-                <SectionRenderer key={section.id} section={section} />
-              ))
-            ) : post.link ? null : (
-              <div className="text-center py-8 text-slate-400">
-                <p className="text-sm font-medium">No content sections yet.</p>
-              </div>
-            )}
-
-            {/* External link */}
-            {post.link && (
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-5">
-                <p className="text-sm font-black text-blue-800 mb-3">📖 Read Full Article</p>
-                <a href={post.link} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all active:scale-95">
-                  Open Article <ExternalLink className="w-3.5 h-3.5" />
-                </a>
-              </div>
-            )}
-
-            {/* Share footer */}
-            <div className="border-t border-slate-200 pt-4">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Share this article</p>
-              <div className="flex gap-2 flex-wrap">
-                <a href={`https://wa.me/?text=${shareText}`} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-xl hover:bg-green-700 transition-all active:scale-95">
-                  💬 WhatsApp
-                </a>
-                <a href={`https://t.me/share/url?url=${encodeURIComponent(pageUrl)}&text=${encodeURIComponent(post.title)}`}
-                  target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-4 py-2 bg-sky-500 text-white text-sm font-bold rounded-xl hover:bg-sky-600 transition-all active:scale-95">
-                  ✈️ Telegram
-                </a>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
