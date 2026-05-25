@@ -43,8 +43,7 @@
       "Bash(git push *)",
       "Bash(gh auth *)",
       "PowerShell(cd \"C:\\\\masteraptitude_as\"; $env:GCM_INTERACTIVE = \"never\"; git push origin main 2>&1)",
-      "Bash(git config *)",
-      "Bash(node -e \"const c = require\\('./firebase-applet-config.json'\\); console.log\\('databaseId:', c.firestoreDatabaseId\\)\")"
+      "Bash(git config *)"
     ]
   }
 }

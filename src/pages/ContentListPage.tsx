@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, query, getDocs, orderBy, where, doc, updateDoc, increment } from 'firebase/firestore';
-import { db, auth } from '../lib/firebase';
+import { db } from '../lib/firebase';
 import { ArrowLeft, Search, Tag, Eye, Calendar, Download, Play, BookOpen, FileText, Share2, Copy, Check, TrendingUp } from 'lucide-react';
 
 // ── Config per category ─────────────────────────────────────────────────────
@@ -35,8 +35,7 @@ const CONFIG = {
     seoDesc: 'Free practice sets and PDF downloads for WBP, KP, PSC, Railway exams. MCQ sets by Suman Sir.',
   },
   notes: {
-    collection: 'study_notes',
-    apiEndpoint: '/api/study-notes',
+    collection: 'notes',
     label: 'Study Notes',
     color: 'emerald',
     icon: '📚',
@@ -223,22 +222,13 @@ export default function ContentListPage({ category }: { category: Category }) {
   useEffect(() => {
     const fetch_ = async () => {
       try {
-        let all: any[];
-        if ((cfg as any).apiEndpoint) {
-          const token = await auth.currentUser?.getIdToken();
-          const res = await fetch((cfg as any).apiEndpoint, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (!res.ok) throw new Error(`Server error ${res.status}`);
-          const data = await res.json();
-          all = data.posts ?? [];
-        } else {
-          const q = query(collection(db, cfg.collection), where('status', '==', 'published'), orderBy('createdAt', 'desc'));
-          const snap = await getDocs(q).catch(async () =>
-            getDocs(query(collection(db, cfg.collection), orderBy('createdAt', 'desc')))
-          );
-          all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        }
+        const q = query(collection(db, cfg.collection), where('status', '==', 'published'), orderBy('createdAt', 'desc'));
+        const snap = await getDocs(q).catch(async () => {
+          // Fallback: fetch all (for items without status field)
+          return getDocs(query(collection(db, cfg.collection), orderBy('createdAt', 'desc')));
+        });
+        const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        // Sort: pinned first
         all.sort((a: any, b: any) => (b.pinToHomepage ? 1 : 0) - (a.pinToHomepage ? 1 : 0));
         setItems(all);
       } catch { setItems([]); }

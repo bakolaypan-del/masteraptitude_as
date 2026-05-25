@@ -1599,21 +1599,6 @@ ${allUrls.map(u => `  <url>
     }
   });
 
-  // Public: student-facing published study notes
-  app.get("/api/study-notes", verifyToken, async (req, res) => {
-    const currentDb = getDb();
-    if (!currentDb) return res.status(500).json({ error: "Database offline" });
-    try {
-      const snap = await currentDb.collection("study_notes")
-        .where("status", "==", "published")
-        .orderBy("createdAt", "desc")
-        .get();
-      res.json({ posts: snap.docs.map(d => ({ id: d.id, ...d.data() })) });
-    } catch (err: any) {
-      res.status(500).json({ error: "Failed to fetch study notes", message: err.message });
-    }
-  });
-
   app.delete("/api/admin/practice_sets/:id", verifyToken, verifyAdmin, async (req, res) => {
     const currentDb = getDb();
     if (!currentDb) return res.status(500).json({ error: "Database offline" });
