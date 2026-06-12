@@ -1,4 +1,6 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
 
 interface RichTextEditorProps {
   value: string;
@@ -39,6 +41,10 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
   const [bengaliMode, setBengaliMode] = useState(false);
   const [selectedBengaliFont, setSelectedBengaliFont] = useState(BENGALI_FONTS[0].name);
   const [showFontMenu, setShowFontMenu] = useState(false);
+  const [showEqPopup, setShowEqPopup] = useState(false);
+  const [eqInput, setEqInput] = useState('');
+  const [eqDisplay, setEqDisplay] = useState(false);
+  const savedRangeRef = useRef<Range | null>(null);
 
   // Sync DOM when value changes from outside (edit load / form reset)
   useEffect(() => {
@@ -68,6 +74,42 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
     document.execCommand('insertText', false, sym);
     emit();
   };
+
+  const openEqPopup = () => {
+    // Save cursor position before popup steals focus
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) savedRangeRef.current = sel.getRangeAt(0).cloneRange();
+    setEqInput('');
+    setEqDisplay(false);
+    setShowEqPopup(true);
+  };
+
+  const insertInlineEquation = useCallback(() => {
+    const latex = eqInput.trim();
+    if (!latex) { setShowEqPopup(false); return; }
+    let rendered = '';
+    try {
+      rendered = katex.renderToString(latex, { throwOnError: false, displayMode: eqDisplay, trust: false });
+    } catch {
+      rendered = latex;
+    }
+    const safeLatex = latex.replace(/"/g, '&quot;');
+    const wrapStyle = eqDisplay
+      ? 'display:block;text-align:center;margin:6px 0;'
+      : 'display:inline-block;vertical-align:middle;margin:0 1px;';
+    const html = `<span class="katex-inline-eq" data-latex="${safeLatex}" data-display="${eqDisplay}" contenteditable="false" style="${wrapStyle}">${rendered}</span>`;
+    editorRef.current?.focus();
+    // Restore saved cursor position
+    const sel = window.getSelection();
+    if (sel && savedRangeRef.current) {
+      sel.removeAllRanges();
+      sel.addRange(savedRangeRef.current);
+    }
+    document.execCommand('insertHTML', false, html);
+    emit();
+    setShowEqPopup(false);
+    setEqInput('');
+  }, [eqInput, eqDisplay]);
 
   const applyBengaliFont = (fontName = selectedBengaliFont) => {
     editorRef.current?.focus();
@@ -181,6 +223,20 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
 
         <Sep />
 
+        {/* ── Inline Equation Button ── */}
+        <button
+          type="button"
+          onMouseDown={noBlur}
+          onClick={openEqPopup}
+          title="Insert Inline Equation (LaTeX)"
+          className="h-7 px-2.5 rounded-lg text-xs font-black flex items-center gap-1 transition-all shrink-0 bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm"
+        >
+          <span style={{ fontSize: 13 }}>∑</span>
+          <span style={{ fontSize: 10 }}>Equation</span>
+        </button>
+
+        <Sep />
+
         {/* ── Bengali Font Section ── */}
         <div className="flex items-center gap-1" onMouseDown={noBlur}>
           {/* Bengali mode toggle */}
@@ -246,6 +302,86 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
           <span className="text-rose-500 font-black text-xs">✕</span>
         </ToolBtn>
       </div>
+
+      {/* ── Inline Equation Popup ── */}
+      {showEqPopup && (
+        <div className="border-b border-indigo-100 bg-indigo-50 p-3 space-y-2">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[11px] font-black text-indigo-700 uppercase tracking-widest">Insert Inline Equation</span>
+            <button type="button" onClick={() => setShowEqPopup(false)}
+              className="text-slate-400 hover:text-slate-600 text-lg leading-none px-1">✕</button>
+          </div>
+
+          {/* LaTeX input */}
+          <input
+            autoFocus
+            type="text"
+            value={eqInput}
+            onChange={e => setEqInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); insertInlineEquation(); } if (e.key === 'Escape') setShowEqPopup(false); }}
+            placeholder="\frac{a}{b}   or   x^2 + y^2 = r^2   or   \sqrt{x}"
+            className="w-full rounded-xl border-2 border-indigo-200 bg-white px-3 py-2 text-sm font-mono outline-none focus:border-indigo-500 transition-colors"
+          />
+
+          {/* Quick templates */}
+          <div className="flex flex-wrap gap-1">
+            {[
+              { label: 'Fraction', t: '\\frac{a}{b}' },
+              { label: '√x', t: '\\sqrt{x}' },
+              { label: 'x²', t: 'x^{2}' },
+              { label: 'xₙ', t: 'x_{n}' },
+              { label: '∑', t: '\\sum_{i=1}^{n} x_i' },
+              { label: '∫', t: '\\int_{a}^{b} f(x)\\,dx' },
+              { label: 'π', t: '\\pi' },
+              { label: 'α β γ', t: '\\alpha \\beta \\gamma' },
+              { label: 'θ', t: '\\theta' },
+              { label: '≤ ≥', t: '\\leq \\geq' },
+              { label: '±', t: '\\pm' },
+              { label: '×', t: '\\times' },
+            ].map(({ label, t }) => (
+              <button key={label} type="button"
+                onClick={() => setEqInput(p => p ? `${p} ${t}` : t)}
+                className="px-2 py-0.5 text-[10px] font-bold bg-white hover:bg-indigo-100 text-indigo-600 rounded-lg border border-indigo-200 transition-all">
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Display mode toggle + live preview */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <label className="flex items-center gap-1.5 cursor-pointer select-none">
+              <input type="checkbox" checked={eqDisplay} onChange={e => setEqDisplay(e.target.checked)}
+                className="rounded accent-indigo-600" />
+              <span className="text-[11px] font-bold text-slate-600">Display mode (centred, large)</span>
+            </label>
+            {eqInput.trim() && (
+              <div className="flex-1 min-w-0 bg-white rounded-xl border border-indigo-200 px-3 py-1.5 text-center overflow-x-auto">
+                {(() => {
+                  try {
+                    return <span dangerouslySetInnerHTML={{ __html: katex.renderToString(eqInput, { throwOnError: false, displayMode: eqDisplay }) }} />;
+                  } catch {
+                    return <span className="text-rose-500 text-xs">{eqInput}</span>;
+                  }
+                })()}
+              </div>
+            )}
+          </div>
+
+          {/* Insert button */}
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => setShowEqPopup(false)}
+              className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-lg transition-all">
+              Cancel
+            </button>
+            <button type="button" onClick={insertInlineEquation}
+              disabled={!eqInput.trim()}
+              className="px-4 py-1.5 text-xs font-black text-white rounded-lg transition-all disabled:opacity-40"
+              style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>
+              Insert Equation
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Editable area ── */}
       <div className="relative" onClick={() => setShowFontMenu(false)}>
