@@ -13,7 +13,7 @@
     -ms-user-select: none;
     user-select: none;
     -webkit-touch-callout: none;
-    background-color: #f0f4ff;
+    background-color: #080c14;
   }
 
   /* Premium scrollbar */
@@ -457,11 +457,11 @@ img {
   box-shadow: 0 15px 30px rgba(142, 45, 226, 0.4) !important;
 }
 
-/* ── Design E: Light Refined Sidebar ──────────────────────────── */
+/* ── Design F: Dark Refined Sidebar ──────────────────────────── */
 .sidebar-btn {
   background: transparent !important;
   box-shadow: none !important;
-  color: #64748b !important;
+  color: rgba(148,163,184,0.75) !important;
   border: 1px solid transparent !important;
   border-radius: 10px !important;
   transform: none !important;
@@ -473,16 +473,16 @@ img {
   font-weight: 600 !important;
 }
 .sidebar-btn:hover {
-  background: #f8fafc !important;
-  color: #1e293b !important;
+  background: rgba(255,255,255,0.06) !important;
+  color: #f1f5f9 !important;
   transform: none !important;
   filter: none !important;
   box-shadow: none !important;
 }
 .sidebar-btn.active {
-  background: linear-gradient(135deg, #ede9fe, #e0e7ff) !important;
-  color: #4f46e5 !important;
-  border-color: transparent !important;
+  background: rgba(99,102,241,0.15) !important;
+  color: #a5b4fc !important;
+  border-color: rgba(99,102,241,0.2) !important;
   border-left: none !important;
   transform: none !important;
   box-shadow: none !important;
@@ -502,11 +502,11 @@ img {
   box-shadow: none !important;
 }
 
-/* Sub-categories – light refined */
+/* Sub-categories – dark refined */
 .sub-category {
   background: transparent !important;
   box-shadow: none !important;
-  color: #64748b !important;
+  color: rgba(148,163,184,0.65) !important;
   border: 1px solid transparent !important;
   border-radius: 8px !important;
   transform: none !important;
@@ -518,17 +518,17 @@ img {
   letter-spacing: 0 !important;
 }
 .sub-category:hover {
-  background: #f8fafc !important;
-  color: #1e293b !important;
+  background: rgba(255,255,255,0.05) !important;
+  color: #f1f5f9 !important;
   transform: none !important;
   filter: none !important;
   box-shadow: none !important;
 }
 .sub-category.active {
-  background: rgba(79,70,229,.08) !important;
-  color: #4f46e5 !important;
+  background: rgba(99,102,241,0.12) !important;
+  color: #a5b4fc !important;
   border-color: transparent !important;
-  border-left: 3px solid #4f46e5 !important;
+  border-left: 3px solid #6366f1 !important;
   transform: none !important;
   box-shadow: none !important;
 }

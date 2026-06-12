@@ -698,7 +698,7 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="flex h-screen font-sans text-slate-900 overflow-hidden" style={{background: '#f0f4ff'}}>
+    <div className="flex h-screen font-sans text-slate-100 overflow-hidden" style={{background: '#080c14'}}>
 
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
@@ -709,20 +709,20 @@ export default function Dashboard() {
       )}
 
       {/* Dark Left Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 bg-white text-slate-700 flex flex-col w-64 h-full shrink-0 z-50 transform transition-transform duration-300 md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`} style={{borderRight: '1px solid #e8ecf3'}}>
-        <div className="flex items-center justify-between px-5 py-4 shrink-0" style={{borderBottom: '1px solid #f1f5f9'}}>
+      <aside className={`fixed inset-y-0 left-0 flex flex-col w-64 h-full shrink-0 z-50 transform transition-transform duration-300 md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`} style={{background: '#0d1117', borderRight: '1px solid rgba(255,255,255,0.07)'}}>
+        <div className="flex items-center justify-between px-5 py-4 shrink-0" style={{borderBottom: '1px solid rgba(255,255,255,0.06)'}}>
           <button onClick={() => { setActiveTab('home'); setIsSidebarOpen(false); }} className="flex items-center gap-3 hover:opacity-90 transition-opacity text-left flex-1 min-w-0">
             <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center shadow-lg shrink-0" style={{boxShadow: '0 4px 16px rgba(99,102,241,0.4)'}}>
               <Trophy className="w-5 h-5 text-white" />
             </div>
             <div className="min-w-0">
-              <div className="text-[13px] font-black tracking-tight leading-tight truncate" style={{color: '#1e293b'}}>Master<span style={{color: '#4f46e5'}}>Aptitude</span></div>
-              <div className="text-[9px] font-semibold uppercase tracking-[0.18em]" style={{color: '#94a3b8'}}>by Suman Sir</div>
+              <div className="text-[13px] font-black tracking-tight leading-tight truncate text-white">Master<span style={{color: '#818cf8'}}>Aptitude</span></div>
+              <div className="text-[9px] font-semibold uppercase tracking-[0.18em]" style={{color: 'rgba(148,163,184,0.5)'}}>by Suman Sir</div>
             </div>
           </button>
           <button
             className="md:hidden shrink-0 ml-2"
-            style={{color: '#94a3b8'}}
+            style={{color: 'rgba(148,163,184,0.5)'}}
             onClick={() => setIsSidebarOpen(false)}
           >
             <X className="w-5 h-5" />
@@ -730,7 +730,7 @@ export default function Dashboard() {
         </div>
         
         <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-          <div className="px-3 pb-1 pt-2" style={{fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#94a3b8'}}>Menu</div>
+          <div className="px-3 pb-1 pt-2" style={{fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'rgba(148,163,184,0.4)'}}>Menu</div>
           {/* HOME */}
           <button
             onClick={() => { setActiveTab('home'); setIsSidebarOpen(false); }}
@@ -850,13 +850,13 @@ export default function Dashboard() {
           <button
             onClick={() => { navigate('/news'); setIsSidebarOpen(false); }}
             className="w-full sidebar-btn"
-            style={{ background: 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)', color: '#7c3aed' }}
+            style={{color: 'rgba(167,139,250,0.85)'}}
           >
             <BookOpen className="w-4 h-4 shrink-0" />
             <span>News &amp; Updates</span>
           </button>
 
-          <div className="px-3 pb-1 pt-3" style={{fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#374151'}}>Resources</div>
+          <div className="px-3 pb-1 pt-3" style={{fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'rgba(148,163,184,0.4)'}}>Resources</div>
 
           {/* PREVIOUS YEAR PAPERS */}
           <button
@@ -903,17 +903,17 @@ export default function Dashboard() {
         )}
 
         {/* Sidebar Footer: User card */}
-        <div className="p-3 shrink-0" style={{borderTop: '1px solid #f1f5f9'}}>
-          <div className="flex items-center gap-3 rounded-xl px-3 py-3" style={{background: '#f8fafc', border: '1px solid #e8ecf3'}}>
+        <div className="p-3 shrink-0" style={{borderTop: '1px solid rgba(255,255,255,0.06)'}}>
+          <div className="flex items-center gap-3 rounded-xl px-3 py-3" style={{background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)'}}>
             <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-lg flex items-center justify-center text-white text-sm font-black shrink-0">
               {(profile?.name || 'S').charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-bold truncate" style={{color: '#1e293b'}}>{profile?.name || 'Student'}</div>
+              <div className="text-sm font-bold truncate text-white">{profile?.name || 'Student'}</div>
               {profile?.batch ? (
-                <div className="text-[9px] font-bold uppercase tracking-wide mt-0.5 px-1.5 py-0.5 rounded inline-block" style={{background: '#fef3c7', border: '1px solid #fde68a', color: '#92400e'}}>{profile.batch}</div>
+                <div className="text-[9px] font-bold uppercase tracking-wide mt-0.5 px-1.5 py-0.5 rounded inline-block" style={{background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.25)', color: '#fbbf24'}}>{profile.batch}</div>
               ) : (
-                <div className="text-[10px] font-medium" style={{color: '#94a3b8'}}>{profile?.phoneNumber || ''}</div>
+                <div className="text-[10px] font-medium" style={{color: 'rgba(148,163,184,0.5)'}}>{profile?.phoneNumber || ''}</div>
               )}
             </div>
           </div>
@@ -924,7 +924,7 @@ export default function Dashboard() {
       <div className="flex-1 flex flex-col h-full relative overflow-y-auto w-full md:w-auto">
         
         {/* Top Header */}
-        <header className="h-14 md:h-16 backdrop-blur-xl flex items-center justify-between px-4 sm:px-8 shrink-0 sticky top-0 z-10 w-full" style={{background: 'rgba(255,255,255,0.96)', borderBottom: '1px solid #e8ecf3', boxShadow: '0 1px 8px rgba(0,0,0,0.04)'}}>
+        <header className="h-14 md:h-16 backdrop-blur-xl flex items-center justify-between px-4 sm:px-8 shrink-0 sticky top-0 z-10 w-full" style={{background: 'rgba(8,12,20,0.92)', borderBottom: '1px solid rgba(255,255,255,0.07)', boxShadow: '0 1px 24px rgba(0,0,0,0.4)'}}>
           {/* Mobile: App logo — Desktop: hamburger hidden, breadcrumb shown */}
           <div className="flex items-center flex-1 gap-3">
             {/* Mobile app logo (replaces hamburger — bottom nav handles navigation) */}
@@ -933,7 +933,7 @@ export default function Dashboard() {
               <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center shadow-md">
                 <span className="text-white text-sm font-black">M</span>
               </div>
-              <span className="text-sm font-black" style={{color: '#1e293b'}}>Master<span style={{color: '#6366f1'}}>Aptitude</span></span>
+              <span className="text-sm font-black text-white">Master<span style={{color: '#818cf8'}}>Aptitude</span></span>
             </button>
             {/* Desktop sidebar toggle (keep for desktop) */}
             <button
@@ -961,7 +961,7 @@ export default function Dashboard() {
                 {(profile?.name || 'S').charAt(0).toUpperCase()}
               </div>
               <div className="flex flex-col">
-                <span className="text-xs font-bold leading-tight" style={{color: '#1e293b'}}>{profile?.name || 'Student'}</span>
+                <span className="text-xs font-bold leading-tight text-white">{profile?.name || 'Student'}</span>
                 <span className="text-[9px] font-medium" style={{color: '#94a3b8'}}>{profile?.phoneNumber || ''}</span>
               </div>
             </div>
@@ -974,7 +974,7 @@ export default function Dashboard() {
             <button
               onClick={handleLogout}
               className="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-xl transition-all"
-              style={{background: '#f1f5f9', color: '#64748b'}}
+              style={{background: 'rgba(255,255,255,0.08)', color: 'rgba(148,163,184,0.7)'}}
               title="Log out"
             >
               <LogOut className="w-4 h-4" />
@@ -997,7 +997,7 @@ export default function Dashboard() {
                 const activeLive = liveTests.find(t => new Date(t.liveStartDate) <= now && new Date(t.liveEndDate) >= now && t.isActive);
                 if (!activeLive) return null;
                 return (
-                  <div className="rounded-2xl p-4 md:p-5 flex items-center justify-between gap-4 flex-wrap" style={{background: '#fff', border: '1px solid #fecaca', boxShadow: '0 2px 12px rgba(239,68,68,0.08)'}}>
+                  <div className="rounded-2xl p-4 md:p-5 flex items-center justify-between gap-4 flex-wrap" style={{background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', boxShadow: '0 2px 20px rgba(239,68,68,0.15)'}}>
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0" style={{background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)'}}>🔴</div>
                       <div>
@@ -1005,7 +1005,7 @@ export default function Dashboard() {
                           <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
                           <span className="text-[10px] font-black uppercase tracking-widest" style={{color: '#f87171'}}>Live Right Now</span>
                         </div>
-                        <p className="font-black text-sm leading-tight" style={{color: '#1e293b'}}>{activeLive.title}</p>
+                        <p className="font-black text-sm leading-tight text-white">{activeLive.title}</p>
                       </div>
                     </div>
                     <button onClick={() => setActiveTab('live_test')} className="flex-shrink-0 px-5 py-2.5 rounded-xl font-black text-sm text-white uppercase tracking-wide transition-all hover:opacity-90" style={{background: 'linear-gradient(135deg, #dc2626, #ef4444)', boxShadow: '0 4px 16px rgba(239,68,68,0.3)'}}>
