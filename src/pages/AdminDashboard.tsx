@@ -5003,7 +5003,10 @@ function QuestionManager() {
           const fileName = `${Date.now()}_${randomId}_q${ext}`;
           // Convert to base64 and upload via server (bypasses Storage Rules)
           const arrayBuf = await compressed.arrayBuffer();
-          const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuf)));
+          const uint8 = new Uint8Array(arrayBuf);
+          let binary = '';
+          for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]);
+          const base64 = btoa(binary);
           const token = await user.getIdToken();
           const upRes = await fetch('/api/admin/upload-image', {
             method: 'POST',
