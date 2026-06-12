@@ -193,9 +193,11 @@ const getDb = () => {
           console.log("[Firebase] Using inline FIREBASE_SERVICE_ACCOUNT...");
           let sa = JSON.parse(saEnv);
           if (sa.private_key) sa.private_key = sa.private_key.replace(/\\n/g, '\n');
+          const storageBucket = process.env.FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket;
           admin.initializeApp({
             credential: admin.credential.cert(sa),
             projectId: projectId || sa.project_id,
+            ...(storageBucket ? { storageBucket } : {}),
           });
           initialized = true;
         } catch (e: any) {
@@ -210,9 +212,11 @@ const getDb = () => {
           try {
             console.log(`[Firebase] Loading key from file: ${keyFilePath}`);
             const sa = JSON.parse(fs.readFileSync(keyFilePath, "utf-8"));
+            const storageBucket = process.env.FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket;
             admin.initializeApp({
               credential: admin.credential.cert(sa),
               projectId: projectId || sa.project_id,
+              ...(storageBucket ? { storageBucket } : {}),
             });
             initialized = true;
             console.log(`[Firebase] Initialized with key file for project: ${projectId || sa.project_id}`);
@@ -1389,6 +1393,7 @@ ${allUrls.map(u => `  <url>
       const { getStorage } = await import("firebase-admin/storage");
       const bucketName = process.env.FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket;
       if (!bucketName) return res.status(500).json({ error: "Storage bucket not configured" });
+      console.log("[upload-image] using bucket:", bucketName);
 
       const buffer = Buffer.from(base64, "base64");
       const token  = crypto.randomUUID();

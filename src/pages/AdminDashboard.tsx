@@ -5000,22 +5000,10 @@ function QuestionManager() {
           const compressed = await compressImage(qImageFile, 1200, 0.82);
           const randomId = Math.random().toString(36).substring(2, 8);
           const ext = compressed.type === 'image/png' ? '.png' : '.jpg';
-          const fileName = `${Date.now()}_${randomId}_q${ext}`;
-          // Convert to base64 and upload via server (bypasses Storage Rules)
-          const arrayBuf = await compressed.arrayBuffer();
-          const uint8 = new Uint8Array(arrayBuf);
-          let binary = '';
-          for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]);
-          const base64 = btoa(binary);
-          const token = await user.getIdToken();
-          const upRes = await fetch('/api/admin/upload-image', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ base64, mimeType: compressed.type, fileName }),
-          });
-          const upData = await upRes.json();
-          if (!upRes.ok) throw new Error(upData.error || 'Upload failed');
-          finalImageUrl = upData.url;
+          const fileName = `question_images/${Date.now()}_${randomId}_q${ext}`;
+          const fileRef = ref(storage, fileName);
+          const snapshot = await uploadBytes(fileRef, compressed);
+          finalImageUrl = await getDownloadURL(snapshot.ref);
         } catch (err: any) {
           setUploadingQImage(false);
           alert(`Image upload failed: ${err.message}`);
