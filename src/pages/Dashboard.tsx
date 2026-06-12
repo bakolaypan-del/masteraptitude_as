@@ -1238,17 +1238,6 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* ── Assistant Bar ── */}
-              <a href="tel:8900011708" className="flex items-center gap-3 w-full rounded-2xl px-4 py-3 text-white hover:brightness-110 active:scale-[0.99] transition-all" style={{background: 'linear-gradient(90deg,#1e1b4b 0%,#1e3a5f 100%)', border: '1px solid rgba(99,102,241,0.15)'}}>
-                <span className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-base" style={{background: 'rgba(99,102,241,0.3)'}}>🤖</span>
-                <span className="flex-1 text-[11px] sm:text-xs font-semibold truncate" style={{color: 'rgba(165,180,252,0.9)'}}>
-                  Need help? Our assistant is ready — <span className="font-black text-white">Call 8900011708</span>
-                </span>
-                <span className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center" style={{background: 'rgba(255,255,255,0.1)'}}>
-                  <ChevronRight className="w-3.5 h-3.5" style={{color: 'rgba(165,180,252,0.7)'}} />
-                </span>
-              </a>
-
               {/* ── Student Reviews Slider ── */}
               <ReviewSlider />
 
