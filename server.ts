@@ -329,6 +329,7 @@ const PORT = parseInt(process.env.PORT as string) || 3000;
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cookieParser());
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 // Request logger for debugging Vercel/Production issues
 app.use((req, res, next) => {
@@ -1419,53 +1420,155 @@ ${allUrls.map(u => `  <url>
         return res.status(400).json({ error: "base64, mimeType and fileName are required" });
       }
 
+      // --- Option 1: Local Development Storage ---
+      // If running locally, write files to the local filesystem
+      const isLocal = process.env.NODE_ENV !== "production" && !process.env.VERCEL;
+      if (isLocal) {
+        console.log("[upload-image] Local development environment detected. Saving file to local filesystem.");
+        const uploadsDir = path.join(process.cwd(), "uploads");
+        if (!fs.existsSync(uploadsDir)) {
+          fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+        const buffer = Buffer.from(base64, "base64");
+        const destFolder = folder || "question_images";
+        const folderPath = path.join(uploadsDir, destFolder);
+        if (!fs.existsSync(folderPath)) {
+          fs.mkdirSync(folderPath, { recursive: true });
+        }
+        const filePath = path.join(folderPath, fileName);
+        fs.writeFileSync(filePath, buffer);
+        
+        const host = req.headers.host || `localhost:${PORT}`;
+        const protocol = req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+        const url = `${protocol}://${host}/uploads/${destFolder}/${fileName}`;
+        console.log("[upload-image] Saved local file. URL:", url);
+        return res.json({ url });
+      }
+
+      // --- Option 2: Imgbb Cloud Storage (Images Only) ---
+      if (process.env.IMGBB_API_KEY && mimeType.startsWith("image/")) {
+        console.log("[upload-image] IMGBB_API_KEY configured. Uploading to Imgbb...");
+        try {
+          const formData = new URLSearchParams();
+          formData.append("image", base64);
+          
+          const imgbbRes = await fetch(`https://api.imgbb.com/1/upload?key=${process.env.IMGBB_API_KEY}`, {
+            method: "POST",
+            body: formData,
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+          });
+          
+          if (!imgbbRes.ok) {
+            const errData = await imgbbRes.json().catch(() => ({}));
+            throw new Error(errData?.error?.message || `Imgbb status ${imgbbRes.status}`);
+          }
+          
+          const imgbbData: any = await imgbbRes.json();
+          const uploadedUrl = imgbbData?.data?.url;
+          if (uploadedUrl) {
+            console.log("[upload-image] Uploaded to Imgbb successfully. URL:", uploadedUrl);
+            return res.json({ url: uploadedUrl });
+          } else {
+            throw new Error("Invalid response from Imgbb API");
+          }
+        } catch (imgbbErr: any) {
+          console.error("[upload-image] Imgbb upload failed:", imgbbErr.message);
+          // Fall through to other storage providers
+        }
+      }
+
+      // --- Option 3: Cloudinary Storage (Images & Raw files/PDFs) ---
+      if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+        console.log("[upload-image] Cloudinary credentials configured. Uploading to Cloudinary...");
+        try {
+          const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+          const apiKey = process.env.CLOUDINARY_API_KEY;
+          const apiSecret = process.env.CLOUDINARY_API_SECRET;
+          
+          const timestamp = Math.round(new Date().getTime() / 1000).toString();
+          const folderName = folder || "question_images";
+          
+          // Signature parameter order alphabetically: folder, timestamp
+          const signatureStr = `folder=${folderName}&timestamp=${timestamp}${apiSecret}`;
+          const signature = crypto.createHash("sha1").update(signatureStr).digest("hex");
+          
+          const formData = new URLSearchParams();
+          formData.append("file", `data:${mimeType};base64,${base64}`);
+          formData.append("folder", folderName);
+          formData.append("timestamp", timestamp);
+          formData.append("api_key", apiKey);
+          formData.append("signature", signature);
+          
+          const cloudinaryRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
+            method: "POST",
+            body: formData,
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+          });
+          
+          if (!cloudinaryRes.ok) {
+            const errData = await cloudinaryRes.json().catch(() => ({}));
+            throw new Error(errData?.error?.message || `Cloudinary status ${cloudinaryRes.status}`);
+          }
+          
+          const cloudinaryData: any = await cloudinaryRes.json();
+          const uploadedUrl = cloudinaryData?.secure_url || cloudinaryData?.url;
+          if (uploadedUrl) {
+            console.log("[upload-image] Uploaded to Cloudinary successfully. URL:", uploadedUrl);
+            return res.json({ url: uploadedUrl });
+          } else {
+            throw new Error("Invalid response from Cloudinary API");
+          }
+        } catch (cloudinaryErr: any) {
+          console.error("[upload-image] Cloudinary upload failed:", cloudinaryErr.message);
+          // Fall through to other storage providers
+        }
+      }
+
+      // --- Option 4: Firebase Storage ---
       const { getStorage } = await import("firebase-admin/storage");
       const bucketName = process.env.FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket;
-      if (!bucketName) {
-        console.log("[upload-image] No bucket name configured, falling back to base64 URL");
-        return res.json({ url: `data:${mimeType};base64,${base64}` });
-      }
-      console.log("[upload-image] using bucket:", bucketName);
+      if (bucketName) {
+        console.log("[upload-image] Attempting Firebase Storage. Bucket:", bucketName);
+        try {
+          const bucket = getStorage().bucket(bucketName);
+          const [exists] = await bucket.exists();
+          if (exists) {
+            const buffer = Buffer.from(base64, "base64");
+            const token  = crypto.randomUUID();
+            const destFolder = folder || "question_images";
+            const fullPath = `${destFolder}/${fileName}`;
+            const file = bucket.file(fullPath);
 
-      const bucket = getStorage().bucket(bucketName);
-      
-      let useFallback = false;
-      try {
-        const [exists] = await bucket.exists();
-        if (!exists) {
-          console.warn(`[upload-image] Bucket ${bucketName} does not exist. Falling back to inline base64 URL.`);
-          useFallback = true;
+            await file.save(buffer, {
+              metadata: {
+                contentType: mimeType,
+                metadata: { firebaseStorageDownloadTokens: token },
+              },
+            });
+
+            const downloadUrl =
+              `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/` +
+              `${encodeURIComponent(fullPath)}?alt=media&token=${token}`;
+
+            console.log("[upload-image] Uploaded to Firebase Storage successfully. URL:", downloadUrl);
+            return res.json({ url: downloadUrl });
+          } else {
+            console.warn(`[upload-image] Bucket ${bucketName} does not exist.`);
+          }
+        } catch (firebaseErr: any) {
+          console.error("[upload-image] Firebase Storage upload failed:", firebaseErr.message);
         }
-      } catch (err: any) {
-        console.warn(`[upload-image] Failed to check bucket existence. Falling back to inline base64 URL. Error:`, err.message);
-        useFallback = true;
       }
 
-      if (useFallback) {
-        return res.json({ url: `data:${mimeType};base64,${base64}` });
-      }
-
-      const buffer = Buffer.from(base64, "base64");
-      const token  = crypto.randomUUID();
-      
-      const destFolder = folder || "question_images";
-      const fullPath = `${destFolder}/${fileName}`;
-      const file = bucket.file(fullPath);
-
-      await file.save(buffer, {
-        metadata: {
-          contentType: mimeType,
-          metadata: { firebaseStorageDownloadTokens: token },
-        },
-      });
-
-      const downloadUrl =
-        `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/` +
-        `${encodeURIComponent(fullPath)}?alt=media&token=${token}`;
-
-      res.json({ url: downloadUrl });
+      // --- Option 5: Graceful Inline Base64 Fallback ---
+      console.warn("[upload-image] All remote uploads failed or are unconfigured. Falling back to inline base64 URL.");
+      return res.json({ url: `data:${mimeType};base64,${base64}` });
     } catch (err: any) {
-      console.error("[upload-image] Error:", err);
+      console.error("[upload-image] Global error in upload-image endpoint:", err);
       res.status(500).json({ error: err.message || "Upload failed" });
     }
   });
