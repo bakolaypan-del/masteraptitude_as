@@ -17,11 +17,9 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../components/AuthContext';
 import AnalysisQuestionList, { type AnalysisQuestion } from '../components/AnalysisQuestionList';
 import {
-  Trophy, ChevronRight, ChevronLeft, Download, ArrowLeft,
+  Trophy, ChevronRight, ChevronLeft, ArrowLeft,
   BookOpen, CheckCircle, X as XIcon, AlertCircle, BarChart3, Clock,
 } from 'lucide-react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface LeaderboardData {
@@ -58,7 +56,6 @@ export default function AnalysisPage() {
   const [questionStats, setQuestionStats] = useState<Record<string, { correctPercent: number; avgTimeSecs: number }>>({});
   const [loading, setLoading] = useState(!navState.result);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
-  const [downloadingPDF, setDownloadingPDF] = useState(false);
 
   // marksPerCorrect / negativeMarks resolved from multiple sources
   const marksPerCorrect: number = navState.test?.marksPerCorrect ?? result?.marksPerCorrect ?? 1;
@@ -187,129 +184,7 @@ export default function AnalysisPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result?.testId]);
 
-  // ── PDF download ──────────────────────────────────────────────────────────
-  const handleDownloadPDF = async () => {
-    if (!user || !result) return;
-    setDownloadingPDF(true);
-    try {
-      // Use already-loaded questions OR fetch fresh
-      let qs = questions;
-      if (!qs.length) {
-        const token = await user.getIdToken();
-        const res = await fetch(`/api/test-questions/${result.testId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) qs = (await res.json()).questions ?? [];
-      }
 
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 10;
-      const contentWidth = pageWidth - 2 * margin;
-
-      const addBorder = (d: jsPDF) => {
-        d.setDrawColor(0, 77, 0);
-        d.setLineWidth(1);
-        d.rect(margin - 2, margin - 2, pageWidth - 2 * (margin - 2), pageHeight - 2 * (margin - 2));
-      };
-      const addWatermarks = (d: jsPDF) => {
-        d.saveGraphicsState();
-        d.setGState(new (d as any).GState({ opacity: 0.05 }));
-        d.setFontSize(30);
-        d.setTextColor(150, 150, 150);
-        d.setFont('helvetica', 'bold');
-        for (let x = 30; x < pageWidth; x += 80) {
-          for (let y = 50; y < pageHeight; y += 80) {
-            d.text('Master Aptitude by Suman Sir', x, y, { align: 'center', angle: 45 });
-          }
-        }
-        d.restoreGraphicsState();
-      };
-      const drawHeader = (d: jsPDF) => {
-        const hY = margin + 5;
-        d.setFillColor(0, 77, 0);
-        d.roundedRect(margin, hY, contentWidth, 35, 3, 3, 'F');
-        d.setTextColor(255, 255, 255);
-        d.setFontSize(18);
-        d.setFont('helvetica', 'bold');
-        d.text('Master Aptitude by Suman Sir', pageWidth / 2, hY + 12, { align: 'center' });
-        d.setFontSize(12);
-        d.text(result.testTitle || 'Mock Test', pageWidth / 2, hY + 20, { align: 'center' });
-        d.setFontSize(9);
-        d.setFont('helvetica', 'normal');
-        d.text(`Date: ${new Date().toLocaleDateString()}`, pageWidth / 2, hY + 28, { align: 'center' });
-      };
-      const drawFooter = (d: jsPDF, pageNum: number) => {
-        const fY = pageHeight - margin - 15;
-        d.setFillColor(245, 245, 245);
-        d.setDrawColor(200, 200, 200);
-        d.roundedRect(margin, fY, contentWidth, 15, 2, 2, 'FD');
-        d.setFontSize(8);
-        d.setTextColor(80, 80, 80);
-        d.setFont('helvetica', 'bold');
-        d.text('Contact: 8900011708 (Shibnath)', margin + 5, fY + 9);
-        d.setTextColor(0, 100, 255);
-        d.text('Telegram: @MasterAptitudeGroup', pageWidth / 2, fY + 9, { align: 'center' });
-        d.setTextColor(150, 150, 150);
-        d.text(`Page ${pageNum}`, pageWidth - margin - 15, fY + 9);
-      };
-
-      addBorder(doc);
-      addWatermarks(doc);
-      drawHeader(doc);
-      drawFooter(doc, 1);
-
-      const correctAnswersMap = result.analysis ?? result.correctAnswersMap ?? {};
-      let currentY = margin + 50;
-      let pageNum = 1;
-
-      qs.forEach((q: any, idx: number) => {
-        if (currentY > pageHeight - 55) {
-          doc.addPage();
-          addBorder(doc);
-          addWatermarks(doc);
-          pageNum++;
-          drawFooter(doc, pageNum);
-          currentY = margin + 15;
-        }
-        doc.setTextColor(0, 0, 0);
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'bold');
-        const qText = `Q${idx + 1}. ${q.questionText || ''}`;
-        const qLines = doc.splitTextToSize(qText, contentWidth);
-        doc.text(qLines, margin, currentY);
-        currentY += qLines.length * 5 + 2;
-
-        q.options?.forEach((opt: string, oi: number) => {
-          const label = String.fromCharCode(65 + oi);
-          const correctAns = correctAnswersMap[q.id];
-          const userAns = result.userAnswers?.[q.id] ?? '';
-          if (opt === correctAns) {
-            doc.setTextColor(0, 128, 0);
-            doc.setFont('helvetica', 'bold');
-          } else if (opt === userAns && opt !== correctAns) {
-            doc.setTextColor(200, 0, 0);
-            doc.setFont('helvetica', 'normal');
-          } else {
-            doc.setTextColor(80, 80, 80);
-            doc.setFont('helvetica', 'normal');
-          }
-          const optLines = doc.splitTextToSize(`${label}) ${opt}`, contentWidth - 10);
-          doc.text(optLines, margin + 5, currentY);
-          currentY += optLines.length * 5;
-        });
-        currentY += 5;
-      });
-
-      doc.save(`${result.testTitle || 'Analysis'}.pdf`);
-    } catch (e) {
-      console.error('[AnalysisPage] PDF error', e);
-      alert('Failed to generate PDF. Please try again.');
-    } finally {
-      setDownloadingPDF(false);
-    }
-  };
 
   // ── Derived values for summary screen ─────────────────────────────────────
   const attempted = (result?.correctAnswers ?? 0) + (result?.wrongAnswers ?? 0);
@@ -532,14 +407,7 @@ export default function AnalysisPage() {
               style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}>
               Analyze Your Performance <ChevronRight className="w-5 h-5" />
             </button>
-            <button
-              onClick={handleDownloadPDF}
-              disabled={downloadingPDF}
-              className="w-full py-3 text-slate-300 font-black rounded-2xl border border-white/10 hover:bg-white/5 transition-all uppercase tracking-widest text-xs flex items-center justify-center gap-2 disabled:opacity-60"
-              style={{ background: 'rgba(255,255,255,0.03)' }}>
-              <Download className="w-4 h-4" />
-              {downloadingPDF ? 'Preparing PDF…' : 'Download Analysis PDF'}
-            </button>
+
             <button
               onClick={() => navigate('/dashboard')}
               className="w-full py-3 text-slate-400 font-black rounded-2xl border border-white/10 hover:bg-white/5 transition-all uppercase tracking-widest text-xs"

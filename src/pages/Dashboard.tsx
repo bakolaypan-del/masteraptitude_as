@@ -214,6 +214,7 @@ export default function Dashboard() {
   
   const activeTab = (searchParams.get('tab') as DashboardTab) || 'home';
   const selectedCategory = searchParams.get('cat') || '';
+  const [showPerformance, setShowPerformance] = useState(false);
 
   const setActiveTab = (tab: DashboardTab) => {
     setSearchParams({ tab, cat: '' });
@@ -1461,38 +1462,63 @@ export default function Dashboard() {
                     </div>
                   </div>
 
-                  {/* ── Overall Mock Performance ── */}
+                  {/* ── Overall Mock Performance (Collapsible) ── */}
                   <div className="mt-8 pt-8 border-t border-slate-100">
-                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                      <div className="w-1 h-4 bg-indigo-500 rounded-full"/>
-                      Overall Mock Performance
-                    </h3>
-                    {performanceStats.totalTests === 0 ? (
-                      <div className="text-center py-6 text-slate-400 text-xs font-bold">
-                        No tests taken yet. Start a mock test to see your stats!
+                    <button
+                      type="button"
+                      onClick={() => setShowPerformance(prev => !prev)}
+                      className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl border border-slate-200/60 transition-all text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center shadow-xs">
+                          <BarChart3 className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                            Mock Test Performance Analysis
+                          </h3>
+                          <p className="text-[10px] font-bold text-slate-400 mt-0.5">
+                            {showPerformance ? 'Click to collapse' : 'Click to view your overall performance insights'}
+                          </p>
+                        </div>
                       </div>
-                    ) : (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100 text-center">
-                          <span className="block text-[9px] font-black text-indigo-400 uppercase tracking-tight mb-1">Tests Taken</span>
-                          <span className="text-2xl font-black text-indigo-700">{performanceStats.totalTests}</span>
-                        </div>
-                        <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 text-center">
-                          <span className="block text-[9px] font-black text-emerald-400 uppercase tracking-tight mb-1">Best Score</span>
-                          <span className="text-2xl font-black text-emerald-700">{performanceStats.bestScore}</span>
-                        </div>
-                        <div className="bg-sky-50 p-4 rounded-2xl border border-sky-100 text-center">
-                          <span className="block text-[9px] font-black text-sky-400 uppercase tracking-tight mb-1">Avg Score</span>
-                          <span className="text-2xl font-black text-sky-700">{performanceStats.avgScore}</span>
-                        </div>
-                        <div className="bg-violet-50 p-4 rounded-2xl border border-violet-100 text-center">
-                          <span className="block text-[9px] font-black text-violet-400 uppercase tracking-tight mb-1">Avg Accuracy</span>
-                          <span className="text-2xl font-black text-violet-700">{performanceStats.avgAccuracy}%</span>
-                        </div>
-                        <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 text-center">
-                          <span className="block text-[9px] font-black text-amber-400 uppercase tracking-tight mb-1">Latest Score</span>
-                          <span className="text-2xl font-black text-amber-700">{performanceStats.latestScore}</span>
-                        </div>
+                      <ChevronRight className={`w-5 h-5 text-slate-400 transition-transform duration-200 ${showPerformance ? 'rotate-90' : ''}`} />
+                    </button>
+
+                    {showPerformance && (
+                      <div className="mt-4 p-5 bg-white rounded-3xl border border-slate-100 shadow-xl shadow-slate-100 animate-in slide-in-from-top-4 duration-200">
+                        {performanceStats.totalTests === 0 ? (
+                          <div className="text-center py-4 text-slate-400 text-xs font-bold">
+                            No tests taken yet. Start a mock test to see your stats!
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100 text-center">
+                              <span className="block text-[9px] font-black text-indigo-400 uppercase tracking-tight mb-1">Tests Taken</span>
+                              <span className="text-2xl font-black text-indigo-700">{performanceStats.totalTests}</span>
+                            </div>
+                            <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 text-center">
+                              <span className="block text-[9px] font-black text-emerald-400 uppercase tracking-tight mb-1">Best Score</span>
+                              <span className="text-2xl font-black text-emerald-700">{performanceStats.bestScore}</span>
+                            </div>
+                            <div className="bg-sky-50 p-4 rounded-2xl border border-sky-100 text-center">
+                              <span className="block text-[9px] font-black text-sky-400 uppercase tracking-tight mb-1">Avg Score</span>
+                              <span className="text-2xl font-black text-sky-700">{performanceStats.avgScore}</span>
+                            </div>
+                            <div className="bg-violet-50 p-4 rounded-2xl border border-violet-100 text-center">
+                              <span className="block text-[9px] font-black text-violet-400 uppercase tracking-tight mb-1">Avg Accuracy</span>
+                              <span className="text-2xl font-black text-violet-700">{performanceStats.avgAccuracy}%</span>
+                            </div>
+                            <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 text-center">
+                              <span className="block text-[9px] font-black text-amber-400 uppercase tracking-tight mb-1">Latest Score</span>
+                              <span className="text-2xl font-black text-amber-700">{performanceStats.latestScore}</span>
+                            </div>
+                            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
+                              <span className="block text-[9px] font-black text-slate-400 uppercase tracking-tight mb-1">Global Rank</span>
+                              <span className="text-2xl font-black text-slate-700">#{profile?.globalRank || '-'}</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -2331,59 +2357,7 @@ export default function Dashboard() {
                 );
               })()}
 
-              {/* Performance Analytics Section - Moved here and made compact */}
-              <div className="bg-white rounded-3xl p-6 border border-indigo-100 shadow-xl shadow-indigo-500/5 relative overflow-hidden group mt-12 mb-8">
-                  <div className="absolute top-0 right-0 p-4 text-indigo-50/20 pointer-events-none transition-transform group-hover:scale-105 duration-700">
-                    <Trophy className="w-32 h-32 -mr-6 -mt-6 rotate-12" />
-                  </div>
-                  
-                  <h3 className="text-lg font-black text-slate-800 mb-6 flex items-center gap-3 relative z-10">
-                    <div className="w-1.5 h-6 bg-indigo-600 rounded-full"></div>
-                    Performance Insights
-                  </h3>
-                  
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 relative z-10">
-                    <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 shadow-xs text-center flex flex-col items-center justify-center hover:border-indigo-300 transition-colors">
-                      <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 mb-2">
-                        <Trophy className="w-4 h-4" />
-                      </div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Best Score</p>
-                      <p className="text-lg font-black text-indigo-600 tracking-tighter">{performanceStats.bestScore}</p>
-                    </div>
-                    
-                    <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 shadow-xs text-center flex flex-col items-center justify-center hover:border-emerald-300 transition-colors">
-                      <div className="w-8 h-8 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 mb-2">
-                        <Target className="w-4 h-4" />
-                      </div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Avg Score</p>
-                      <p className="text-lg font-black text-emerald-600 tracking-tighter">{performanceStats.avgScore}</p>
-                    </div>
 
-                    <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 shadow-xs text-center flex flex-col items-center justify-center hover:border-amber-300 transition-colors">
-                      <div className="w-8 h-8 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 mb-2">
-                        <User className="w-4 h-4" />
-                      </div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Global Rank</p>
-                      <p className="text-lg font-black text-amber-600 tracking-tighter">#{profile?.globalRank || '-'}</p>
-                    </div>
-
-                    <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 shadow-xs text-center flex flex-col items-center justify-center hover:border-rose-300 transition-colors">
-                      <div className="w-8 h-8 bg-rose-50 rounded-xl flex items-center justify-center text-rose-600 mb-2">
-                        <CheckCircle className="w-4 h-4" />
-                      </div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Accuracy</p>
-                      <p className="text-lg font-black text-rose-600 tracking-tighter">{performanceStats.avgAccuracy}%</p>
-                    </div>
-
-                    <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 shadow-xs text-center flex flex-col items-center justify-center hover:border-violet-300 transition-colors">
-                      <div className="w-8 h-8 bg-violet-50 rounded-xl flex items-center justify-center text-violet-600 mb-2">
-                        <History className="w-4 h-4" />
-                      </div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Latest</p>
-                      <p className="text-lg font-black text-violet-600 tracking-tighter">{performanceStats.latestScore}</p>
-                    </div>
-                  </div>
-              </div>
             </div>
           )}
 
