@@ -578,7 +578,8 @@ ${allUrls.map(u => `  <url>
       if (missing > 0) unattempted += missing;
 
       const totalQuestions = questionsSnap.size;
-      const accuracy = totalQuestions > 0 ? ((correct / (correct + wrong || 1)) * 100).toFixed(1) : 0;
+      const attempted = correct + wrong;
+      const accuracy = attempted > 0 ? ((correct / attempted) * 100).toFixed(1) : 0;
 
       const questionTimes = req.body.questionTimes || {};
 
@@ -1134,7 +1135,8 @@ ${allUrls.map(u => `  <url>
       const wrong = questions.filter(q => !q.isCorrect && !q.isSkipped).length;
       const skipped = questions.filter(q => q.isSkipped).length;
       const totalScore = questions.reduce((sum, q) => sum + q.marksEarned, 0);
-      const accuracy = totalQuestions > 0 ? parseFloat(((correct / totalQuestions) * 100).toFixed(1)) : 0;
+      const attempted = correct + wrong;
+      const accuracy = attempted > 0 ? parseFloat(((correct / attempted) * 100).toFixed(1)) : 0;
 
       // Subject-wise breakdown
       const subjectMap: Record<string, { total: number; correct: number; totalTime: number }> = {};

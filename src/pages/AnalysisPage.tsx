@@ -312,8 +312,9 @@ export default function AnalysisPage() {
   };
 
   // ── Derived values for summary screen ─────────────────────────────────────
-  const accuracy = result?.totalQuestions > 0
-    ? ((result.correctAnswers / result.totalQuestions) * 100).toFixed(1)
+  const attempted = (result?.correctAnswers ?? 0) + (result?.wrongAnswers ?? 0);
+  const accuracy = attempted > 0
+    ? ((result.correctAnswers / attempted) * 100).toFixed(1)
     : result?.accuracy ?? 0;
   const accuracyNum = parseFloat(String(accuracy));
   const isReattempt = (result?.attemptNumber ?? 1) > 1;
