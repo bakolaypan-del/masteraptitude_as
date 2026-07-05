@@ -340,55 +340,63 @@ export default function Dashboard() {
   useEffect(() => {
     async function fetchData() {
       if (!user) return;
+
+      const safeParse = (str: string | null) => {
+        if (!str || str === 'undefined') return null;
+        try {
+          return JSON.parse(str);
+        } catch {
+          return null;
+        }
+      };
       
       // 1. Instantly load cache from localStorage if available to make dashboard load instant
       try {
-        const cachedTests = localStorage.getItem('ma_cache_tests');
-        const cachedNotes = localStorage.getItem('ma_cache_notes');
-        const cachedVideos = localStorage.getItem('ma_cache_videos');
-        const cachedPyqs = localStorage.getItem('ma_cache_pyqs');
-        const cachedPatterns = localStorage.getItem('ma_cache_patterns');
-        const cachedAffairs = localStorage.getItem('ma_cache_affairs');
-        const cachedPractice = localStorage.getItem('ma_cache_practice_sets');
-        const cachedCarousel = localStorage.getItem('ma_cache_carousel');
+        const cachedTests = safeParse(localStorage.getItem('ma_cache_tests'));
+        const cachedNotes = safeParse(localStorage.getItem('ma_cache_notes'));
+        const cachedVideos = safeParse(localStorage.getItem('ma_cache_videos'));
+        const cachedPyqs = safeParse(localStorage.getItem('ma_cache_pyqs'));
+        const cachedPatterns = safeParse(localStorage.getItem('ma_cache_patterns'));
+        const cachedAffairs = safeParse(localStorage.getItem('ma_cache_affairs'));
+        const cachedPractice = safeParse(localStorage.getItem('ma_cache_practice_sets'));
+        const cachedCarousel = safeParse(localStorage.getItem('ma_cache_carousel'));
         
-        const cachedSiteInfo = localStorage.getItem('ma_cache_site_info');
-        const cachedSocialLinks = localStorage.getItem('ma_cache_social_links');
-        const cachedCategoryOrder = localStorage.getItem('ma_cache_category_order');
-        const cachedResults = localStorage.getItem('ma_cache_results');
-        const cachedPaidBatches = localStorage.getItem('ma_cache_paid_batches');
-        const cachedMyPurchases = localStorage.getItem('ma_cache_my_purchases');
+        const cachedSiteInfo = safeParse(localStorage.getItem('ma_cache_site_info'));
+        const cachedSocialLinks = safeParse(localStorage.getItem('ma_cache_social_links'));
+        const cachedCategoryOrder = safeParse(localStorage.getItem('ma_cache_category_order'));
+        const cachedResults = safeParse(localStorage.getItem('ma_cache_results'));
+        const cachedPaidBatches = safeParse(localStorage.getItem('ma_cache_paid_batches'));
+        const cachedMyPurchases = safeParse(localStorage.getItem('ma_cache_my_purchases'));
 
         let hasCachedData = false;
 
-        if (cachedTests) {
-          const parsed = JSON.parse(cachedTests);
-          setActiveTests(parsed);
-          setLiveTests(parsed.filter((t: any) => t.isLive));
+        if (cachedTests && Array.isArray(cachedTests)) {
+          setActiveTests(cachedTests);
+          setLiveTests(cachedTests.filter((t: any) => t.isLive));
           hasCachedData = true;
         }
-        if (cachedNotes) { setNotes(JSON.parse(cachedNotes)); hasCachedData = true; }
-        if (cachedVideos) { setVideos(JSON.parse(cachedVideos)); hasCachedData = true; }
-        if (cachedPyqs) { setPyqs(JSON.parse(cachedPyqs)); hasCachedData = true; }
-        if (cachedPatterns) { setPatterns(JSON.parse(cachedPatterns)); hasCachedData = true; }
-        if (cachedAffairs) { setAffairs(JSON.parse(cachedAffairs)); hasCachedData = true; }
-        if (cachedPractice) { setPracticeSets(JSON.parse(cachedPractice)); hasCachedData = true; }
-        if (cachedCarousel) {
-          const parsed = JSON.parse(cachedCarousel);
-          const sorted = [...parsed].sort((a: any, b: any) => (a.priority || 99) - (b.priority || 99));
+        if (cachedNotes && Array.isArray(cachedNotes)) { setNotes(cachedNotes); hasCachedData = true; }
+        if (cachedVideos && Array.isArray(cachedVideos)) { setVideos(cachedVideos); hasCachedData = true; }
+        if (cachedPyqs && Array.isArray(cachedPyqs)) { setPyqs(cachedPyqs); hasCachedData = true; }
+        if (cachedPatterns && Array.isArray(cachedPatterns)) { setPatterns(cachedPatterns); hasCachedData = true; }
+        if (cachedAffairs && Array.isArray(cachedAffairs)) { setAffairs(cachedAffairs); hasCachedData = true; }
+        if (cachedPractice && Array.isArray(cachedPractice)) { setPracticeSets(cachedPractice); hasCachedData = true; }
+        if (cachedCarousel && Array.isArray(cachedCarousel)) {
+          const sorted = [...cachedCarousel].sort((a: any, b: any) => (a.priority || 99) - (b.priority || 99));
           setCarousels(sorted);
           hasCachedData = true;
         }
         
-        if (cachedSiteInfo) setAboutInfo(JSON.parse(cachedSiteInfo));
-        if (cachedSocialLinks) setSocialLinks(JSON.parse(cachedSocialLinks));
-        if (cachedCategoryOrder) setCategoryOrder(JSON.parse(cachedCategoryOrder));
-        if (cachedResults) setPastResults(JSON.parse(cachedResults));
-        if (cachedPaidBatches) setPaidBatches(JSON.parse(cachedPaidBatches));
-        if (cachedMyPurchases) setMyPurchases(JSON.parse(cachedMyPurchases));
+        if (cachedSiteInfo) setAboutInfo(cachedSiteInfo);
+        if (cachedSocialLinks) setSocialLinks(cachedSocialLinks);
+        if (cachedCategoryOrder && Array.isArray(cachedCategoryOrder)) setCategoryOrder(cachedCategoryOrder);
+        if (cachedResults && Array.isArray(cachedResults)) setPastResults(cachedResults);
+        if (cachedPaidBatches && Array.isArray(cachedPaidBatches)) setPaidBatches(cachedPaidBatches);
+        if (cachedMyPurchases && Array.isArray(cachedMyPurchases)) setMyPurchases(cachedMyPurchases);
 
         // If we found any primary cached data, hide the loading screen instantly
         if (hasCachedData) {
+          console.log("[Cache] Instant load from localStorage successful!");
           setLoading(false);
         }
       } catch (err) {
