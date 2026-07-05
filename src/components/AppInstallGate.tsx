@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Download, Share, Smartphone, Zap, Wifi, ShieldCheck, Star } from 'lucide-react';
+import { Download, Share, Smartphone, Zap, Wifi, ShieldCheck, Star, X } from 'lucide-react';
 
 const SESSION_KEY = 'ma_gate_dismissed';
 
@@ -13,7 +13,7 @@ const isMobileDevice = () => /android|iphone|ipad|ipod/i.test(navigator.userAgen
 export default function AppInstallGate() {
   const [show, setShow] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [canSkip, setCanSkip] = useState(false);
+  const [canSkip, setCanSkip] = useState(true);
   const [iosSteps, setIosSteps] = useState(false);
   const [installing, setInstalling] = useState(false);
 
@@ -21,8 +21,6 @@ export default function AppInstallGate() {
     if (!isMobileDevice() || isStandalone()) return;
     if (sessionStorage.getItem(SESSION_KEY)) return;
     setShow(true);
-    const t = setTimeout(() => setCanSkip(true), 5000);
-    return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {
@@ -53,8 +51,18 @@ export default function AppInstallGate() {
 
   if (iosSteps) {
     return (
-      <div className="fixed inset-0 z-[99999] flex flex-col overflow-y-auto"
+      <div className="fixed inset-0 z-[99999] flex flex-col overflow-y-auto relative"
         style={{ background: 'linear-gradient(160deg, #0f0c29 0%, #1a1040 55%, #0d1b2a 100%)' }}>
+        
+        {/* Red close button top-right */}
+        <button
+          onClick={handleSkip}
+          className="absolute top-4 right-4 z-[100000] w-8 h-8 rounded-full bg-rose-600 hover:bg-rose-700 active:scale-95 flex items-center justify-center text-white transition-all shadow-lg border border-rose-500/35"
+          title="Close and continue in browser"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 text-center">
           <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-[28px] flex items-center justify-center shadow-2xl mb-6"
             style={{ boxShadow: '0 16px 48px rgba(99,102,241,0.5)' }}>
@@ -98,9 +106,18 @@ export default function AppInstallGate() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[99999] flex flex-col overflow-y-auto"
+          className="fixed inset-0 z-[99999] flex flex-col overflow-y-auto relative"
           style={{ background: 'linear-gradient(160deg, #0f0c29 0%, #1a1040 55%, #0d1b2a 100%)' }}
         >
+          {/* Red close button top-right */}
+          <button
+            onClick={handleSkip}
+            className="absolute top-4 right-4 z-[100000] w-8 h-8 rounded-full bg-rose-600 hover:bg-rose-700 active:scale-95 flex items-center justify-center text-white transition-all shadow-lg border border-rose-500/35"
+            title="Close and continue in browser"
+          >
+            <X className="w-4 h-4" />
+          </button>
+
           {/* Top pattern */}
           <div className="absolute inset-0 pointer-events-none opacity-[0.04]"
             style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '28px 28px' }} />

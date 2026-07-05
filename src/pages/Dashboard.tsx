@@ -341,8 +341,63 @@ export default function Dashboard() {
     async function fetchData() {
       if (!user) return;
       
+      // 1. Instantly load cache from localStorage if available to make dashboard load instant
       try {
-        console.log("Fetching student data...");
+        const cachedTests = localStorage.getItem('ma_cache_tests');
+        const cachedNotes = localStorage.getItem('ma_cache_notes');
+        const cachedVideos = localStorage.getItem('ma_cache_videos');
+        const cachedPyqs = localStorage.getItem('ma_cache_pyqs');
+        const cachedPatterns = localStorage.getItem('ma_cache_patterns');
+        const cachedAffairs = localStorage.getItem('ma_cache_affairs');
+        const cachedPractice = localStorage.getItem('ma_cache_practice_sets');
+        const cachedCarousel = localStorage.getItem('ma_cache_carousel');
+        
+        const cachedSiteInfo = localStorage.getItem('ma_cache_site_info');
+        const cachedSocialLinks = localStorage.getItem('ma_cache_social_links');
+        const cachedCategoryOrder = localStorage.getItem('ma_cache_category_order');
+        const cachedResults = localStorage.getItem('ma_cache_results');
+        const cachedPaidBatches = localStorage.getItem('ma_cache_paid_batches');
+        const cachedMyPurchases = localStorage.getItem('ma_cache_my_purchases');
+
+        let hasCachedData = false;
+
+        if (cachedTests) {
+          const parsed = JSON.parse(cachedTests);
+          setActiveTests(parsed);
+          setLiveTests(parsed.filter((t: any) => t.isLive));
+          hasCachedData = true;
+        }
+        if (cachedNotes) { setNotes(JSON.parse(cachedNotes)); hasCachedData = true; }
+        if (cachedVideos) { setVideos(JSON.parse(cachedVideos)); hasCachedData = true; }
+        if (cachedPyqs) { setPyqs(JSON.parse(cachedPyqs)); hasCachedData = true; }
+        if (cachedPatterns) { setPatterns(JSON.parse(cachedPatterns)); hasCachedData = true; }
+        if (cachedAffairs) { setAffairs(JSON.parse(cachedAffairs)); hasCachedData = true; }
+        if (cachedPractice) { setPracticeSets(JSON.parse(cachedPractice)); hasCachedData = true; }
+        if (cachedCarousel) {
+          const parsed = JSON.parse(cachedCarousel);
+          const sorted = [...parsed].sort((a: any, b: any) => (a.priority || 99) - (b.priority || 99));
+          setCarousels(sorted);
+          hasCachedData = true;
+        }
+        
+        if (cachedSiteInfo) setAboutInfo(JSON.parse(cachedSiteInfo));
+        if (cachedSocialLinks) setSocialLinks(JSON.parse(cachedSocialLinks));
+        if (cachedCategoryOrder) setCategoryOrder(JSON.parse(cachedCategoryOrder));
+        if (cachedResults) setPastResults(JSON.parse(cachedResults));
+        if (cachedPaidBatches) setPaidBatches(JSON.parse(cachedPaidBatches));
+        if (cachedMyPurchases) setMyPurchases(JSON.parse(cachedMyPurchases));
+
+        // If we found any primary cached data, hide the loading screen instantly
+        if (hasCachedData) {
+          setLoading(false);
+        }
+      } catch (err) {
+        console.warn("[Cache] Error reading initial cache:", err);
+      }
+
+      // 2. Fetch fresh data in the background
+      try {
+        console.log("Fetching student data in background...");
         
         // Fetch Active Tests (ordered by creation — first added = first shown)
         const allTests = await getCachedCollection(
@@ -356,6 +411,7 @@ export default function Dashboard() {
         );
         setActiveTests(allTests);
         setLiveTests(allTests.filter((t: any) => t.isLive));
+        localStorage.setItem('ma_cache_tests', JSON.stringify(allTests));
         
         // Fetch Notes
         const allNotes = await getCachedCollection(
@@ -367,6 +423,7 @@ export default function Dashboard() {
           'notes'
         );
         setNotes(allNotes);
+        localStorage.setItem('ma_cache_notes', JSON.stringify(allNotes));
 
         // Fetch Videos
         const allVideos = await getCachedCollection(
@@ -378,6 +435,7 @@ export default function Dashboard() {
           'videos'
         );
         setVideos(allVideos);
+        localStorage.setItem('ma_cache_videos', JSON.stringify(allVideos));
 
         // Fetch Pyqs
         const allPyqs = await getCachedCollection(
@@ -389,6 +447,7 @@ export default function Dashboard() {
           'pyqs'
         );
         setPyqs(allPyqs);
+        localStorage.setItem('ma_cache_pyqs', JSON.stringify(allPyqs));
 
         // Fetch Patterns
         const allPatterns = await getCachedCollection(
@@ -400,6 +459,7 @@ export default function Dashboard() {
           'patterns'
         );
         setPatterns(allPatterns);
+        localStorage.setItem('ma_cache_patterns', JSON.stringify(allPatterns));
 
         // Fetch Affairs
         const allAffairs = await getCachedCollection(
@@ -411,6 +471,7 @@ export default function Dashboard() {
           'affairs'
         );
         setAffairs(allAffairs);
+        localStorage.setItem('ma_cache_affairs', JSON.stringify(allAffairs));
 
         // Fetch Practice Sets
         const allPractice = await getCachedCollection(
@@ -422,11 +483,14 @@ export default function Dashboard() {
           'practice_sets'
         );
         setPracticeSets(allPractice);
+        localStorage.setItem('ma_cache_practice_sets', JSON.stringify(allPractice));
 
         // Fetch About & Contact Info
         const infoSnap = await getDoc(doc(db, 'settings', 'site_info'));
         if (infoSnap.exists()) {
-          setAboutInfo(infoSnap.data() as any);
+          const sInfo = infoSnap.data() as any;
+          setAboutInfo(sInfo);
+          localStorage.setItem('ma_cache_site_info', JSON.stringify(sInfo));
         }
 
         // Fetch Carousels
@@ -440,23 +504,28 @@ export default function Dashboard() {
         );
         const sortedCarousels = [...allCarousels].sort((a: any, b: any) => (a.priority || 99) - (b.priority || 99));
         setCarousels(sortedCarousels);
+        localStorage.setItem('ma_cache_carousel', JSON.stringify(allCarousels));
 
         // Fetch Social Links
         const socialSnap = await getDoc(doc(db, 'settings', 'social_links'));
         if (socialSnap.exists()) {
           const data = socialSnap.data();
-          setSocialLinks({
+          const sLinks = {
             youtube: data.youtube || '',
             telegram: data.telegram || '',
             whatsapp: data.whatsapp || ''
-          });
+          };
+          setSocialLinks(sLinks);
+          localStorage.setItem('ma_cache_social_links', JSON.stringify(sLinks));
         }
 
         // Fetch Category Order
         const orderRes = await fetch('/api/category-order');
         if (orderRes.ok) {
           const orderData = await orderRes.json();
-          setCategoryOrder(orderData.order || []);
+          const order = orderData.order || [];
+          setCategoryOrder(order);
+          localStorage.setItem('ma_cache_category_order', JSON.stringify(order));
         }
 
         // Fetch Past Results
@@ -465,6 +534,7 @@ export default function Dashboard() {
         const results = resultsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }) as any);
         results.sort((a, b) => b.timestamp - a.timestamp);
         setPastResults(results);
+        localStorage.setItem('ma_cache_results', JSON.stringify(results));
 
         // Fetch Paid Batches + My Purchases + Payment Config (parallel)
         try {
@@ -474,15 +544,28 @@ export default function Dashboard() {
             fetch('/api/my-purchases', { headers: { Authorization: `Bearer ${tok}` } }),
             fetch('/api/payment-config'),
           ]);
-          if (batchRes.ok) setPaidBatches(await batchRes.json());
-          if (purchaseRes.ok) { const pd = await purchaseRes.json(); setMyPurchases(pd.purchasedBatches || []); }
-          if (payRes.ok) { const pc = await payRes.json(); if (pc.razorpayMeUrl) setRazorpayMeUrl(pc.razorpayMeUrl); }
+          if (batchRes.ok) {
+            const bd = await batchRes.json();
+            setPaidBatches(bd);
+            localStorage.setItem('ma_cache_paid_batches', JSON.stringify(bd));
+          }
+          if (purchaseRes.ok) {
+            const pd = await purchaseRes.json();
+            const pb = pd.purchasedBatches || [];
+            setMyPurchases(pb);
+            localStorage.setItem('ma_cache_my_purchases', JSON.stringify(pb));
+          }
+          if (payRes.ok) {
+            const pc = await payRes.json();
+            if (pc.razorpayMeUrl) setRazorpayMeUrl(pc.razorpayMeUrl);
+          }
         } catch { /* non-fatal */ }
 
       } catch (error) {
         handleFirestoreError(error, OperationType.GET, 'multiple collections');
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     
     fetchData();
