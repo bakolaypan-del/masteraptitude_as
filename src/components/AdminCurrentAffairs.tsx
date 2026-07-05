@@ -5,7 +5,9 @@ import {
 } from 'firebase/firestore';
 import { ref as sRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../lib/firebase';
+import { invalidateCacheField } from '../lib/cache';
 import { useAuth } from './AuthContext';
+import { uploadFileViaBackend } from '../lib/upload';
 import RichTextEditor from './RichTextEditor';
 import {
   Plus, Trash2, Edit2, GripVertical, Save, X, ArrowLeft,
@@ -185,6 +187,7 @@ export default function AdminCurrentAffairs() {
   const seedDefaults = async () => {
     const cats = DEFAULT_CATEGORY_PRESETS.map((p, i) => ({ ...p, id: uid(), order: i }));
     await setDoc(doc(db, 'settings', 'affair_categories'), { cats });
+    await invalidateCacheField('categories');
     setCategories(cats);
   };
 
@@ -248,9 +251,7 @@ export default function AdminCurrentAffairs() {
     setUploadingSection(sectionId);
     try {
       const folder = type === 'image' ? 'affair-images' : 'affair-pdfs';
-      const name = `${folder}/${Date.now()}_${uid()}_${file.name}`;
-      const snap = await uploadBytes(sRef(storage, name), file);
-      const url = await getDownloadURL(snap.ref);
+      const url = await uploadFileViaBackend(file, folder, user);
       updateSection(sectionId, type === 'image' ? { imageUrl: url } : { pdfUrl: url });
     } catch {
       alert('Upload failed. Try again.');
@@ -280,9 +281,7 @@ export default function AdminCurrentAffairs() {
     try {
       let thumbFinalUrl = thumbPreview;
       if (thumbFile) {
-        const name = `affair-thumbs/${Date.now()}_${uid()}_${thumbFile.name}`;
-        const snap = await uploadBytes(sRef(storage, name), thumbFile);
-        thumbFinalUrl = await getDownloadURL(snap.ref);
+        thumbFinalUrl = await uploadFileViaBackend(thumbFile, 'affair-thumbs', user);
       }
       const data = {
         title: title.trim(),
@@ -305,6 +304,7 @@ export default function AdminCurrentAffairs() {
           createdAt: serverTimestamp(), authorId: user.uid,
         });
       }
+      await invalidateCacheField('affairs');
       await fetchPosts();
       setView('list');
     } catch (err) {
@@ -318,6 +318,7 @@ export default function AdminCurrentAffairs() {
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this post permanently?')) return;
     await deleteDoc(doc(db, 'affairs', id));
+    await invalidateCacheField('affairs');
     await fetchPosts();
   };
 
@@ -331,6 +332,7 @@ export default function AdminCurrentAffairs() {
 
   const persistCategories = async (updated: AffairCategory[]) => {
     await setDoc(doc(db, 'settings', 'affair_categories'), { cats: updated });
+    await invalidateCacheField('categories');
     setCategories(updated);
   };
 

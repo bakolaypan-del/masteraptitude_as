@@ -5,6 +5,7 @@ import {
   doc, updateDoc, increment,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { getCachedCollection } from '../lib/cache';
 import {
   ArrowLeft, Search, X, Calendar, Tag as TagIcon,
   BookmarkPlus, Bookmark, Share2, ExternalLink, Download,
@@ -78,14 +79,21 @@ export default function CurrentAffairsPage() {
 
   const fetchPosts = async () => {
     try {
-      const snap = await getDocs(
-        query(collection(db, 'affairs'), where('status', '==', 'published'), orderBy('createdAt', 'desc'))
-      ).catch(async () =>
-        getDocs(query(collection(db, 'affairs'), orderBy('createdAt', 'desc')))
+      const all = await getCachedCollection<AffairPost>(
+        'affairs',
+        async () => {
+          const snap = await getDocs(
+            query(collection(db, 'affairs'), where('status', '==', 'published'), orderBy('createdAt', 'desc'))
+          ).catch(async () =>
+            getDocs(query(collection(db, 'affairs'), orderBy('createdAt', 'desc')))
+          );
+          return snap.docs.map(d => ({ id: d.id, ...d.data() } as AffairPost));
+        },
+        'affairs'
       );
-      const all = snap.docs.map(d => ({ id: d.id, ...d.data() } as AffairPost));
-      all.sort((a, b) => (b.pinToHomepage ? 1 : 0) - (a.pinToHomepage ? 1 : 0));
-      setPosts(all);
+      const sorted = [...all];
+      sorted.sort((a, b) => (b.pinToHomepage ? 1 : 0) - (a.pinToHomepage ? 1 : 0));
+      setPosts(sorted);
     } catch { setPosts([]); }
     finally { setLoading(false); }
   };

@@ -257,6 +257,21 @@ const getDb = () => {
 // Start initialization early but don't crash the process if it fails
 getDb();
 
+async function invalidateCacheField(field: string) {
+  const currentDb = getDb();
+  if (!currentDb) return;
+  try {
+    const ref = currentDb.collection("settings").doc("cache_state");
+    await ref.set({
+      [field]: Date.now(),
+      sitemap_updated_at: Date.now()
+    }, { merge: true });
+    console.log(`[Cache] Invalidated cache field: ${field}`);
+  } catch (err: any) {
+    console.warn(`[Cache] Failed to invalidate cache field ${field}:`, err.message);
+  }
+}
+
 async function verifyToken(req: express.Request, res: express.Response, next: express.NextFunction) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -311,8 +326,8 @@ async function verifyAdmin(req: express.Request, res: express.Response, next: ex
 const app = express();
 const PORT = parseInt(process.env.PORT as string) || 3000;
 
-app.use(express.json({ limit: '5mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cookieParser());
 
 // Request logger for debugging Vercel/Production issues
@@ -326,7 +341,16 @@ app.use((req, res, next) => {
 // API Routes
 
   // Sitemap — dynamically generated from blog posts
+  let cachedSitemapXml: string | null = null;
+  let cachedSitemapTime = 0;
+
   app.get("/sitemap.xml", async (req, res) => {
+    const now = Date.now();
+    if (cachedSitemapXml && (now - cachedSitemapTime < 300000)) {
+      console.log("[Sitemap] Serving cached sitemap from memory");
+      return res.header("Content-Type", "application/xml").send(cachedSitemapXml);
+    }
+
     const currentDb = getDb();
     const baseUrl = process.env.BASE_URL || "https://masteraptitude.vercel.app";
     type SitemapUrl = { loc: string; priority: string; changefreq: string; lastmod?: string };
@@ -370,6 +394,9 @@ ${allUrls.map(u => `  <url>
     <priority>${u.priority}</priority>
   </url>`).join("\n")}
 </urlset>`;
+    
+    cachedSitemapXml = xml;
+    cachedSitemapTime = now;
     res.header("Content-Type", "application/xml").send(xml);
   });
 
@@ -1258,6 +1285,7 @@ ${allUrls.map(u => `  <url>
         liveEndDate: liveEndDate || "",
         createdAt: Date.now()
       });
+      await invalidateCacheField("tests");
       res.json({ id: ref.id, title, topic, testType, isActive, duration, subjectName, category });
     } catch (error) {
        console.error(error);
@@ -1297,6 +1325,7 @@ ${allUrls.map(u => `  <url>
         }
       });
       await batch.commit();
+      await invalidateCacheField("tests");
       res.json({ success: true, count: tests.length });
     } catch (error) {
       console.error("[Admin] Bulk create failed:", error);
@@ -1327,6 +1356,7 @@ ${allUrls.map(u => `  <url>
       };
       if (testType) updateData.testType = testType;
       await currentDb.collection("tests").doc(testId).update(updateData);
+      await invalidateCacheField("tests");
       res.json({ success: true });
     } catch (error) {
        console.error(error);
@@ -1343,6 +1373,7 @@ ${allUrls.map(u => `  <url>
       await ref.set({
         testId, topic, qNo, questionText, options, correctAnswer, solution: solution || "", imageUrl: imageUrl || "", equationLatex: equationLatex || ""
       });
+      await invalidateCacheField("tests");
       res.json({ id: ref.id });
     } catch (error) {
        console.error(error);
@@ -1359,6 +1390,7 @@ ${allUrls.map(u => `  <url>
       await currentDb.collection("questions").doc(questionId).update({
         topic, questionText, options, correctAnswer, solution: solution || "", imageUrl: imageUrl || "", equationLatex: equationLatex || ""
       });
+      await invalidateCacheField("tests");
       res.json({ success: true });
     } catch (error) {
        console.error(error);
@@ -1375,6 +1407,7 @@ ${allUrls.map(u => `  <url>
     try {
       await currentDb.collection("questions").doc(id).delete();
       console.log(`[Admin] Successfully deleted question: ${id}`);
+      await invalidateCacheField("tests");
       res.json({ success: true });
     } catch (error: any) {
       console.error(`[Admin] Error deleting question ${id}:`, error);
@@ -1382,23 +1415,46 @@ ${allUrls.map(u => `  <url>
     }
   });
 
-  // ── Image upload via Admin SDK (bypasses Storage Rules) ────────────────────
+  // ── File/Image upload via Admin SDK (bypasses Storage Rules) ───────────────
   app.post("/api/admin/upload-image", verifyToken, verifyAdmin, async (req, res) => {
     try {
-      const { base64, mimeType, fileName } = req.body;
+      const { base64, mimeType, fileName, folder } = req.body;
       if (!base64 || !mimeType || !fileName) {
         return res.status(400).json({ error: "base64, mimeType and fileName are required" });
       }
 
       const { getStorage } = await import("firebase-admin/storage");
       const bucketName = process.env.FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket;
-      if (!bucketName) return res.status(500).json({ error: "Storage bucket not configured" });
+      if (!bucketName) {
+        console.log("[upload-image] No bucket name configured, falling back to base64 URL");
+        return res.json({ url: `data:${mimeType};base64,${base64}` });
+      }
       console.log("[upload-image] using bucket:", bucketName);
+
+      const bucket = getStorage().bucket(bucketName);
+      
+      let useFallback = false;
+      try {
+        const [exists] = await bucket.exists();
+        if (!exists) {
+          console.warn(`[upload-image] Bucket ${bucketName} does not exist. Falling back to inline base64 URL.`);
+          useFallback = true;
+        }
+      } catch (err: any) {
+        console.warn(`[upload-image] Failed to check bucket existence. Falling back to inline base64 URL. Error:`, err.message);
+        useFallback = true;
+      }
+
+      if (useFallback) {
+        return res.json({ url: `data:${mimeType};base64,${base64}` });
+      }
 
       const buffer = Buffer.from(base64, "base64");
       const token  = crypto.randomUUID();
-      const bucket = getStorage().bucket(bucketName);
-      const file   = bucket.file(`question_images/${fileName}`);
+      
+      const destFolder = folder || "question_images";
+      const fullPath = `${destFolder}/${fileName}`;
+      const file = bucket.file(fullPath);
 
       await file.save(buffer, {
         metadata: {
@@ -1409,11 +1465,11 @@ ${allUrls.map(u => `  <url>
 
       const downloadUrl =
         `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/` +
-        `${encodeURIComponent(`question_images/${fileName}`)}?alt=media&token=${token}`;
+        `${encodeURIComponent(fullPath)}?alt=media&token=${token}`;
 
       res.json({ url: downloadUrl });
     } catch (err: any) {
-      console.error("[upload-image]", err);
+      console.error("[upload-image] Error:", err);
       res.status(500).json({ error: err.message || "Upload failed" });
     }
   });
@@ -1427,6 +1483,7 @@ ${allUrls.map(u => `  <url>
     try {
       await currentDb.collection("pyqs").doc(id).delete();
       console.log(`[Admin] Successfully deleted pyq: ${id}`);
+      await invalidateCacheField("pyqs");
       res.json({ success: true });
     } catch (error: any) {
       console.error(`[Admin] Error deleting pyq ${id}:`, error);
@@ -1443,6 +1500,7 @@ ${allUrls.map(u => `  <url>
     try {
       await currentDb.collection("patterns").doc(id).delete();
       console.log(`[Admin] Successfully deleted pattern: ${id}`);
+      await invalidateCacheField("patterns");
       res.json({ success: true });
     } catch (error: any) {
       console.error(`[Admin] Error deleting pattern ${id}:`, error);
@@ -1470,6 +1528,7 @@ ${allUrls.map(u => `  <url>
       }
       await docRef.delete();
       console.log(`[Admin] Successfully deleted carousel item: ${id}`);
+      await invalidateCacheField("carousel");
       res.json({ success: true });
     } catch (error: any) {
       console.error(`[Admin] Error deleting carousel item ${id}:`, error);
@@ -1486,6 +1545,7 @@ ${allUrls.map(u => `  <url>
     try {
       await currentDb.collection("notes").doc(id).delete();
       console.log(`[Admin] Successfully deleted note: ${id}`);
+      await invalidateCacheField("notes");
       res.json({ success: true });
     } catch (error: any) {
       console.error(`[Admin] Error deleting note ${id}:`, error);
@@ -1502,6 +1562,7 @@ ${allUrls.map(u => `  <url>
     try {
       await currentDb.collection("videos").doc(id).delete();
       console.log(`[Admin] Successfully deleted video: ${id}`);
+      await invalidateCacheField("videos");
       res.json({ success: true });
     } catch (error: any) {
       console.error(`[Admin] Error deleting video ${id}:`, error);
@@ -1516,6 +1577,7 @@ ${allUrls.map(u => `  <url>
     if (!id) return res.status(400).json({ error: "Missing ID" });
     try {
       await currentDb.collection("affairs").doc(id).delete();
+      await invalidateCacheField("affairs");
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: "Failed to delete current affair", message: error.message });
@@ -1549,6 +1611,7 @@ ${allUrls.map(u => `  <url>
         viewCount: 0,
       };
       const ref = await currentDb.collection("study_notes").add(data);
+      await invalidateCacheField("notes");
       res.json({ id: ref.id });
     } catch (error: any) {
       res.status(500).json({ error: "Failed to create study note", message: error.message });
@@ -1563,6 +1626,7 @@ ${allUrls.map(u => `  <url>
     try {
       const data = { ...req.body, updatedAt: admin.firestore.FieldValue.serverTimestamp() };
       await currentDb.collection("study_notes").doc(id).update(data);
+      await invalidateCacheField("notes");
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: "Failed to update study note", message: error.message });
@@ -1576,6 +1640,7 @@ ${allUrls.map(u => `  <url>
     if (!id) return res.status(400).json({ error: "Missing ID" });
     try {
       await currentDb.collection("study_notes").doc(id).delete();
+      await invalidateCacheField("notes");
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: "Failed to delete study note", message: error.message });
@@ -1598,6 +1663,7 @@ ${allUrls.map(u => `  <url>
     if (!currentDb) return res.status(500).json({ error: "Database offline" });
     try {
       await currentDb.collection("settings").doc("study_note_categories").set({ cats: req.body.cats });
+      await invalidateCacheField("categories");
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: "Failed to save categories", message: error.message });
@@ -1611,6 +1677,7 @@ ${allUrls.map(u => `  <url>
     if (!id) return res.status(400).json({ error: "Missing ID" });
     try {
       await currentDb.collection("practice_sets").doc(id).delete();
+      await invalidateCacheField("practice_sets");
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: "Failed to delete practice set", message: error.message });
@@ -1654,6 +1721,7 @@ ${allUrls.map(u => `  <url>
       console.log(`Server: Attempting to commit batch for test ${id}`);
       await batch.commit();
       console.log(`Server: SUCCESS - Deleted test ${id} and all associated items`);
+      await invalidateCacheField("tests");
       res.json({ success: true });
     } catch (error: any) {
       console.error(`Server: ERROR deleting test ${id}:`, error);
@@ -1733,6 +1801,7 @@ ${allUrls.map(u => `  <url>
     const { order } = req.body;
     try {
       await currentDb.collection("settings").doc("category_order").set({ order });
+      await invalidateCacheField("categories");
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: "Failed to update category order" });

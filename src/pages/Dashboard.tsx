@@ -1,10 +1,11 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { collection, query, where, getDocs, orderBy, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { signOut, updatePassword } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
+import { getCachedCollection } from '../lib/cache';
 import { RenderMathText } from '../components/MathRenderer';
 import PWAInstallPrompt, { InstallAppSidebarButton } from '../components/PWAInstallPrompt';
 import AppInstallGate from '../components/AppInstallGate';
@@ -344,35 +345,83 @@ export default function Dashboard() {
         console.log("Fetching student data...");
         
         // Fetch Active Tests (ordered by creation — first added = first shown)
-        const testsQuery = query(collection(db, 'tests'), where('isActive', '==', true), orderBy('createdAt', 'asc'));
-        const testsSnap = await getDocs(testsQuery);
-        const allTests = testsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const allTests = await getCachedCollection(
+          'tests',
+          async () => {
+            const testsQuery = query(collection(db, 'tests'), where('isActive', '==', true), orderBy('createdAt', 'asc'));
+            const snap = await getDocs(testsQuery);
+            return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          },
+          'tests'
+        );
         setActiveTests(allTests);
         setLiveTests(allTests.filter((t: any) => t.isLive));
         
         // Fetch Notes
-        const notesSnap = await getDocs(query(collection(db, 'notes'), orderBy('createdAt', 'desc')));
-        setNotes(notesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        const allNotes = await getCachedCollection(
+          'notes',
+          async () => {
+            const snap = await getDocs(query(collection(db, 'notes'), orderBy('createdAt', 'desc')));
+            return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          },
+          'notes'
+        );
+        setNotes(allNotes);
 
         // Fetch Videos
-        const videosSnap = await getDocs(query(collection(db, 'videos'), orderBy('createdAt', 'desc')));
-        setVideos(videosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        const allVideos = await getCachedCollection(
+          'videos',
+          async () => {
+            const snap = await getDocs(query(collection(db, 'videos'), orderBy('createdAt', 'desc')));
+            return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          },
+          'videos'
+        );
+        setVideos(allVideos);
 
         // Fetch Pyqs
-        const pyqsSnap = await getDocs(query(collection(db, 'pyqs'), orderBy('createdAt', 'desc')));
-        setPyqs(pyqsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        const allPyqs = await getCachedCollection(
+          'pyqs',
+          async () => {
+            const snap = await getDocs(query(collection(db, 'pyqs'), orderBy('createdAt', 'desc')));
+            return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          },
+          'pyqs'
+        );
+        setPyqs(allPyqs);
 
         // Fetch Patterns
-        const patternsSnap = await getDocs(query(collection(db, 'patterns'), orderBy('createdAt', 'desc')));
-        setPatterns(patternsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        const allPatterns = await getCachedCollection(
+          'patterns',
+          async () => {
+            const snap = await getDocs(query(collection(db, 'patterns'), orderBy('createdAt', 'desc')));
+            return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          },
+          'patterns'
+        );
+        setPatterns(allPatterns);
 
         // Fetch Affairs
-        const affairsSnap = await getDocs(query(collection(db, 'affairs'), orderBy('createdAt', 'desc')));
-        setAffairs(affairsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        const allAffairs = await getCachedCollection(
+          'affairs',
+          async () => {
+            const snap = await getDocs(query(collection(db, 'affairs'), orderBy('createdAt', 'desc')));
+            return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          },
+          'affairs'
+        );
+        setAffairs(allAffairs);
 
         // Fetch Practice Sets
-        const practiceSnap = await getDocs(query(collection(db, 'practice_sets'), orderBy('createdAt', 'desc')));
-        setPracticeSets(practiceSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        const allPractice = await getCachedCollection(
+          'practice_sets',
+          async () => {
+            const snap = await getDocs(query(collection(db, 'practice_sets'), orderBy('createdAt', 'desc')));
+            return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          },
+          'practice_sets'
+        );
+        setPracticeSets(allPractice);
 
         // Fetch About & Contact Info
         const infoSnap = await getDoc(doc(db, 'settings', 'site_info'));
@@ -381,9 +430,15 @@ export default function Dashboard() {
         }
 
         // Fetch Carousels
-        const carouselsSnap = await getDocs(query(collection(db, 'carousel'), orderBy('createdAt', 'desc')));
-        const sortedCarousels = carouselsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-          .sort((a: any, b: any) => (a.priority || 99) - (b.priority || 99));
+        const allCarousels = await getCachedCollection(
+          'carousel',
+          async () => {
+            const snap = await getDocs(query(collection(db, 'carousel'), orderBy('createdAt', 'desc')));
+            return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          },
+          'carousel'
+        );
+        const sortedCarousels = [...allCarousels].sort((a: any, b: any) => (a.priority || 99) - (b.priority || 99));
         setCarousels(sortedCarousels);
 
         // Fetch Social Links

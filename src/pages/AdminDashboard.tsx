@@ -14,6 +14,8 @@ import 'jspdf-autotable';
 import AdminTypingTests from '../components/AdminTypingTests';
 import AdminCurrentAffairs from '../components/AdminCurrentAffairs';
 import AdminStudyNotes from '../components/AdminStudyNotes';
+import { invalidateCacheField } from '../lib/cache';
+import { uploadFileViaBackend } from '../lib/upload';
 import { Keyboard } from 'lucide-react';
 import { RenderMathText } from '../components/MathRenderer';
 import RichTextEditor, { RenderQuestionHTML } from '../components/RichTextEditor';
@@ -759,11 +761,7 @@ function AdminHome() {
       let finalLink = noteLink;
 
       if (noteFile) {
-        const randomID = Math.random().toString(36).substring(2, 8);
-        const fileName = `${Date.now()}_${randomID}_${noteFile.name}`;
-        const fileRef = ref(storage, `notes/${fileName}`);
-        const snapshot = await uploadBytes(fileRef, noteFile);
-        finalLink = await getDownloadURL(snapshot.ref);
+        finalLink = await uploadFileViaBackend(noteFile, 'notes', user);
       }
 
       if (!finalLink && !editingNoteId) {
@@ -797,6 +795,7 @@ function AdminHome() {
           createdAt: serverTimestamp(),
         });
       }
+      await invalidateCacheField('notes');
 
       setNoteTitle(''); setNoteLink(''); setNoteSubject(''); setNoteFile(null);
       setNoteDesc(''); setNoteTags(''); setNoteThumb(null);
@@ -833,11 +832,7 @@ function AdminHome() {
       let finalLink = pyqLink;
 
       if (pyqFile) {
-        const randomID = Math.random().toString(36).substring(2, 8);
-        const fileName = `${Date.now()}_${randomID}_${pyqFile.name}`;
-        const fileRef = ref(storage, `pyqs/${fileName}`);
-        const snapshot = await uploadBytes(fileRef, pyqFile);
-        finalLink = await getDownloadURL(snapshot.ref);
+        finalLink = await uploadFileViaBackend(pyqFile, 'pyqs', user);
       }
 
       if (!finalLink && !editingPyqId) {
@@ -862,6 +857,7 @@ function AdminHome() {
            createdAt: serverTimestamp()
         });
       }
+      await invalidateCacheField('pyqs');
 
       setPyqTitle('');
       setPyqLink('');
@@ -914,16 +910,9 @@ function AdminHome() {
     
     try {
       const uploadPromises = patternFiles.map(async (file) => {
-        // Add random suffix to avoid collisions if multiple files are named same or uploaded same time
-        const randomID = Math.random().toString(36).substring(2, 8);
-        const fileName = `${Date.now()}_${randomID}_${file.name}`;
-        const fileRef = ref(storage, `patterns/${fileName}`);
-        
-        console.log("Uploading file:", file.name, "as", fileName);
-        const snapshot = await uploadBytes(fileRef, file);
-        const url = await getDownloadURL(snapshot.ref);
+        console.log("Uploading file:", file.name);
+        const url = await uploadFileViaBackend(file, 'patterns', user);
         console.log("File uploaded successfully:", file.name, "URL:", url);
-        
         return { name: file.name, url, type: file.type };
       });
 
@@ -936,6 +925,7 @@ function AdminHome() {
         createdAt: serverTimestamp(),
         authorId: user.uid
       });
+      await invalidateCacheField('patterns');
       
       console.log("Pattern saved to Firestore successfully.");
 
@@ -973,6 +963,7 @@ function AdminHome() {
         createdAt: serverTimestamp(),
         authorId: user.uid,
       });
+      await invalidateCacheField('videos');
       setVideoTitle(''); setVideoLink(''); setVideoSubject('');
       setVideoDesc(''); setVideoTags('');
       setVideoStatus('published'); setVideoPin(false);
@@ -1053,6 +1044,7 @@ function AdminHome() {
         createdAt: serverTimestamp(),
         authorId: user.uid
       });
+      await invalidateCacheField('carousel');
       console.log('Carousel item added successfully');
       setCarouselFile(null);
       setCroppedPreviewUrl('');
@@ -1085,6 +1077,7 @@ function AdminHome() {
 
     try {
       await updateDoc(doc(db, 'carousel', id), { priority: priorityVal });
+      await invalidateCacheField('carousel');
       alert('Carousel Order Updated!');
     } catch (err) {
       console.error(err);
@@ -1104,6 +1097,7 @@ function AdminHome() {
           headers: { 'Authorization': `Bearer ${token}` }
         });
       }
+      await invalidateCacheField('carousel');
       alert('Carousel cleared!');
     } catch (err) {
       console.error(err);
@@ -1143,6 +1137,7 @@ function AdminHome() {
         updatedAt: serverTimestamp(),
         authorId: user.uid
       });
+      await invalidateCacheField('categories');
       alert('Social links updated successfully!');
     } catch (err) {
       console.error(err);
@@ -1156,9 +1151,7 @@ function AdminHome() {
     text.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').slice(0, 80);
 
   const uploadThumb = async (file: File, folder: string): Promise<string> => {
-    const name = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}_${file.name}`;
-    const snap = await uploadBytes(ref(storage, name), file);
-    return getDownloadURL(snap.ref);
+    return uploadFileViaBackend(file, folder, user);
   };
 
   const handleAddAffair = async (e: React.FormEvent) => {
@@ -1183,6 +1176,7 @@ function AdminHome() {
         createdAt: serverTimestamp(),
         authorId: user.uid,
       });
+      await invalidateCacheField('affairs');
       setAffairTitle(''); setAffairDate(''); setAffairLink('');
       setAffairDesc(''); setAffairTags(''); setAffairThumb(null);
       setAffairStatus('published'); setAffairPin(false); setAffairSlug('');
@@ -1202,11 +1196,7 @@ function AdminHome() {
     try {
       let finalLink = practiceLink;
       if (practiceFile) {
-        const randomID = Math.random().toString(36).substring(2, 8);
-        const fileName = `${Date.now()}_${randomID}_${practiceFile.name}`;
-        const fileRef = ref(storage, `practice/${fileName}`);
-        const snapshot = await uploadBytes(fileRef, practiceFile);
-        finalLink = await getDownloadURL(snapshot.ref);
+        finalLink = await uploadFileViaBackend(practiceFile, 'practice', user);
       }
       let thumbUrl = '';
       if (practiceThumb) thumbUrl = await uploadThumb(practiceThumb, 'practice_thumbs');
@@ -1224,6 +1214,7 @@ function AdminHome() {
         createdAt: serverTimestamp(),
         authorId: user.uid,
       });
+      await invalidateCacheField('practice_sets');
       setPracticeTitle(''); setPracticeSubject(''); setPracticeLink('');
       setPracticeDesc(''); setPracticeTags(''); setPracticeThumb(null);
       setPracticeStatus('published'); setPracticePin(false);
@@ -1250,6 +1241,7 @@ function AdminHome() {
         updatedAt: serverTimestamp(),
         authorId: user.uid
       });
+      await invalidateCacheField('categories');
       alert('Site info updated successfully!');
     } catch (err) {
       console.error(err);
@@ -1506,10 +1498,7 @@ function AdminHome() {
       let finalThumbUrl = blogThumbnailUrl;
       if (blogThumbnailFile) {
         setUploadingBlogThumb(true);
-        const fileName = `blog_${Date.now()}_${blogThumbnailFile.name}`;
-        const fileRef = ref(storage, `blog_thumbnails/${fileName}`);
-        const snapshot = await uploadBytes(fileRef, blogThumbnailFile);
-        finalThumbUrl = await getDownloadURL(snapshot.ref);
+        finalThumbUrl = await uploadFileViaBackend(blogThumbnailFile, 'blog_thumbnails', user);
         setUploadingBlogThumb(false);
       }
       const postData: any = {
@@ -1532,6 +1521,7 @@ function AdminHome() {
       } else {
         await addDoc(collection(db, 'news_posts'), postData);
       }
+      await invalidateCacheField('affairs');
       // Reset form
       setBlogTitle(''); setBlogContent(''); setBlogTags(''); setBlogCategory('News');
       setBlogPublishDate(''); setBlogThumbnailFile(null); setBlogThumbnailPreview(''); setBlogThumbnailUrl('');
@@ -1569,6 +1559,7 @@ function AdminHome() {
     if (!confirm('Delete this post permanently?')) return;
     try {
       await deleteDoc(doc(db, 'news_posts', postId));
+      await invalidateCacheField('affairs');
     } catch (err) {
       console.error(err);
       alert('Failed to delete post');
@@ -4998,12 +4989,9 @@ function QuestionManager() {
         setUploadingQImage(true);
         try {
           const compressed = await compressImage(qImageFile, 1200, 0.82);
-          const randomId = Math.random().toString(36).substring(2, 8);
           const ext = compressed.type === 'image/png' ? '.png' : '.jpg';
-          const fileName = `question_images/${Date.now()}_${randomId}_q${ext}`;
-          const fileRef = ref(storage, fileName);
-          const snapshot = await uploadBytes(fileRef, compressed);
-          finalImageUrl = await getDownloadURL(snapshot.ref);
+          const fileName = `question_image_${Date.now()}_q${ext}`;
+          finalImageUrl = await uploadFileViaBackend(compressed, 'question_images', user, fileName);
         } catch (err: any) {
           setUploadingQImage(false);
           alert(`Image upload failed: ${err.message}`);

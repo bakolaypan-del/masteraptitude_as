@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ref as sRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage, auth } from '../lib/firebase';
 import { useAuth } from './AuthContext';
+import { uploadFileViaBackend } from '../lib/upload';
 import RichTextEditor from './RichTextEditor';
 import {
   Plus, Trash2, Edit2, GripVertical, Save, X, ArrowLeft,
@@ -278,9 +279,7 @@ export default function AdminStudyNotes() {
     setUploadingSection(sectionId);
     try {
       const folder = type === 'image' ? 'study-note-images' : 'study-note-pdfs';
-      const name = `${folder}/${Date.now()}_${uid()}_${file.name}`;
-      const snap = await uploadBytes(sRef(storage, name), file);
-      const url = await getDownloadURL(snap.ref);
+      const url = await uploadFileViaBackend(file, folder, user);
       updateSection(sectionId, type === 'image' ? { imageUrl: url } : { pdfUrl: url });
     } catch {
       alert('Upload failed. Try again.');
@@ -310,9 +309,7 @@ export default function AdminStudyNotes() {
     try {
       let thumbFinalUrl = thumbPreview;
       if (thumbFile) {
-        const name = `study-note-thumbs/${Date.now()}_${uid()}_${thumbFile.name}`;
-        const snap = await uploadBytes(sRef(storage, name), thumbFile);
-        thumbFinalUrl = await getDownloadURL(snap.ref);
+        thumbFinalUrl = await uploadFileViaBackend(thumbFile, 'study-note-thumbs', user);
       }
       const body = {
         title: title.trim(),

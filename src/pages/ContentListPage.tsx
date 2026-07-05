@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, query, getDocs, orderBy, where, doc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { getCachedCollection } from '../lib/cache';
 import { ArrowLeft, Search, Tag, Eye, Calendar, Download, Play, BookOpen, FileText, Share2, Copy, Check, TrendingUp } from 'lucide-react';
 
 // ── Config per category ─────────────────────────────────────────────────────
@@ -222,15 +223,21 @@ export default function ContentListPage({ category }: { category: Category }) {
   useEffect(() => {
     const fetch_ = async () => {
       try {
-        const q = query(collection(db, cfg.collection), where('status', '==', 'published'), orderBy('createdAt', 'desc'));
-        const snap = await getDocs(q).catch(async () => {
-          // Fallback: fetch all (for items without status field)
-          return getDocs(query(collection(db, cfg.collection), orderBy('createdAt', 'desc')));
-        });
-        const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        // Sort: pinned first
-        all.sort((a: any, b: any) => (b.pinToHomepage ? 1 : 0) - (a.pinToHomepage ? 1 : 0));
-        setItems(all);
+        const all = await getCachedCollection(
+          cfg.collection,
+          async () => {
+            const q = query(collection(db, cfg.collection), where('status', '==', 'published'), orderBy('createdAt', 'desc'));
+            const snap = await getDocs(q).catch(async () => {
+              // Fallback: fetch all (for items without status field)
+              return getDocs(query(collection(db, cfg.collection), orderBy('createdAt', 'desc')));
+            });
+            return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          },
+          cfg.collection
+        );
+        const sorted = [...all];
+        sorted.sort((a: any, b: any) => (b.pinToHomepage ? 1 : 0) - (a.pinToHomepage ? 1 : 0));
+        setItems(sorted);
       } catch { setItems([]); }
       finally { setLoading(false); }
     };
