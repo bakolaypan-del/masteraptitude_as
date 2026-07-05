@@ -829,17 +829,11 @@ ${allUrls.map(u => `  <url>
         if (sorted[i].userId === user.uid) { myRank = rank; break; }
       }
 
-      // Percentile: always use the user's FIRST-attempt score from Firestore for fairness.
-      // myScoreParam is only used as a fallback injection for brand-new first-attempts that
-      // haven't yet replicated to Firestore; for reattempts we ignore myScoreParam.
-      const firstAttemptEntry = firstByUser.get(user.uid);
-      const myScore = firstAttemptEntry
-        ? firstAttemptEntry.score                                  // always use first-attempt score
-        : (isFirstAttemptParam && myScoreParam !== null && !isNaN(myScoreParam)
-          ? myScoreParam                                           // pre-replication fallback
-          : 0);
-      const scoringBelow = sorted.filter(r => r.score < myScore).length;
-      const percentile = totalParticipants > 0 ? parseFloat(((scoringBelow / totalParticipants) * 100).toFixed(1)) : 0;
+      // Percentile: Rank-based formula to ensure Rank 1 gets 100.00%
+      // Percentile = ((Total Participants - My Rank + 1) / Total Participants) * 100
+      const percentile = (totalParticipants > 0 && myRank <= totalParticipants)
+        ? parseFloat((((totalParticipants - myRank + 1) / totalParticipants) * 100).toFixed(2))
+        : 0;
 
       const top10 = sorted.slice(0, 10);
       const profileSnaps = await Promise.all(
