@@ -4962,6 +4962,121 @@ function QuestionManager() {
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
   const [showPreview, setShowPreview] = useState(true);
 
+  // Parser states
+  const [parsingHtml, setParsingHtml] = useState(false);
+  const [parsedQuestions, setParsedQuestions] = useState<any[]>([]);
+  const [showParseModal, setShowParseModal] = useState(false);
+  const [isSavingParsed, setIsSavingParsed] = useState(false);
+  const [parseError, setParseError] = useState<string | null>(null);
+
+  const handleHtmlUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setParsingHtml(true);
+    setParseError(null);
+    setParsedQuestions([]);
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const text = event.target?.result as string;
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch('/api/admin/parse-questions-html', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ htmlContent: text })
+        });
+
+        if (!res.ok) {
+          throw new Error(await res.text() || 'Failed to parse file');
+        }
+
+        const data = await res.json();
+        if (data.success && Array.isArray(data.questions)) {
+          setParsedQuestions(data.questions);
+          setShowParseModal(true);
+        } else {
+          throw new Error('Invalid parser response from server');
+        }
+      } catch (err: any) {
+        console.error(err);
+        setParseError(err.message || 'Error communicating with parser server');
+        alert(err.message || 'Error communicating with parser server');
+      } finally {
+        setParsingHtml(false);
+        e.target.value = '';
+      }
+    };
+
+    reader.onerror = () => {
+      setParseError('Failed to read file');
+      setParsingHtml(false);
+      e.target.value = '';
+    };
+
+    reader.readAsText(file);
+  };
+
+  const handleSaveParsedQuestions = async () => {
+    if (!testId || parsedQuestions.length === 0 || !user) return;
+    setIsSavingParsed(true);
+    try {
+      const token = await user.getIdToken();
+      const formattedQs = parsedQuestions.map((q, idx) => ({
+        ...q,
+        qNo: questions.length + idx + 1
+      }));
+
+      const res = await fetch('/api/admin/questions-bulk', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ testId, questions: formattedQs })
+      });
+
+      if (!res.ok) {
+        throw new Error(await res.text() || 'Failed to save parsed questions');
+      }
+
+      alert(`Successfully imported ${parsedQuestions.length} questions!`);
+      setShowParseModal(false);
+      setParsedQuestions([]);
+    } catch (err: any) {
+      console.error(err);
+      alert(`Failed to save: ${err.message}`);
+    } finally {
+      setIsSavingParsed(false);
+    }
+  };
+
+  const handleUpdateParsedQuestion = (index: number, field: string, value: any) => {
+    const updated = [...parsedQuestions];
+    updated[index] = { ...updated[index], [field]: value };
+    setParsedQuestions(updated);
+  };
+
+  const handleUpdateParsedOption = (qIdx: number, oIdx: number, value: string) => {
+    const updated = [...parsedQuestions];
+    const newOptions = [...updated[qIdx].options];
+    const oldVal = newOptions[oIdx];
+    newOptions[oIdx] = value;
+    updated[qIdx].options = newOptions;
+    if (updated[qIdx].correctAnswer === oldVal) {
+      updated[qIdx].correctAnswer = value;
+    }
+    setParsedQuestions(updated);
+  };
+
+  const handleDeleteParsedQuestion = (index: number) => {
+    setParsedQuestions(prev => prev.filter((_, i) => i !== index));
+  };
+
   useEffect(() => {
     if (!testId) return;
     setLoading(true);
@@ -5099,6 +5214,17 @@ function QuestionManager() {
         >
           <Play className="w-3.5 h-3.5" /> Live Preview
         </button>
+        <label className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all border-2 cursor-pointer ${parsingHtml ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50/50 hover:border-indigo-300'}`}>
+          <Download className="w-3.5 h-3.5 rotate-180" />
+          {parsingHtml ? 'Parsing HTML...' : 'Import HTML'}
+          <input
+            type="file"
+            accept=".html,.htm,.txt"
+            onChange={handleHtmlUpload}
+            disabled={parsingHtml}
+            className="hidden"
+          />
+        </label>
       </div>
 
       <div className={`flex gap-6 items-start ${showPreview ? 'flex-col lg:flex-row' : ''}`}>
@@ -5508,6 +5634,169 @@ function QuestionManager() {
           </div>
         )}
       </div>{/* end flex row */}
+
+      {/* ─── Bulk Import Review Modal ─────────────────────────────────── */}
+      {showParseModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-white rounded-[32px] w-full max-w-5xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
+              <div>
+                <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                  <span>📥 Review Parsed Questions</span>
+                  <span className="px-2 py-0.5 text-xs bg-indigo-100 text-indigo-700 rounded-full font-bold">{parsedQuestions.length} Found</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">Review, edit, and correct the extracted questions before importing them.</p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setShowParseModal(false); setParsedQuestions([]); }}
+                  className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 text-xs font-black uppercase tracking-wider transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isSavingParsed || parsedQuestions.length === 0}
+                  onClick={handleSaveParsedQuestions}
+                  className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-indigo-100 flex items-center gap-2 disabled:opacity-50"
+                >
+                  {isSavingParsed ? 'Saving...' : `Save All Questions (${parsedQuestions.length})`}
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-8 bg-slate-50 space-y-6">
+              {parsedQuestions.map((q, idx) => {
+                // simple verification warning
+                const hasDuplicateOptions = new Set(q.options.map((o: string) => o.trim())).size < 4;
+                const isCorrectAnswerInOptions = q.options.some((o: string) => o.trim() !== '' && o.trim() === q.correctAnswer?.trim());
+
+                return (
+                  <div key={idx} className="bg-white rounded-2xl border border-slate-100 p-6 relative shadow-sm hover:shadow-md transition-shadow">
+                    {/* Delete button */}
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteParsedQuestion(idx)}
+                      className="absolute top-6 right-6 p-2 rounded-xl text-rose-500 hover:bg-rose-50 transition-colors border border-transparent hover:border-rose-100"
+                      title="Discard this question"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+
+                    {/* Question Header */}
+                    <div className="flex items-center gap-4 mb-4 flex-wrap max-w-[90%]">
+                      <span className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black text-xs">
+                        Q{idx + 1}
+                      </span>
+                      <div className="flex-1 min-w-[200px]">
+                        <input
+                          type="text"
+                          placeholder="Topic (e.g. Percentage, Profit & Loss)"
+                          value={q.topic || ''}
+                          onChange={(e) => handleUpdateParsedQuestion(idx, 'topic', e.target.value)}
+                          className="w-full text-xs font-bold text-slate-700 px-3 py-2 rounded-lg border border-slate-200 focus:border-indigo-500 outline-none"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-[200px]">
+                        <input
+                          type="text"
+                          placeholder="Source Exam (e.g. SSC CGL 2023)"
+                          value={q.sourceExam || ''}
+                          onChange={(e) => handleUpdateParsedQuestion(idx, 'sourceExam', e.target.value)}
+                          className="w-full text-xs font-bold text-slate-500 px-3 py-2 rounded-lg border border-slate-200 focus:border-indigo-500 outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Validation Warnings */}
+                    {(hasDuplicateOptions || !isCorrectAnswerInOptions) && (
+                      <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700 space-y-1">
+                        {hasDuplicateOptions && <p className="font-bold">⚠️ Warning: Duplicate options detected. All 4 options must be unique.</p>}
+                        {!isCorrectAnswerInOptions && <p className="font-bold">⚠️ Warning: The correct answer does not match any of the 4 options exactly.</p>}
+                      </div>
+                    )}
+
+                    {/* Question Description */}
+                    <div className="mb-4">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Question Text (HTML / Markdown / Text)</label>
+                      <textarea
+                        rows={3}
+                        value={q.questionText || ''}
+                        onChange={(e) => handleUpdateParsedQuestion(idx, 'questionText', e.target.value)}
+                        className="w-full text-sm font-semibold text-slate-800 p-3.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none resize-y"
+                        placeholder="Write question text..."
+                      />
+                    </div>
+
+                    {/* Options Grid */}
+                    <div className="mb-4">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Options &amp; Correct Answer Selection</label>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {q.options.map((opt: string, oi: number) => (
+                          <div key={oi} className="flex items-center gap-2">
+                            <span className="text-xs font-black text-slate-400 w-4">{String.fromCharCode(65 + oi)}</span>
+                            <input
+                              type="text"
+                              value={opt || ''}
+                              onChange={(e) => handleUpdateParsedOption(idx, oi, e.target.value)}
+                              className="flex-1 text-xs font-medium text-slate-700 px-3 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none"
+                              placeholder={`Option ${String.fromCharCode(65 + oi)}`}
+                            />
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Correct answer toggle list */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+                        {q.options.map((opt: string, oi: number) => {
+                          const isCorrect = opt.trim() !== '' && opt.trim() === q.correctAnswer?.trim();
+                          return (
+                            <button
+                              key={oi}
+                              type="button"
+                              onClick={() => handleUpdateParsedQuestion(idx, 'correctAnswer', opt)}
+                              className={`flex items-center gap-2 p-2.5 rounded-xl border-2 text-left text-xs font-bold transition-all ${
+                                isCorrect ? 'bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm' : 'bg-white border-slate-200 text-slate-500 hover:border-indigo-300'
+                              }`}
+                            >
+                              <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black shrink-0 ${isCorrect ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                                {String.fromCharCode(65 + oi)}
+                              </span>
+                              <span className="truncate flex-1">{opt || `Empty`}</span>
+                              {isCorrect && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Explanation */}
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Solution / Explanation (Optional)</label>
+                      <textarea
+                        rows={2}
+                        value={q.solution || q.explanation || ''}
+                        onChange={(e) => handleUpdateParsedQuestion(idx, 'solution', e.target.value)}
+                        className="w-full text-xs font-medium text-slate-600 p-3 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none resize-y"
+                        placeholder="Explain the solution..."
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+
+              {parsedQuestions.length === 0 && (
+                <div className="text-center py-12 bg-white rounded-2xl border border-slate-100">
+                  <p className="text-sm font-bold text-slate-400">All questions discarded.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

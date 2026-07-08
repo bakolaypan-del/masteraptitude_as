@@ -1412,6 +1412,96 @@ ${allUrls.map(u => `  <url>
     }
   });
 
+  app.post("/api/admin/parse-questions-html", verifyToken, verifyAdmin, async (req, res) => {
+    const { htmlContent } = req.body;
+    if (!htmlContent) {
+      return res.status(400).json({ error: "Missing htmlContent in request body" });
+    }
+
+    try {
+      const client = getGeminiClient();
+      if (!client) {
+        return res.status(500).json({ error: "Gemini client is not initialized" });
+      }
+
+      console.log(`[Admin] Request to parse HTML questions from source (length: ${htmlContent.length})`);
+      
+      const response = await client.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `Analyze this HTML/text mock test file and extract all multiple-choice questions into a structured JSON array.
+        For each question, extract:
+        1. "qNo": The sequential question number (integer).
+        2. "topic": The subject or topic of the question (if mentioned, otherwise a general category or blank).
+        3. "questionText": The text/HTML of the question. Keep mathematical expressions/formatting.
+        4. "options": An array of exactly 4 choices (strings). Do not include letter labels (like 'a.', 'b.', 'A)', '1)') in the choice values. If there are fewer than 4 options in the source, generate plausible choices to make exactly 4.
+        5. "correctAnswer": The exact string of the correct choice (MUST match one of the elements in the "options" array EXACTLY).
+        6. "solution": The explanation/solution of the answer if present in the document (otherwise default to a blank string).
+
+        HTML content:
+        ${htmlContent}`,
+        config: {
+          systemInstruction: `You are an expert mock test question parser. 
+            Rules:
+            1. Output MUST be a valid JSON array of objects conforming to the schema.
+            2. "correctAnswer" MUST match one of the items in the "options" array exactly.
+            3. mathematical formulas or special symbols should be kept intact.
+            4. Remove option letter prefixes (A., B., C., D.) from the elements inside the "options" array.
+            5. Output ONLY the raw JSON array, without any markdown block wrapper like \`\`\`json.`,
+          responseMimeType: "application/json"
+        }
+      });
+
+      const text = response.text;
+      if (!text) {
+        throw new Error("No text response from Gemini API");
+      }
+
+      const questions = JSON.parse(text.trim());
+      res.json({ success: true, questions });
+    } catch (error: any) {
+      console.error("[Admin] Error parsing questions from HTML:", error);
+      res.status(500).json({ error: "Failed to parse questions", message: error.message });
+    }
+  });
+
+  app.post("/api/admin/questions-bulk", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const { testId, questions } = req.body;
+      if (!testId || !Array.isArray(questions)) {
+        return res.status(400).json({ error: "Missing testId or questions array" });
+      }
+
+      console.log(`[Admin] Bulk creating ${questions.length} questions for test: ${testId}`);
+      const batch = currentDb.batch();
+
+      questions.forEach((q: any) => {
+        const ref = currentDb.collection("questions").doc();
+        batch.set(ref, {
+          testId,
+          topic: q.topic || "",
+          qNo: Number(q.qNo) || 1,
+          questionText: q.questionText || "",
+          options: Array.isArray(q.options) ? q.options : [],
+          correctAnswer: q.correctAnswer || "",
+          solution: q.solution || q.explanation || "",
+          imageUrl: q.imageUrl || "",
+          equationLatex: q.equationLatex || "",
+          sourceExam: q.sourceExam || ""
+        });
+      });
+
+      await batch.commit();
+      await invalidateCacheField("tests");
+      console.log(`[Admin] Successfully bulk created ${questions.length} questions`);
+      res.json({ success: true, count: questions.length });
+    } catch (error: any) {
+      console.error("[Admin] Bulk questions creation failed:", error);
+      res.status(500).json({ error: "Failed to create questions in bulk", message: error.message });
+    }
+  });
+
   // ── File/Image upload via Admin SDK (bypasses Storage Rules) ───────────────
   app.post("/api/admin/upload-image", verifyToken, verifyAdmin, async (req, res) => {
     try {
