@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
-import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 interface UserProfile {
   name?: string;
@@ -38,46 +37,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const profilePath = `profiles/${currentUser.uid}`;
 
         unsubscribeProfile = onSnapshot(profileRef, async (snap) => {
-          if (snap.exists()) {
-            const data = snap.data() as UserProfile;
-            const isOwner = currentUser.email?.toLowerCase() === 'bakolaypan@gmail.com';
-            
-            if (isOwner && data.role !== 'admin') {
-              const updatedProfile = { ...data, role: 'admin' as const };
-              try {
-                await setDoc(profileRef, updatedProfile, { merge: true });
-              } catch (e) {
-                console.error("Error upgrading to admin", e);
+          try {
+            if (snap.exists()) {
+              const data = snap.data() as UserProfile;
+              const isOwner = currentUser.email?.toLowerCase() === 'bakolaypan@gmail.com';
+              
+              if (isOwner && data.role !== 'admin') {
+                const updatedProfile = { ...data, role: 'admin' as const };
+                try {
+                  await setDoc(profileRef, updatedProfile, { merge: true });
+                } catch (e) {
+                  console.error("Error upgrading to admin", e);
+                }
+                setProfile({ ...data, role: 'admin' });
+              } else {
+                setProfile(data);
               }
             } else {
-              setProfile(data);
+              // Create default profile if it doesn't exist
+              const isOwner = currentUser.email?.toLowerCase() === 'bakolaypan@gmail.com';
+              const newProfile: UserProfile = {
+                name: currentUser.displayName || '',
+                email: currentUser.email || '',
+                phoneNumber: currentUser.phoneNumber || '',
+                role: isOwner ? 'admin' : 'user',
+                totalTestsTaken: 0,
+                cumulativeScore: 0,
+                globalRank: 0
+              };
+              try {
+                await setDoc(profileRef, newProfile);
+              } catch (writeErr) {
+                console.error('Profile creation failed:', writeErr);
+              }
             }
-          } else {
-            // Create default profile if it doesn't exist
-            const isOwner = currentUser.email?.toLowerCase() === 'bakolaypan@gmail.com';
-            const newProfile: UserProfile = {
-              name: currentUser.displayName || '',
-              email: currentUser.email || '',
-              phoneNumber: currentUser.phoneNumber || '',
-              role: isOwner ? 'admin' : 'user',
-              totalTestsTaken: 0,
-              cumulativeScore: 0,
-              globalRank: 0
-            };
-            try {
-              await setDoc(profileRef, newProfile);
-            } catch (writeErr) {
-              handleFirestoreError(writeErr, OperationType.WRITE, profilePath);
-            }
+          } catch (err) {
+            console.error('Unexpected error in profile snapshot handler:', err);
+          } finally {
+            setLoading(false);
           }
-          setLoading(false);
         }, (error) => {
           console.error("Profile onSnapshot error", error);
-          if (error.code === 'permission-denied') {
-            // Handle expected case before profile is created
-          } else {
-            handleFirestoreError(error, OperationType.GET, profilePath);
-          }
           setLoading(false);
         });
       } else {

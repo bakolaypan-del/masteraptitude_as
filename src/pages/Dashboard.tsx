@@ -1733,79 +1733,119 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Neon sub-category cards — Level 2 (size 15) */}
-              {(() => {
-                // ─ NeonCard renderer (same design as L1, smaller tokens) ───────
-                const NeonCard = ({
-                  w1, w2, icon, neon, bg, badge, action,
-                  pad, circle, iconRem, titlePx, arrowPx, bktPx, dotPx, rayH, mb,
-                }: {
-                  w1:string; w2:string; icon:string; neon:string; bg:string; badge:string|null;
-                  action:()=>void; pad:string; circle:number; iconRem:number; titlePx:string;
-                  arrowPx:number; bktPx:number; dotPx:number; rayH:number; mb:number;
-                }) => (
-                  <button
-                    onClick={action}
-                    className="group relative flex flex-col items-center rounded-2xl text-white transition-all duration-200 hover:-translate-y-1 hover:scale-[1.03] active:scale-[0.95]"
-                    style={{ background:bg, boxShadow:`0 0 0 1.5px ${neon}55, 0 0 16px ${neon}28, 0 5px 22px rgba(0,0,0,0.55)`, padding:pad, overflow:'visible', justifyContent:'center', gap:5 }}
-                  >
-                    {/* Dot grid */}
-                    <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage:`radial-gradient(circle,${neon}16 1px,transparent 1px)`, backgroundSize:`${dotPx}px ${dotPx}px` }}/>
-                    {/* Corner brackets */}
-                    <div className="absolute top-0 left-0 pointer-events-none" style={{ width:bktPx, height:bktPx, borderTop:`1.5px solid ${neon}65`, borderLeft:`1.5px solid ${neon}65`, borderRadius:'8px 0 0 0' }}/>
-                    <div className="absolute top-0 right-0 pointer-events-none" style={{ width:bktPx, height:bktPx, borderTop:`1.5px solid ${neon}65`, borderRight:`1.5px solid ${neon}65`, borderRadius:'0 8px 0 0' }}/>
-                    {/* Glowing circle */}
-                    <div className="relative z-10 flex items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-110"
-                      style={{ width:circle, height:circle, flexShrink:0, border:`1.5px solid ${neon}`, boxShadow:`0 0 12px ${neon}65,0 0 24px ${neon}28,inset 0 0 12px ${neon}15`, background:`radial-gradient(circle,${neon}15 0%,transparent 70%)` }}>
-                      {badge && (
-                        <span className="absolute -top-2 left-1/2 -translate-x-1/2 whitespace-nowrap font-black rounded-full"
-                          style={{ fontSize:6, padding:'2px 6px', background:`linear-gradient(90deg,${neon},${neon}bb)`, color:bg, boxShadow:`0 0 7px ${neon}`, letterSpacing:'0.07em' }}>
-                          {badge}
-                        </span>
-                      )}
-                      <span className="select-none" style={{ fontSize:`${iconRem}rem`, lineHeight:1, filter:`drop-shadow(0 0 7px ${neon}88)` }}>{icon}</span>
+              {/* Modern Premium Category Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                {/* Topic Wise Mocks */}
+                <button
+                  onClick={() => setActiveTab('mock_topic')}
+                  className="group relative overflow-hidden rounded-3xl p-6 text-left bg-white border border-sky-100 shadow-sm hover:shadow-xl hover:shadow-sky-100/50 hover:-translate-y-1.5 transition-all duration-300 w-full"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-sky-50/50 to-blue-50/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl" />
+                  <div className="absolute top-0 right-0 w-28 h-28 bg-sky-400/5 rounded-full translate-x-1/3 -translate-y-1/3 group-hover:scale-150 transition-transform duration-500" />
+                  
+                  <div className="relative flex flex-col h-full justify-between">
+                    <div>
+                      {/* Icon */}
+                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-sky-400 to-blue-500 flex items-center justify-center shadow-lg shadow-sky-200 group-hover:scale-110 transition-transform duration-300 mb-6">
+                        <span className="text-2xl filter drop-shadow-md">🎯</span>
+                      </div>
+                      
+                      {/* Badge */}
+                      <span className="inline-flex px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider bg-sky-50 text-sky-600 mb-3 border border-sky-100">
+                        Focused Practice
+                      </span>
+                      
+                      {/* Title */}
+                      <h3 className="font-black text-slate-800 text-base leading-tight">Topic Wise Mocks</h3>
+                      
+                      {/* Description */}
+                      <p className="text-xs text-slate-400 font-medium mt-2 leading-relaxed">
+                        Master individual subjects chapter-by-chapter. Practice focused math, reasoning, and GK concepts.
+                      </p>
                     </div>
-                    {/* Two-tone title */}
-                    <p className="relative z-10 font-black text-center leading-tight" style={{ fontSize:titlePx, lineHeight:1.1 }}>
-                      {w2
-                        ? <><span style={{color:'#fff'}}>{w1} </span><span style={{color:neon,textShadow:`0 0 9px ${neon}`}}>{w2}</span></>
-                        : <span style={{color:neon,textShadow:`0 0 9px ${neon}`}}>{w1}</span>
-                      }
-                    </p>
-                    {/* Bottom ray */}
-                    <div className="absolute bottom-0 left-0 right-0 pointer-events-none" style={{ height:rayH, background:`radial-gradient(ellipse 80% 65% at 50% 110%,${neon}38 0%,transparent 70%)` }}/>
-                    {/* Arrow */}
-                    <div className="relative z-10 flex items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-110"
-                      style={{ width:arrowPx, height:arrowPx, background:`${neon}1a`, border:`1px solid ${neon}85`, boxShadow:`0 0 8px ${neon}40` }}>
-                      <svg viewBox="0 0 10 10" width={arrowPx*0.45} height={arrowPx*0.45} fill="none">
-                        <path d="M3.5 2L6.5 5L3.5 8" stroke={neon} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
+
+                    <div className="mt-6 flex items-center gap-1.5 text-sky-600 text-xs font-black uppercase tracking-wider group-hover:translate-x-1 transition-transform">
+                      Explore Mocks <ChevronRight className="w-4 h-4" />
                     </div>
-                    {/* Hover ring */}
-                    <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" style={{ boxShadow:`inset 0 0 0 1.5px ${neon}85,0 0 24px ${neon}38` }}/>
-                  </button>
-                );
-
-                // ─ Level-2 tokens (size 15 — 75% of L1, square) ─────────────
-                const L2 = { pad:'4px 2px 4px', circle:32, iconRem:1.0, titlePx:'clamp(12px,3.7vw,16px)', arrowPx:14, bktPx:11, dotPx:10, rayH:22, mb:0 };
-
-                const subs = [
-                  { w1:'TOPIC',     w2:'WISE', icon:'🎯', neon:'#00cfff', bg:'#050d1a', badge:'FOCUSED',  action:()=>setActiveTab('mock_topic') },
-                  { w1:'SECTIONAL', w2:'MOCK', icon:'📊', neon:'#ff3fa4', bg:'#150008', badge:'SECTION',  action:()=>setActiveTab('mock_sectional') },
-                  { w1:'FULL',      w2:'MOCK', icon:'🏆', neon:'#ffaa00', bg:'#130c00', badge:'COMPLETE', action:()=>setActiveTab('mock_full') },
-                ];
-                return (
-                  <div className="grid gap-2" style={{ gridTemplateColumns:'repeat(3, 110px)', justifyContent:'center' }}>
-                    {subs.map(s => <NeonCard key={s.w1+s.w2} {...s} {...L2} />)}
                   </div>
-                );
-              })()}
+                </button>
+
+                {/* Sectional Mocks */}
+                <button
+                  onClick={() => setActiveTab('mock_sectional')}
+                  className="group relative overflow-hidden rounded-3xl p-6 text-left bg-white border border-pink-100 shadow-sm hover:shadow-xl hover:shadow-pink-100/50 hover:-translate-y-1.5 transition-all duration-300 w-full"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-pink-50/50 to-rose-50/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl" />
+                  <div className="absolute top-0 right-0 w-28 h-28 bg-pink-400/5 rounded-full translate-x-1/3 -translate-y-1/3 group-hover:scale-150 transition-transform duration-500" />
+                  
+                  <div className="relative flex flex-col h-full justify-between">
+                    <div>
+                      {/* Icon */}
+                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-pink-400 to-rose-500 flex items-center justify-center shadow-lg shadow-pink-200 group-hover:scale-110 transition-transform duration-300 mb-6">
+                        <span className="text-2xl filter drop-shadow-md">📊</span>
+                      </div>
+                      
+                      {/* Badge */}
+                      <span className="inline-flex px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider bg-pink-50 text-pink-600 mb-3 border border-pink-100">
+                        Section Speed
+                      </span>
+                      
+                      {/* Title */}
+                      <h3 className="font-black text-slate-800 text-base leading-tight">Sectional Mocks</h3>
+                      
+                      {/* Description */}
+                      <p className="text-xs text-slate-400 font-medium mt-2 leading-relaxed">
+                        Improve speed and accuracy for specific sections like English, Quantitative Aptitude, or General Studies.
+                      </p>
+                    </div>
+
+                    <div className="mt-6 flex items-center gap-1.5 text-pink-600 text-xs font-black uppercase tracking-wider group-hover:translate-x-1 transition-transform">
+                      Explore Mocks <ChevronRight className="w-4 h-4" />
+                    </div>
+                  </div>
+                </button>
+
+                {/* Full Mock Tests */}
+                <button
+                  onClick={() => setActiveTab('mock_full')}
+                  className="group relative overflow-hidden rounded-3xl p-6 text-left bg-white border border-amber-100 shadow-sm hover:shadow-xl hover:shadow-amber-100/50 hover:-translate-y-1.5 transition-all duration-300 w-full"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-amber-50/50 to-orange-50/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl" />
+                  <div className="absolute top-0 right-0 w-28 h-28 bg-amber-400/5 rounded-full translate-x-1/3 -translate-y-1/3 group-hover:scale-150 transition-transform duration-500" />
+                  
+                  <div className="relative flex flex-col h-full justify-between">
+                    <div>
+                      {/* Icon */}
+                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-200 group-hover:scale-110 transition-transform duration-300 mb-6">
+                        <span className="text-2xl filter drop-shadow-md">🏆</span>
+                      </div>
+                      
+                      {/* Badge */}
+                      <span className="inline-flex px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-50 text-amber-600 mb-3 border border-amber-100">
+                        Exam Simulator
+                      </span>
+                      
+                      {/* Title */}
+                      <h3 className="font-black text-slate-800 text-base leading-tight">Full Mock Tests</h3>
+                      
+                      {/* Description */}
+                      <p className="text-xs text-slate-400 font-medium mt-2 leading-relaxed">
+                        Experience real exam-like conditions. Full-length mock papers with timers, negative marking, and analytics.
+                      </p>
+                    </div>
+
+                    <div className="mt-6 flex items-center gap-1.5 text-amber-600 text-xs font-black uppercase tracking-wider group-hover:translate-x-1 transition-transform">
+                      Explore Mocks <ChevronRight className="w-4 h-4" />
+                    </div>
+                  </div>
+                </button>
+              </div>
 
               {/* Pro tip */}
-              <div className="mt-5 flex items-center gap-3 rounded-2xl px-4 py-3" style={{ background:'#0f172a', border:'1px solid rgba(99,102,241,0.25)' }}>
+              <div className="mt-8 flex items-center gap-3 rounded-2xl px-4 py-3.5 bg-indigo-50/50 border border-indigo-100/80">
                 <span className="text-lg shrink-0">💡</span>
-                <p className="text-xs font-semibold leading-relaxed" style={{ color:'rgba(165,180,252,0.8)' }}>
-                  <span className="font-black text-white">Pro Tip: </span>
+                <p className="text-xs font-semibold leading-relaxed text-indigo-700">
+                  <span className="font-black text-indigo-900">Pro Tip: </span>
                   Start with Topic Wise → Sectional → Full Mock for complete exam readiness.
                 </p>
               </div>
