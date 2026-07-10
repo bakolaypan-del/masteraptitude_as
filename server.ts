@@ -323,6 +323,170 @@ async function verifyAdmin(req: express.Request, res: express.Response, next: ex
   }
 }
 
+// CDN Cache Helper
+function setCDNCache(res: express.Response) {
+  res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=86400, stale-while-revalidate=600");
+}
+
+// Pre-aggregated Question Stats Helper
+async function updateQuestionStatsDoc(
+  testId: string,
+  userAnswers: Record<string, string>,
+  correctAnswersMap: Record<string, string>,
+  questionTimes: Record<string, number>
+) {
+  const currentDb = getDb();
+  if (!currentDb) return;
+  try {
+    const statsRef = currentDb.collection("question_stats").doc(testId);
+    const statsDoc = await statsRef.get();
+    
+    let stats: Record<string, { totalAttempts: number; correctCount: number; totalTime: number }> = {};
+    if (statsDoc.exists) {
+      stats = statsDoc.data()?.stats || {};
+    }
+    
+    for (const [qId, selected] of Object.entries(userAnswers)) {
+      if (!selected) continue; // Skip unattempted
+      const correctAns = correctAnswersMap[qId] || "";
+      const isCorrect = selected === correctAns;
+      const timeSpent = questionTimes[qId] || 0;
+      
+      if (!stats[qId]) {
+        stats[qId] = { totalAttempts: 0, correctCount: 0, totalTime: 0 };
+      }
+      
+      stats[qId].totalAttempts += 1;
+      if (isCorrect) {
+        stats[qId].correctCount += 1;
+      }
+      stats[qId].totalTime += timeSpent;
+    }
+    
+    await statsRef.set({ testId, stats, updatedAt: Date.now() }, { merge: true });
+    console.log(`[Cache] Updated question stats doc for test: ${testId}`);
+  } catch (err) {
+    console.error("[Cache] Failed to update question stats doc:", err);
+  }
+}
+
+// Self-healing: Get or compile question stats
+async function getOrBuildQuestionStats(testId: string) {
+  const currentDb = getDb();
+  if (!currentDb) return null;
+  
+  const statsRef = currentDb.collection("question_stats").doc(testId);
+  const statsDoc = await statsRef.get();
+  if (statsDoc.exists) {
+    return statsDoc.data()?.stats || {};
+  }
+  
+  // Compile from raw database entries (once per test)
+  console.log(`[Cache] Self-healing: Compiling question stats for test ${testId}`);
+  const snap = await currentDb.collection("mock_question_analysis").where("testId", "==", testId).get();
+  
+  const stats: Record<string, { totalAttempts: number; correctCount: number; totalTime: number }> = {};
+  snap.docs.forEach(doc => {
+    const d = doc.data();
+    const qId = d.questionId as string;
+    if (!qId) return;
+    
+    if (!stats[qId]) {
+      stats[qId] = { totalAttempts: 0, correctCount: 0, totalTime: 0 };
+    }
+    
+    stats[qId].totalAttempts++;
+    if (d.isCorrect) stats[qId].correctCount++;
+    stats[qId].totalTime += d.timeTakenSeconds || 0;
+  });
+  
+  await statsRef.set({ testId, stats, updatedAt: Date.now() });
+  return stats;
+}
+
+// Pre-aggregated Leaderboard Helpers
+async function getOrBuildLeaderboard(testId: string, testData?: any) {
+  const currentDb = getDb();
+  if (!currentDb) return null;
+
+  const lbRef = currentDb.collection("leaderboards").doc(testId);
+  const lbDoc = await lbRef.get();
+  if (lbDoc.exists) {
+    return lbDoc.data();
+  }
+
+  return await rebuildAndSaveLeaderboard(testId, testData);
+}
+
+async function rebuildAndSaveLeaderboard(testId: string, testData?: any) {
+  const currentDb = getDb();
+  if (!currentDb) return null;
+
+  console.log(`[Cache] Rebuilding leaderboard for test ${testId}`);
+  
+  if (!testData) {
+    const testSnap = await currentDb.collection("tests").doc(testId).get();
+    testData = testSnap.data();
+  }
+
+  const resultsSnap = await currentDb.collection("results").where("testId", "==", testId).get();
+
+  let liveStart = 0, liveEnd = 0;
+  const isLiveTest = !!(testData?.isLive && testData.liveStartDate && testData.liveEndDate);
+  if (isLiveTest) {
+    liveStart = new Date(testData!.liveStartDate).getTime();
+    liveEnd = new Date(testData!.liveEndDate).getTime();
+  }
+
+  const firstByUser = new Map<string, { userId: string; score: number; timestamp: number; duringLive: boolean }>();
+  const allUniqueUsers = new Set<string>();
+
+  resultsSnap.docs.forEach(doc => {
+    const d = doc.data();
+    const uid = d.userId as string;
+    const sc = typeof d.score === "number" ? d.score : 0;
+    const ts = d.timestamp || 0;
+    const duringLive = !!(d.submittedDuringLive);
+    allUniqueUsers.add(uid);
+    const existing = firstByUser.get(uid);
+    if (!existing || ts < existing.timestamp) {
+      firstByUser.set(uid, { userId: uid, score: sc, timestamp: ts, duringLive });
+    }
+  });
+
+  const uniqueStudents = allUniqueUsers.size;
+  let leaderboardSet = Array.from(firstByUser.values());
+  
+  const sorted = leaderboardSet.sort((a, b) => b.score - a.score);
+  const totalParticipants = sorted.length;
+
+  const top10 = sorted.slice(0, 10);
+  const profileSnaps = await Promise.all(
+    top10.map(r => currentDb.collection("profiles").doc(r.userId).get())
+  );
+
+  const topRankers = top10.map((r, idx) => ({
+    rank: idx + 1,
+    name: profileSnaps[idx].exists ? (profileSnaps[idx].data()?.name || 'Student') : 'Student',
+    score: r.score,
+    userId: r.userId
+  }));
+
+  const lbData = {
+    testId,
+    topRankers,
+    sortedParticipantList: sorted.map(s => ({ userId: s.userId, score: s.score, duringLive: s.duringLive })),
+    totalParticipants,
+    uniqueStudents,
+    isLiveTest,
+    updatedAt: Date.now()
+  };
+
+  await currentDb.collection("leaderboards").doc(testId).set(lbData);
+  return lbData;
+}
+
+
 const app = express();
 const PORT = parseInt(process.env.PORT as string) || 3000;
 
@@ -346,6 +510,7 @@ app.use((req, res, next) => {
   let cachedSitemapTime = 0;
 
   app.get("/sitemap.xml", async (req, res) => {
+    setCDNCache(res);
     const now = Date.now();
     if (cachedSitemapXml && (now - cachedSitemapTime < 300000)) {
       console.log("[Sitemap] Serving cached sitemap from memory");
@@ -418,6 +583,30 @@ ${allUrls.map(u => `  <url>
         isVercel: !!process.env.VERCEL
       }
     });
+  });
+
+  // Admin: Purge CDN Cache (updates all timestamps in cache_state settings)
+  app.post("/api/admin/purge-cdn", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const now = Date.now();
+      const fields = [
+        "notes", "videos", "pyqs", "patterns", "affairs",
+        "practice_sets", "carousel", "tests", "categories",
+        "paid_mock_batches", "reviews", "custom_categories",
+        "sitemap_updated_at"
+      ];
+      const updates: Record<string, number> = {};
+      fields.forEach(f => { updates[f] = now; });
+      
+      await currentDb.collection("settings").doc("cache_state").set(updates, { merge: true });
+      console.log("[Cache] Purged CDN Cache (updated all cache_state timestamps)");
+      res.json({ success: true, message: "CDN Cache Purged successfully." });
+    } catch (err: any) {
+      console.error("[Cache] Failed to purge CDN Cache:", err);
+      res.status(500).json({ error: "Failed to purge CDN Cache", details: err.message });
+    }
   });
 
   // Translation endpoint
@@ -733,6 +922,10 @@ ${allUrls.map(u => `  <url>
         analysis[key] = val;
       });
 
+      // Run background updates to pre-aggregate leaderboard and question stats for O(1) read operations
+      rebuildAndSaveLeaderboard(testId, testData).catch(err => console.error("Background leaderboard update failed:", err));
+      updateQuestionStatsDoc(testId, userAnswers, correctAnswersMap, questionTimes).catch(err => console.error("Background question stats update failed:", err));
+
       return res.json({ ...baseResultData, resultId: resultDocRef.id, attemptNumber, isFirstAttempt, rank, analysis });
     } catch (error: any) {
       console.error("[API] Failed to submit test:", error);
@@ -774,55 +967,29 @@ ${allUrls.map(u => `  <url>
     const isFirstAttemptParam = req.query.isFirstAttempt === "true";
 
     try {
-      // Fetch results + test doc in parallel (test doc needed for live window check)
-      const [resultsSnap, testSnap] = await Promise.all([
-        currentDb.collection("results").where("testId", "==", testId).get(),
-        currentDb.collection("tests").doc(testId).get()
-      ]);
-      const testData = testSnap.data();
+      const lbData = await getOrBuildLeaderboard(testId);
+      if (!lbData) return res.status(500).json({ error: "Failed to load leaderboard data" });
 
-      let liveStart = 0, liveEnd = 0;
-      const isLiveTest = !!(testData?.isLive && testData.liveStartDate && testData.liveEndDate);
-      if (isLiveTest) {
-        liveStart = new Date(testData!.liveStartDate).getTime();
-        liveEnd = new Date(testData!.liveEndDate).getTime();
-      }
-
-      // First attempt per user (lowest timestamp wins), track all unique users for the counter
-      const firstByUser = new Map<string, { userId: string; score: number; timestamp: number; duringLive: boolean }>();
-      const allUniqueUsers = new Set<string>();
-
-      resultsSnap.docs.forEach(doc => {
-        const d = doc.data();
-        const uid = d.userId as string;
-        const sc = typeof d.score === "number" ? d.score : 0;
-        const ts = d.timestamp || 0;
-        const duringLive = !!(d.submittedDuringLive);
-        allUniqueUsers.add(uid);
-        const existing = firstByUser.get(uid);
-        if (!existing || ts < existing.timestamp) {
-          firstByUser.set(uid, { userId: uid, score: sc, timestamp: ts, duringLive });
-        }
+      const sortedList = lbData.sortedParticipantList || [];
+      
+      // Inject current user if not present in the pre-calculated list yet
+      const firstByUser = new Map<string, { userId: string; score: number; duringLive: boolean }>();
+      sortedList.forEach((s: any) => {
+        firstByUser.set(s.userId, s);
       });
 
-      const uniqueStudents = allUniqueUsers.size;
-
-      // Inject current user if Firestore hasn't replicated their submission yet
       if (myScoreParam !== null && !isNaN(myScoreParam) && isFirstAttemptParam && !firstByUser.has(user.uid)) {
-        firstByUser.set(user.uid, { userId: user.uid, score: myScoreParam, timestamp: Date.now(), duringLive: true });
+        firstByUser.set(user.uid, { userId: user.uid, score: myScoreParam, duringLive: true });
       }
 
-      // For live tests: leaderboard ranks only live-window submissions.
-      // Always include the requesting user so their rank is always visible in analysis.
       let leaderboardSet = Array.from(firstByUser.values());
-      if (isLiveTest) {
+      if (lbData.isLiveTest) {
         leaderboardSet = leaderboardSet.filter(e => e.duringLive || e.userId === user.uid);
       }
 
       const sorted = leaderboardSet.sort((a, b) => b.score - a.score);
       const totalParticipants = sorted.length;
 
-      // Rank with tied-score support
       let rank = 1;
       let myRank = totalParticipants + 1;
       for (let i = 0; i < sorted.length; i++) {
@@ -830,25 +997,22 @@ ${allUrls.map(u => `  <url>
         if (sorted[i].userId === user.uid) { myRank = rank; break; }
       }
 
-      // Percentile: Rank-based formula to ensure Rank 1 gets 100.00%
-      // Percentile = ((Total Participants - My Rank + 1) / Total Participants) * 100
       const percentile = (totalParticipants > 0 && myRank <= totalParticipants)
         ? parseFloat((((totalParticipants - myRank + 1) / totalParticipants) * 100).toFixed(2))
         : 0;
 
-      const top10 = sorted.slice(0, 10);
-      const profileSnaps = await Promise.all(
-        top10.map(r => currentDb.collection("profiles").doc(r.userId).get())
-      );
-
-      const topRankers = top10.map((r, idx) => ({
-        rank: idx + 1,
-        name: profileSnaps[idx].exists ? (profileSnaps[idx].data()?.name || 'Student') : 'Student',
-        score: r.score,
+      const topRankers = (lbData.topRankers || []).map((r: any) => ({
+        ...r,
         isCurrentUser: r.userId === user.uid
       }));
 
-      return res.json({ topRankers, myRank, totalParticipants, uniqueStudents, percentile });
+      return res.json({
+        topRankers,
+        myRank,
+        totalParticipants,
+        uniqueStudents: lbData.uniqueStudents,
+        percentile
+      });
     } catch (error: any) {
       console.error("[test-leaderboard] failed:", error);
       return res.status(500).json({ error: "Failed to fetch leaderboard" });
@@ -861,23 +1025,15 @@ ${allUrls.map(u => `  <url>
     if (!currentDb) return res.status(503).json({ error: "Database offline" });
     const { testId } = req.params;
     try {
-      const snap = await currentDb.collection("mock_question_analysis").where("testId", "==", testId).get();
-      const statsMap: Record<string, { attempts: number; correct: number; totalTime: number }> = {};
-      snap.docs.forEach(doc => {
-        const d = doc.data();
-        const qId = d.questionId as string;
-        if (!qId) return;
-        if (!statsMap[qId]) statsMap[qId] = { attempts: 0, correct: 0, totalTime: 0 };
-        statsMap[qId].attempts++;
-        if (d.isCorrect) statsMap[qId].correct++;
-        statsMap[qId].totalTime += d.timeTakenSeconds || 0;
-      });
+      const statsMap = await getOrBuildQuestionStats(testId);
+      if (!statsMap) return res.status(500).json({ error: "Failed to load question stats" });
+
       const stats: Record<string, { totalAttempts: number; correctPercent: number; avgTimeSecs: number }> = {};
       for (const [qId, s] of Object.entries(statsMap)) {
         stats[qId] = {
-          totalAttempts: s.attempts,
-          correctPercent: s.attempts > 0 ? parseFloat(((s.correct / s.attempts) * 100).toFixed(1)) : 0,
-          avgTimeSecs: s.attempts > 0 ? parseFloat((s.totalTime / s.attempts).toFixed(1)) : 0
+          totalAttempts: s.totalAttempts,
+          correctPercent: s.totalAttempts > 0 ? parseFloat(((s.correctCount / s.totalAttempts) * 100).toFixed(1)) : 0,
+          avgTimeSecs: s.totalAttempts > 0 ? parseFloat((s.totalTime / s.totalAttempts).toFixed(1)) : 0
         };
       }
       return res.json({ stats });
@@ -1926,20 +2082,14 @@ ${allUrls.map(u => `  <url>
     try {
       const questionsSnap = await currentDb.collection("questions").where("testId", "==", testId).orderBy("qNo", "asc").get();
       
-      // Fetch dynamic statistics from mock_question_analysis collection
-      const allAnalysisSnap = await currentDb.collection("mock_question_analysis").where("testId", "==", testId).get();
+      // Fetch dynamic statistics from pre-aggregated stats doc
+      const questionStatsDoc = await getOrBuildQuestionStats(testId);
       const questionStats: Record<string, { correct: number, total: number }> = {};
-      allAnalysisSnap.docs.forEach(doc => {
-        const data = doc.data();
-        const qId = data.questionId;
-        if (!questionStats[qId]) {
-          questionStats[qId] = { correct: 0, total: 0 };
+      if (questionStatsDoc) {
+        for (const [qId, s] of Object.entries(questionStatsDoc)) {
+          questionStats[qId] = { correct: s.correctCount, total: s.totalAttempts };
         }
-        questionStats[qId].total++;
-        if (data.isCorrect === true || data.isCorrect === 1) {
-          questionStats[qId].correct++;
-        }
-      });
+      }
 
       const questions = questionsSnap.docs.map(doc => {
         const qData = doc.data();
@@ -1968,6 +2118,7 @@ ${allUrls.map(u => `  <url>
 
   // Admin: Get Category Order
   app.get("/api/category-order", async (req, res) => {
+    setCDNCache(res);
     const currentDb = getDb();
     if (!currentDb) return res.status(500).json({ error: "DB offline" });
     try {
@@ -2003,6 +2154,7 @@ ${allUrls.map(u => `  <url>
 
   // Get all active custom categories (Public)
   app.get("/api/custom-categories", async (req, res) => {
+    setCDNCache(res);
     const currentDb = getDb();
     if (!currentDb) return res.status(500).json({ error: "DB offline" });
     try {
@@ -2423,6 +2575,7 @@ ${allUrls.map(u => `  <url>
 
   // ── Live Tests — reads from tests collection where isLive==true ───────────
   app.get("/api/live-tests", async (req, res) => {
+    setCDNCache(res);
     const currentDb = getDb();
     if (!currentDb) return res.status(500).json({ error: "Database offline" });
     try {
@@ -2439,6 +2592,7 @@ ${allUrls.map(u => `  <url>
 
   // Public: approved reviews for homepage slider
   app.get("/api/reviews/public", async (req, res) => {
+    setCDNCache(res);
     const currentDb = getDb();
     if (!currentDb) return res.status(500).json({ error: "Database offline" });
     try {
@@ -2537,6 +2691,7 @@ ${allUrls.map(u => `  <url>
       const updates: any = {};
       allowed.forEach(k => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
       await currentDb.collection("student_reviews").doc(req.params.id).update(updates);
+      await invalidateCacheField("reviews");
       res.json({ message: "Review updated" });
     } catch (err) {
       res.status(500).json({ error: "Failed to update review" });
@@ -2549,6 +2704,7 @@ ${allUrls.map(u => `  <url>
     if (!currentDb) return res.status(500).json({ error: "Database offline" });
     try {
       await currentDb.collection("student_reviews").doc(req.params.id).delete();
+      await invalidateCacheField("reviews");
       res.json({ message: "Review deleted" });
     } catch (err) {
       res.status(500).json({ error: "Failed to delete review" });
@@ -2618,6 +2774,7 @@ ${allUrls.map(u => `  <url>
 
   // ── Paid Mock Batches (public) ────────────────────────
   app.get("/api/paid-batches", async (req, res) => {
+    setCDNCache(res);
     const currentDb = getDb();
     if (!currentDb) return res.status(500).json({ error: "Database offline" });
     try {
@@ -2672,6 +2829,7 @@ ${allUrls.map(u => `  <url>
         enrolledCount: 0,
         createdAt: new Date().toISOString(),
       });
+      await invalidateCacheField("paid_mock_batches");
       res.json({ id: ref.id, message: "Batch created" });
     } catch (err) {
       res.status(500).json({ error: "Failed to create batch" });
@@ -2694,6 +2852,7 @@ ${allUrls.map(u => `  <url>
         isPopular: !!isPopular,
         updatedAt: new Date().toISOString(),
       });
+      await invalidateCacheField("paid_mock_batches");
       res.json({ message: "Batch updated" });
     } catch (err) {
       res.status(500).json({ error: "Failed to update batch" });
@@ -2705,6 +2864,7 @@ ${allUrls.map(u => `  <url>
     if (!currentDb) return res.status(500).json({ error: "Database offline" });
     try {
       await currentDb.collection("paid_mock_batches").doc(req.params.id).delete();
+      await invalidateCacheField("paid_mock_batches");
       res.json({ message: "Batch deleted" });
     } catch (err) {
       res.status(500).json({ error: "Failed to delete batch" });

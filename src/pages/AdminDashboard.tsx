@@ -339,6 +339,7 @@ function AdminHome() {
   const [aboutContent, setAboutContent] = useState('');
   const [contactContent, setContactContent] = useState('');
   const [savingInfo, setSavingInfo] = useState(false);
+  const [purgingCDN, setPurgingCDN] = useState(false);
 
   // Pyq Form
   const [pyqTitle, setPyqTitle] = useState('');
@@ -1248,6 +1249,29 @@ function AdminHome() {
       alert('Error updating site info');
     } finally {
       setSavingInfo(false);
+    }
+  };
+
+  const handlePurgeCDNCache = async () => {
+    if (!user) return;
+    setPurgingCDN(true);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/admin/purge-cdn', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        alert('CDN Cache purged successfully! All user client caches will bust on their next reload.');
+      } else {
+        const data = await res.json();
+        alert(`Failed to purge CDN Cache: ${data.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error purging CDN Cache');
+    } finally {
+      setPurgingCDN(false);
     }
   };
 
@@ -2995,6 +3019,24 @@ function AdminHome() {
                 {savingInfo ? 'Saving...' : 'Update Information'}
               </button>
             </form>
+          </div>
+
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8">
+            <h3 className="text-lg font-bold text-rose-600 mb-2 flex items-center gap-2">
+              ⚠️ CDN Cache Management
+            </h3>
+            <p className="text-slate-500 font-medium text-xs mb-6">
+              Vercel caches all public resources like mock packages, category orders, reviews, and sitemaps at the Edge CDN level. 
+              Clicking this button will force all users to fetch the latest fresh data next time they reload.
+            </p>
+            <button 
+              type="button"
+              onClick={handlePurgeCDNCache} 
+              disabled={purgingCDN}
+              className="bg-rose-50 border border-rose-200 text-rose-600 disabled:opacity-50 px-6 py-3 rounded-xl hover:bg-rose-100 hover:border-rose-300 font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              🔄 {purgingCDN ? 'Purging Cache...' : 'Bust CDN Cache'}
+            </button>
           </div>
         </div>
       )}

@@ -9,3 +9,12 @@ export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
+
+console.log("DEBUG [firebase.ts] Initialization:", {
+  firebaseConfig,
+  appExists: !!app,
+  dbExists: !!db,
+  dbType: typeof db,
+  dbPrototype: db ? Object.getPrototypeOf(db)?.constructor?.name : null
+});
+

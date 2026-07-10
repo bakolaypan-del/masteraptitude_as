@@ -35,7 +35,14 @@ export default function AnalysisPage() {
   const { resultId } = useParams<{ resultId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
+
+  // Sync user profile on mount to ensure cached scores and rank are updated
+  useEffect(() => {
+    if (user && refreshProfile) {
+      refreshProfile().catch(() => {});
+    }
+  }, [user]);
 
   // Navigation state passed from TestRunner or Dashboard
   const navState = (location.state || {}) as {
@@ -61,7 +68,6 @@ export default function AnalysisPage() {
   const marksPerCorrect: number = navState.test?.marksPerCorrect ?? result?.marksPerCorrect ?? 1;
   const negativeMarks: number = navState.test?.negativeMarks ?? result?.negativeMarks ?? 0.25;
 
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lbTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Helper: parse Firestore Timestamp | number | string → Date
@@ -129,10 +135,9 @@ export default function AnalysisPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result?.testId]);
 
-  // ── Live leaderboard — always fetched, rank always based on 1st-attempt (server handles this) ──
+  // ── Live leaderboard — fetched once on load, rank based on 1st-attempt (server handles this) ──
   useEffect(() => {
     if (!result || !user) return;
-    let pollCount = 0;
     setLeaderboardError(false);
 
     const fetchLB = async () => {
@@ -145,22 +150,18 @@ export default function AnalysisPage() {
         if (res.ok) {
           setLeaderboard(await res.json());
           setLeaderboardError(false);
-          pollCount++;
-          if (pollCount >= 3 && pollRef.current) clearInterval(pollRef.current);
           if (lbTimeoutRef.current) clearTimeout(lbTimeoutRef.current);
         }
       } catch {}
     };
 
     fetchLB();
-    pollRef.current = setInterval(fetchLB, 15_000);
     // After 12 seconds without data, show error instead of infinite spinner
     lbTimeoutRef.current = setTimeout(() => {
       if (!leaderboard) setLeaderboardError(true);
     }, 12_000);
 
     return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
       if (lbTimeoutRef.current) clearTimeout(lbTimeoutRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps

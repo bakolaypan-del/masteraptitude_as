@@ -5,7 +5,7 @@ import { signOut, updatePassword } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { getCachedCollection } from '../lib/cache';
+import { getCachedCollection, getCacheState } from '../lib/cache';
 import { RenderMathText } from '../components/MathRenderer';
 import PWAInstallPrompt, { InstallAppSidebarButton } from '../components/PWAInstallPrompt';
 import AppInstallGate from '../components/AppInstallGate';
@@ -493,12 +493,22 @@ export default function Dashboard() {
         setPracticeSets(allPractice);
         localStorage.setItem('ma_cache_practice_sets', JSON.stringify(allPractice));
 
-        // Fetch About & Contact Info
-        const infoSnap = await getDoc(doc(db, 'settings', 'site_info'));
-        if (infoSnap.exists()) {
-          const sInfo = infoSnap.data() as any;
-          setAboutInfo(sInfo);
-          localStorage.setItem('ma_cache_site_info', JSON.stringify(sInfo));
+        // Get global cacheState for version checking
+        const cacheState = await getCacheState();
+
+        // Fetch About & Contact Info (cached for 24h)
+        const cachedSiteInfo = localStorage.getItem('ma_cache_site_info');
+        const cachedSiteInfoTs = localStorage.getItem('ma_cache_site_info_ts');
+        if (cachedSiteInfo && cachedSiteInfoTs && (Date.now() - Number(cachedSiteInfoTs) < 24 * 60 * 60 * 1000)) {
+          setAboutInfo(JSON.parse(cachedSiteInfo));
+        } else {
+          const infoSnap = await getDoc(doc(db, 'settings', 'site_info'));
+          if (infoSnap.exists()) {
+            const sInfo = infoSnap.data() as any;
+            setAboutInfo(sInfo);
+            localStorage.setItem('ma_cache_site_info', JSON.stringify(sInfo));
+            localStorage.setItem('ma_cache_site_info_ts', String(Date.now()));
+          }
         }
 
         // Fetch Carousels
@@ -514,55 +524,108 @@ export default function Dashboard() {
         setCarousels(sortedCarousels);
         localStorage.setItem('ma_cache_carousel', JSON.stringify(allCarousels));
 
-        // Fetch Social Links
-        const socialSnap = await getDoc(doc(db, 'settings', 'social_links'));
-        if (socialSnap.exists()) {
-          const data = socialSnap.data();
-          const sLinks = {
-            youtube: data.youtube || '',
-            telegram: data.telegram || '',
-            whatsapp: data.whatsapp || ''
-          };
-          setSocialLinks(sLinks);
-          localStorage.setItem('ma_cache_social_links', JSON.stringify(sLinks));
+        // Fetch Social Links (cached for 24h)
+        const cachedSocial = localStorage.getItem('ma_cache_social_links');
+        const cachedSocialTs = localStorage.getItem('ma_cache_social_links_ts');
+        if (cachedSocial && cachedSocialTs && (Date.now() - Number(cachedSocialTs) < 24 * 60 * 60 * 1000)) {
+          setSocialLinks(JSON.parse(cachedSocial));
+        } else {
+          const socialSnap = await getDoc(doc(db, 'settings', 'social_links'));
+          if (socialSnap.exists()) {
+            const data = socialSnap.data();
+            const sLinks = {
+              youtube: data.youtube || '',
+              telegram: data.telegram || '',
+              whatsapp: data.whatsapp || ''
+            };
+            setSocialLinks(sLinks);
+            localStorage.setItem('ma_cache_social_links', JSON.stringify(sLinks));
+            localStorage.setItem('ma_cache_social_links_ts', String(Date.now()));
+          }
         }
 
-        // Fetch Category Order
-        const orderRes = await fetch('/api/category-order');
-        if (orderRes.ok) {
-          const orderData = await orderRes.json();
-          const order = orderData.order || [];
-          setCategoryOrder(order);
-          localStorage.setItem('ma_cache_category_order', JSON.stringify(order));
+        // Fetch Category Order (cached with versioning)
+        const categoryVersion = cacheState.categories || 0;
+        const cachedCatOrder = localStorage.getItem('ma_cache_category_order');
+        const cachedCatOrderVer = localStorage.getItem('ma_cache_category_order_ver');
+        if (cachedCatOrder && cachedCatOrderVer === String(categoryVersion)) {
+          setCategoryOrder(JSON.parse(cachedCatOrder));
+        } else {
+          const orderRes = await fetch(`/api/category-order?v=${categoryVersion}`);
+          if (orderRes.ok) {
+            const orderData = await orderRes.json();
+            const order = orderData.order || [];
+            setCategoryOrder(order);
+            localStorage.setItem('ma_cache_category_order', JSON.stringify(order));
+            localStorage.setItem('ma_cache_category_order_ver', String(categoryVersion));
+          }
         }
 
-        // Fetch Past Results
-        const resultsQuery = query(collection(db, 'results'), where('userId', '==', user.uid));
-        const resultsSnap = await getDocs(resultsQuery);
-        const results = resultsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }) as any);
-        results.sort((a, b) => b.timestamp - a.timestamp);
-        setPastResults(results);
-        localStorage.setItem('ma_cache_results', JSON.stringify(results));
+        // Fetch Past Results (invalidated when profile.lastTestAt changes)
+        const cachedResults = localStorage.getItem('ma_cache_results');
+        const cachedResultsTs = localStorage.getItem('ma_cache_results_ts');
+        const profileLastTestAt = profile?.lastTestAt || 0;
+        
+        let shouldRefetchResults = true;
+        if (cachedResults && cachedResultsTs) {
+          const cacheTime = Number(cachedResultsTs);
+          if (profileLastTestAt <= cacheTime) {
+            setPastResults(JSON.parse(cachedResults));
+            shouldRefetchResults = false;
+          }
+        }
+        
+        if (shouldRefetchResults) {
+          const resultsQuery = query(collection(db, 'results'), where('userId', '==', user.uid));
+          const resultsSnap = await getDocs(resultsQuery);
+          const results = resultsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }) as any);
+          results.sort((a: any, b: any) => b.timestamp - a.timestamp);
+          setPastResults(results);
+          localStorage.setItem('ma_cache_results', JSON.stringify(results));
+          localStorage.setItem('ma_cache_results_ts', String(Date.now()));
+        }
 
-        // Fetch Paid Batches + My Purchases + Payment Config (parallel)
+        // Fetch Paid Batches + My Purchases + Payment Config (cached with versioning)
         try {
           const tok = await user.getIdToken();
-          const [batchRes, purchaseRes, payRes] = await Promise.all([
-            fetch('/api/paid-batches'),
-            fetch('/api/my-purchases', { headers: { Authorization: `Bearer ${tok}` } }),
-            fetch('/api/payment-config'),
-          ]);
-          if (batchRes.ok) {
-            const bd = await batchRes.json();
-            setPaidBatches(bd);
-            localStorage.setItem('ma_cache_paid_batches', JSON.stringify(bd));
+          
+          // Paid Batches: Cache check
+          const batchesVersion = cacheState.paid_mock_batches || 0;
+          const cachedBatches = localStorage.getItem('ma_cache_paid_batches');
+          const cachedBatchesVer = localStorage.getItem('ma_cache_paid_batches_ver');
+          
+          let fetchedBatches = null;
+          if (cachedBatches && cachedBatchesVer === String(batchesVersion)) {
+            fetchedBatches = JSON.parse(cachedBatches);
+            setPaidBatches(fetchedBatches);
+          } else {
+            const batchRes = await fetch(`/api/paid-batches?v=${batchesVersion}`);
+            if (batchRes.ok) {
+              fetchedBatches = await batchRes.json();
+              setPaidBatches(fetchedBatches);
+              localStorage.setItem('ma_cache_paid_batches', JSON.stringify(fetchedBatches));
+              localStorage.setItem('ma_cache_paid_batches_ver', String(batchesVersion));
+            }
           }
-          if (purchaseRes.ok) {
-            const pd = await purchaseRes.json();
-            const pb = pd.purchasedBatches || [];
-            setMyPurchases(pb);
-            localStorage.setItem('ma_cache_my_purchases', JSON.stringify(pb));
+
+          // My Purchases: 1 hour cache
+          const cachedPurchases = localStorage.getItem('ma_cache_my_purchases');
+          const cachedPurchasesTs = localStorage.getItem('ma_cache_my_purchases_ts');
+          if (cachedPurchases && cachedPurchasesTs && (Date.now() - Number(cachedPurchasesTs) < 60 * 60 * 1000)) {
+            setMyPurchases(JSON.parse(cachedPurchases));
+          } else {
+            const purchaseRes = await fetch('/api/my-purchases', { headers: { Authorization: `Bearer ${tok}` } });
+            if (purchaseRes.ok) {
+              const pd = await purchaseRes.json();
+              const pb = pd.purchasedBatches || [];
+              setMyPurchases(pb);
+              localStorage.setItem('ma_cache_my_purchases', JSON.stringify(pb));
+              localStorage.setItem('ma_cache_my_purchases_ts', String(Date.now()));
+            }
           }
+
+          // Payment Config: standard fetch (no DB overhead on server)
+          const payRes = await fetch('/api/payment-config');
           if (payRes.ok) {
             const pc = await payRes.json();
             if (pc.razorpayMeUrl) setRazorpayMeUrl(pc.razorpayMeUrl);
