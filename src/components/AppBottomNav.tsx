@@ -13,7 +13,7 @@ const tabs: { id: Tab; icon: React.ElementType; label: string }[] = [
   { id: 'profile',      icon: User,          label: 'Profile'   },
 ];
 
-const MOCK_TABS = new Set(['mock_topic', 'mock_sectional', 'mock_full', 'mock_landing']);
+const MOCK_TABS = new Set(['mock_topic', 'mock_sectional', 'mock_full', 'mock_landing', 'mock_challenge']);
 
 function resolveActive(pathname: string, activeTab: string): Tab {
   if (pathname === '/paid-mock') return 'my_purchases';

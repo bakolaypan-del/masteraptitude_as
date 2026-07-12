@@ -296,7 +296,7 @@ const getCategoryStyle = (title: string, dbColor?: string, dbIcon?: string) => {
 
 const DEFAULT_DASHBOARD_CATEGORIES = [
   { title: 'Free Mock', textColor: 'green', iconType: '🏆', actionType: 'tab', actionValue: 'mock_landing', priority: 1, isActive: true },
-  { title: '150 Days Free Practice', textColor: 'red', iconType: '📅', actionType: 'tab', actionValue: 'practice', priority: 2, isActive: true },
+  { title: '150 Days Free Practice', textColor: 'red', iconType: '📅', actionType: 'tab', actionValue: 'mock_challenge', priority: 2, isActive: true },
   { title: 'Typing Test', textColor: 'black', iconType: '⌨️', actionType: 'route', actionValue: '/typing-test', priority: 3, isActive: true },
   { title: 'Syllabus', textColor: 'default', iconType: '📋', actionType: 'tab', actionValue: 'pattern', priority: 4, isActive: true },
   { title: 'Previous Year Paper', textColor: 'default', iconType: '📁', actionType: 'tab', actionValue: 'pyq', priority: 5, isActive: true },
@@ -1990,7 +1990,7 @@ export default function Dashboard() {
               </div>
 
               {/* Glassmorphic Mock Test Sub-category Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 
                 {/* Card 1: Topic Wise Mock */}
                 <button
@@ -2074,6 +2074,35 @@ export default function Dashboard() {
                   <div className="mt-4 flex items-center justify-between text-amber-600 text-[10px] font-black uppercase tracking-wider w-full">
                     <span>15+ Full Length</span>
                     <div className="w-6 h-6 rounded-full bg-amber-50 flex items-center justify-center border border-amber-100 group-hover:bg-amber-500 group-hover:text-white transition-colors duration-300">
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
+                </button>
+
+                {/* Card 4: 150 Days Challenge */}
+                <button
+                  onClick={() => setActiveTab('mock_challenge')}
+                  className="group relative overflow-hidden rounded-3xl p-5 text-left backdrop-blur-md bg-white/60 border border-slate-200/50 hover:border-indigo-300 hover:bg-white/80 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between min-h-[170px]"
+                >
+                  <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-indigo-400 to-violet-500" />
+                  
+                  <div className="absolute top-4 right-4">
+                    <span className="bg-indigo-50 text-indigo-600 font-black uppercase text-[8px] px-2.5 py-1 rounded-full tracking-widest border border-indigo-100 animate-pulse">
+                      Hot
+                    </span>
+                  </div>
+
+                  <div>
+                    <div className="w-11 h-11 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-500 mb-4 group-hover:scale-110 transition-transform duration-300">
+                      <Calendar className="w-5.5 h-5.5" />
+                    </div>
+                    <h3 className="font-black text-slate-800 text-sm leading-tight">150 Days Practice</h3>
+                    <p className="text-[10px] text-slate-500 font-semibold mt-1.5 leading-relaxed">Take daily subject mocks systematically mapped over a 150-day learning plan.</p>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between text-indigo-600 text-[10px] font-black uppercase tracking-wider w-full">
+                    <span>Active Challenge</span>
+                    <div className="w-6 h-6 rounded-full bg-indigo-50 flex items-center justify-center border border-indigo-100 group-hover:bg-indigo-500 group-hover:text-white transition-colors duration-300">
                       <ChevronRight className="w-3.5 h-3.5" />
                     </div>
                   </div>
