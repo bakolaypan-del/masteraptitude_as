@@ -482,7 +482,10 @@ export default function Dashboard() {
   }, [profile]);
 
   const categories = (() => {
-    const rawCategories = [...new Set(activeTests.filter(t => (t.testType || 'topic') === activeTab.replace('mock_', '')).map(t => t.category).filter(Boolean)) as Set<string>];
+    const rawCategories = [...new Set(activeTests.filter(t => 
+      (t.testType || 'topic') === activeTab.replace('mock_', '') &&
+      t.category !== "150 Days Free Practice"
+    ).map(t => t.category).filter(Boolean)) as Set<string>];
     
     let sorted = [];
     if (categoryOrder.length > 0) {
