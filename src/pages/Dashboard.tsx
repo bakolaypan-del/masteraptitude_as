@@ -118,21 +118,21 @@ function WelcomeHero({ name }: { name?: string }) {
           backgroundSize: '20px 20px',
         }} />
 
-        <div className="relative z-10 p-5 sm:p-6 md:max-w-[62%]">
+        <div className="relative z-10 p-4 sm:p-5 md:max-w-[62%]">
           {/* Brand pill */}
-          <div className="inline-flex items-center gap-1.5 mb-3 px-2.5 py-1 rounded-full" style={{
+          <div className="inline-flex items-center gap-1.5 mb-2 px-2 py-0.5 rounded-full" style={{
             background: 'rgba(99,102,241,0.06)',
             border: '1px solid rgba(99,102,241,0.15)',
             color: '#4f46e5',
-            fontSize: 9,
+            fontSize: 8,
             fontWeight: 900,
-            letterSpacing: '0.14em',
+            letterSpacing: '0.12em',
           }}>
             🎓 MASTER APTITUDE
           </div>
 
           {/* Welcome heading */}
-          <h2 style={{ fontWeight: 900, fontSize: 22, lineHeight: 1.15, letterSpacing: '-0.01em', color: '#1e293b', margin: '0 0 12px' }}>
+          <h2 style={{ fontWeight: 900, fontSize: 16, lineHeight: 1.1, letterSpacing: '-0.01em', color: '#1e293b', margin: '0 0 6px' }}>
             Welcome,{' '}
             <span style={{
               backgroundImage: 'linear-gradient(90deg, #6366f1 0%, #8b5cf6 50%, #4f46e5 100%)',
@@ -142,13 +142,13 @@ function WelcomeHero({ name }: { name?: string }) {
           </h2>
 
           {/* Typewriter quote */}
-          <div style={{ minHeight: 44 }}>
+          <div style={{ minHeight: 34 }}>
             <p style={{
               animation: 'quoteColorCycle 10s linear infinite',
               fontStyle: 'italic',
               fontWeight: 600,
-              fontSize: 13,
-              lineHeight: 1.65,
+              fontSize: 11.5,
+              lineHeight: 1.5,
               maxWidth: 440,
               margin: 0,
             }}>
@@ -157,7 +157,7 @@ function WelcomeHero({ name }: { name?: string }) {
               <span style={{
                 display: 'inline-block',
                 width: 2,
-                height: 13,
+                height: 11,
                 background: 'currentColor',
                 marginLeft: 1,
                 verticalAlign: 'middle',
@@ -169,7 +169,7 @@ function WelcomeHero({ name }: { name?: string }) {
             </p>
           </div>
 
-          <p style={{ color: '#94a3b8', fontSize: 10, fontWeight: 700, letterSpacing: '0.09em', marginTop: 8 }}>
+          <p style={{ color: '#94a3b8', fontSize: 9, fontWeight: 700, letterSpacing: '0.09em', marginTop: 4 }}>
             — Master Aptitude
           </p>
         </div>
@@ -314,6 +314,8 @@ export default function Dashboard() {
   };
 
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const [expandedTopic, setExpandedTopic] = useState<string | null>(null);
 
   const setSelectedCategory = (cat: string) => {
     setSelectedTopic(null);
@@ -1408,63 +1410,7 @@ export default function Dashboard() {
                 );
               })()}
 
-              {/* ── Student Performance Stats Panel (Testbook/Unacademy Style) ── */}
-              {(() => {
-                const totalTests = pastResults.length;
-                const avgAccuracy = Math.round(parseFloat(String(performanceStats.avgAccuracy)) || 0);
-                const streak = calculateStreak(pastResults);
 
-                // Circular progress ring setup
-                const radius = 24;
-                const circumference = 2 * Math.PI * radius;
-                const strokeDashoffset = circumference - (avgAccuracy / 100) * circumference;
-
-                return (
-                  <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200 shadow-xs flex gap-4 items-center justify-around flex-wrap">
-                    {/* Stat 1: Tests Attempted */}
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
-                        <BookOpen className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <p className="text-xl font-black text-slate-800 leading-none">{totalTests}</p>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1 leading-none">Tests Taken</p>
-                      </div>
-                    </div>
-
-                    <div className="w-px h-10 bg-slate-100 hidden sm:block" />
-
-                    {/* Stat 2: Accuracy Ring */}
-                    <div className="flex items-center gap-3">
-                      <div className="relative w-12 h-12 flex items-center justify-center shrink-0">
-                        <svg className="w-full h-full transform -rotate-90">
-                          <circle cx="24" cy="24" r={radius} stroke="#f1f5f9" strokeWidth="4" fill="transparent" />
-                          <circle cx="24" cy="24" r={radius} stroke="#10b981" strokeWidth="4" fill="transparent"
-                            strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round" />
-                        </svg>
-                        <span className="absolute text-[10px] font-black text-slate-800">{avgAccuracy}%</span>
-                      </div>
-                      <div>
-                        <p className="text-sm font-black text-slate-800 leading-none">Avg Accuracy</p>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1 leading-none">Performance</p>
-                      </div>
-                    </div>
-
-                    <div className="w-px h-10 bg-slate-100 hidden sm:block" />
-
-                    {/* Stat 3: Study Streak */}
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-rose-50 flex items-center justify-center text-rose-500 text-xl font-bold shrink-0">
-                        🔥
-                      </div>
-                      <div>
-                        <p className="text-xl font-black text-slate-800 leading-none">{streak} Days</p>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1 leading-none">Active Streak</p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
 
               {/* ── Category Grid — 4 Columns light cards ── */}
               {(() => {
@@ -1949,73 +1895,97 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Neon sub-category cards — Level 2 (size 15) */}
-              {(() => {
-                // ─ NeonCard renderer (same design as L1, smaller tokens) ───────
-                const NeonCard = ({
-                  w1, w2, icon, neon, bg, badge, action,
-                  pad, circle, iconRem, titlePx, arrowPx, bktPx, dotPx, rayH, mb,
-                }: {
-                  w1:string; w2:string; icon:string; neon:string; bg:string; badge:string|null;
-                  action:()=>void; pad:string; circle:number; iconRem:number; titlePx:string;
-                  arrowPx:number; bktPx:number; dotPx:number; rayH:number; mb:number;
-                }) => (
-                  <button
-                    onClick={action}
-                    className="group relative flex flex-col items-center rounded-2xl text-white transition-all duration-200 hover:-translate-y-1 hover:scale-[1.03] active:scale-[0.95]"
-                    style={{ background:bg, boxShadow:`0 0 0 1.5px ${neon}55, 0 0 16px ${neon}28, 0 5px 22px rgba(0,0,0,0.55)`, padding:pad, overflow:'visible', justifyContent:'center', gap:5 }}
-                  >
-                    {/* Dot grid */}
-                    <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage:`radial-gradient(circle,${neon}16 1px,transparent 1px)`, backgroundSize:`${dotPx}px ${dotPx}px` }}/>
-                    {/* Corner brackets */}
-                    <div className="absolute top-0 left-0 pointer-events-none" style={{ width:bktPx, height:bktPx, borderTop:`1.5px solid ${neon}65`, borderLeft:`1.5px solid ${neon}65`, borderRadius:'8px 0 0 0' }}/>
-                    <div className="absolute top-0 right-0 pointer-events-none" style={{ width:bktPx, height:bktPx, borderTop:`1.5px solid ${neon}65`, borderRight:`1.5px solid ${neon}65`, borderRadius:'0 8px 0 0' }}/>
-                    {/* Glowing circle */}
-                    <div className="relative z-10 flex items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-110"
-                      style={{ width:circle, height:circle, flexShrink:0, border:`1.5px solid ${neon}`, boxShadow:`0 0 12px ${neon}65,0 0 24px ${neon}28,inset 0 0 12px ${neon}15`, background:`radial-gradient(circle,${neon}15 0%,transparent 70%)` }}>
-                      {badge && (
-                        <span className="absolute -top-2 left-1/2 -translate-x-1/2 whitespace-nowrap font-black rounded-full"
-                          style={{ fontSize:6, padding:'2px 6px', background:`linear-gradient(90deg,${neon},${neon}bb)`, color:bg, boxShadow:`0 0 7px ${neon}`, letterSpacing:'0.07em' }}>
-                          {badge}
-                        </span>
-                      )}
-                      <span className="select-none" style={{ fontSize:`${iconRem}rem`, lineHeight:1, filter:`drop-shadow(0 0 7px ${neon}88)` }}>{icon}</span>
-                    </div>
-                    {/* Two-tone title */}
-                    <p className="relative z-10 font-black text-center leading-tight" style={{ fontSize:titlePx, lineHeight:1.1 }}>
-                      {w2
-                        ? <><span style={{color:'#fff'}}>{w1} </span><span style={{color:neon,textShadow:`0 0 9px ${neon}`}}>{w2}</span></>
-                        : <span style={{color:neon,textShadow:`0 0 9px ${neon}`}}>{w1}</span>
-                      }
-                    </p>
-                    {/* Bottom ray */}
-                    <div className="absolute bottom-0 left-0 right-0 pointer-events-none" style={{ height:rayH, background:`radial-gradient(ellipse 80% 65% at 50% 110%,${neon}38 0%,transparent 70%)` }}/>
-                    {/* Arrow */}
-                    <div className="relative z-10 flex items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-110"
-                      style={{ width:arrowPx, height:arrowPx, background:`${neon}1a`, border:`1px solid ${neon}85`, boxShadow:`0 0 8px ${neon}40` }}>
-                      <svg viewBox="0 0 10 10" width={arrowPx*0.45} height={arrowPx*0.45} fill="none">
-                        <path d="M3.5 2L6.5 5L3.5 8" stroke={neon} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </div>
-                    {/* Hover ring */}
-                    <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" style={{ boxShadow:`inset 0 0 0 1.5px ${neon}85,0 0 24px ${neon}38` }}/>
-                  </button>
-                );
-
-                // ─ Level-2 tokens (size 15 — 75% of L1, square) ─────────────
-                const L2 = { pad:'4px 2px 4px', circle:32, iconRem:1.0, titlePx:'clamp(12px,3.7vw,16px)', arrowPx:14, bktPx:11, dotPx:10, rayH:22, mb:0 };
-
-                const subs = [
-                  { w1:'TOPIC',     w2:'WISE', icon:'🎯', neon:'#00cfff', bg:'#050d1a', badge:'FOCUSED',  action:()=>setActiveTab('mock_topic') },
-                  { w1:'SECTIONAL', w2:'MOCK', icon:'📊', neon:'#ff3fa4', bg:'#150008', badge:'SECTION',  action:()=>setActiveTab('mock_sectional') },
-                  { w1:'FULL',      w2:'MOCK', icon:'🏆', neon:'#ffaa00', bg:'#130c00', badge:'COMPLETE', action:()=>setActiveTab('mock_full') },
-                ];
-                return (
-                  <div className="grid gap-2" style={{ gridTemplateColumns:'repeat(3, 110px)', justifyContent:'center' }}>
-                    {subs.map(s => <NeonCard key={s.w1+s.w2} {...s} {...L2} />)}
+              {/* Glassmorphic Mock Test Sub-category Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                
+                {/* Card 1: Topic Wise Mock */}
+                <button
+                  onClick={() => setActiveTab('mock_topic')}
+                  className="group relative overflow-hidden rounded-3xl p-5 text-left backdrop-blur-md bg-white/60 border border-slate-200/50 hover:border-cyan-300 hover:bg-white/80 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between min-h-[170px]"
+                >
+                  <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-cyan-400 to-sky-400" />
+                  
+                  <div className="absolute top-4 right-4">
+                    <span className="bg-cyan-50 text-cyan-600 font-black uppercase text-[8px] px-2.5 py-1 rounded-full tracking-widest border border-cyan-100">
+                      Focused
+                    </span>
                   </div>
-                );
-              })()}
+
+                  <div>
+                    <div className="w-11 h-11 rounded-2xl bg-cyan-50 flex items-center justify-center text-cyan-500 mb-4 group-hover:scale-110 transition-transform duration-300">
+                      <Target className="w-5.5 h-5.5" />
+                    </div>
+                    <h3 className="font-black text-slate-800 text-sm leading-tight">Topic Wise Mock</h3>
+                    <p className="text-[10px] text-slate-500 font-semibold mt-1.5 leading-relaxed">Practice mock tests curated specifically for each chapter & topic.</p>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between text-cyan-600 text-[10px] font-black uppercase tracking-wider w-full">
+                    <span>120+ Tests Available</span>
+                    <div className="w-6 h-6 rounded-full bg-cyan-50 flex items-center justify-center border border-cyan-100 group-hover:bg-cyan-500 group-hover:text-white transition-colors duration-300">
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
+                </button>
+
+                {/* Card 2: Sectional Mock */}
+                <button
+                  onClick={() => setActiveTab('mock_sectional')}
+                  className="group relative overflow-hidden rounded-3xl p-5 text-left backdrop-blur-md bg-white/60 border border-slate-200/50 hover:border-rose-300 hover:bg-white/80 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between min-h-[170px]"
+                >
+                  <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-rose-400 to-pink-400" />
+                  
+                  <div className="absolute top-4 right-4">
+                    <span className="bg-rose-50 text-rose-600 font-black uppercase text-[8px] px-2.5 py-1 rounded-full tracking-widest border border-rose-100">
+                      Timed
+                    </span>
+                  </div>
+
+                  <div>
+                    <div className="w-11 h-11 rounded-2xl bg-rose-50 flex items-center justify-center text-rose-500 mb-4 group-hover:scale-110 transition-transform duration-300">
+                      <BarChart3 className="w-5.5 h-5.5" />
+                    </div>
+                    <h3 className="font-black text-slate-800 text-sm leading-tight">Sectional Mock</h3>
+                    <p className="text-[10px] text-slate-500 font-semibold mt-1.5 leading-relaxed">Test your speed and accuracy in subject-wise timed mock sections.</p>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between text-rose-600 text-[10px] font-black uppercase tracking-wider w-full">
+                    <span>45+ Sectional Papers</span>
+                    <div className="w-6 h-6 rounded-full bg-rose-50 flex items-center justify-center border border-rose-100 group-hover:bg-rose-500 group-hover:text-white transition-colors duration-300">
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
+                </button>
+
+                {/* Card 3: Full Mock */}
+                <button
+                  onClick={() => setActiveTab('mock_full')}
+                  className="group relative overflow-hidden rounded-3xl p-5 text-left backdrop-blur-md bg-white/60 border border-slate-200/50 hover:border-amber-300 hover:bg-white/80 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between min-h-[170px]"
+                >
+                  <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-amber-400 to-orange-400" />
+                  
+                  <div className="absolute top-4 right-4">
+                    <span className="bg-amber-50 text-amber-600 font-black uppercase text-[8px] px-2.5 py-1 rounded-full tracking-widest border border-amber-100">
+                      Real Exam
+                    </span>
+                  </div>
+
+                  <div>
+                    <div className="w-11 h-11 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-500 mb-4 group-hover:scale-110 transition-transform duration-300">
+                      <Trophy className="w-5.5 h-5.5" />
+                    </div>
+                    <h3 className="font-black text-slate-800 text-sm leading-tight">Full Mock</h3>
+                    <p className="text-[10px] text-slate-500 font-semibold mt-1.5 leading-relaxed">Complete full-length mock exams designed to simulate real exam environments.</p>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between text-amber-600 text-[10px] font-black uppercase tracking-wider w-full">
+                    <span>15+ Full Length</span>
+                    <div className="w-6 h-6 rounded-full bg-amber-50 flex items-center justify-center border border-amber-100 group-hover:bg-amber-500 group-hover:text-white transition-colors duration-300">
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
+                </button>
+
+              </div>
 
               {/* Pro tip */}
               <div className="mt-5 flex items-center gap-3 rounded-2xl px-4 py-3" style={{ background:'#0f172a', border:'1px solid rgba(99,102,241,0.25)' }}>
@@ -2320,323 +2290,255 @@ export default function Dashboard() {
                     🎯 <span className="text-indigo-600">{activeTab === 'mock_topic' ? 'Topic Wise' : activeTab === 'mock_sectional' ? 'Sectional' : 'Full'}</span> Test Series
                   </h2>
                 </div>
-
-                {categories.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {categories.map((cat, idx) => (
-                      <button
-                        key={cat}
-                        onClick={() => { setSelectedCategory(cat); setSelectedTopic(null); }}
-                        className={`sub-category-btn sub-color-${idx % 9} ${selectedCategory === cat ? 'active' : ''}`}
-                      >
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
 
               {categories.length === 0 ? (
-                <div className="bg-white rounded-3xl p-12 py-20 border border-slate-200 text-center text-slate-400 shadow-sm flex flex-col items-center max-w-2xl mx-auto w-full">
-                  <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6">
-                    <FileText className="w-10 h-10 text-slate-200" />
+                  <div className="bg-white rounded-3xl p-12 py-20 border border-slate-200 text-center text-slate-400 shadow-sm flex flex-col items-center max-w-2xl mx-auto w-full">
+                    <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6">
+                      <FileText className="w-10 h-10 text-slate-200" />
+                    </div>
+                    <h3 className="font-black text-slate-800 text-lg uppercase tracking-widest mb-2">No Mock Available</h3>
+                    <p className="text-slate-400 text-sm font-medium">We are working on bringing new tests to this section. Please check back later!</p>
                   </div>
-                  <h3 className="font-black text-slate-800 text-lg uppercase tracking-widest mb-2">No Mock Available</h3>
-                  <p className="text-slate-400 text-sm font-medium">We are working on bringing new tests to this section. Please check back later!</p>
-                </div>
-              ) : !selectedCategory ? (
-                <div className="bg-white rounded-3xl p-12 border border-slate-200 text-center text-slate-400 shadow-sm flex flex-col items-center">
-                  <FileText className="w-12 h-12 mb-4 text-slate-200" />
-                  <p className="font-bold text-sm uppercase tracking-widest text-slate-500">Select a category above to view Available Mocks.</p>
-                </div>
-              ) : (() => {
-                // All tests for this category+type
-                const filteredTests = activeTests.filter(t =>
-                  (t.testType || 'topic') === activeTab.replace('mock_', '') &&
-                  t.category === selectedCategory
-                );
+                ) : (
+                  <div className="space-y-4">
+                    {categories.map((subject, subjectIdx) => {
+                      // All tests belonging to this subject
+                      const testsInSubject = activeTests.filter(t => 
+                        (t.testType || 'topic') === activeTab.replace('mock_', '') &&
+                        t.category === subject
+                      );
 
-                // Build topic map
-                const topicMap: Record<string, typeof filteredTests> = {};
-                filteredTests.forEach(t => {
-                  const key = t.topic || 'General';
-                  if (!topicMap[key]) topicMap[key] = [];
-                  topicMap[key].push(t);
-                });
-                const topicEntries = Object.entries(topicMap);
+                      // Group tests in this subject by topic
+                      const topicsMap: Record<string, typeof testsInSubject> = {};
+                      testsInSubject.forEach(t => {
+                        const key = t.topic || 'General';
+                        if (!topicsMap[key]) topicsMap[key] = [];
+                        topicsMap[key].push(t);
+                      });
+                      const topicEntries = Object.entries(topicsMap);
 
-                if (filteredTests.length === 0) {
-                  return (
-                    <div className="bg-white rounded-3xl p-12 border border-slate-200 text-center text-slate-400 shadow-sm flex flex-col items-center animate-in fade-in duration-300">
-                      <FileText className="w-12 h-12 mb-4 text-slate-200" />
-                      <p className="font-bold text-sm uppercase tracking-widest text-slate-500">No tests found in <span className="text-indigo-500">{selectedCategory}</span> category.</p>
-                    </div>
-                  );
-                }
+                      const totalTests = testsInSubject.length;
+                      const takenCount = testsInSubject.filter(t => pastResults.some(r => r.testId === t.id)).length;
 
-                // STEP 2 — No topic selected yet: show topic cards
-                if (!selectedTopic) {
-                  return (
-                    <div className="animate-in fade-in duration-150">
-                      {/* Breadcrumb */}
-                      <div className="flex items-center gap-2 mb-5 text-xs font-black text-slate-400 uppercase tracking-widest">
-                        <span className="text-indigo-600">{selectedCategory}</span>
-                        <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
-                        <span>Choose Topic</span>
-                      </div>
+                      // Color variants for subjects to give premium feel
+                      const subjectColors = [
+                        { bg: 'border-l-indigo-500 text-indigo-600 bg-indigo-50/20 hover:bg-indigo-50/40', iconBg: 'bg-indigo-50 text-indigo-600', pill: 'bg-indigo-50 text-indigo-700' },
+                        { bg: 'border-l-emerald-500 text-emerald-600 bg-emerald-50/20 hover:bg-emerald-50/40', iconBg: 'bg-emerald-50 text-emerald-600', pill: 'bg-emerald-50 text-emerald-700' },
+                        { bg: 'border-l-rose-500 text-rose-600 bg-rose-50/20 hover:bg-rose-50/40', iconBg: 'bg-rose-50 text-rose-600', pill: 'bg-rose-50 text-rose-700' },
+                        { bg: 'border-l-amber-500 text-amber-600 bg-amber-50/20 hover:bg-amber-50/40', iconBg: 'bg-amber-50 text-amber-600', pill: 'bg-amber-50 text-amber-700' },
+                        { bg: 'border-l-sky-500 text-sky-600 bg-sky-50/20 hover:bg-sky-50/40', iconBg: 'bg-sky-50 text-sky-600', pill: 'bg-sky-50 text-sky-700' },
+                        { bg: 'border-l-violet-500 text-violet-600 bg-violet-50/20 hover:bg-violet-50/40', iconBg: 'bg-violet-50 text-violet-600', pill: 'bg-violet-50 text-violet-700' },
+                      ];
+                      const color = subjectColors[subjectIdx % subjectColors.length];
+                      const isSubjectExpanded = expandedCategory === subject;
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {topicEntries.map(([topicName, topicTests], idx) => {
-                          const takenCount = topicTests.filter(t => pastResults.some(r => r.testId === t.id)).length;
-                          const colors = [
-                            { bg: 'from-indigo-500 to-violet-600', light: 'bg-indigo-50 border-indigo-100', badge: 'bg-indigo-100 text-indigo-700', icon: 'text-indigo-600' },
-                            { bg: 'from-emerald-500 to-teal-600', light: 'bg-emerald-50 border-emerald-100', badge: 'bg-emerald-100 text-emerald-700', icon: 'text-emerald-600' },
-                            { bg: 'from-amber-500 to-orange-500', light: 'bg-amber-50 border-amber-100', badge: 'bg-amber-100 text-amber-700', icon: 'text-amber-600' },
-                            { bg: 'from-rose-500 to-pink-600', light: 'bg-rose-50 border-rose-100', badge: 'bg-rose-100 text-rose-700', icon: 'text-rose-600' },
-                            { bg: 'from-sky-500 to-blue-600', light: 'bg-sky-50 border-sky-100', badge: 'bg-sky-100 text-sky-700', icon: 'text-sky-600' },
-                            { bg: 'from-violet-500 to-purple-600', light: 'bg-violet-50 border-violet-100', badge: 'bg-violet-100 text-violet-700', icon: 'text-violet-600' },
-                          ];
-                          const c = colors[idx % colors.length];
-                          return (
-                            <button
-                              key={topicName}
-                              onClick={() => setSelectedTopic(topicName)}
-                              className={`group relative text-left w-full rounded-2xl border ${c.light} p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 active:scale-95`}
-                            >
-                              {/* Top accent bar */}
-                              <div className={`absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-gradient-to-r ${c.bg}`} />
+                      if (totalTests === 0) return null;
 
-                              <div className="flex items-start justify-between gap-3 mt-1">
-                                <div className="flex-1 min-w-0">
-                                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Topic</span>
-                                  <h4 className="font-black text-slate-800 text-base leading-tight truncate">{topicName}</h4>
-                                </div>
-                                <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${c.bg} flex items-center justify-center shrink-0 shadow-md`}>
-                                  <Target className="w-4 h-4 text-white" />
-                                </div>
+                      return (
+                        <div key={subject} className="bg-white border border-slate-200/60 rounded-2xl shadow-xs overflow-hidden transition-all duration-300">
+                          
+                          {/* Subject Accordion Header */}
+                          <button
+                            onClick={() => {
+                              setExpandedCategory(isSubjectExpanded ? null : subject);
+                              setExpandedTopic(null); // Reset sub-topic
+                            }}
+                            className={`w-full flex items-center justify-between p-4 md:p-5 border-l-4 ${color.bg} text-left transition-colors duration-200`}
+                          >
+                            <div className="flex items-center gap-3.5">
+                              <div className={`w-10 h-10 rounded-xl ${color.iconBg} flex items-center justify-center shrink-0 shadow-xs`}>
+                                <Layers className="w-5 h-5" />
                               </div>
-
-                              <div className="flex items-center gap-2 mt-4 flex-wrap">
-                                <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${c.badge}`}>
-                                  {topicTests.length} {topicTests.length === 1 ? 'Mock Test' : 'Mock Tests'}
-                                </span>
-                                {takenCount > 0 && (
-                                  <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-slate-100 text-slate-500">
-                                    {takenCount} Attempted
-                                  </span>
-                                )}
-                              </div>
-
-                              <div className="flex items-center gap-1 mt-3 text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-indigo-600 transition-colors">
-                                View Tests <ChevronRight className="w-3 h-3" />
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                }
-
-                // STEP 3 — Topic selected: show tests in that topic
-                const testsInTopic = topicMap[selectedTopic] || [];
-                return (
-                  <div className="animate-in fade-in duration-150">
-                    {/* Breadcrumb + Back */}
-                    <div className="flex items-center gap-2 mb-5">
-                      <button
-                        onClick={() => setSelectedTopic(null)}
-                        className="flex items-center gap-1.5 text-xs font-black text-slate-500 hover:text-indigo-600 transition-colors uppercase tracking-widest"
-                      >
-                        <ChevronLeft className="w-3.5 h-3.5" />
-                        Back
-                      </button>
-                      <span className="text-slate-200 font-black">|</span>
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{selectedCategory}</span>
-                      <ChevronRight className="w-3 h-3 text-slate-300" />
-                      <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{selectedTopic}</span>
-                    </div>
-
-                    {/* Topic header card */}
-                    <div className="flex items-center gap-4 bg-gradient-to-r from-indigo-600 to-violet-600 rounded-2xl px-5 py-4 mb-5 shadow-lg shadow-indigo-200">
-                      <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
-                        <Target className="w-5 h-5 text-white" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-[9px] font-black text-indigo-200 uppercase tracking-widest block">Topic / Sub-Category</span>
-                        <h3 className="font-black text-white text-lg leading-tight truncate">{selectedTopic}</h3>
-                      </div>
-                      <span className="text-[10px] font-black text-white/80 bg-white/15 px-3 py-1.5 rounded-full shrink-0">
-                        {testsInTopic.length} {testsInTopic.length === 1 ? 'Test' : 'Tests'}
-                      </span>
-                    </div>
-
-                    {/* Test list */}
-                    <div className="flex flex-col gap-3">
-                      {testsInTopic.map((test, testIdx) => {
-                        // All attempts for this test, sorted oldest → newest
-                        const attemptsForTest = pastResults
-                          .filter((r: any) => r.testId === test.id)
-                          .sort((a: any, b: any) => a.timestamp - b.timestamp);
-                        const isTaken = attemptsForTest.length > 0;
-                        const attemptCount = attemptsForTest.length;
-                        const latestAttempt = attemptsForTest[attemptCount - 1];
-                        return (
-                          <div key={test.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:-translate-y-px hover:border-indigo-100 transition-all duration-200 p-4">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                              {/* LEFT: Test name */}
-                              <div className="flex items-center gap-3 flex-1 min-w-0">
-                                <div className="w-9 h-9 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-xl flex items-center justify-center shrink-0 font-black text-sm">
-                                  {testIdx + 1}
-                                </div>
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <h4 className="font-extrabold text-slate-800 text-sm md:text-base leading-snug">{test.title}</h4>
-                                    {test.isPaid && myPurchases.length === 0
-                                      ? <span className="px-1.5 py-0.5 bg-rose-100 text-rose-600 text-[8px] font-black uppercase tracking-widest rounded-full border border-rose-200 shrink-0">👑 Premium</span>
-                                      : test.isPaid
-                                        ? <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[8px] font-black uppercase tracking-widest rounded-full border border-emerald-200 shrink-0">✔ Unlocked</span>
-                                        : <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded-full border border-emerald-100 shrink-0">Free</span>
-                                    }
-                                    {test.isActive && (
-                                      <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 text-[8px] font-black uppercase tracking-widest rounded border border-indigo-100 flex items-center gap-0.5 shrink-0">
-                                        <span className="w-1 h-1 rounded-full bg-indigo-500 animate-pulse" />
-                                        Live
-                                      </span>
-                                    )}
-                                    {isTaken && (
-                                      <span className="px-1.5 py-0.5 bg-emerald-500 text-white text-[8px] font-black uppercase tracking-widest rounded-full shrink-0">
-                                        ✓ Attempted {attemptCount > 1 ? `×${attemptCount}` : ''}
-                                      </span>
-                                    )}
-                                  </div>
-                                  {test.subjectName && (
-                                    <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest block leading-none mt-1">{test.subjectName}</span>
-                                  )}
-                                  <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                                    {(test.uniqueStudentCount ?? 0) > 0 && (
-                                      <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1">
-                                        👥 {(test.uniqueStudentCount as number).toLocaleString()} Students
-                                      </span>
-                                    )}
-                                    {isTaken && latestAttempt && (
-                                      <span className="text-[9px] font-bold text-indigo-500 flex items-center gap-1">
-                                        <Clock className="w-2.5 h-2.5" />
-                                        Latest: {latestAttempt.score} marks
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* MIDDLE: Specs */}
-                              <div className="shrink-0 text-left md:min-w-[130px] hidden md:block">
-                                <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Specs</span>
-                                <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1.5">
-                                  <Clock className="w-3 h-3 text-indigo-500" />
-                                  {test.duration || 30} min | {test.marksPerCorrect || 1}M
-                                </span>
-                              </div>
-
-                              {/* RIGHT: Actions */}
-                              <div className="flex items-center gap-2 shrink-0 self-end md:self-auto flex-wrap justify-end">
-                                {!test.isPaid && isTaken && (
-                                  <button
-                                    onClick={() => handleDownloadPDF(test.id, test.title, test.category || 'N/A', test.testType || 'N/A')}
-                                    disabled={downloadingPDF === test.id}
-                                    className="flex items-center justify-center p-2.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-500 rounded-xl transition-all disabled:opacity-50"
-                                    title="Download PDF"
-                                  >
-                                    <Download className="w-4 h-4" />
-                                  </button>
-                                )}
-
-                                {/* Previous Attempt Analysis dropdown button */}
-                                {!test.isPaid && isTaken && (
-                                  <div className="relative">
-                                    <button
-                                      onClick={() => setOpenAttemptDropdown(openAttemptDropdown === test.id ? null : test.id)}
-                                      className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-all active:scale-95"
-                                    >
-                                      <BarChart3 className="w-3.5 h-3.5" />
-                                      Previous Attempt Analysis
-                                      <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${openAttemptDropdown === test.id ? 'rotate-180' : ''}`} />
-                                    </button>
-
-                                    {openAttemptDropdown === test.id && (
-                                      <>
-                                        {/* Backdrop to close on outside click */}
-                                        <div className="fixed inset-0 z-40" onClick={() => setOpenAttemptDropdown(null)} />
-                                        <div className="absolute right-0 top-full mt-1.5 z-50 bg-white border border-slate-200 rounded-2xl shadow-2xl shadow-slate-300/40 min-w-[300px] overflow-hidden">
-                                          <div className="px-4 py-2.5 bg-gradient-to-r from-indigo-50 to-slate-50 border-b border-slate-100 flex items-center gap-2">
-                                            <BarChart3 className="w-3.5 h-3.5 text-indigo-500" />
-                                            <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">All Attempts — Select to View</p>
-                                          </div>
-                                          <div className="py-1">
-                                            {attemptsForTest.map((r: any, i: number) => (
-                                              <button
-                                                key={r.id}
-                                                onClick={() => { openAnalysis(r); setOpenAttemptDropdown(null); }}
-                                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 active:bg-slate-100 transition-colors text-left group/item"
-                                              >
-                                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-[11px] font-black shadow-sm ${
-                                                  i === 0 ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'
-                                                }`}>
-                                                  {i + 1}
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                  <p className="text-[11px] font-black text-slate-800 flex items-center gap-1.5">
-                                                    {i === 0 ? '1st' : i === 1 ? '2nd' : i === 2 ? '3rd' : `${i + 1}th`} Attempt
-                                                    {i === 0 && (
-                                                      <span className="text-[8px] font-black text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">Rank</span>
-                                                    )}
-                                                  </p>
-                                                  <p className="text-[9px] font-medium text-slate-400 mt-0.5 tabular-nums">{formatAttemptDate(r.timestamp)}</p>
-                                                </div>
-                                                <span className={`text-[12px] font-black shrink-0 tabular-nums ${i === 0 ? 'text-indigo-600' : 'text-amber-600'}`}>
-                                                  {r.score}
-                                                </span>
-                                                <ChevronRight className="w-3.5 h-3.5 text-slate-300 shrink-0 group-hover/item:text-indigo-400 transition-colors" />
-                                              </button>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      </>
-                                    )}
-                                  </div>
-                                )}
-
-                                {test.isPaid && myPurchases.length === 0 ? (
-                                  <button
-                                    onClick={() => {
-                                      const b = paidBatches[0];
-                                      if (b) {
-                                        window.open(`${razorpayMeUrl}?amount=${b.price * 100}&description=${encodeURIComponent(b.examName)}`, '_blank');
-                                        setBuyingBatch(b); setBuyError(''); setTxnId('');
-                                      } else navigate('/paid-mock');
-                                    }}
-                                    className="px-4 py-2.5 font-black text-[9px] uppercase tracking-widest rounded-xl flex items-center gap-1.5 transition-all hover:brightness-110 active:scale-95 text-white"
-                                    style={{background:'linear-gradient(135deg,#10b981,#059669)'}}>
-                                    🛒 Buy Now
-                                  </button>
-                                ) : (
-                                  <Link
-                                    to={`/test/${test.id}`}
-                                    className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-black text-[9px] uppercase tracking-widest rounded-xl hover:from-slate-900 hover:to-slate-900 transition-all shadow-md shadow-indigo-200 hover:shadow-lg flex items-center gap-1 active:scale-95"
-                                  >
-                                    {isTaken ? 'Reattempt' : 'Attempt Mock'}
-                                    <ChevronRight className="w-3.5 h-3.5" />
-                                  </Link>
-                                )}
+                              <div>
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Subject</span>
+                                <h3 className="font-extrabold text-slate-800 text-sm md:text-base leading-tight">{subject}</h3>
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                            <div className="flex items-center gap-3">
+                              <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full ${color.pill}`}>
+                                {totalTests} {totalTests === 1 ? 'Mock' : 'Mocks'} ({takenCount} Done)
+                              </span>
+                              <div className="text-slate-400">
+                                <ChevronDown className={`w-5 h-5 transition-transform duration-300 ${isSubjectExpanded ? 'rotate-180 text-indigo-500' : ''}`} />
+                              </div>
+                            </div>
+                          </button>
+
+                          {/* Subject Accordion Body (Render Topics list) */}
+                          {isSubjectExpanded && (
+                            <div className="border-t border-slate-100 bg-slate-50/20 divide-y divide-slate-100 animate-in slide-in-from-top-3 duration-200">
+                              {topicEntries.map(([topicName, topicTests]) => {
+                                const totalTopicTests = topicTests.length;
+                                const takenTopicCount = topicTests.filter(t => pastResults.some(r => r.testId === t.id)).length;
+                                const isTopicExpanded = expandedTopic === topicName;
+
+                                return (
+                                  <div key={topicName} className="overflow-hidden">
+                                    {/* Topic Accordion Header */}
+                                    <button
+                                      onClick={() => setExpandedTopic(isTopicExpanded ? null : topicName)}
+                                      className="w-full pl-12 md:pl-16 pr-5 py-3.5 flex items-center justify-between hover:bg-slate-50 text-left transition-colors duration-200"
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <div className={`w-7 h-7 rounded-lg ${isTopicExpanded ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-500'} flex items-center justify-center shrink-0`}>
+                                          <Target className="w-4 h-4" />
+                                        </div>
+                                        <h4 className="font-bold text-slate-700 text-xs md:text-sm">{topicName}</h4>
+                                      </div>
+                                      <div className="flex items-center gap-3">
+                                        <span className="text-[9px] font-bold text-slate-400 bg-slate-100 border border-slate-200/50 px-2 py-0.5 rounded-md">
+                                          {totalTopicTests} {totalTopicTests === 1 ? 'Test' : 'Tests'}
+                                          {takenTopicCount > 0 && ` (${takenTopicCount}/${totalTopicTests} Attempted)`}
+                                        </span>
+                                        <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isTopicExpanded ? 'rotate-90 text-indigo-500' : ''}`} />
+                                      </div>
+                                    </button>
+
+                                    {/* Topic Accordion Body (Render Mock Tests List) */}
+                                    {isTopicExpanded && (
+                                      <div className="pl-12 md:pl-16 pr-5 pb-5 pt-2 bg-white flex flex-col gap-3 border-t border-slate-100 animate-in slide-in-from-top-2 duration-150">
+                                        {topicTests.map((test, testIdx) => {
+                                          const attemptsForTest = pastResults
+                                            .filter((r: any) => r.testId === test.id)
+                                            .sort((a: any, b: any) => a.timestamp - b.timestamp);
+                                          const isTaken = attemptsForTest.length > 0;
+                                          const attemptCount = attemptsForTest.length;
+                                          const latestAttempt = attemptsForTest[attemptCount - 1];
+
+                                          return (
+                                            <div key={test.id} className="bg-slate-50/50 rounded-2xl border border-slate-200/60 hover:border-indigo-100 hover:bg-white hover:shadow-xs transition-all duration-200 p-4">
+                                              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                                                
+                                                {/* LEFT: Test details */}
+                                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                  <div className="w-8 h-8 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-lg flex items-center justify-center shrink-0 font-black text-xs">
+                                                    {testIdx + 1}
+                                                  </div>
+                                                  <div className="min-w-0">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                      <h4 className="font-extrabold text-slate-800 text-xs md:text-sm leading-snug">{test.title}</h4>
+                                                      {test.isPaid && myPurchases.length === 0
+                                                        ? <span className="px-1.5 py-0.5 bg-rose-100 text-rose-600 text-[8px] font-black uppercase tracking-widest rounded-full border border-rose-200 shrink-0">👑 Premium</span>
+                                                        : test.isPaid
+                                                          ? <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[8px] font-black uppercase tracking-widest rounded-full border border-emerald-200 shrink-0">✔ Unlocked</span>
+                                                          : <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded-full border border-emerald-100 shrink-0">Free</span>
+                                                      }
+                                                      {isTaken && (
+                                                        <span className="px-1.5 py-0.5 bg-emerald-500 text-white text-[8px] font-black uppercase tracking-widest rounded-full shrink-0">
+                                                          ✓ Attempted {attemptCount > 1 ? `×${attemptCount}` : ''}
+                                                        </span>
+                                                      )}
+                                                    </div>
+                                                    
+                                                    <div className="flex items-center gap-3 mt-1 flex-wrap">
+                                                      <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1">
+                                                        ⏱️ {test.duration || 30} mins
+                                                      </span>
+                                                      <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1">
+                                                        🎯 {test.marksPerCorrect || 1} Marks/Question
+                                                      </span>
+                                                      {isTaken && latestAttempt && (
+                                                        <span className="text-[9px] font-bold text-indigo-500 flex items-center gap-1">
+                                                          📈 Latest Score: {latestAttempt.score} marks
+                                                        </span>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                </div>
+
+                                                {/* RIGHT: Actions */}
+                                                <div className="flex items-center gap-2 shrink-0 self-end md:self-auto flex-wrap justify-end">
+                                                  {!test.isPaid && isTaken && (
+                                                    <button
+                                                      onClick={() => handleDownloadPDF(test.id, test.title, test.category || 'N/A', test.testType || 'N/A')}
+                                                      disabled={downloadingPDF === test.id}
+                                                      className="flex items-center justify-center p-2 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-500 rounded-lg transition-all disabled:opacity-50"
+                                                      title="Download PDF"
+                                                    >
+                                                      <Download className="w-3.5 h-3.5" />
+                                                    </button>
+                                                  )}
+
+                                                  {/* Previous attempts */}
+                                                  {!test.isPaid && isTaken && (
+                                                    <div className="relative">
+                                                      <button
+                                                        onClick={() => setOpenAttemptDropdown(openAttemptDropdown === test.id ? null : test.id)}
+                                                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg font-black text-[8px] uppercase tracking-widest border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-all active:scale-95"
+                                                      >
+                                                        <BarChart3 className="w-3 h-3" />
+                                                        Attempts
+                                                        <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${openAttemptDropdown === test.id ? 'rotate-180' : ''}`} />
+                                                      </button>
+
+                                                      {openAttemptDropdown === test.id && (
+                                                        <>
+                                                          <div className="fixed inset-0 z-40" onClick={() => setOpenAttemptDropdown(null)} />
+                                                          <div className="absolute right-0 top-full mt-1.5 z-50 bg-white border border-slate-200 rounded-xl shadow-xl min-w-[260px] overflow-hidden">
+                                                            <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center gap-1.5">
+                                                              <BarChart3 className="w-3 h-3 text-indigo-500" />
+                                                              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Select to view analysis</p>
+                                                            </div>
+                                                            <div className="py-0.5 max-h-[180px] overflow-y-auto">
+                                                              {attemptsForTest.map((r: any, i: number) => (
+                                                                <button
+                                                                  key={r.id}
+                                                                  onClick={() => { openAnalysis(r); setOpenAttemptDropdown(null); }}
+                                                                  className="w-full flex items-center justify-between px-3 py-2 hover:bg-slate-50 active:bg-slate-100 transition-colors text-left text-[10px]"
+                                                                >
+                                                                  <span className="font-extrabold text-slate-700">Attempt {i + 1}</span>
+                                                                  <span className="font-black text-indigo-600">{r.score} marks</span>
+                                                                </button>
+                                                              ))}
+                                                            </div>
+                                                          </div>
+                                                        </>
+                                                      )}
+                                                    </div>
+                                                  )}
+
+                                                  {test.isPaid && myPurchases.length === 0 ? (
+                                                    <button
+                                                      onClick={() => {
+                                                        const b = paidBatches[0];
+                                                        if (b) {
+                                                          window.open(`${razorpayMeUrl}?amount=${b.price * 100}&description=${encodeURIComponent(b.examName)}`, '_blank');
+                                                          setBuyingBatch(b); setBuyError(''); setTxnId('');
+                                                        } else navigate('/paid-mock');
+                                                      }}
+                                                      className="px-3.5 py-2 font-black text-[9px] uppercase tracking-widest rounded-xl flex items-center gap-1.5 transition-all hover:brightness-110 active:scale-95 text-white shadow-xs"
+                                                      style={{background:'linear-gradient(135deg,#10b981,#059669)'}}>
+                                                      🛒 Buy Now
+                                                    </button>
+                                                  ) : (
+                                                    <Link
+                                                      to={`/test/${test.id}`}
+                                                      className="px-3.5 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-black text-[9px] uppercase tracking-widest rounded-xl hover:from-slate-900 hover:to-slate-900 transition-all shadow-xs flex items-center gap-1 active:scale-95"
+                                                    >
+                                                      {isTaken ? 'Reattempt' : 'Attempt'}
+                                                      <ChevronRight className="w-3 h-3" />
+                                                    </Link>
+                                                  )}
+                                                </div>
+
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })()}
+                )}
 
               {/* Performance Analytics Section - Moved here and made compact */}
               <div className="bg-white rounded-3xl p-6 border border-indigo-100 shadow-xl shadow-indigo-500/5 relative overflow-hidden group mt-12 mb-8">
