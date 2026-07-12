@@ -301,7 +301,7 @@ const DEFAULT_DASHBOARD_CATEGORIES = [
   { title: 'Syllabus', textColor: 'default', iconType: '📋', actionType: 'tab', actionValue: 'pattern', priority: 4, isActive: true },
   { title: 'Previous Year Paper', textColor: 'default', iconType: '📁', actionType: 'tab', actionValue: 'pyq', priority: 5, isActive: true },
   { title: 'Paid Test', textColor: 'default', iconType: '👑', actionType: 'route', actionValue: '/paid-mock', priority: 6, isActive: true },
-  { title: 'Quiz', textColor: 'default', iconType: '🧠', actionType: 'tab', actionValue: 'home', priority: 7, isActive: true },
+  { title: 'Quiz', textColor: 'default', iconType: '🧠', actionType: 'tab', actionValue: 'mock_topic:Quiz', priority: 7, isActive: true },
   { title: 'Ebook', textColor: 'default', iconType: '📖', actionType: 'tab', actionValue: 'notes', priority: 8, isActive: true },
   { title: 'Current Affairs', textColor: 'default', iconType: '📰', actionType: 'route', actionValue: '/current-affairs', priority: 9, isActive: true },
   { title: 'Practice Set', textColor: 'default', iconType: '✅', actionType: 'tab', actionValue: 'practice', priority: 10, isActive: true },
@@ -1512,7 +1512,19 @@ export default function Dashboard() {
                 const handleCategoryClick = (cat: any) => {
                   const val = cat.actionValue;
                   if (cat.actionType === 'tab') {
-                    setActiveTab(val);
+                    if (val && val.includes(':')) {
+                      const [tab, category] = val.split(':');
+                      setSearchParams({ tab, cat: category });
+                      setSelectedTopic(null);
+                      if (!tab.startsWith('mock')) {
+                        setMockOpen(false);
+                      }
+                      if (!['video', 'notes', 'affairs', 'practice'].includes(tab)) {
+                        setLearnOpen(false);
+                      }
+                    } else {
+                      setActiveTab(val);
+                    }
                   } else if (cat.actionType === 'route') {
                     navigate(val);
                   } else if (cat.actionType === 'url') {

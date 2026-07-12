@@ -20,7 +20,7 @@ import { Keyboard } from 'lucide-react';
 import { RenderMathText } from '../components/MathRenderer';
 import RichTextEditor, { RenderQuestionHTML } from '../components/RichTextEditor';
 
-type AdminTab = 'students' | 'mock' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'blog' | 'reviews' | 'paid_mock' | 'dashboard_grid' | 'mock_challenge';
+type AdminTab = 'students' | 'mock' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'blog' | 'reviews' | 'paid_mock' | 'dashboard_grid';
 
 // ─── Image Cropper Modal ─────────────────────────────────────────────────────
 function ImageCropper({
@@ -304,7 +304,7 @@ function AdminHome() {
   const [addingCategory, setAddingCategory] = useState(false);
   const [newTestTypeInput, setNewTestTypeInput] = useState('');
   const [addingTestType, setAddingTestType] = useState(false);
-  const [selectedChallengeDay, setSelectedChallengeDay] = useState<number>(1);
+
 
   // Note Form
   const [noteTitle, setNoteTitle] = useState('');
@@ -1695,12 +1695,12 @@ function AdminHome() {
     try {
       const defaults = [
         { title: 'Free Mock', textColor: 'green', iconType: '🏆', actionType: 'tab', actionValue: 'mock_landing', priority: 1, isActive: true },
-        { title: '150 Days Free Practice', textColor: 'red', iconType: '📅', actionType: 'tab', actionValue: 'practice', priority: 2, isActive: true },
+        { title: '150 Days Free Practice', textColor: 'red', iconType: '📅', actionType: 'tab', actionValue: 'mock_challenge', priority: 2, isActive: true },
         { title: 'Typing Test', textColor: 'black', iconType: '⌨️', actionType: 'route', actionValue: '/typing-test', priority: 3, isActive: true },
         { title: 'Syllabus', textColor: 'default', iconType: '📋', actionType: 'tab', actionValue: 'pattern', priority: 4, isActive: true },
         { title: 'Previous Year Paper', textColor: 'default', iconType: '📁', actionType: 'tab', actionValue: 'pyq', priority: 5, isActive: true },
         { title: 'Paid Test', textColor: 'default', iconType: '👑', actionType: 'route', actionValue: '/paid-mock', priority: 6, isActive: true },
-        { title: 'Quiz', textColor: 'default', iconType: '🧠', actionType: 'tab', actionValue: 'home', priority: 7, isActive: true },
+        { title: 'Quiz', textColor: 'default', iconType: '🧠', actionType: 'tab', actionValue: 'mock_topic:Quiz', priority: 7, isActive: true },
         { title: 'Ebook', textColor: 'default', iconType: '📖', actionType: 'tab', actionValue: 'notes', priority: 8, isActive: true },
         { title: 'Current Affairs', textColor: 'default', iconType: '📰', actionType: 'route', actionValue: '/current-affairs', priority: 9, isActive: true },
         { title: 'Practice Set', textColor: 'default', iconType: '✅', actionType: 'tab', actionValue: 'practice', priority: 10, isActive: true },
@@ -1750,23 +1750,7 @@ function AdminHome() {
           <FileText className="w-4 h-4" />
           Mock Tests
         </button>
-        <button 
-          onClick={() => {
-            setActiveTab('mock_challenge');
-            setEditingTestId(null);
-            setTitle('');
-            setSubjectName('');
-            setDuration('30');
-            setMarksPerCorrect('1');
-            setNegativeMarks('0');
-            setDescription('');
-          }}
-          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all
-            ${activeTab === 'mock_challenge' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' : 'text-slate-500 hover:text-indigo-600 hover:bg-indigo-50'}`}
-        >
-          <Calendar className="w-4 h-4" />
-          150 Days Practice
-        </button>
+
         <button 
           onClick={() => setActiveTab('typing')}
           className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all
@@ -1781,7 +1765,7 @@ function AdminHome() {
             ${activeTab === 'notes' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-100' : 'text-slate-500 hover:text-emerald-600 hover:bg-emerald-50'}`}
         >
           <BookOpen className="w-4 h-4" />
-          Study Notes
+          Ebook
         </button>
         <button 
           onClick={() => setActiveTab('video')}
@@ -1853,7 +1837,7 @@ function AdminHome() {
             ${activeTab === 'blog' ? 'bg-violet-600 text-white shadow-md shadow-violet-100' : 'text-slate-500 hover:text-violet-600 hover:bg-violet-50'}`}
         >
           <BookOpen className="w-4 h-4" />
-          News & Blog
+          Latest Job Notification
         </button>
         <button
           onClick={() => {
@@ -3850,13 +3834,13 @@ function AdminHome() {
         </div>
       )}
 
-      {/* ── Blog / News Tab ─────────────────────────────────────────────────── */}
+      {/* ── Latest Job Notification Tab ─────────────────────────────────────────── */}
       {activeTab === 'blog' && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
               <span className="w-2 h-8 bg-violet-600 rounded-full" />
-              News &amp; Blog
+              Latest Job Notification
             </h2>
             <button
               onClick={() => { setShowBlogForm(true); setEditingBlogId(null); setBlogTitle(''); setBlogContent(''); setBlogTags(''); setBlogCategory('News'); setBlogPublishDate(''); setBlogThumbnailFile(null); setBlogThumbnailPreview(''); setBlogThumbnailUrl(''); setBlogSeoTitle(''); setBlogMetaDesc(''); setBlogKeywords(''); setBlogSlug(''); setBlogIsTrending(false); }}

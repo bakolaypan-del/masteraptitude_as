@@ -418,7 +418,7 @@ export default function AdminStudyNotes() {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
           <span className="w-2 h-8 bg-emerald-600 rounded-full" />
-          Study Notes Management
+          Ebook Management
         </h2>
         <div className="flex gap-2 flex-wrap">
           <button
