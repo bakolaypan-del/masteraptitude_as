@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { collection, query, where, getDocs, orderBy, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { signOut, updatePassword } from 'firebase/auth';
@@ -13,11 +13,11 @@ import AppBottomNav from '../components/AppBottomNav';
 import AppUpdateToast from '../components/AppUpdateToast';
 import ReviewPopup from '../components/ReviewPopup';
 import ReviewSlider from '../components/ReviewSlider';
-import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ChevronLeft, ArrowLeft, ExternalLink, Menu, X, Youtube, MessageCircle, Send, LayoutDashboard, History, ChevronDown, ArrowRight, User, Info, Phone, Download, Printer, AlertCircle, BarChart3, Keyboard, Globe, Layers, CheckSquare, Volume2, VolumeX, Maximize, NotebookPen } from 'lucide-react';
+import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ChevronLeft, ArrowLeft, ExternalLink, Menu, X, Youtube, MessageCircle, Send, LayoutDashboard, History, ChevronDown, ArrowRight, User, Info, Phone, Download, Printer, AlertCircle, BarChart3, Keyboard, Globe, Layers, CheckSquare, Volume2, VolumeX, Maximize, NotebookPen, Award, Calendar, ClipboardList, Crown, Brain, Book, Newspaper, Megaphone } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-type DashboardTab = 'home' | 'profile' | 'mock_topic' | 'mock_sectional' | 'mock_full' | 'notes' | 'video' | 'pyq' | 'pattern' | 'affairs' | 'practice' | 'about' | 'contact' | 'learn_landing' | 'mock_landing' | 'live_test';
+type DashboardTab = 'home' | 'profile' | 'mock_topic' | 'mock_sectional' | 'mock_full' | 'notes' | 'video' | 'pyq' | 'pattern' | 'affairs' | 'practice' | 'about' | 'contact' | 'learn_landing' | 'mock_landing' | 'live_test' | 'mock_challenge';
 
 const WELCOME_QUOTES = [
   "Success doesn't come from luck — it comes from daily practice.",
@@ -221,6 +221,7 @@ const calculateStreak = (results: any[]): number => {
 
 const getCategoryStyle = (title: string, dbColor?: string, dbIcon?: string) => {
   const t = title.toLowerCase();
+  const iconStr = (dbIcon || '').toLowerCase();
   
   let textColorClass = 'text-slate-700 font-bold';
   let textColorStyle = {};
@@ -241,19 +242,56 @@ const getCategoryStyle = (title: string, dbColor?: string, dbIcon?: string) => {
   }
 
   let icon = dbIcon || '📝';
-  if (t.includes('free mock')) icon = '🏆';
-  else if (t.includes('150 days') || t.includes('150-days')) icon = '📅';
-  else if (t.includes('typing test')) icon = '⌨️';
-  else if (t.includes('syllabus')) icon = '📋';
-  else if (t.includes('previous year')) icon = '📁';
-  else if (t.includes('paid test')) icon = '👑';
-  else if (t.includes('quiz')) icon = '🧠';
-  else if (t.includes('ebook')) icon = '📖';
-  else if (t.includes('current affairs')) icon = '📰';
-  else if (t.includes('practice set')) icon = '✅';
-  else if (t.includes('job')) icon = '📢';
+  let LucideIcon: React.ComponentType<any> | null = null;
+  let iconBgClass = 'bg-slate-50 text-slate-600 border-slate-200/50';
 
-  return { textColorClass, textColorStyle, icon };
+  if (t.includes('free mock') || iconStr === '🏆') {
+    icon = '🏆';
+    LucideIcon = Award;
+    iconBgClass = 'bg-amber-50 text-amber-600 border-amber-200/50 group-hover:bg-amber-100 group-hover:text-amber-700';
+  } else if (t.includes('150 days') || t.includes('150-days') || iconStr === '📅') {
+    icon = '📅';
+    LucideIcon = Calendar;
+    iconBgClass = 'bg-rose-50 text-rose-600 border-rose-200/50 group-hover:bg-rose-100 group-hover:text-rose-700';
+  } else if (t.includes('typing test') || iconStr === '⌨️') {
+    icon = '⌨️';
+    LucideIcon = Keyboard;
+    iconBgClass = 'bg-slate-100 text-slate-700 border-slate-200/50 group-hover:bg-slate-200 group-hover:text-slate-900';
+  } else if (t.includes('syllabus') || iconStr === '📋') {
+    icon = '📋';
+    LucideIcon = ClipboardList;
+    iconBgClass = 'bg-indigo-50 text-indigo-600 border-indigo-200/50 group-hover:bg-indigo-100 group-hover:text-indigo-700';
+  } else if (t.includes('previous year') || t.includes('pyq') || iconStr === '📁') {
+    icon = '📁';
+    LucideIcon = History;
+    iconBgClass = 'bg-blue-50 text-blue-600 border-blue-200/50 group-hover:bg-blue-100 group-hover:text-blue-700';
+  } else if (t.includes('paid test') || iconStr === '👑') {
+    icon = '👑';
+    LucideIcon = Crown;
+    iconBgClass = 'bg-violet-50 text-violet-600 border-violet-200/50 group-hover:bg-violet-100 group-hover:text-violet-700';
+  } else if (t.includes('quiz') || iconStr === '🧠') {
+    icon = '🧠';
+    LucideIcon = Brain;
+    iconBgClass = 'bg-fuchsia-50 text-fuchsia-600 border-fuchsia-200/50 group-hover:bg-fuchsia-100 group-hover:text-fuchsia-700';
+  } else if (t.includes('ebook') || iconStr === '📖') {
+    icon = '📖';
+    LucideIcon = Book;
+    iconBgClass = 'bg-cyan-50 text-cyan-600 border-cyan-200/50 group-hover:bg-cyan-100 group-hover:text-cyan-700';
+  } else if (t.includes('current affairs') || iconStr === '📰') {
+    icon = '📰';
+    LucideIcon = Newspaper;
+    iconBgClass = 'bg-sky-50 text-sky-600 border-sky-200/50 group-hover:bg-sky-100 group-hover:text-sky-700';
+  } else if (t.includes('practice set') || iconStr === '✅') {
+    icon = '✅';
+    LucideIcon = CheckSquare;
+    iconBgClass = 'bg-teal-50 text-teal-600 border-teal-200/50 group-hover:bg-teal-100 group-hover:text-teal-700';
+  } else if (t.includes('job') || iconStr === '📢') {
+    icon = '📢';
+    LucideIcon = Megaphone;
+    iconBgClass = 'bg-orange-50 text-orange-600 border-orange-200/50 group-hover:bg-orange-100 group-hover:text-orange-700';
+  }
+
+  return { textColorClass, textColorStyle, icon, LucideIcon, iconBgClass };
 };
 
 const DEFAULT_DASHBOARD_CATEGORIES = [
@@ -297,6 +335,52 @@ export default function Dashboard() {
   const [socialLinks, setSocialLinks] = useState({ youtube: '', telegram: '', whatsapp: '' });
   const [categoryOrder, setCategoryOrder] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedChallengeDay, setSelectedChallengeDay] = useState<number | null>(null);
+  const [showChallengeModal, setShowChallengeModal] = useState<boolean>(false);
+
+  const challengeTests = useMemo(() => {
+    return activeTests.filter(t => t.category === "150 Days Free Practice" && t.isActive !== false);
+  }, [activeTests]);
+
+  const parseDayNumber = (topicStr: string): number | null => {
+    if (!topicStr) return null;
+    const match = topicStr.match(/\d+/);
+    return match ? parseInt(match[0], 10) : null;
+  };
+
+  const challengeDaysMap = useMemo(() => {
+    const map: Record<number, any[]> = {};
+    challengeTests.forEach(test => {
+      const d = parseDayNumber(test.topic);
+      if (d !== null) {
+        if (!map[d]) map[d] = [];
+        map[d].push(test);
+      }
+    });
+    return map;
+  }, [challengeTests]);
+
+  const challengeStats = useMemo(() => {
+    let completedDaysCount = 0;
+    let totalDaysWithMocks = 0;
+    
+    for (let d = 1; d <= 150; d++) {
+      const testsForDay = challengeDaysMap[d] || [];
+      if (testsForDay.length > 0) {
+        totalDaysWithMocks++;
+        const allCompleted = testsForDay.every(test => pastResults.some(r => r.testId === test.id));
+        if (allCompleted) {
+          completedDaysCount++;
+        }
+      }
+    }
+    
+    return {
+      completedDaysCount,
+      totalDaysWithMocks,
+      percentage: totalDaysWithMocks > 0 ? Math.round((completedDaysCount / 150) * 100) : 0
+    };
+  }, [challengeDaysMap, pastResults]);
   const [dashboardCategories, setDashboardCategories] = useState<any[]>([]);
   
   const activeTab = (searchParams.get('tab') as DashboardTab) || 'home';
@@ -1157,6 +1241,12 @@ export default function Dashboard() {
                 >
                   Full Mock Test
                 </button>
+                <button 
+                  onClick={() => { setActiveTab('mock_challenge'); setIsSidebarOpen(false); }} 
+                  className={`w-full sub-category sub-mock-challenge ${activeTab === 'mock_challenge' ? 'active' : ''}`}
+                >
+                  150 Days Challenge
+                </button>
               </div>
             )}
           </div>
@@ -1269,7 +1359,7 @@ export default function Dashboard() {
             </button>
             <div className="hidden md:flex items-center gap-2">
               <span className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{color: '#94a3b8'}}>
-                {activeTab === 'home' ? '🏠 Dashboard' : activeTab === 'profile' ? '👤 My Profile' : activeTab.startsWith('mock') ? '🎯 Mock Tests' : activeTab === 'live_test' ? '🔴 Live Tests' : activeTab === 'notes' ? '📚 Study Notes' : activeTab === 'video' ? '🎬 Video Lectures' : activeTab === 'pyq' ? '📄 Previous Year Q.' : activeTab === 'affairs' ? '📰 Current Affairs' : activeTab === 'practice' ? '✅ Practice Sets' : activeTab === 'pattern' ? '📋 Exam Pattern' : activeTab === 'about' ? 'ℹ️ About Us' : activeTab === 'contact' ? '📞 Contact' : 'Dashboard'}
+                {activeTab === 'home' ? '🏠 Dashboard' : activeTab === 'profile' ? '👤 My Profile' : activeTab === 'mock_challenge' ? '🎯 150 Days Challenge' : activeTab.startsWith('mock') ? '🎯 Mock Tests' : activeTab === 'live_test' ? '🔴 Live Tests' : activeTab === 'notes' ? '📚 Study Notes' : activeTab === 'video' ? '🎬 Video Lectures' : activeTab === 'pyq' ? '📄 Previous Year Q.' : activeTab === 'affairs' ? '📰 Current Affairs' : activeTab === 'practice' ? '✅ Practice Sets' : activeTab === 'pattern' ? '📋 Exam Pattern' : activeTab === 'about' ? 'ℹ️ About Us' : activeTab === 'contact' ? '📞 Contact' : 'Dashboard'}
               </span>
             </div>
           </div>
@@ -1434,25 +1524,29 @@ export default function Dashboard() {
                       <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right,#e2e8f0,transparent)' }} />
                     </div>
                     
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-4">
+                    <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
                       {cats.map((cat, idx) => {
-                        const { textColorClass, textColorStyle, icon } = getCategoryStyle(cat.title, cat.textColor, cat.iconType);
+                        const { textColorClass, textColorStyle, icon, LucideIcon, iconBgClass } = getCategoryStyle(cat.title, cat.textColor, cat.iconType);
                         
                         return (
                           <button
                             key={cat.id || idx}
                             onClick={() => handleCategoryClick(cat)}
-                            className="group bg-white rounded-2xl p-4 border border-slate-200 shadow-xs flex flex-col items-center justify-center gap-3 relative transition-all duration-300 hover:shadow-md hover:border-indigo-300 hover:-translate-y-0.5 active:scale-[0.97]"
+                            className="group bg-white rounded-2xl p-2.5 sm:p-4 border border-slate-200 shadow-xs flex flex-col items-center justify-center gap-2 sm:gap-3 relative transition-all duration-300 hover:shadow-md hover:border-indigo-300 hover:-translate-y-0.5 active:scale-[0.97]"
                           >
                             {/* Icon Container */}
-                            <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-2xl transition-all duration-300 group-hover:scale-110 group-hover:bg-indigo-50">
-                              <span className="select-none">{icon}</span>
+                            <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center text-3xl transition-all duration-300 group-hover:scale-110 border border-slate-100 ${iconBgClass}`}>
+                              {LucideIcon ? (
+                                <LucideIcon className="w-6 h-6 sm:w-7 h-7" />
+                              ) : (
+                                <span className="select-none text-2xl sm:text-3xl">{icon}</span>
+                              )}
                             </div>
 
                             {/* Label */}
                             <div className="text-center min-h-[32px] flex items-center justify-center">
                               <span 
-                                className={`text-[11px] leading-tight text-center ${textColorClass}`}
+                                className={`text-[11px] sm:text-xs md:text-sm leading-tight text-center font-extrabold tracking-tight ${textColorClass}`}
                                 style={textColorStyle}
                               >
                                 {cat.title}
@@ -2280,7 +2374,7 @@ export default function Dashboard() {
           })()}
 
           {/* Dashboard Tab Content */}
-          {activeTab.startsWith('mock') && activeTab !== 'mock_landing' && (
+          {activeTab.startsWith('mock') && activeTab !== 'mock_landing' && activeTab !== 'mock_challenge' && (
             <div className="space-y-8 animate-in fade-in duration-150">
 
               <div className="flex flex-col gap-6">
@@ -2593,6 +2687,303 @@ export default function Dashboard() {
                     </div>
                   </div>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'mock_challenge' && (
+            <div className="space-y-8 animate-in fade-in duration-150">
+              {/* Header / Stats Card */}
+              <div className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-3xl p-6 md:p-8 text-white shadow-xl shadow-indigo-500/10 relative overflow-hidden">
+                {/* Background decorative circles */}
+                <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
+                <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
+                
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+                  <div className="space-y-2">
+                    <span className="bg-white/20 text-white font-black uppercase text-[10px] px-3.5 py-1 rounded-full tracking-widest border border-white/10">
+                      150 Days Practice Challenge
+                    </span>
+                    <h2 className="text-2xl md:text-3xl font-black tracking-tight">Boost Your Preparation Daily</h2>
+                    <p className="text-xs text-indigo-100 font-medium max-w-xl">
+                      Complete all uploaded mock tests every day. Stay consistent, track your progress, and crack your exams!
+                    </p>
+                  </div>
+                  
+                  {/* Stats circles / progress */}
+                  <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 shrink-0">
+                    <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white shrink-0 shadow-inner">
+                      <Award className="w-6 h-6 text-yellow-300" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-indigo-200 uppercase tracking-wider">Progress</p>
+                      <h4 className="text-xl font-black">
+                        {challengeStats.completedDaysCount} / 150 Days
+                      </h4>
+                      <p className="text-[9px] font-bold text-indigo-100/80 mt-0.5">
+                        {challengeStats.percentage}% Completed
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Progress bar */}
+                <div className="mt-6 relative z-10">
+                  <div className="w-full bg-white/20 rounded-full h-2.5 overflow-hidden">
+                    <div 
+                      className="bg-yellow-300 h-full rounded-full transition-all duration-500 ease-out"
+                      style={{ width: `${Math.min(100, Math.max(0, (challengeStats.completedDaysCount / 150) * 100))}%` }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Day Selection Grid */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-1.5 h-8 bg-indigo-500 rounded-full"></div>
+                    <h3 className="text-lg font-black text-slate-800 tracking-tight">Daily Mock Calendars</h3>
+                  </div>
+                  <div className="flex items-center gap-3 text-[10px] sm:text-xs font-semibold text-slate-500 flex-wrap gap-y-1">
+                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-emerald-500"></span> Completed</span>
+                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-amber-500"></span> In Progress</span>
+                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-white border border-slate-200"></span> Available</span>
+                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-slate-100 border border-slate-200 border-dashed"></span> Locked</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-8 lg:grid-cols-10 gap-3">
+                  {Array.from({ length: 150 }, (_, i) => {
+                    const dayNum = i + 1;
+                    const tests = challengeDaysMap[dayNum] || [];
+                    const totalMocks = tests.length;
+                    const attemptedMocks = tests.filter(t => pastResults.some(r => r.testId === t.id)).length;
+                    
+                    const hasMocks = totalMocks > 0;
+                    const isFullyCompleted = hasMocks && attemptedMocks === totalMocks;
+                    const isInProgress = hasMocks && attemptedMocks > 0 && attemptedMocks < totalMocks;
+                    const isAvailable = hasMocks && attemptedMocks === 0;
+                    const isLocked = !hasMocks;
+
+                    let cardClass = "";
+                    let innerContent = null;
+
+                    if (isFullyCompleted) {
+                      cardClass = "bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md border border-transparent shadow-emerald-100 hover:scale-105 active:scale-95";
+                      innerContent = (
+                        <div className="flex flex-col items-center justify-center h-full gap-1">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-emerald-100">Day</span>
+                          <span className="text-lg font-black tracking-tight">{String(dayNum).padStart(2, '0')}</span>
+                          <CheckCircle className="w-4 h-4 text-white mt-0.5" />
+                        </div>
+                      );
+                    } else if (isInProgress) {
+                      cardClass = "bg-amber-500 text-white shadow-md border border-transparent shadow-amber-100 hover:scale-105 active:scale-95";
+                      innerContent = (
+                        <div className="flex flex-col items-center justify-center h-full gap-1">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-amber-100">Day</span>
+                          <span className="text-lg font-black tracking-tight">{String(dayNum).padStart(2, '0')}</span>
+                          <span className="text-[9px] font-extrabold bg-white/20 px-1.5 py-0.5 rounded mt-0.5">{attemptedMocks}/{totalMocks}</span>
+                        </div>
+                      );
+                    } else if (isAvailable) {
+                      cardClass = "bg-white text-slate-700 hover:border-indigo-400 hover:text-indigo-600 shadow-sm border border-slate-200 hover:scale-105 active:scale-95 hover:shadow-md";
+                      innerContent = (
+                        <div className="flex flex-col items-center justify-center h-full gap-1">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Day</span>
+                          <span className="text-lg font-black tracking-tight">{String(dayNum).padStart(2, '0')}</span>
+                          <span className="text-[8px] font-black text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded mt-0.5 uppercase tracking-wider">{totalMocks} {totalMocks === 1 ? 'Mock' : 'Mocks'}</span>
+                        </div>
+                      );
+                    } else {
+                      // Locked (no mocks)
+                      cardClass = "bg-slate-50/50 text-slate-300 border border-slate-200 border-dashed cursor-not-allowed";
+                      innerContent = (
+                        <div className="flex flex-col items-center justify-center h-full opacity-60">
+                          <span className="text-[9px] font-black uppercase tracking-widest">Day</span>
+                          <span className="text-base font-black tracking-tight">{String(dayNum).padStart(2, '0')}</span>
+                          <Clock className="w-3.5 h-3.5 mt-1" />
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <button
+                        key={dayNum}
+                        disabled={isLocked}
+                        onClick={() => {
+                          setSelectedChallengeDay(dayNum);
+                          setShowChallengeModal(true);
+                        }}
+                        className={`aspect-square rounded-2xl flex flex-col items-center justify-center p-2 text-center transition-all duration-200 cursor-pointer ${cardClass}`}
+                      >
+                        {innerContent}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Day Modal Overlay */}
+              {showChallengeModal && selectedChallengeDay !== null && (() => {
+                const dayNum = selectedChallengeDay;
+                const tests = challengeDaysMap[dayNum] || [];
+                return (
+                  <>
+                    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setShowChallengeModal(false)}></div>
+                    <div className="fixed inset-x-4 bottom-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:max-w-2xl md:w-full z-50 bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200">
+                      
+                      {/* Modal Header */}
+                      <div className="p-6 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white flex items-center justify-between shrink-0">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/10 shrink-0">
+                            <Calendar className="w-5 h-5 text-white" />
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-black text-indigo-200 uppercase tracking-widest block">Daily Challenge</span>
+                            <h3 className="text-xl font-black">Day {String(dayNum).padStart(2, '0')} Practice Sets</h3>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => setShowChallengeModal(false)}
+                          className="w-8 h-8 rounded-full bg-white/10 border border-white/5 flex items-center justify-center hover:bg-white/20 transition-all text-white active:scale-95 cursor-pointer"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Modal Body */}
+                      <div className="p-6 overflow-y-auto space-y-4 flex-1">
+                        {tests.length === 0 ? (
+                          <div className="text-center py-12 text-slate-400 font-medium text-sm">
+                            No mocks uploaded for this day yet.
+                          </div>
+                        ) : (
+                          tests.map((test, index) => {
+                            const attempts = pastResults.filter(r => r.testId === test.id);
+                            const attempted = attempts.length > 0;
+                            const latestAttempt = attempted ? attempts[attempts.length - 1] : null;
+                            const subjectColorPills: Record<string, string> = {
+                              Math: 'bg-blue-50 text-blue-700 border-blue-100',
+                              GK: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+                              English: 'bg-purple-50 text-purple-700 border-purple-100',
+                              Reasoning: 'bg-amber-50 text-amber-700 border-amber-100',
+                              Science: 'bg-rose-50 text-rose-700 border-rose-100',
+                              Computer: 'bg-cyan-50 text-cyan-700 border-cyan-100'
+                            };
+                            const pillStyle = subjectColorPills[test.subjectName] || 'bg-slate-50 text-slate-700 border-slate-100';
+
+                            return (
+                              <div key={test.id} className="bg-slate-50/50 border border-slate-200/60 rounded-2xl hover:border-indigo-100 hover:bg-white hover:shadow-xs transition-all duration-200 p-4">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                  
+                                  {/* Left Content */}
+                                  <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                                    <div className="w-8 h-8 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-lg flex items-center justify-center shrink-0 font-black text-xs">
+                                      {index + 1}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <h4 className="font-extrabold text-slate-800 text-xs md:text-sm leading-snug">{test.title}</h4>
+                                        {test.subjectName && (
+                                          <span className={`px-2 py-0.5 text-[9px] font-extrabold uppercase border rounded-md ${pillStyle}`}>
+                                            {test.subjectName}
+                                          </span>
+                                        )}
+                                        {attempted && (
+                                          <span className="px-1.5 py-0.5 bg-emerald-500 text-white text-[8px] font-black uppercase tracking-widest rounded-full shrink-0 flex items-center gap-0.5">
+                                            ✓ Attempted {attempts.length > 1 ? `×${attempts.length}` : ''}
+                                          </span>
+                                        )}
+                                      </div>
+                                      
+                                      <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                                        <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1">
+                                          ⏱️ {test.duration || 30} mins
+                                        </span>
+                                        <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1">
+                                          🎯 {test.marksPerCorrect || 1} Marks/Q
+                                        </span>
+                                        {attempted && latestAttempt && (
+                                          <span className="text-[9px] font-bold text-indigo-500 flex items-center gap-1">
+                                            📈 Best Score: {Math.max(...attempts.map(r => r.score || 0))} marks
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Right Actions */}
+                                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto flex-wrap justify-end">
+                                    {attempted && (
+                                      <>
+                                        {/* Download PDF button */}
+                                        <button
+                                          onClick={() => handleDownloadPDF(test.id, test.title, test.category || 'N/A', test.testType || 'N/A')}
+                                          disabled={downloadingPDF === test.id}
+                                          className="flex items-center justify-center p-2.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-500 rounded-xl transition-all disabled:opacity-50"
+                                          title="Download PDF"
+                                        >
+                                          <Download className="w-3.5 h-3.5" />
+                                        </button>
+
+                                        {/* Attempts list */}
+                                        <div className="relative">
+                                          <button
+                                            onClick={() => setOpenAttemptDropdown(openAttemptDropdown === test.id ? null : test.id)}
+                                            className="flex items-center gap-1 px-3 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-all active:scale-95"
+                                          >
+                                            <BarChart3 className="w-3 h-3" />
+                                            Attempts
+                                            <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${openAttemptDropdown === test.id ? 'rotate-180' : ''}`} />
+                                          </button>
+
+                                          {openAttemptDropdown === test.id && (
+                                            <>
+                                              <div className="fixed inset-0 z-40" onClick={() => setOpenAttemptDropdown(null)} />
+                                              <div className="absolute right-0 bottom-full mb-1.5 sm:top-full sm:bottom-auto sm:mt-1.5 z-50 bg-white border border-slate-200 rounded-2xl shadow-xl min-w-[260px] overflow-hidden">
+                                                <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center gap-1.5">
+                                                  <BarChart3 className="w-3 h-3 text-indigo-500" />
+                                                  <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Select attempt for analysis</p>
+                                                </div>
+                                                <div className="py-0.5 max-h-[180px] overflow-y-auto">
+                                                  {attempts.map((r: any, i: number) => (
+                                                    <button
+                                                      key={r.id}
+                                                      onClick={() => { openAnalysis(r); setOpenAttemptDropdown(null); setShowChallengeModal(false); }}
+                                                      className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 active:bg-slate-100 transition-colors text-left text-[10px]"
+                                                    >
+                                                      <span className="font-extrabold text-slate-700">Attempt {i + 1}</span>
+                                                      <span className="font-black text-indigo-600">{r.score} marks</span>
+                                                    </button>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            </>
+                                          )}
+                                        </div>
+                                      </>
+                                    )}
+
+                                    <Link
+                                      to={`/test/${test.id}`}
+                                      className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-black text-[9px] uppercase tracking-widest rounded-xl hover:from-slate-900 hover:to-slate-900 transition-all shadow-xs flex items-center gap-1 active:scale-95"
+                                    >
+                                      {attempted ? 'Reattempt' : 'Attempt'}
+                                      <ChevronRight className="w-3 h-3" />
+                                    </Link>
+                                  </div>
+
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           )}
 
