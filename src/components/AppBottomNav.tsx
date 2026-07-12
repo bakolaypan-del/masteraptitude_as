@@ -1,33 +1,56 @@
 import React from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Home, BookOpen, Radio, GraduationCap, User } from 'lucide-react';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
+import { Home, BookOpen, Radio, User, ShoppingBag, HelpCircle } from 'lucide-react';
 
-type Tab = 'home' | 'mock_landing' | 'live_test' | 'learn_landing' | 'profile';
+type Tab = 'home' | 'my_purchases' | 'mock_landing' | 'live_test' | 'help' | 'profile';
 
 const tabs: { id: Tab; icon: React.ElementType; label: string }[] = [
-  { id: 'home',         icon: Home,          label: 'Home'     },
-  { id: 'mock_landing', icon: BookOpen,       label: 'Tests'    },
-  { id: 'live_test',    icon: Radio,          label: 'Live'     },
-  { id: 'learn_landing',icon: GraduationCap,  label: 'Learn'    },
-  { id: 'profile',      icon: User,           label: 'Profile'  },
+  { id: 'home',         icon: Home,          label: 'Home'      },
+  { id: 'my_purchases', icon: ShoppingBag,   label: 'Purchase'  },
+  { id: 'mock_landing', icon: BookOpen,      label: 'Tests'     },
+  { id: 'live_test',    icon: Radio,         label: 'Live'      },
+  { id: 'help',         icon: HelpCircle,    label: 'Help'      },
+  { id: 'profile',      icon: User,          label: 'Profile'   },
 ];
 
-const LEARN_TABS = new Set(['video', 'notes', 'affairs', 'practice', 'learn_landing']);
-const MOCK_TABS  = new Set(['mock_topic', 'mock_sectional', 'mock_full', 'mock_landing']);
+const MOCK_TABS = new Set(['mock_topic', 'mock_sectional', 'mock_full', 'mock_landing']);
 
-function resolveActive(tab: string): Tab {
-  if (LEARN_TABS.has(tab)) return 'learn_landing';
-  if (MOCK_TABS.has(tab))  return 'mock_landing';
-  if (['pyq','pattern','about','contact'].includes(tab)) return 'home';
-  return (tab as Tab) || 'home';
+function resolveActive(pathname: string, activeTab: string): Tab {
+  if (pathname === '/paid-mock') return 'my_purchases';
+  if (activeTab === 'contact' || activeTab === 'about') return 'help';
+  if (MOCK_TABS.has(activeTab)) return 'mock_landing';
+  if (['home', 'my_purchases', 'live_test', 'profile'].includes(activeTab)) {
+    return activeTab as Tab;
+  }
+  return 'home';
 }
 
 export default function AppBottomNav() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigateRoute = useNavigate();
+  const location = useLocation();
+  
   const activeTab = searchParams.get('tab') || 'home';
-  const activeNav = resolveActive(activeTab);
+  const activeNav = resolveActive(location.pathname, activeTab);
 
-  const navigate = (id: Tab) => setSearchParams({ tab: id, cat: '' });
+  const handleClick = (id: Tab) => {
+    if (id === 'my_purchases') {
+      navigateRoute('/paid-mock');
+    } else if (id === 'help') {
+      if (location.pathname !== '/dashboard') {
+        navigateRoute('/dashboard?tab=contact');
+      } else {
+        setSearchParams({ tab: 'contact', cat: '' });
+      }
+    } else {
+      // home, mock_landing, live_test, profile
+      if (location.pathname !== '/dashboard') {
+        navigateRoute(`/dashboard?tab=${id}`);
+      } else {
+        setSearchParams({ tab: id, cat: '' });
+      }
+    }
+  };
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden"
@@ -42,7 +65,7 @@ export default function AppBottomNav() {
         {tabs.map(({ id, icon: Icon, label }) => {
           const isActive = activeNav === id;
           return (
-            <button key={id} onClick={() => navigate(id)}
+            <button key={id} onClick={() => handleClick(id)}
               className="flex-1 flex flex-col items-center justify-center gap-0.5 relative transition-all active:scale-90"
               style={{ WebkitTapHighlightColor: 'transparent' }}>
               {isActive && (

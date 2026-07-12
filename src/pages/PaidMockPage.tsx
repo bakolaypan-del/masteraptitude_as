@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthContext';
 import { ArrowLeft, CheckCircle, Clock, ExternalLink, Send } from 'lucide-react';
+import AppBottomNav from '../components/AppBottomNav';
 
 declare global {
   interface Window { Razorpay: any; }
@@ -391,6 +392,9 @@ export default function PaidMockPage() {
           }}
         />
       )}
+
+      {/* App Bottom Nav for Mobile view */}
+      {profile?.role !== 'admin' && <AppBottomNav />}
     </div>
   );
 }

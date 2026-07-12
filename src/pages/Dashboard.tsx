@@ -64,11 +64,8 @@ function WelcomeHero({ name }: { name?: string }) {
     <>
       <style>{`
         @keyframes quoteColorCycle {
-          0%   { color: #60a5fa; text-shadow: 0 0 10px rgba(96,165,250,0.35); }
-          25%  { color: #22d3ee; text-shadow: 0 0 10px rgba(34,211,238,0.35); }
-          50%  { color: #a78bfa; text-shadow: 0 0 10px rgba(167,139,250,0.35); }
-          75%  { color: #fbbf24; text-shadow: 0 0 12px rgba(251,191,36,0.35); }
-          100% { color: #60a5fa; text-shadow: 0 0 10px rgba(96,165,250,0.35); }
+          0%, 100% { color: #4f46e5; text-shadow: 0 0 1px rgba(99,102,241,0.1); }
+          50% { color: #0891b2; text-shadow: 0 0 1px rgba(8,145,178,0.1); }
         }
         @keyframes cursorBlink {
           0%, 100% { opacity: 1; }
@@ -76,26 +73,23 @@ function WelcomeHero({ name }: { name?: string }) {
         }
       `}</style>
       <div className="relative rounded-2xl overflow-hidden" style={{
-        background: 'linear-gradient(135deg, #0f0c29 0%, #1a1040 50%, #16213e 100%)',
-        border: '1px solid rgba(99,102,241,0.22)',
-        boxShadow: '0 8px 28px rgba(99,102,241,0.18)',
+        background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+        border: '1px solid #e2e8f0',
+        boxShadow: '0 4px 20px rgba(148, 163, 184, 0.05)',
       }}>
-        {/* Background study image */}
-        <div className="absolute inset-0 pointer-events-none select-none">
+        {/* Background study image - faint watermark style */}
+        <div className="absolute inset-0 pointer-events-none select-none opacity-10">
           <img
             src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=1200&q=80&auto=format&fit=crop&crop=right"
             alt=""
             aria-hidden="true"
             className="w-full h-full object-cover object-right"
-            style={{ filter: 'blur(2px) brightness(0.28) saturate(0.7)', transform: 'scale(1.04)' }}
+            style={{ filter: 'blur(2px) grayscale(1)', transform: 'scale(1.04)' }}
             loading="eager"
             draggable={false}
           />
           <div className="absolute inset-0" style={{
-            background: 'linear-gradient(to right, rgba(15,12,41,0.98) 0%, rgba(15,12,41,0.88) 35%, rgba(15,12,41,0.60) 60%, rgba(15,12,41,0.10) 100%)',
-          }} />
-          <div className="absolute inset-0" style={{
-            background: 'linear-gradient(to bottom, rgba(15,12,41,0.4) 0%, transparent 25%, transparent 75%, rgba(15,12,41,0.5) 100%)',
+            background: 'linear-gradient(to right, rgba(255,255,255,1) 0%, rgba(255,255,255,0.85) 60%, rgba(255,255,255,0.2) 100%)',
           }} />
         </div>
 
@@ -105,31 +99,31 @@ function WelcomeHero({ name }: { name?: string }) {
             src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=1200&q=80&auto=format&fit=crop&crop=right"
             alt=""
             aria-hidden="true"
-            className="w-full h-full object-cover object-right"
-            style={{ filter: 'blur(0px) brightness(0.45) saturate(0.8)' }}
+            className="w-full h-full object-cover object-right opacity-[0.12]"
+            style={{ filter: 'blur(1px) grayscale(1)' }}
             loading="eager"
             draggable={false}
           />
           <div className="absolute inset-0" style={{
-            background: 'linear-gradient(to right, rgba(15,12,41,1) 0%, rgba(15,12,41,0.55) 30%, transparent 65%)',
+            background: 'linear-gradient(to right, rgba(255,255,255,1) 0%, rgba(255,255,255,0.4) 40%, transparent 80%)',
           }} />
-          <span className="absolute top-4 right-8 text-2xl drop-shadow-lg">📚</span>
-          <span className="absolute top-1/2 right-5 text-xl drop-shadow-lg" style={{ transform: 'translateY(-50%)' }}>✏️</span>
-          <span className="absolute bottom-5 right-10 text-xl drop-shadow-lg">🏆</span>
+          <span className="absolute top-4 right-8 text-2xl drop-shadow-sm">📚</span>
+          <span className="absolute top-1/2 right-5 text-xl drop-shadow-sm" style={{ transform: 'translateY(-50%)' }}>✏️</span>
+          <span className="absolute bottom-5 right-10 text-xl drop-shadow-sm">🏆</span>
         </div>
 
         {/* Dot-grid texture */}
         <div className="absolute inset-0 pointer-events-none" style={{
-          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.025) 1px, transparent 1px)',
+          backgroundImage: 'radial-gradient(circle, rgba(99,102,241,0.035) 1px, transparent 1px)',
           backgroundSize: '20px 20px',
         }} />
 
-        <div className="relative z-10 p-5 sm:p-6 md:max-w-[58%]">
+        <div className="relative z-10 p-5 sm:p-6 md:max-w-[62%]">
           {/* Brand pill */}
           <div className="inline-flex items-center gap-1.5 mb-3 px-2.5 py-1 rounded-full" style={{
-            background: 'rgba(99,102,241,0.15)',
-            border: '1px solid rgba(99,102,241,0.28)',
-            color: '#a5b4fc',
+            background: 'rgba(99,102,241,0.06)',
+            border: '1px solid rgba(99,102,241,0.15)',
+            color: '#4f46e5',
             fontSize: 9,
             fontWeight: 900,
             letterSpacing: '0.14em',
@@ -138,10 +132,10 @@ function WelcomeHero({ name }: { name?: string }) {
           </div>
 
           {/* Welcome heading */}
-          <h2 style={{ fontWeight: 900, fontSize: 22, lineHeight: 1.15, letterSpacing: '-0.01em', color: '#fff', margin: '0 0 16px' }}>
+          <h2 style={{ fontWeight: 900, fontSize: 22, lineHeight: 1.15, letterSpacing: '-0.01em', color: '#1e293b', margin: '0 0 12px' }}>
             Welcome,{' '}
             <span style={{
-              backgroundImage: 'linear-gradient(90deg, #fbbf24 0%, #fde68a 50%, #fbbf24 100%)',
+              backgroundImage: 'linear-gradient(90deg, #6366f1 0%, #8b5cf6 50%, #4f46e5 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
             }}>{firstName}</span>!
@@ -152,13 +146,13 @@ function WelcomeHero({ name }: { name?: string }) {
             <p style={{
               animation: 'quoteColorCycle 10s linear infinite',
               fontStyle: 'italic',
-              fontWeight: 500,
+              fontWeight: 600,
               fontSize: 13,
               lineHeight: 1.65,
               maxWidth: 440,
               margin: 0,
             }}>
-              <span style={{ opacity: 0.45, fontStyle: 'normal' }}>"</span>
+              <span style={{ opacity: 0.45, fontStyle: 'normal', color: '#64748b' }}>"</span>
               {displayText}
               <span style={{
                 display: 'inline-block',
@@ -171,11 +165,11 @@ function WelcomeHero({ name }: { name?: string }) {
                 opacity: pausing ? 0 : 1,
                 borderRadius: 1,
               }} />
-              {quoteDone && <span style={{ opacity: 0.45, fontStyle: 'normal' }}>"</span>}
+              {quoteDone && <span style={{ opacity: 0.45, fontStyle: 'normal', color: '#64748b' }}>"</span>}
             </p>
           </div>
 
-          <p style={{ color: 'rgba(165,180,252,0.4)', fontSize: 10, fontWeight: 700, letterSpacing: '0.09em', marginTop: 8 }}>
+          <p style={{ color: '#94a3b8', fontSize: 10, fontWeight: 700, letterSpacing: '0.09em', marginTop: 8 }}>
             — Master Aptitude
           </p>
         </div>
@@ -183,6 +177,98 @@ function WelcomeHero({ name }: { name?: string }) {
     </>
   );
 }
+
+const calculateStreak = (results: any[]): number => {
+  if (!results || results.length === 0) return 0;
+  
+  const dates = new Set<string>();
+  results.forEach(r => {
+    if (r.timestamp) {
+      try {
+        const d = r.timestamp?.toDate ? r.timestamp.toDate() : new Date(typeof r.timestamp === 'number' ? r.timestamp : r.timestamp.seconds ? r.timestamp.seconds * 1000 : r.timestamp);
+        const dateStr = d.toISOString().split('T')[0];
+        dates.add(dateStr);
+      } catch {}
+    }
+  });
+
+  const sortedDates = Array.from(dates).sort((a, b) => b.localeCompare(a));
+  if (sortedDates.length === 0) return 0;
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+  if (sortedDates[0] !== todayStr && sortedDates[0] !== yesterdayStr) {
+    return 0;
+  }
+
+  let streak = 0;
+  let checkDate = new Date(sortedDates[0]);
+
+  for (let i = 0; i < sortedDates.length; i++) {
+    const checkStr = checkDate.toISOString().split('T')[0];
+    if (dates.has(checkStr)) {
+      streak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+  return streak;
+};
+
+const getCategoryStyle = (title: string, dbColor?: string, dbIcon?: string) => {
+  const t = title.toLowerCase();
+  
+  let textColorClass = 'text-slate-700 font-bold';
+  let textColorStyle = {};
+  if (t.includes('free mock')) {
+    textColorClass = 'text-emerald-600 font-black';
+  } else if (t.includes('150 days') || t.includes('150-days')) {
+    textColorClass = 'text-rose-600 font-black';
+  } else if (t.includes('typing test')) {
+    textColorClass = 'text-slate-900 font-black';
+  } else if (dbColor === 'green') {
+    textColorClass = 'text-emerald-600 font-black';
+  } else if (dbColor === 'red') {
+    textColorClass = 'text-rose-600 font-black';
+  } else if (dbColor === 'black') {
+    textColorClass = 'text-slate-900 font-black';
+  } else if (dbColor) {
+    textColorStyle = { color: dbColor };
+  }
+
+  let icon = dbIcon || '📝';
+  if (t.includes('free mock')) icon = '🏆';
+  else if (t.includes('150 days') || t.includes('150-days')) icon = '📅';
+  else if (t.includes('typing test')) icon = '⌨️';
+  else if (t.includes('syllabus')) icon = '📋';
+  else if (t.includes('previous year')) icon = '📁';
+  else if (t.includes('paid test')) icon = '👑';
+  else if (t.includes('quiz')) icon = '🧠';
+  else if (t.includes('ebook')) icon = '📖';
+  else if (t.includes('current affairs')) icon = '📰';
+  else if (t.includes('practice set')) icon = '✅';
+  else if (t.includes('job')) icon = '📢';
+
+  return { textColorClass, textColorStyle, icon };
+};
+
+const DEFAULT_DASHBOARD_CATEGORIES = [
+  { title: 'Free Mock', textColor: 'green', iconType: '🏆', actionType: 'tab', actionValue: 'mock_landing', priority: 1, isActive: true },
+  { title: '150 Days Free Practice', textColor: 'red', iconType: '📅', actionType: 'tab', actionValue: 'practice', priority: 2, isActive: true },
+  { title: 'Typing Test', textColor: 'black', iconType: '⌨️', actionType: 'route', actionValue: '/typing-test', priority: 3, isActive: true },
+  { title: 'Syllabus', textColor: 'default', iconType: '📋', actionType: 'tab', actionValue: 'pattern', priority: 4, isActive: true },
+  { title: 'Previous Year Paper', textColor: 'default', iconType: '📁', actionType: 'tab', actionValue: 'pyq', priority: 5, isActive: true },
+  { title: 'Paid Test', textColor: 'default', iconType: '👑', actionType: 'route', actionValue: '/paid-mock', priority: 6, isActive: true },
+  { title: 'Quiz', textColor: 'default', iconType: '🧠', actionType: 'tab', actionValue: 'home', priority: 7, isActive: true },
+  { title: 'Ebook', textColor: 'default', iconType: '📖', actionType: 'tab', actionValue: 'notes', priority: 8, isActive: true },
+  { title: 'Current Affairs', textColor: 'default', iconType: '📰', actionType: 'route', actionValue: '/current-affairs', priority: 9, isActive: true },
+  { title: 'Practice Set', textColor: 'default', iconType: '✅', actionType: 'tab', actionValue: 'practice', priority: 10, isActive: true },
+  { title: 'Latest Job Notification', textColor: 'default', iconType: '📢', actionType: 'route', actionValue: '/news', priority: 11, isActive: true }
+];
 
 export default function Dashboard() {
   const { user, profile } = useAuth();
@@ -211,6 +297,7 @@ export default function Dashboard() {
   const [socialLinks, setSocialLinks] = useState({ youtube: '', telegram: '', whatsapp: '' });
   const [categoryOrder, setCategoryOrder] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dashboardCategories, setDashboardCategories] = useState<any[]>([]);
   
   const activeTab = (searchParams.get('tab') as DashboardTab) || 'home';
   const selectedCategory = searchParams.get('cat') || '';
@@ -393,6 +480,12 @@ export default function Dashboard() {
         if (cachedResults && Array.isArray(cachedResults)) setPastResults(cachedResults);
         if (cachedPaidBatches && Array.isArray(cachedPaidBatches)) setPaidBatches(cachedPaidBatches);
         if (cachedMyPurchases && Array.isArray(cachedMyPurchases)) setMyPurchases(cachedMyPurchases);
+        
+        const cachedDashboardCats = safeParse(localStorage.getItem('ma_cache_dashboard_categories'));
+        if (cachedDashboardCats && Array.isArray(cachedDashboardCats)) {
+          setDashboardCategories(cachedDashboardCats);
+          hasCachedData = true;
+        }
 
         // If we found any primary cached data, hide the loading screen instantly
         if (hasCachedData) {
@@ -411,9 +504,11 @@ export default function Dashboard() {
         const allTests = await getCachedCollection(
           'tests',
           async () => {
-            const testsQuery = query(collection(db, 'tests'), where('isActive', '==', true), orderBy('createdAt', 'asc'));
+            const testsQuery = query(collection(db, 'tests'), where('isActive', '==', true));
             const snap = await getDocs(testsQuery);
-            return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const tests = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            tests.sort((a: any, b: any) => (a.createdAt || 0) - (b.createdAt || 0));
+            return tests;
           },
           'tests'
         );
@@ -523,6 +618,24 @@ export default function Dashboard() {
         const sortedCarousels = [...allCarousels].sort((a: any, b: any) => (a.priority || 99) - (b.priority || 99));
         setCarousels(sortedCarousels);
         localStorage.setItem('ma_cache_carousel', JSON.stringify(allCarousels));
+
+        // Fetch Dashboard Categories
+        try {
+          const allDashboardCats = await getCachedCollection(
+            'dashboard_categories',
+            async () => {
+              const snap = await getDocs(query(collection(db, 'student_dashboard_categories'), where('isActive', '==', true)));
+              const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+              items.sort((a: any, b: any) => (a.priority || 0) - (b.priority || 0));
+              return items;
+            },
+            'dashboard_categories'
+          );
+          setDashboardCategories(allDashboardCats);
+          localStorage.setItem('ma_cache_dashboard_categories', JSON.stringify(allDashboardCats));
+        } catch (catErr) {
+          console.warn("[Cache] Failed to load dashboard categories:", catErr);
+        }
 
         // Fetch Social Links (cached for 24h)
         const cachedSocial = localStorage.getItem('ma_cache_social_links');
@@ -1295,76 +1408,116 @@ export default function Dashboard() {
                 );
               })()}
 
-              {/* ── Category Grid — 3×2 neon cards ── */}
+              {/* ── Student Performance Stats Panel (Testbook/Unacademy Style) ── */}
               {(() => {
-                const NeonCard = ({
-                  w1, w2, icon, neon, bg, badge, action,
-                  pad, circle, iconRem, titlePx, arrowPx, bktPx, dotPx, rayH,
-                }: {
-                  w1:string; w2:string; icon:string; neon:string; bg:string; badge:string|null;
-                  action:()=>void; pad:string; circle:number; iconRem:number; titlePx:string;
-                  arrowPx:number; bktPx:number; dotPx:number; rayH:number;
-                }) => (
-                  <button
-                    onClick={action}
-                    className="group relative flex flex-col items-center rounded-2xl text-white transition-all duration-200 hover:-translate-y-0.5 hover:scale-[1.04] active:scale-[0.96]"
-                    style={{ background:bg, boxShadow:`0 0 0 1.5px ${neon}60, 0 0 22px ${neon}40, 0 6px 28px rgba(0,0,0,0.7)`, padding:pad, overflow:'visible', justifyContent:'center', gap:5 }}
-                  >
-                    {/* Top colour wash */}
-                    <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ background:`radial-gradient(ellipse 100% 70% at 50% 0%,${neon}25 0%,transparent 65%)` }}/>
-                    {/* Dot grid */}
-                    <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ backgroundImage:`radial-gradient(circle,${neon}28 1px,transparent 1px)`, backgroundSize:`${dotPx}px ${dotPx}px` }}/>
-                    {/* Corner brackets */}
-                    <div className="absolute top-0 left-0 pointer-events-none" style={{ width:bktPx, height:bktPx, borderTop:`2px solid ${neon}88`, borderLeft:`2px solid ${neon}88`, borderRadius:'8px 0 0 0' }}/>
-                    <div className="absolute top-0 right-0 pointer-events-none" style={{ width:bktPx, height:bktPx, borderTop:`2px solid ${neon}88`, borderRight:`2px solid ${neon}88`, borderRadius:'0 8px 0 0' }}/>
-                    {/* Glowing icon circle */}
-                    <div className="relative z-10 flex items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-110"
-                      style={{ width:circle, height:circle, flexShrink:0, border:`2px solid ${neon}`, boxShadow:`0 0 16px ${neon}85,0 0 34px ${neon}45,inset 0 0 18px ${neon}30`, background:`radial-gradient(circle,${neon}35 0%,${neon}12 55%,transparent 100%)` }}>
-                      {badge && (
-                        <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap font-black rounded-full z-20"
-                          style={{ fontSize:7, padding:'2px 8px', background:`linear-gradient(90deg,${neon},${neon}bb)`, color:'#000', boxShadow:`0 0 10px ${neon}`, letterSpacing:'0.1em' }}>
-                          {badge}
-                        </span>
-                      )}
-                      <span className="select-none" style={{ fontSize:`${iconRem}rem`, lineHeight:1, filter:`drop-shadow(0 0 10px ${neon}bb)` }}>{icon}</span>
+                const totalTests = pastResults.length;
+                const avgAccuracy = Math.round(parseFloat(String(performanceStats.avgAccuracy)) || 0);
+                const streak = calculateStreak(pastResults);
+
+                // Circular progress ring setup
+                const radius = 24;
+                const circumference = 2 * Math.PI * radius;
+                const strokeDashoffset = circumference - (avgAccuracy / 100) * circumference;
+
+                return (
+                  <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200 shadow-xs flex gap-4 items-center justify-around flex-wrap">
+                    {/* Stat 1: Tests Attempted */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
+                        <BookOpen className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <p className="text-xl font-black text-slate-800 leading-none">{totalTests}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1 leading-none">Tests Taken</p>
+                      </div>
                     </div>
-                    {/* Stacked two-line title */}
-                    <div className="relative z-10 text-center" style={{ lineHeight:1.08 }}>
-                      <div className="font-black" style={{ fontSize:titlePx, color:'#ffffff', textShadow:`0 0 20px ${neon}80, 0 1px 0 rgba(0,0,0,0.6)`, letterSpacing:'-0.01em' }}>{w1}</div>
-                      {w2 && <div className="font-black" style={{ fontSize:titlePx, color:neon, textShadow:`0 0 18px ${neon}, 0 0 36px ${neon}88`, letterSpacing:'-0.01em' }}>{w2}</div>}
+
+                    <div className="w-px h-10 bg-slate-100 hidden sm:block" />
+
+                    {/* Stat 2: Accuracy Ring */}
+                    <div className="flex items-center gap-3">
+                      <div className="relative w-12 h-12 flex items-center justify-center shrink-0">
+                        <svg className="w-full h-full transform -rotate-90">
+                          <circle cx="24" cy="24" r={radius} stroke="#f1f5f9" strokeWidth="4" fill="transparent" />
+                          <circle cx="24" cy="24" r={radius} stroke="#10b981" strokeWidth="4" fill="transparent"
+                            strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round" />
+                        </svg>
+                        <span className="absolute text-[10px] font-black text-slate-800">{avgAccuracy}%</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-slate-800 leading-none">Avg Accuracy</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1 leading-none">Performance</p>
+                      </div>
                     </div>
-                    {/* Bottom ray */}
-                    <div className="absolute bottom-0 left-0 right-0 rounded-b-2xl pointer-events-none" style={{ height:rayH, background:`radial-gradient(ellipse 90% 75% at 50% 115%,${neon}55 0%,transparent 70%)` }}/>
-                    {/* Arrow */}
-                    <div className="relative z-10 flex items-center justify-center rounded-full transition-all duration-200 group-hover:scale-110"
-                      style={{ width:arrowPx, height:arrowPx, background:`${neon}30`, border:`1.5px solid ${neon}`, boxShadow:`0 0 12px ${neon}60` }}>
-                      <svg viewBox="0 0 10 10" width={arrowPx*0.45} height={arrowPx*0.45} fill="none">
-                        <path d="M3.5 2L6.5 5L3.5 8" stroke={neon} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
+
+                    <div className="w-px h-10 bg-slate-100 hidden sm:block" />
+
+                    {/* Stat 3: Study Streak */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-rose-50 flex items-center justify-center text-rose-500 text-xl font-bold shrink-0">
+                        🔥
+                      </div>
+                      <div>
+                        <p className="text-xl font-black text-slate-800 leading-none">{streak} Days</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1 leading-none">Active Streak</p>
+                      </div>
                     </div>
-                    {/* Hover ring */}
-                    <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" style={{ boxShadow:`inset 0 0 0 2px ${neon}, 0 0 32px ${neon}55` }}/>
-                  </button>
+                  </div>
                 );
+              })()}
 
-                const L1 = { pad:'18px 6px 16px', circle:58, iconRem:1.7, titlePx:'clamp(16px,5vw,22px)', arrowPx:22, bktPx:16, dotPx:14, rayH:32 };
+              {/* ── Category Grid — 4 Columns light cards ── */}
+              {(() => {
+                const cats = dashboardCategories.length > 0 ? dashboardCategories : DEFAULT_DASHBOARD_CATEGORIES;
 
-                const cats = [
-                  { w1:'FREE',    w2:'MOCK',    icon:String.fromCodePoint(0x1F4CB), neon:'#00d4ff', bg:'linear-gradient(155deg,#062240,#0a3566)',  badge:null,      action:()=>setActiveTab('mock_landing') },
-                  { w1:'PAID',    w2:'MOCK',    icon:String.fromCodePoint(0x1F6E1), neon:'#c084fc', bg:'linear-gradient(155deg,#1c0a42,#30126e)', badge:'PREMIUM', action:()=>navigate('/paid-mock') },
-                  { w1:'TYPING',  w2:'TEST',    icon:String.fromCodePoint(0x2328),  neon:'#00ff88', bg:'linear-gradient(155deg,#042618,#083f28)',  badge:null,      action:()=>navigate('/typing-test') },
-                  { w1:'EBOOK',   w2:'',        icon:String.fromCodePoint(0x1F4D6), neon:'#ffa820', bg:'linear-gradient(155deg,#251400,#3f2200)',  badge:null,      action:()=>setActiveTab('notes') },
-                  { w1:'CURRENT', w2:'AFFAIRS', icon:String.fromCodePoint(0x1F4F0), neon:'#00ffe0', bg:'linear-gradient(155deg,#002828,#004040)',  badge:null,      action:()=>navigate('/current-affairs') },
-                  { w1:'PYQs',    w2:'',        icon:String.fromCodePoint(0x1F4DD), neon:'#ff3fa4', bg:'linear-gradient(155deg,#280018,#420030)',  badge:null,      action:()=>setActiveTab('pyq') },
-                ];
+                const handleCategoryClick = (cat: any) => {
+                  const val = cat.actionValue;
+                  if (cat.actionType === 'tab') {
+                    setActiveTab(val);
+                  } else if (cat.actionType === 'route') {
+                    navigate(val);
+                  } else if (cat.actionType === 'url') {
+                    window.open(val, '_blank');
+                  }
+                };
+
                 return (
                   <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <p className="text-xs font-black uppercase tracking-widest" style={{color:'#64748b'}}>Explore</p>
-                      <div className="flex-1 h-px" style={{background:'linear-gradient(to right,#e2e8f0,transparent)'}}/>
+                    <div className="flex items-center gap-2 mb-4">
+                      <p className="text-xs font-black uppercase tracking-widest" style={{ color: '#64748b' }}>Explore Study Resources</p>
+                      <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right,#e2e8f0,transparent)' }} />
                     </div>
-                    <div className="grid grid-cols-3 gap-3">
-                      {cats.map(c => <NeonCard key={c.w1+c.w2} {...c} {...L1} />)}
+                    
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-4">
+                      {cats.map((cat, idx) => {
+                        const { textColorClass, textColorStyle, icon } = getCategoryStyle(cat.title, cat.textColor, cat.iconType);
+                        
+                        return (
+                          <button
+                            key={cat.id || idx}
+                            onClick={() => handleCategoryClick(cat)}
+                            className="group bg-white rounded-2xl p-4 border border-slate-200 shadow-xs flex flex-col items-center justify-center gap-3 relative transition-all duration-300 hover:shadow-md hover:border-indigo-300 hover:-translate-y-0.5 active:scale-[0.97]"
+                          >
+                            {/* Icon Container */}
+                            <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-2xl transition-all duration-300 group-hover:scale-110 group-hover:bg-indigo-50">
+                              <span className="select-none">{icon}</span>
+                            </div>
+
+                            {/* Label */}
+                            <div className="text-center min-h-[32px] flex items-center justify-center">
+                              <span 
+                                className={`text-[11px] leading-tight text-center ${textColorClass}`}
+                                style={textColorStyle}
+                              >
+                                {cat.title}
+                              </span>
+                            </div>
+
+                            {/* Hover Indicator */}
+                            <div className="absolute inset-0 rounded-2xl pointer-events-none border border-transparent transition-all duration-300 group-hover:border-indigo-500/20" />
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 );

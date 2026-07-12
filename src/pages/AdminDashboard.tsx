@@ -20,7 +20,7 @@ import { Keyboard } from 'lucide-react';
 import { RenderMathText } from '../components/MathRenderer';
 import RichTextEditor, { RenderQuestionHTML } from '../components/RichTextEditor';
 
-type AdminTab = 'students' | 'mock' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'blog' | 'reviews' | 'paid_mock';
+type AdminTab = 'students' | 'mock' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'blog' | 'reviews' | 'paid_mock' | 'dashboard_grid';
 
 // ─── Image Cropper Modal ─────────────────────────────────────────────────────
 function ImageCropper({
@@ -259,6 +259,13 @@ function AdminHome() {
   const [carousels, setCarousels] = useState<any[]>([]);
   const [customMockCategories, setCustomMockCategories] = useState<any[]>([]);
   const [customTestTypes, setCustomTestTypes] = useState<any[]>([]);
+  const [customGridCats, setCustomGridCats] = useState<any[]>([]);
+  const [gridForm, setGridForm] = useState({
+    title: '', textColor: 'default', iconType: '📝', actionType: 'tab', actionValue: '', priority: 1, isActive: true
+  });
+  const [editingGridId, setEditingGridId] = useState<string | null>(null);
+  const [savingGridItem, setSavingGridItem] = useState(false);
+  const [seedingGrid, setSeedingGrid] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<AdminTab>('mock');
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -484,6 +491,11 @@ function AdminHome() {
     const qCarousels = query(collection(db, 'carousel'), orderBy('createdAt', 'desc'));
     const qBlogPosts = query(collection(db, 'news_posts'), orderBy('createdAt', 'desc'));
     const qStudents = query(collection(db, 'profiles'), where('role', 'in', ['user', 'student']));
+    const qGridCats = query(collection(db, 'student_dashboard_categories'), orderBy('priority', 'asc'));
+
+    const unsubGridCats = onSnapshot(qGridCats, (snap) => {
+      setCustomGridCats(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (err) => console.error(err));
 
     const unsubStudents = onSnapshot(qStudents, (snap) => {
       setStudents(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -576,6 +588,7 @@ function AdminHome() {
     const statsInterval = setInterval(fetchStats, 60000); // Update stats every minute
 
     return () => {
+      unsubGridCats();
       unsubStudents();
       unsubTests();
       unsubNotes();
@@ -1610,6 +1623,103 @@ function AdminHome() {
     a.click(); URL.revokeObjectURL(url);
   };
 
+  // ─── Dashboard Grid handlers ──────────────────────────────────────────────────
+  const handleSaveGridItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!gridForm.title.trim() || !user) return;
+    setSavingGridItem(true);
+    try {
+      const data = {
+        title: gridForm.title.trim(),
+        textColor: gridForm.textColor,
+        iconType: gridForm.iconType,
+        actionType: gridForm.actionType,
+        actionValue: gridForm.actionValue.trim(),
+        priority: parseInt(String(gridForm.priority)) || 1,
+        isActive: gridForm.isActive,
+      };
+
+      if (editingGridId) {
+        await updateDoc(doc(db, 'student_dashboard_categories', editingGridId), data);
+        setEditingGridId(null);
+      } else {
+        await addDoc(collection(db, 'student_dashboard_categories'), data);
+      }
+
+      setGridForm({ title: '', textColor: 'default', iconType: '📝', actionType: 'tab', actionValue: '', priority: customGridCats.length + 1, isActive: true });
+      await invalidateCacheField('dashboard_categories');
+      alert('Dashboard grid item saved successfully!');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to save item');
+    } finally {
+      setSavingGridItem(false);
+    }
+  };
+
+  const handleDeleteGridItem = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this category card?')) return;
+    try {
+      await deleteDoc(doc(db, 'student_dashboard_categories', id));
+      await invalidateCacheField('dashboard_categories');
+      alert('Dashboard item deleted!');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete item');
+    }
+  };
+
+  const handleMovePriority = async (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= customGridCats.length) return;
+
+    const currentItem = customGridCats[index];
+    const targetItem = customGridCats[targetIndex];
+
+    try {
+      await updateDoc(doc(db, 'student_dashboard_categories', currentItem.id), { priority: targetItem.priority });
+      await updateDoc(doc(db, 'student_dashboard_categories', targetItem.id), { priority: currentItem.priority });
+      await invalidateCacheField('dashboard_categories');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update priority order');
+    }
+  };
+
+  const handleSeedGridCategories = async () => {
+    if (customGridCats.length > 0) {
+      if (!confirm('Categories already exist. Seed default ones anyway?')) return;
+    }
+    setSeedingGrid(true);
+    try {
+      const defaults = [
+        { title: 'Free Mock', textColor: 'green', iconType: '🏆', actionType: 'tab', actionValue: 'mock_landing', priority: 1, isActive: true },
+        { title: '150 Days Free Practice', textColor: 'red', iconType: '📅', actionType: 'tab', actionValue: 'practice', priority: 2, isActive: true },
+        { title: 'Typing Test', textColor: 'black', iconType: '⌨️', actionType: 'route', actionValue: '/typing-test', priority: 3, isActive: true },
+        { title: 'Syllabus', textColor: 'default', iconType: '📋', actionType: 'tab', actionValue: 'pattern', priority: 4, isActive: true },
+        { title: 'Previous Year Paper', textColor: 'default', iconType: '📁', actionType: 'tab', actionValue: 'pyq', priority: 5, isActive: true },
+        { title: 'Paid Test', textColor: 'default', iconType: '👑', actionType: 'route', actionValue: '/paid-mock', priority: 6, isActive: true },
+        { title: 'Quiz', textColor: 'default', iconType: '🧠', actionType: 'tab', actionValue: 'home', priority: 7, isActive: true },
+        { title: 'Ebook', textColor: 'default', iconType: '📖', actionType: 'tab', actionValue: 'notes', priority: 8, isActive: true },
+        { title: 'Current Affairs', textColor: 'default', iconType: '📰', actionType: 'route', actionValue: '/current-affairs', priority: 9, isActive: true },
+        { title: 'Practice Set', textColor: 'default', iconType: '✅', actionType: 'tab', actionValue: 'practice', priority: 10, isActive: true },
+        { title: 'Latest Job Notification', textColor: 'default', iconType: '📢', actionType: 'route', actionValue: '/news', priority: 11, isActive: true }
+      ];
+
+      for (const cat of defaults) {
+        await addDoc(collection(db, 'student_dashboard_categories'), cat);
+      }
+
+      await invalidateCacheField('dashboard_categories');
+      alert('Default categories initialized successfully!');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to seed categories');
+    } finally {
+      setSeedingGrid(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Admin Tab Navigation */}
@@ -1764,6 +1874,14 @@ function AdminHome() {
             ${activeTab === 'paid_mock' ? 'bg-amber-500 text-white shadow-md shadow-amber-100' : 'text-slate-500 hover:text-amber-600 hover:bg-amber-50'}`}
         >
           👑 Paid Mock
+        </button>
+        <button
+          onClick={() => setActiveTab('dashboard_grid')}
+          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all
+            ${activeTab === 'dashboard_grid' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' : 'text-slate-500 hover:text-indigo-600 hover:bg-indigo-50'}`}
+        >
+          <Layers className="w-4 h-4" />
+          Dashboard Grid
         </button>
       </div>
 
@@ -4898,6 +5016,229 @@ function AdminHome() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {activeTab === 'dashboard_grid' && (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+              <span className="w-2 h-8 bg-indigo-600 rounded-full"></span>
+              Student Dashboard Grid Menu Management
+            </h2>
+            <button
+              onClick={handleSeedGridCategories}
+              disabled={seedingGrid}
+              className="px-4 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-indigo-600 transition-all flex items-center gap-2 shadow-lg shadow-slate-200"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${seedingGrid ? 'animate-spin' : ''}`} />
+              {seedingGrid ? 'Initializing...' : 'Reset to 11 Defaults'}
+            </button>
+          </div>
+
+          {/* Create/Edit Form */}
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8">
+            <h3 className="text-lg font-bold text-slate-800 mb-6">{editingGridId ? 'Edit Category Card' : 'Create New Category Card'}</h3>
+            <form onSubmit={handleSaveGridItem} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                {/* Title */}
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Card Label / Title</label>
+                  <input
+                    type="text" required
+                    className="w-full rounded-xl border-slate-200 border-2 p-3 outline-none font-medium"
+                    value={gridForm.title} onChange={e => setGridForm(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="e.g. Free Mock"
+                  />
+                </div>
+
+                {/* Text Color */}
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Text Styling Color</label>
+                  <select
+                    className="w-full rounded-xl border-slate-200 border-2 p-3 outline-none font-bold text-slate-700"
+                    value={gridForm.textColor} onChange={e => setGridForm(prev => ({ ...prev, textColor: e.target.value }))}
+                  >
+                    <option value="default">Default Grey (Slate-700)</option>
+                    <option value="green">Green (Free content standard)</option>
+                    <option value="red">Red (150-days standard)</option>
+                    <option value="black">Black (Typing test standard)</option>
+                  </select>
+                </div>
+
+                {/* Icon Type (Emoji or Lucide name) */}
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Icon / Emoji</label>
+                  <input
+                    type="text" required
+                    className="w-full rounded-xl border-slate-200 border-2 p-3 outline-none font-medium text-center"
+                    value={gridForm.iconType} onChange={e => setGridForm(prev => ({ ...prev, iconType: e.target.value }))}
+                    placeholder="e.g. 🏆 or 📋"
+                  />
+                </div>
+
+                {/* Priority */}
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Grid Position / Priority</label>
+                  <input
+                    type="number" required min={1}
+                    className="w-full rounded-xl border-slate-200 border-2 p-3 outline-none font-medium"
+                    value={gridForm.priority} onChange={e => setGridForm(prev => ({ ...prev, priority: parseInt(e.target.value) || 1 }))}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                {/* Action Type */}
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Action Event Type</label>
+                  <select
+                    className="w-full rounded-xl border-slate-200 border-2 p-3 outline-none font-bold text-slate-700"
+                    value={gridForm.actionType} onChange={e => setGridForm(prev => ({ ...prev, actionType: e.target.value }))}
+                  >
+                    <option value="tab">Open Tab (Dashboard tabs)</option>
+                    <option value="route">Navigate Route (e.g. /typing-test)</option>
+                    <option value="url">External Link (Opens new window)</option>
+                  </select>
+                </div>
+
+                {/* Action Value */}
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Action Destination Value</label>
+                  <input
+                    type="text" required
+                    className="w-full rounded-xl border-slate-200 border-2 p-3 outline-none font-medium font-mono text-xs text-slate-600"
+                    value={gridForm.actionValue} onChange={e => setGridForm(prev => ({ ...prev, actionValue: e.target.value }))}
+                    placeholder="e.g. mock_landing, /typing-test, or https://google.com"
+                  />
+                </div>
+
+                {/* Form Buttons */}
+                <div className="flex gap-2 w-full">
+                  {editingGridId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingGridId(null);
+                        setGridForm({ title: '', textColor: 'default', iconType: '📝', actionType: 'tab', actionValue: '', priority: customGridCats.length + 1, isActive: true });
+                      }}
+                      className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-xs uppercase tracking-wider transition-all"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                  <button
+                    type="submit" disabled={savingGridItem}
+                    className="flex-1 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-md shadow-indigo-100 flex items-center justify-center gap-1"
+                  >
+                    {savingGridItem ? 'Saving...' : editingGridId ? 'Update Card' : 'Add Category Card'}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          {/* List Table */}
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="px-8 py-6 border-b border-slate-100">
+              <h3 className="text-lg font-black text-slate-800">Active Grid Categories ({customGridCats.length})</h3>
+              <p className="text-xs text-slate-400 mt-1">Manage the exact boxes shown on the student dashboard. Click arrows to adjust row position.</p>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 uppercase tracking-widest text-[9px] font-black">
+                    <th className="px-8 py-4">Priority</th>
+                    <th className="px-6 py-4">Title</th>
+                    <th className="px-6 py-4">Text Styling</th>
+                    <th className="px-6 py-4">Icon / Emoji</th>
+                    <th className="px-6 py-4">Action Target</th>
+                    <th className="px-8 py-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50 text-slate-700">
+                  {customGridCats.map((cat, idx) => (
+                    <tr key={cat.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-8 py-4 font-bold text-slate-400">
+                        <div className="flex items-center gap-2">
+                          <span>{cat.priority}</span>
+                          <div className="flex flex-col gap-0.5">
+                            <button
+                              disabled={idx === 0}
+                              onClick={() => handleMovePriority(idx, 'up')}
+                              className="text-slate-300 hover:text-indigo-600 disabled:opacity-30 leading-none text-xs"
+                            >
+                              ▲
+                            </button>
+                            <button
+                              disabled={idx === customGridCats.length - 1}
+                              onClick={() => handleMovePriority(idx, 'down')}
+                              className="text-slate-300 hover:text-indigo-600 disabled:opacity-30 leading-none text-xs"
+                            >
+                              ▼
+                            </button>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 font-black text-slate-800">{cat.title}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2.5 py-1 rounded-lg text-xs font-black capitalize ${
+                          cat.textColor === 'green' ? 'bg-emerald-50 text-emerald-700' :
+                          cat.textColor === 'red' ? 'bg-rose-50 text-rose-700' :
+                          cat.textColor === 'black' ? 'bg-slate-100 text-slate-900' : 'bg-slate-50 text-slate-500'
+                        }`}>
+                          {cat.textColor}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-xl">{cat.iconType}</td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-none">{cat.actionType}</span>
+                          <span className="text-xs font-mono font-medium text-slate-600 mt-1 leading-none">{cat.actionValue}</span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => {
+                              setEditingGridId(cat.id);
+                              setGridForm({
+                                title: cat.title,
+                                textColor: cat.textColor || 'default',
+                                iconType: cat.iconType || '📝',
+                                actionType: cat.actionType || 'tab',
+                                actionValue: cat.actionValue || '',
+                                priority: cat.priority || idx + 1,
+                                isActive: cat.isActive !== false
+                              });
+                              window.scrollTo({ top: 200, behavior: 'smooth' });
+                            }}
+                            className="text-indigo-600 hover:bg-indigo-100 px-3 py-1.5 rounded-lg border border-indigo-100 font-bold text-xs"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteGridItem(cat.id)}
+                            className="text-rose-500 hover:bg-rose-100 px-3 py-1.5 rounded-lg border border-rose-100 font-bold text-xs"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {customGridCats.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-8 py-10 text-center font-bold text-slate-400">
+                        No custom category grid items configured. Click the button above to seed the 11 default options.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
