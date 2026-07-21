@@ -114,6 +114,19 @@ export function serverTimestamp() {
   return { __type: 'serverTimestamp' };
 }
 
+async function handleErrorResponse(res: Response, defaultMsg: string): Promise<never> {
+  let detail = "";
+  try {
+    const json = await res.json();
+    detail = json.error || json.details || "";
+  } catch (_) {
+    try {
+      detail = await res.text();
+    } catch (__) {}
+  }
+  throw new Error(detail ? `${defaultMsg} (${detail})` : defaultMsg);
+}
+
 // Client-to-Server API Requests
 export async function getDoc(docRef: DocumentReference): Promise<DocumentSnapshot> {
   const token = await getAuthToken();
@@ -128,7 +141,7 @@ export async function getDoc(docRef: DocumentReference): Promise<DocumentSnapsho
       id: docRef.id
     })
   });
-  if (!res.ok) throw new Error("Failed to fetch document");
+  if (!res.ok) await handleErrorResponse(res, "Failed to fetch document");
   const result = await res.json();
   return new DocumentSnapshot(docRef.id, result.data, result.exists);
 }
@@ -146,7 +159,7 @@ export async function getDocs(queryRef: CollectionReference | Query): Promise<Qu
     },
     body: JSON.stringify({ path, clauses })
   });
-  if (!res.ok) throw new Error("Failed to fetch documents query");
+  if (!res.ok) await handleErrorResponse(res, "Failed to fetch documents query");
   const result = await res.json();
   return new QuerySnapshot(result.docs);
 }
@@ -166,7 +179,7 @@ export async function setDoc(docRef: DocumentReference, data: any, options?: { m
       merge: options?.merge ?? false
     })
   });
-  if (!res.ok) throw new Error("Failed to set document");
+  if (!res.ok) await handleErrorResponse(res, "Failed to set document");
 }
 
 export async function updateDoc(docRef: DocumentReference, data: any): Promise<void> {
@@ -183,7 +196,7 @@ export async function updateDoc(docRef: DocumentReference, data: any): Promise<v
       data
     })
   });
-  if (!res.ok) throw new Error("Failed to update document");
+  if (!res.ok) await handleErrorResponse(res, "Failed to update document");
 }
 
 export async function addDoc(colRef: CollectionReference, data: any): Promise<DocumentReference> {
@@ -199,7 +212,7 @@ export async function addDoc(colRef: CollectionReference, data: any): Promise<Do
       data
     })
   });
-  if (!res.ok) throw new Error("Failed to add document");
+  if (!res.ok) await handleErrorResponse(res, "Failed to add document");
   const result = await res.json();
   return new DocumentReference(colRef.firestore, colRef.path, result.id);
 }
@@ -217,7 +230,7 @@ export async function deleteDoc(docRef: DocumentReference): Promise<void> {
       id: docRef.id
     })
   });
-  if (!res.ok) throw new Error("Failed to delete document");
+  if (!res.ok) await handleErrorResponse(res, "Failed to delete document");
 }
 
 // Simulates onSnapshot (real-time listener) with a one-shot fetch for compatibility
