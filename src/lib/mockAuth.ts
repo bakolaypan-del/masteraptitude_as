@@ -159,3 +159,7 @@ export async function signOut(authInstance: MockAuth) {
 export class GoogleAuthProvider {
   // Mock Google Provider (unused in our login routes)
 }
+
+export async function updatePassword(user: User, newPass: string): Promise<void> {
+  // Mock compatibility stub
+}
