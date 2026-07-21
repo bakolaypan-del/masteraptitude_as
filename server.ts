@@ -1,6 +1,10 @@
 import "dotenv/config";
 import https from "https";
 import { Pool, types } from "pg";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+
+const JWT_SECRET = process.env.JWT_SECRET || "ma_default_jwt_secret_key_2026";
 
 // Parse decimal/numeric columns to float numbers automatically
 types.setTypeParser(1700, (val) => parseFloat(val));
@@ -929,6 +933,7 @@ const getDb = () => {
       "ALTER TABLE videos ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb",
       "ALTER TABLE paid_mock_batches ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb",
       "ALTER TABLE student_reviews ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255)",
       "CREATE TABLE IF NOT EXISTS settings (id VARCHAR(128) PRIMARY KEY, data JSONB)",
       "CREATE TABLE IF NOT EXISTS review_links (id VARCHAR(128) PRIMARY KEY, data JSONB)",
       "CREATE TABLE IF NOT EXISTS leaderboards (id VARCHAR(128) PRIMARY KEY, data JSONB)",
@@ -941,8 +946,25 @@ const getDb = () => {
       alters.map(sql => pgPool!.query(sql).catch(err => {
         console.warn("[Postgres] Alter check warning:", err.message);
       }))
-    ).then(() => {
+    ).then(async () => {
       console.log("[Postgres] Relational schemas alter checks completed.");
+      // Initialize admin user password if needed
+      try {
+        const adminEmail = "bakolaypan@gmail.com";
+        const adminRes = await pgPool!.query("SELECT password_hash FROM users WHERE email = $1", [adminEmail]);
+        if (adminRes.rows.length > 0) {
+          const row = adminRes.rows[0];
+          if (!row.password_hash) {
+            const defaultPass = "Sumankolay@1995";
+            const salt = bcrypt.genSaltSync(10);
+            const hash = bcrypt.hashSync(defaultPass, salt);
+            await pgPool!.query("UPDATE users SET password_hash = $1 WHERE email = $2", [hash, adminEmail]);
+            console.log("[Auth] Admin password initialized successfully.");
+          }
+        }
+      } catch (adminErr: any) {
+        console.warn("[Auth] Failed to initialize admin password:", adminErr.message);
+      }
     });
 
     // Runtime patch admin.firestore.FieldValue for increment operations
@@ -987,8 +1009,12 @@ async function verifyToken(req: express.Request, res: express.Response, next: ex
   }
   const token = authHeader.split('Bearer ')[1];
   try {
-    const decodedToken = await admin.auth().verifyIdToken(token);
-    (req as any).user = decodedToken;
+    const decodedToken = jwt.verify(token, JWT_SECRET) as any;
+    (req as any).user = {
+      uid: decodedToken.uid,
+      email: decodedToken.email,
+      role: decodedToken.role
+    };
     next();
   } catch (err) {
     return res.status(401).json({ error: "Unauthorized: Invalid token" });
@@ -1382,6 +1408,123 @@ ${allUrls.map(u => `  <url>
       return res.json({ success: true });
     } catch (e: any) {
       console.error(`[/api/mock-firestore/deleteDoc] Error on ${path}/${id}:`, e.message);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Custom Authentication Routes
+  app.post("/api/auth/register", async (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: "Missing email or password" });
+    }
+
+    try {
+      if (!pgPool) initPostgres();
+      // Check if email or pseudo-email matches phone number is already taken
+      const userRes = await pgPool!.query("SELECT id FROM users WHERE email = $1", [email]);
+      if (userRes.rows.length > 0) {
+        return res.status(400).json({ error: "Email or phone number is already registered" });
+      }
+
+      // Generate a new UUID/UID
+      const uid = "usr_" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      const salt = bcrypt.genSaltSync(10);
+      const hash = bcrypt.hashSync(password, salt);
+
+      // Insert minimal user record.
+      await pgPool!.query(
+        "INSERT INTO users (id, email, password_hash, role, total_tests_taken, cumulative_score, global_rank, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+        [uid, email, hash, "user", 0, 0, 0, "active"]
+      );
+
+      const token = jwt.sign({ uid, email, role: "user" }, JWT_SECRET, { expiresIn: "30d" });
+      return res.json({
+        token,
+        user: { uid, email, name: "", role: "user" }
+      });
+    } catch (e: any) {
+      console.error("[Auth Register] Error:", e.message);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: "Missing email or password" });
+    }
+
+    try {
+      if (!pgPool) initPostgres();
+      // Look up user by email
+      const userRes = await pgPool!.query("SELECT * FROM users WHERE email = $1", [email]);
+      if (userRes.rows.length === 0) {
+        return res.status(401).json({ error: "Invalid login credentials. User not found." });
+      }
+
+      const user = userRes.rows[0];
+      if (!user.password_hash) {
+        return res.status(401).json({ error: "Password not set for this account. Please register or contact support." });
+      }
+
+      const isValid = bcrypt.compareSync(password, user.password_hash);
+      if (!isValid) {
+        return res.status(401).json({ error: "Incorrect password. Please try again." });
+      }
+
+      const token = jwt.sign({ uid: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: "30d" });
+      return res.json({
+        token,
+        user: {
+          uid: user.id,
+          email: user.email,
+          name: user.name || "",
+          phoneNumber: user.phone_number || "",
+          role: user.role || "user"
+        }
+      });
+    } catch (e: any) {
+      console.error("[Auth Login] Error:", e.message);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/auth/me", verifyToken, async (req, res) => {
+    const user = (req as any).user;
+    try {
+      if (!pgPool) initPostgres();
+      const userRes = await pgPool!.query("SELECT * FROM users WHERE id = $1", [user.uid]);
+      if (userRes.rows.length === 0) {
+        return res.status(404).json({ error: "User profile not found." });
+      }
+
+      const profile = userRes.rows[0];
+      return res.json({
+        uid: profile.id,
+        email: profile.email,
+        name: profile.name,
+        phoneNumber: profile.phone_number,
+        role: profile.role
+      });
+    } catch (e: any) {
+      console.error("[Auth Me] Error:", e.message);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/auth/check-mobile", async (req, res) => {
+    const { mobile } = req.body;
+    if (!mobile) {
+      return res.status(400).json({ error: "Missing mobile number" });
+    }
+
+    try {
+      if (!pgPool) initPostgres();
+      const userRes = await pgPool!.query("SELECT id FROM users WHERE phone_number = $1", [mobile]);
+      return res.json({ exists: userRes.rows.length > 0 });
+    } catch (e: any) {
+      console.error("[Auth Check Mobile] Error:", e.message);
       return res.status(500).json({ error: e.message });
     }
   });
