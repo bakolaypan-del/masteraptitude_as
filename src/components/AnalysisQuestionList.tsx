@@ -50,6 +50,7 @@ const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E', 'F'];
 function QuestionCard({
   q, idx, marksPerCorrect, negativeMarks,
 }: {
+  key?: string;
   q: AnalysisQuestion;
   idx: number;
   marksPerCorrect: number;

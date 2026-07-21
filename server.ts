@@ -1,5 +1,9 @@
 import "dotenv/config";
 import https from "https";
+import { Pool, types } from "pg";
+
+// Parse decimal/numeric columns to float numbers automatically
+types.setTypeParser(1700, (val) => parseFloat(val));
 
 // Compensation for potential host clock drift (Item 5)
 function syncTime() {
@@ -169,6 +173,699 @@ function getGeminiClient() {
 }
 
 // Global State
+
+let pgPool: Pool | null = null;
+
+function initPostgres() {
+  if (pgPool) return;
+  console.log("[Postgres] Initializing connection pool to Supabase...");
+  pgPool = new Pool({
+    connectionString: process.env.SUPABASE_DB_URI,
+    ssl: { rejectUnauthorized: false }
+  });
+}
+
+// Collection-to-Table name mapping
+const collectionTableMap: { [key: string]: string } = {
+  profiles: "users",
+  tests: "tests",
+  questions: "questions",
+  results: "results",
+  typing_tests: "typing_tests",
+  typing_results: "typing_results",
+  custom_categories: "custom_categories",
+  mock_question_analysis: "mock_question_analysis",
+  carousel: "carousel",
+  affairs: "affairs",
+  notes: "study_notes",
+  study_notes: "study_notes",
+  videos: "videos",
+  paid_mock_batches: "paid_mock_batches",
+  student_reviews: "student_reviews",
+  settings: "settings",
+  review_links: "review_links",
+  leaderboards: "leaderboards",
+  question_stats: "question_stats",
+  news_posts: "news_posts"
+};
+
+// Column mapping for tables
+const tableColumnMap: { [table: string]: { [jsKey: string]: string } } = {
+  users: {
+    id: "id",
+    name: "name",
+    email: "email",
+    studentEmail: "email",
+    phoneNumber: "phone_number",
+    role: "role",
+    totalTestsTaken: "total_tests_taken",
+    cumulativeScore: "cumulative_score",
+    globalRank: "global_rank",
+    status: "status",
+    lastTestAt: "last_test_at"
+  },
+  tests: {
+    id: "id",
+    title: "title",
+    topic: "topic",
+    subjectName: "subject_name",
+    description: "description",
+    category: "category",
+    testType: "test_type",
+    duration: "duration",
+    marksPerCorrect: "marks_per_correct",
+    negativeMarks: "negative_marks",
+    isActive: "is_active",
+    createdAt: "created_at"
+  },
+  questions: {
+    id: "id",
+    testId: "test_id",
+    topic: "topic",
+    qNo: "q_no",
+    questionText: "question_text",
+    options: "options",
+    imageUrl: "image_url",
+    correctAnswer: "correct_answer",
+    equationLatex: "equation_latex",
+    solution: "solution",
+    explanation: "explanation"
+  },
+  results: {
+    id: "id",
+    userId: "user_id",
+    testId: "test_id",
+    testTitle: "test_title",
+    score: "score",
+    correctAnswers: "correct_answers",
+    wrongAnswers: "wrong_answers",
+    unattempted: "unattempted",
+    accuracy: "accuracy",
+    timeTaken: "time_taken",
+    attemptNumber: "attempt_number",
+    isFirstAttempt: "is_first_attempt",
+    submittedDuringLive: "submitted_during_live",
+    timestamp: "timestamp",
+    userAnswers: "user_answers",
+    questionTimes: "question_times"
+  },
+  typing_tests: {
+    id: "id",
+    title: "title",
+    duration: "duration",
+    difficulty: "difficulty",
+    paragraph: "paragraph",
+    language: "language",
+    isActive: "is_active",
+    createdAt: "created_at"
+  },
+  typing_results: {
+    id: "id",
+    userId: "user_id",
+    student_id: "user_id",
+    testId: "test_id",
+    test_id: "test_id",
+    attemptNo: "attempt_no",
+    attempt_no: "attempt_no",
+    wpm: "wpm",
+    accuracy: "accuracy",
+    errors: "errors",
+    timeTakenMinutes: "time_taken_minutes",
+    createdAt: "created_at"
+  },
+  custom_categories: {
+    id: "id",
+    categoryName: "category_name",
+    categoryType: "category_type",
+    icon: "icon",
+    colorTheme: "color_theme",
+    status: "status",
+    createdAt: "created_at"
+  },
+  mock_question_analysis: {
+    id: "id",
+    userId: "user_id",
+    studentId: "user_id",
+    testId: "test_id",
+    questionId: "question_id",
+    selectedAnswer: "selected_answer",
+    correctAnswer: "correct_answer",
+    isCorrect: "is_correct",
+    timeTakenSeconds: "time_taken_seconds",
+    attemptedAt: "attempted_at"
+  },
+  carousel: {
+    id: "id",
+    link: "link",
+    priority: "priority",
+    badge: "badge",
+    authorId: "author_id",
+    createdAt: "created_at",
+    imageUrl: "image_url"
+  },
+  affairs: {
+    id: "id",
+    title: "title",
+    slug: "slug",
+    date: "date",
+    description: "description",
+    status: "status",
+    pinToHomepage: "pin_to_homepage",
+    link: "link",
+    tags: "tags"
+  },
+  study_notes: {
+    id: "id",
+    title: "title",
+    link: "link",
+    thumbnailUrl: "thumbnail_url",
+    status: "status",
+    authorId: "author_id",
+    viewCount: "view_count",
+    createdAt: "created_at",
+    sections: "sections"
+  },
+  videos: {
+    id: "id",
+    title: "title",
+    link: "link",
+    subject: "subject",
+    authorId: "author_id",
+    createdAt: "created_at"
+  },
+  paid_mock_batches: {
+    id: "id",
+    examName: "exam_name",
+    description: "description",
+    validity: "validity",
+    price: "price",
+    enrolledCount: "enrolled_count",
+    features: "features",
+    isPopular: "is_popular",
+    createdAt: "created_at"
+  },
+  student_reviews: {
+    id: "id",
+    fullName: "full_name",
+    rating: "rating",
+    reviewText: "review_text",
+    category: "category",
+    reviewLinkId: "review_link_id",
+    featured: "featured",
+    showHomepage: "show_homepage",
+    createdAt: "created_at"
+  }
+};
+
+function mapFieldName(table: string, jsKey: string): string | null {
+  if (jsKey === "id") return "id";
+  const colMap = tableColumnMap[table];
+  if (!colMap) return null;
+  return colMap[jsKey] || null;
+}
+
+function mapRowToJs(table: string, row: any): any {
+  if (!row) return null;
+  if (!tableColumnMap[table]) {
+    return row.data || {};
+  }
+  
+  const data = row.metadata ? { ...row.metadata } : {};
+  const colMap = tableColumnMap[table];
+  for (const [jsKey, dbCol] of Object.entries(colMap)) {
+    if (row[dbCol] !== undefined && row[dbCol] !== null) {
+      let val = row[dbCol];
+      // Convert numeric string to float if it looks like a number and matches numeric fields
+      if (typeof val === 'string' && !isNaN(val as any) && (
+        jsKey.toLowerCase().includes('score') ||
+        jsKey.toLowerCase().includes('marks') ||
+        jsKey.toLowerCase().includes('accuracy') ||
+        jsKey.toLowerCase().includes('percent') ||
+        jsKey.toLowerCase().includes('rank') ||
+        jsKey.toLowerCase().includes('count') ||
+        jsKey.toLowerCase().includes('taken') ||
+        jsKey === 'wpm' ||
+        jsKey === 'errors'
+      )) {
+        val = parseFloat(val);
+      }
+      data[jsKey] = val;
+    }
+  }
+  return data;
+}
+
+function buildUpsertQuery(table: string, id: string, jsData: any, merge = false) {
+  if (!tableColumnMap[table]) {
+    const query = `
+      INSERT INTO ${table} (id, data)
+      VALUES ($1, $2)
+      ON CONFLICT (id) DO UPDATE SET
+        data = ${merge ? `${table}.data || EXCLUDED.data` : "EXCLUDED.data"}
+    `;
+    return { query, params: [id, JSON.stringify(jsData)] };
+  }
+
+  const colMap = tableColumnMap[table];
+  const explicitCols: string[] = ["id"];
+  const explicitVals: any[] = [id];
+  const metadata: any = {};
+  const incrementFields = new Set<string>();
+  const addedCols = new Set<string>(["id"]);
+
+  for (const [key, val] of Object.entries(jsData)) {
+    let parsedVal = val;
+    if (val && typeof val === "object" && (val as any).__type === "serverTimestamp") {
+      parsedVal = Date.now();
+    }
+
+    if (colMap && colMap[key]) {
+      const colName = colMap[key];
+      if (addedCols.has(colName)) {
+        continue;
+      }
+      addedCols.add(colName);
+      explicitCols.push(colName);
+      if (val && typeof val === "object" && (val as any).__type === "increment") {
+        incrementFields.add(colName);
+        explicitVals.push((val as any).value);
+      } else {
+        explicitVals.push(parsedVal);
+      }
+    } else {
+      metadata[key] = parsedVal;
+    }
+  }
+
+  explicitCols.push("metadata");
+  explicitVals.push(JSON.stringify(metadata));
+
+  const placeholders = explicitCols.map((_, idx) => `$${idx + 1}`);
+  const updates = explicitCols.slice(1).map((col) => {
+    if (incrementFields.has(col)) {
+      return `${col} = COALESCE(${table}.${col}, 0) + EXCLUDED.${col}`;
+    }
+    if (col === "metadata" && merge) {
+      return `metadata = COALESCE(${table}.metadata, '{}'::jsonb) || EXCLUDED.metadata`;
+    }
+    return `${col} = EXCLUDED.${col}`;
+  });
+
+  const query = `
+    INSERT INTO ${table} (${explicitCols.join(", ")})
+    VALUES (${placeholders.join(", ")})
+    ON CONFLICT (id) DO UPDATE SET
+      ${updates.join(", ")}
+  `;
+
+  return { query, params: explicitVals };
+}
+
+function buildUpdateQuery(table: string, id: string, jsData: any) {
+  if (!tableColumnMap[table]) {
+    const query = `
+      UPDATE ${table}
+      SET data = COALESCE(data, '{}'::jsonb) || $2
+      WHERE id = $1
+    `;
+    return { query, params: [id, JSON.stringify(jsData)] };
+  }
+
+  const colMap = tableColumnMap[table];
+  const updates: string[] = [];
+  const params: any[] = [id];
+  const metadataUpdates: any = {};
+  let updateMetadata = false;
+  const jsonbPaths: { path: string[]; paramIdx: number }[] = [];
+  const addedCols = new Set<string>();
+
+  for (const [key, val] of Object.entries(jsData)) {
+    let parsedVal = val;
+    if (val && typeof val === "object" && (val as any).__type === "serverTimestamp") {
+      parsedVal = Date.now();
+    }
+
+    if (key.includes(".")) {
+      updateMetadata = true;
+      const parts = key.split(".");
+      const pathArray = parts.map(p => p.replace(/'/g, ""));
+      params.push(JSON.stringify(parsedVal));
+      jsonbPaths.push({ path: pathArray, paramIdx: params.length });
+      continue;
+    }
+
+    if (colMap && colMap[key]) {
+      const dbCol = colMap[key];
+      if (addedCols.has(dbCol)) {
+        continue;
+      }
+      addedCols.add(dbCol);
+      if (val && typeof val === "object" && (val as any).__type === "increment") {
+        params.push((val as any).value);
+        updates.push(`${dbCol} = COALESCE(${dbCol}, 0) + $${params.length}`);
+      } else {
+        params.push(parsedVal);
+        updates.push(`${dbCol} = $${params.length}`);
+      }
+    } else {
+      updateMetadata = true;
+      metadataUpdates[key] = parsedVal;
+    }
+  }
+
+  if (updateMetadata) {
+    let expr = "COALESCE(metadata, '{}'::jsonb)";
+    if (Object.keys(metadataUpdates).length > 0) {
+      params.push(JSON.stringify(metadataUpdates));
+      expr = `${expr} || $${params.length}`;
+    }
+    for (const jp of jsonbPaths) {
+      expr = `jsonb_set(${expr}, '{${jp.path.join(",")}}', $${jp.paramIdx}::jsonb)`;
+    }
+    updates.push(`metadata = ${expr}`);
+  }
+
+  if (updates.length === 0) return null;
+
+  const query = `UPDATE ${table} SET ${updates.join(", ")} WHERE id = $1`;
+  return { query, params };
+}
+
+class PostgresDocumentSnapshot {
+  constructor(public id: string, private _data: any, private _exists: boolean) {}
+  get exists() { return this._exists; }
+  data() { return this._data; }
+}
+
+class PostgresQueryDocumentSnapshot {
+  constructor(public id: string, private _data: any) {}
+  get exists() { return true; }
+  data() { return this._data; }
+}
+
+class PostgresQuerySnapshot {
+  public docs: PostgresQueryDocumentSnapshot[] = [];
+  constructor(docsData: { id: string; data: any }[]) {
+    this.docs = docsData.map(d => new PostgresQueryDocumentSnapshot(d.id, d.data));
+  }
+  get empty() { return this.docs.length === 0; }
+  get size() { return this.docs.length; }
+  forEach(callback: (doc: any) => void) {
+    this.docs.forEach(callback);
+  }
+}
+
+class PostgresQuery {
+  private clauses: { field: string; op: string; val: any }[] = [];
+  private orderField?: string;
+  private orderDir?: "asc" | "desc";
+  private limitCount?: number;
+
+  constructor(public collectionName: string) {}
+
+  where(field: string, op: string, val: any) {
+    this.clauses.push({ field, op, val });
+    return this;
+  }
+
+  orderBy(field: string, dir: "asc" | "desc" = "asc") {
+    this.orderField = field;
+    this.orderDir = dir;
+    return this;
+  }
+
+  limit(n: number) {
+    this.limitCount = n;
+    return this;
+  }
+
+  async get() {
+    const table = collectionTableMap[this.collectionName];
+    if (!table) {
+      console.warn(`[Adapter] Querying unmapped collection: ${this.collectionName}`);
+      return new PostgresQuerySnapshot([]);
+    }
+
+    let sql = `SELECT * FROM ${table}`;
+    const params: any[] = [];
+    const whereClauses: string[] = [];
+
+    for (const clause of this.clauses) {
+      const dbCol = mapFieldName(table, clause.field);
+      if (!dbCol) continue;
+
+      let op = "=";
+      if (clause.op === "==") op = "=";
+      else if (clause.op === ">") op = ">";
+      else if (clause.op === "<") op = "<";
+      else if (clause.op === ">=") op = ">=";
+      else if (clause.op === "<=") op = "<=";
+
+      if (clause.op === "in") {
+        params.push(clause.val);
+        whereClauses.push(`${dbCol} = ANY($${params.length})`);
+      } else if (clause.op === "array-contains") {
+        params.push(clause.val);
+        whereClauses.push(`$${params.length} = ANY(${dbCol})`);
+      } else {
+        params.push(clause.val);
+        whereClauses.push(`${dbCol} ${op} $${params.length}`);
+      }
+    }
+
+    if (whereClauses.length > 0) {
+      sql += " WHERE " + whereClauses.join(" AND ");
+    }
+
+    if (this.orderField) {
+      const orderCol = mapFieldName(table, this.orderField);
+      if (orderCol) {
+        sql += ` ORDER BY ${orderCol} ${this.orderDir === "desc" ? "DESC" : "ASC"}`;
+      }
+    }
+
+    if (this.limitCount !== undefined) {
+      sql += ` LIMIT ${this.limitCount}`;
+    }
+
+    if (!pgPool) initPostgres();
+    const res = await pgPool!.query(sql, params);
+    const docs = res.rows.map(row => ({
+      id: row.id,
+      data: mapRowToJs(table, row)
+    }));
+    return new PostgresQuerySnapshot(docs);
+  }
+}
+
+class PostgresDocumentReference {
+  constructor(public collectionName: string, public id: string) {}
+
+  async get() {
+    const table = collectionTableMap[this.collectionName];
+    if (!table) return new PostgresDocumentSnapshot(this.id, null, false);
+
+    const sql = `SELECT * FROM ${table} WHERE id = $1`;
+    if (!pgPool) initPostgres();
+    const res = await pgPool!.query(sql, [this.id]);
+    if (res.rows.length === 0) {
+      return new PostgresDocumentSnapshot(this.id, null, false);
+    }
+    const data = mapRowToJs(table, res.rows[0]);
+    return new PostgresDocumentSnapshot(this.id, data, true);
+  }
+
+  async set(data: any, options?: { merge?: boolean }) {
+    const table = collectionTableMap[this.collectionName];
+    if (!table) return;
+
+    const sqlInfo = buildUpsertQuery(table, this.id, data, options?.merge ?? false);
+    if (!sqlInfo) return;
+
+    if (!pgPool) initPostgres();
+    await pgPool!.query(sqlInfo.query, sqlInfo.params);
+  }
+
+  async update(data: any) {
+    const table = collectionTableMap[this.collectionName];
+    if (!table) return;
+
+    const sqlInfo = buildUpdateQuery(table, this.id, data);
+    if (!sqlInfo) return;
+
+    if (!pgPool) initPostgres();
+    await pgPool!.query(sqlInfo.query, sqlInfo.params);
+  }
+
+  async delete() {
+    const table = collectionTableMap[this.collectionName];
+    if (!table) return;
+
+    const sql = `DELETE FROM ${table} WHERE id = $1`;
+    if (!pgPool) initPostgres();
+    await pgPool!.query(sql, [this.id]);
+  }
+}
+
+class PostgresCollectionReference {
+  constructor(public collectionName: string) {}
+
+  doc(id?: string) {
+    const finalId = id || Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    return new PostgresDocumentReference(this.collectionName, finalId);
+  }
+
+  async add(data: any) {
+    const finalId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    const docRef = new PostgresDocumentReference(this.collectionName, finalId);
+    await docRef.set(data);
+    return docRef;
+  }
+
+  where(field: string, op: string, val: any) {
+    return new PostgresQuery(this.collectionName).where(field, op, val);
+  }
+
+  orderBy(field: string, dir: "asc" | "desc" = "asc") {
+    return new PostgresQuery(this.collectionName).orderBy(field, dir);
+  }
+
+  limit(n: number) {
+    return new PostgresQuery(this.collectionName).limit(n);
+  }
+
+  async get() {
+    return await new PostgresQuery(this.collectionName).get();
+  }
+}
+
+class PostgresWriteBatch {
+  private ops: { docRef: PostgresDocumentReference; type: "set" | "update" | "delete"; data?: any; options?: any }[] = [];
+
+  set(docRef: PostgresDocumentReference, data: any, options?: any) {
+    this.ops.push({ docRef, type: "set", data, options });
+    return this;
+  }
+
+  update(docRef: PostgresDocumentReference, data: any) {
+    this.ops.push({ docRef, type: "update", data });
+    return this;
+  }
+
+  delete(docRef: PostgresDocumentReference) {
+    this.ops.push({ docRef, type: "delete" });
+    return this;
+  }
+
+  async commit() {
+    if (!pgPool) initPostgres();
+    const client = await pgPool!.connect();
+    try {
+      await client.query("BEGIN");
+      for (const op of this.ops) {
+        const table = collectionTableMap[op.docRef.collectionName];
+        if (!table) continue;
+
+        if (op.type === "set") {
+          const sqlInfo = buildUpsertQuery(table, op.docRef.id, op.data, op.options?.merge ?? false);
+          if (sqlInfo) await client.query(sqlInfo.query, sqlInfo.params);
+        } else if (op.type === "update") {
+          const sqlInfo = buildUpdateQuery(table, op.docRef.id, op.data);
+          if (sqlInfo) await client.query(sqlInfo.query, sqlInfo.params);
+        } else if (op.type === "delete") {
+          const sql = `DELETE FROM ${table} WHERE id = $1`;
+          await client.query(sql, [op.docRef.id]);
+        }
+      }
+      await client.query("COMMIT");
+    } catch (e) {
+      await client.query("ROLLBACK");
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+}
+
+class PostgresTransaction {
+  public ops: { type: "set" | "update" | "delete"; docRef: PostgresDocumentReference; data?: any; options?: any }[] = [];
+
+  constructor(private client: any) {}
+
+  async get(docRef: PostgresDocumentReference) {
+    const table = collectionTableMap[docRef.collectionName];
+    if (!table) return new PostgresDocumentSnapshot(docRef.id, null, false);
+
+    const sql = `SELECT * FROM ${table} WHERE id = $1`;
+    const res = await this.client.query(sql, [docRef.id]);
+    if (res.rows.length === 0) {
+      return new PostgresDocumentSnapshot(docRef.id, null, false);
+    }
+    const data = mapRowToJs(table, res.rows[0]);
+    return new PostgresDocumentSnapshot(docRef.id, data, true);
+  }
+
+  set(docRef: PostgresDocumentReference, data: any, options?: any) {
+    this.ops.push({ type: "set", docRef, data, options });
+    return this;
+  }
+
+  update(docRef: PostgresDocumentReference, data: any) {
+    this.ops.push({ type: "update", docRef, data });
+    return this;
+  }
+
+  delete(docRef: PostgresDocumentReference) {
+    this.ops.push({ type: "delete", docRef });
+    return this;
+  }
+}
+
+class PostgresFirestoreAdapter {
+  collection(collectionName: string) {
+    return new PostgresCollectionReference(collectionName);
+  }
+
+  batch() {
+    return new PostgresWriteBatch();
+  }
+
+  async runTransaction(callback: (transaction: PostgresTransaction) => Promise<any>) {
+    if (!pgPool) initPostgres();
+    const client = await pgPool!.connect();
+    try {
+      await client.query("BEGIN");
+      const transaction = new PostgresTransaction(client);
+      const res = await callback(transaction);
+      
+      // Execute all buffered write operations sequentially inside transaction
+      for (const op of transaction.ops) {
+        const table = collectionTableMap[op.docRef.collectionName];
+        if (!table) continue;
+
+        if (op.type === "set") {
+          const sqlInfo = buildUpsertQuery(table, op.docRef.id, op.data, op.options?.merge ?? false);
+          if (sqlInfo) await client.query(sqlInfo.query, sqlInfo.params);
+        } else if (op.type === "update") {
+          const sqlInfo = buildUpdateQuery(table, op.docRef.id, op.data);
+          if (sqlInfo) await client.query(sqlInfo.query, sqlInfo.params);
+        } else if (op.type === "delete") {
+          const sql = `DELETE FROM ${table} WHERE id = $1`;
+          await client.query(sql, [op.docRef.id]);
+        }
+      }
+      
+      await client.query("COMMIT");
+      return res;
+    } catch (e) {
+      await client.query("ROLLBACK");
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+}
+
 let db: admin.firestore.Firestore | null = null;
 
 /**
@@ -180,76 +877,87 @@ const getDb = () => {
   if (db) return db;
 
   try {
-    const projectId = process.env.FIREBASE_PROJECT_ID || firebaseConfig.projectId;
-    const databaseId = process.env.FIRESTORE_DATABASE_ID || firebaseConfig.firestoreDatabaseId;
+    initPostgres();
 
+    // Initialize Firebase Admin SDK if not already initialized (needed for Auth verification)
     if (admin.apps.length === 0) {
+      const projectId = process.env.FIREBASE_PROJECT_ID || firebaseConfig.projectId;
       let initialized = false;
 
-      // Path 1: Inline JSON from env var (Vercel)
-      const saEnv = process.env.FIREBASE_SERVICE_ACCOUNT;
-      if (saEnv && saEnv.trim().startsWith('{')) {
-        try {
-          console.log("[Firebase] Using inline FIREBASE_SERVICE_ACCOUNT...");
-          let sa = JSON.parse(saEnv);
-          if (sa.private_key) sa.private_key = sa.private_key.replace(/\\n/g, '\n');
-          const storageBucket = process.env.FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket;
-          admin.initializeApp({
-            credential: admin.credential.cert(sa),
-            projectId: projectId || sa.project_id,
-            ...(storageBucket ? { storageBucket } : {}),
-          });
-          initialized = true;
-        } catch (e: any) {
-          console.error("[Firebase] Inline SA parse failed:", e.message);
-        }
+      // Local development with service account key file
+      if (process.env.GOOGLE_APPLICATION_CREDENTIALS && fs.existsSync(process.env.GOOGLE_APPLICATION_CREDENTIALS)) {
+        admin.initializeApp({
+          credential: admin.credential.cert(JSON.parse(fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, "utf-8"))),
+          projectId
+        });
+        initialized = true;
+        console.log("[Firebase] Initialized with local service account credentials.");
       }
 
-      // Path 2: Load key file from disk (localhost)
-      if (!initialized) {
-        const keyFilePath = path.resolve(process.cwd(), "service-account-key.json");
-        if (fs.existsSync(keyFilePath)) {
-          try {
-            console.log(`[Firebase] Loading key from file: ${keyFilePath}`);
-            const sa = JSON.parse(fs.readFileSync(keyFilePath, "utf-8"));
-            const storageBucket = process.env.FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket;
-            admin.initializeApp({
-              credential: admin.credential.cert(sa),
-              projectId: projectId || sa.project_id,
-              ...(storageBucket ? { storageBucket } : {}),
-            });
-            initialized = true;
-            console.log(`[Firebase] Initialized with key file for project: ${projectId || sa.project_id}`);
-          } catch (e: any) {
-            console.error("[Firebase] Key file load failed:", e.message);
-          }
-        }
+      // Inline string fallback for Vercel
+      if (!initialized && process.env.FIREBASE_SERVICE_ACCOUNT) {
+        admin.initializeApp({
+          credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
+          projectId
+        });
+        initialized = true;
+        console.log("[Firebase] Initialized with Vercel inline service account.");
       }
 
-      // Path 3: Last resort fallback
+      // ADC fallback
       if (!initialized) {
-        console.warn("[Firebase] No credentials found. Trying applicationDefault()...");
-        try {
-          admin.initializeApp({
-            credential: admin.credential.applicationDefault(),
-            projectId,
-          });
-        } catch (e) {
-          console.error("[Firebase] All credential methods failed. Initializing without credentials.");
-          admin.initializeApp({ projectId });
-        }
+        admin.initializeApp({
+          projectId
+        });
+        console.log("[Firebase] Initialized with Application Default Credentials.");
       }
     }
 
-    if (admin.apps.length > 0) {
-      const dbId = databaseId || undefined;
-      console.log(`[Firestore] Project: ${projectId}, Database: ${dbId || "(default)"}`);
-      db = getFirestore(admin.apps[0], dbId);
-    }
+    // Alter table schemas dynamically to add metadata columns & generic tables
+    const alters = [
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb",
+      "ALTER TABLE tests ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb",
+      "ALTER TABLE questions ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb",
+      "ALTER TABLE results ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb",
+      "ALTER TABLE typing_tests ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb",
+      "ALTER TABLE typing_results ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb",
+      "ALTER TABLE custom_categories ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb",
+      "ALTER TABLE mock_question_analysis ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb",
+      "ALTER TABLE carousel ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb",
+      "ALTER TABLE affairs ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb",
+      "ALTER TABLE study_notes ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb",
+      "ALTER TABLE videos ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb",
+      "ALTER TABLE paid_mock_batches ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb",
+      "ALTER TABLE student_reviews ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb",
+      "CREATE TABLE IF NOT EXISTS settings (id VARCHAR(128) PRIMARY KEY, data JSONB)",
+      "CREATE TABLE IF NOT EXISTS review_links (id VARCHAR(128) PRIMARY KEY, data JSONB)",
+      "CREATE TABLE IF NOT EXISTS leaderboards (id VARCHAR(128) PRIMARY KEY, data JSONB)",
+      "CREATE TABLE IF NOT EXISTS question_stats (id VARCHAR(128) PRIMARY KEY, data JSONB)",
+      "CREATE TABLE IF NOT EXISTS news_posts (id VARCHAR(128) PRIMARY KEY, data JSONB)"
+    ];
+    
+    // Fire and forget column checks to avoid blocking startup
+    Promise.all(
+      alters.map(sql => pgPool!.query(sql).catch(err => {
+        console.warn("[Postgres] Alter check warning:", err.message);
+      }))
+    ).then(() => {
+      console.log("[Postgres] Relational schemas alter checks completed.");
+    });
 
+    // Runtime patch admin.firestore.FieldValue for increment operations
+    if (!admin.firestore) {
+      (admin as any).firestore = {};
+    }
+    (admin.firestore as any).FieldValue = {
+      increment: (val: number) => ({ __type: 'increment', value: val }),
+      serverTimestamp: () => ({ __type: 'serverTimestamp' })
+    };
+
+    db = new PostgresFirestoreAdapter() as any;
     return db;
   } catch (error) {
-    console.error("[Firebase] Fatal Initialization Error:", error);
+    console.error("[Firebase/Postgres] Fatal Initialization Error:", error);
     return null;
   }
 };
@@ -585,6 +1293,100 @@ ${allUrls.map(u => `  <url>
     });
   });
 
+  // Mock Firestore Client REST proxy API endpoints
+  app.post("/api/mock-firestore/getDoc", verifyToken, async (req, res) => {
+    const { path, id } = req.body;
+    try {
+      const adapter = getDb() as any;
+      const docRef = adapter.collection(path).doc(id);
+      const snapshot = await docRef.get();
+      return res.json({
+        exists: snapshot.exists,
+        data: snapshot.data()
+      });
+    } catch (e: any) {
+      console.error(`[/api/mock-firestore/getDoc] Error on ${path}/${id}:`, e.message);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/mock-firestore/getDocs", verifyToken, async (req, res) => {
+    const { path, clauses } = req.body;
+    try {
+      const adapter = getDb() as any;
+      let q = adapter.collection(path);
+      
+      for (const c of clauses || []) {
+        if (c.type === 'where') {
+          q = q.where(c.field, c.op, c.val);
+        } else if (c.type === 'orderBy') {
+          q = q.orderBy(c.field, c.dir);
+        } else if (c.type === 'limit') {
+          q = q.limit(c.limit);
+        }
+      }
+      
+      const snapshot = await q.get();
+      const docs = snapshot.docs.map((d: any) => ({
+        id: d.id,
+        data: d.data()
+      }));
+      return res.json({ docs });
+    } catch (e: any) {
+      console.error(`[/api/mock-firestore/getDocs] Error on ${path}:`, e.message);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/mock-firestore/setDoc", verifyToken, async (req, res) => {
+    const { path, id, data, merge } = req.body;
+    try {
+      const adapter = getDb() as any;
+      await adapter.collection(path).doc(id).set(data, { merge });
+      return res.json({ success: true });
+    } catch (e: any) {
+      console.error(`[/api/mock-firestore/setDoc] Error on ${path}/${id}:`, e.message);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/mock-firestore/updateDoc", verifyToken, async (req, res) => {
+    const { path, id, data } = req.body;
+    try {
+      const adapter = getDb() as any;
+      await adapter.collection(path).doc(id).update(data);
+      return res.json({ success: true });
+    } catch (e: any) {
+      console.error(`[/api/mock-firestore/updateDoc] Error on ${path}/${id}:`, e.message);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/mock-firestore/addDoc", verifyToken, async (req, res) => {
+    const { path, data } = req.body;
+    try {
+      const adapter = getDb() as any;
+      const docRef = await adapter.collection(path).add(data);
+      return res.json({ id: docRef.id });
+    } catch (e: any) {
+      console.error(`[/api/mock-firestore/addDoc] Error on ${path}:`, e.message);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/mock-firestore/deleteDoc", verifyToken, async (req, res) => {
+    const { path, id } = req.body;
+    try {
+      const adapter = getDb() as any;
+      await adapter.collection(path).doc(id).delete();
+      return res.json({ success: true });
+    } catch (e: any) {
+      console.error(`[/api/mock-firestore/deleteDoc] Error on ${path}/${id}:`, e.message);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+
   // Admin: Purge CDN Cache (updates all timestamps in cache_state settings)
   app.post("/api/admin/purge-cdn", verifyToken, verifyAdmin, async (req, res) => {
     const currentDb = getDb();
@@ -705,6 +1507,24 @@ ${allUrls.map(u => `  <url>
     }
   });
 
+  function parseTimeTaken(val: any): number {
+    if (!val) return 0;
+    if (typeof val === "number") return val;
+    if (typeof val === "string") {
+      if (val.includes(":")) {
+        const parts = val.split(":");
+        if (parts.length === 2) {
+          return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+        } else if (parts.length === 3) {
+          return parseInt(parts[0], 10) * 3600 + parseInt(parts[1], 10) * 60 + parseInt(parts[2], 10);
+        }
+      }
+      const num = parseInt(val, 10);
+      return isNaN(num) ? 0 : num;
+    }
+    return 0;
+  }
+
   // Helper function to serve submit fallback scoring locally
   // Submit test and score it
   app.post("/api/submit-test", verifyToken, async (req, res) => {
@@ -791,7 +1611,7 @@ ${allUrls.map(u => `  <url>
         unattempted: unattempted,
         totalQuestions: totalQuestions,
         accuracy: parseFloat(accuracy.toString()),
-        timeTaken: timeTaken || "N/A",
+        timeTaken: parseTimeTaken(timeTaken),
         userAnswers,
         correctAnswersMap,
         questionTimes,
@@ -957,6 +1777,35 @@ ${allUrls.map(u => `  <url>
     }
   });
 
+  // Global leaderboard - top 10 students by cumulativeScore
+  app.get("/api/global-leaderboard", verifyToken, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(503).json({ error: "Database offline" });
+    const user = (req as any).user;
+    try {
+      const snapshot = await currentDb.collection("profiles")
+        .orderBy("cumulativeScore", "desc")
+        .limit(10)
+        .get();
+
+      const topRankers = snapshot.docs.map((doc, idx) => {
+        const data = doc.data();
+        return {
+          rank: idx + 1,
+          name: data.name || "Student",
+          score: data.cumulativeScore || 0,
+          userId: doc.id,
+          isCurrentUser: doc.id === user.uid
+        };
+      });
+
+      return res.json({ topRankers });
+    } catch (error: any) {
+      console.error("[global-leaderboard] failed:", error);
+      return res.status(500).json({ error: "Failed to fetch leaderboard" });
+    }
+  });
+
   // Test-specific leaderboard — uses FIRST attempt per user for fair ranking
   app.get("/api/test-leaderboard/:testId", verifyToken, async (req, res) => {
     const currentDb = getDb();
@@ -1029,7 +1878,7 @@ ${allUrls.map(u => `  <url>
       if (!statsMap) return res.status(500).json({ error: "Failed to load question stats" });
 
       const stats: Record<string, { totalAttempts: number; correctPercent: number; avgTimeSecs: number }> = {};
-      for (const [qId, s] of Object.entries(statsMap)) {
+      for (const [qId, s] of Object.entries(statsMap as any) as [string, any][]) {
         stats[qId] = {
           totalAttempts: s.totalAttempts,
           correctPercent: s.totalAttempts > 0 ? parseFloat(((s.correctCount / s.totalAttempts) * 100).toFixed(1)) : 0,
@@ -2086,7 +2935,7 @@ ${allUrls.map(u => `  <url>
       const questionStatsDoc = await getOrBuildQuestionStats(testId);
       const questionStats: Record<string, { correct: number, total: number }> = {};
       if (questionStatsDoc) {
-        for (const [qId, s] of Object.entries(questionStatsDoc)) {
+        for (const [qId, s] of Object.entries(questionStatsDoc as any) as [string, any][]) {
           questionStats[qId] = { correct: s.correctCount, total: s.totalAttempts };
         }
       }

@@ -389,6 +389,7 @@ export default function CurrentAffairsPage() {
 function ArticleCard({
   post, isBookmarked, onToggleBookmark, onOpen,
 }: {
+  key?: any;
   post: AffairPost;
   isBookmarked: boolean;
   onToggleBookmark: () => void;
@@ -498,7 +499,7 @@ function ArticleCard({
 
 // ─── Section Renderer ─────────────────────────────────────────────────────────
 
-function SectionRenderer({ section }: { section: AffairSection }) {
+function SectionRenderer({ section }: { key?: any; section: AffairSection }) {
   if (section.type === 'category') {
     return (
       <div className="rounded-2xl overflow-hidden shadow-sm border border-slate-100">

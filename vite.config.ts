@@ -114,6 +114,7 @@ export default defineConfig(({ mode }) => {
 
     resolve: {
       alias: {
+        'firebase/firestore': path.resolve(__dirname, 'src/lib/mockFirestore.ts'),
         '@': path.resolve(__dirname, '.'),
       },
     },

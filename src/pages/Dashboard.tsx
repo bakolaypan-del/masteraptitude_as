@@ -337,6 +337,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [selectedChallengeDay, setSelectedChallengeDay] = useState<number | null>(null);
   const [showChallengeModal, setShowChallengeModal] = useState<boolean>(false);
+  const [challengeLeaderboard, setChallengeLeaderboard] = useState<any[]>([]);
+  const [challengeLeaderboardLoading, setChallengeLeaderboardLoading] = useState(false);
 
   const challengeTests = useMemo(() => {
     return activeTests.filter(t => t.category === "150 Days Free Practice" && t.isActive !== false);
@@ -843,6 +845,33 @@ export default function Dashboard() {
     
     fetchData();
   }, [user]);
+
+  useEffect(() => {
+    async function fetchChallengeLeaderboard() {
+      if (activeTab !== 'mock_challenge' || !user) return;
+      setChallengeLeaderboardLoading(true);
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch('/api/global-leaderboard', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setChallengeLeaderboard(data.topRankers || []);
+        } else {
+          console.error("Failed to fetch challenge leaderboard");
+        }
+      } catch (err) {
+        console.error("Error fetching challenge leaderboard:", err);
+      } finally {
+        setChallengeLeaderboardLoading(false);
+      }
+    }
+
+    fetchChallengeLeaderboard();
+  }, [activeTab, user]);
 
   // Slideshow Logic
   useEffect(() => {
@@ -2708,68 +2737,70 @@ export default function Dashboard() {
           )}
 
           {activeTab === 'mock_challenge' && (
-            <div className="space-y-8 animate-in fade-in duration-150">
-              {/* Header / Stats Card */}
-              <div className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-3xl p-6 md:p-8 text-white shadow-xl shadow-indigo-500/10 relative overflow-hidden">
-                {/* Background decorative circles */}
-                <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
-                <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
-                
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-                  <div className="space-y-2">
-                    <span className="bg-white/20 text-white font-black uppercase text-[10px] px-3.5 py-1 rounded-full tracking-widest border border-white/10">
-                      150 Days Practice Challenge
-                    </span>
-                    <h2 className="text-2xl md:text-3xl font-black tracking-tight">Boost Your Preparation Daily</h2>
-                    <p className="text-xs text-indigo-100 font-medium max-w-xl">
-                      Complete all uploaded mock tests every day. Stay consistent, track your progress, and crack your exams!
-                    </p>
-                  </div>
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 animate-in fade-in duration-150 items-start">
+              {/* Left Column: Calendar & Stats (takes 3 of 4 columns) */}
+              <div className="lg:col-span-3 space-y-8">
+                {/* Header / Stats Card */}
+                <div className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-3xl p-6 md:p-8 text-white shadow-xl shadow-indigo-500/10 relative overflow-hidden">
+                  {/* Background decorative circles */}
+                  <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
+                  <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
                   
-                  {/* Stats circles / progress */}
-                  <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 shrink-0">
-                    <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white shrink-0 shadow-inner">
-                      <Award className="w-6 h-6 text-yellow-300" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-indigo-200 uppercase tracking-wider">Progress</p>
-                      <h4 className="text-xl font-black">
-                        {challengeStats.completedDaysCount} / 150 Days
-                      </h4>
-                      <p className="text-[9px] font-bold text-indigo-100/80 mt-0.5">
-                        {challengeStats.percentage}% Completed
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+                    <div className="space-y-2">
+                      <span className="bg-white/20 text-white font-black uppercase text-[10px] px-3.5 py-1 rounded-full tracking-widest border border-white/10">
+                        150 Days Practice Challenge
+                      </span>
+                      <h2 className="text-2xl md:text-3xl font-black tracking-tight">Boost Your Preparation Daily</h2>
+                      <p className="text-xs text-indigo-100 font-medium max-w-xl">
+                        Complete all uploaded mock tests every day. Stay consistent, track your progress, and crack your exams!
                       </p>
                     </div>
+                    
+                    {/* Stats circles / progress */}
+                    <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 shrink-0">
+                      <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white shrink-0 shadow-inner">
+                        <Award className="w-6 h-6 text-yellow-300" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-indigo-200 uppercase tracking-wider">Progress</p>
+                        <h4 className="text-xl font-black">
+                          {challengeStats.completedDaysCount} / 150 Days
+                        </h4>
+                        <p className="text-[9px] font-bold text-indigo-100/80 mt-0.5">
+                          {challengeStats.percentage}% Completed
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="mt-6 relative z-10">
+                    <div className="w-full bg-white/20 rounded-full h-2.5 overflow-hidden">
+                      <div 
+                        className="bg-yellow-300 h-full rounded-full transition-all duration-500 ease-out"
+                        style={{ width: `${Math.min(100, Math.max(0, (challengeStats.completedDaysCount / 150) * 100))}%` }}
+                      ></div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Progress bar */}
-                <div className="mt-6 relative z-10">
-                  <div className="w-full bg-white/20 rounded-full h-2.5 overflow-hidden">
-                    <div 
-                      className="bg-yellow-300 h-full rounded-full transition-all duration-500 ease-out"
-                      style={{ width: `${Math.min(100, Math.max(0, (challengeStats.completedDaysCount / 150) * 100))}%` }}
-                    ></div>
+                {/* Day Selection Grid */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-1.5 h-8 bg-indigo-500 rounded-full"></div>
+                      <h3 className="text-lg font-black text-slate-800 tracking-tight">Daily Mock Calendars</h3>
+                    </div>
+                    <div className="flex items-center gap-3 text-[10px] sm:text-xs font-semibold text-slate-500 flex-wrap gap-y-1">
+                      <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-emerald-500"></span> Completed</span>
+                      <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-amber-500"></span> In Progress</span>
+                      <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-white border border-slate-200"></span> Available</span>
+                      <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-slate-100 border border-slate-200 border-dashed"></span> Locked</span>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Day Selection Grid */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-1.5 h-8 bg-indigo-500 rounded-full"></div>
-                    <h3 className="text-lg font-black text-slate-800 tracking-tight">Daily Mock Calendars</h3>
-                  </div>
-                  <div className="flex items-center gap-3 text-[10px] sm:text-xs font-semibold text-slate-500 flex-wrap gap-y-1">
-                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-emerald-500"></span> Completed</span>
-                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-amber-500"></span> In Progress</span>
-                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-white border border-slate-200"></span> Available</span>
-                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-slate-100 border border-slate-200 border-dashed"></span> Locked</span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-8 lg:grid-cols-10 gap-3">
+                  <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-8 lg:grid-cols-10 gap-3">
                   {Array.from({ length: 150 }, (_, i) => {
                     const dayNum = i + 1;
                     const tests = challengeDaysMap[dayNum] || [];
@@ -2840,6 +2871,70 @@ export default function Dashboard() {
                   })}
                 </div>
               </div>
+            </div>
+
+            {/* Right Column: Top 10 Leaderboard (takes 1 of 4 columns) */}
+            <div className="lg:col-span-1 space-y-6">
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 text-white shadow-xl relative overflow-hidden h-fit">
+                <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
+                  <h3 className="text-sm font-black text-slate-200 uppercase tracking-widest flex items-center gap-2">
+                    🏆 Top 10 Leaders
+                  </h3>
+                </div>
+                
+                {challengeLeaderboardLoading ? (
+                  <div className="flex flex-col items-center justify-center py-10 space-y-2">
+                    <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-xs text-slate-400 font-medium">Loading...</span>
+                  </div>
+                ) : challengeLeaderboard.length === 0 ? (
+                  <div className="text-center py-8 text-xs text-slate-500 font-medium">
+                    No leaderboard data yet.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {challengeLeaderboard.map((r: any) => (
+                      <div 
+                        key={r.userId} 
+                        className={`flex items-center justify-between p-3 rounded-2xl transition-all duration-200 ${
+                          r.isCurrentUser 
+                            ? 'bg-indigo-500/20 border border-indigo-500/30' 
+                            : 'bg-slate-800/40 border border-slate-800/50 hover:bg-slate-800/70'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          {/* Rank badge */}
+                          <span className={`text-[11px] font-black w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
+                            r.rank === 1 ? 'bg-amber-400 text-amber-950' :
+                            r.rank === 2 ? 'bg-slate-300 text-slate-900' :
+                            r.rank === 3 ? 'bg-amber-600/60 text-amber-100' :
+                            'bg-slate-700 text-slate-300'
+                          }`}>
+                            {r.rank}
+                          </span>
+                          <span className="text-xs font-bold text-slate-100 truncate">
+                            {r.name}
+                          </span>
+                        </div>
+                        <span className="text-xs font-black text-indigo-300 whitespace-nowrap">
+                          {r.score.toFixed(1)} pts
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Current User Rank Footer */}
+                {!challengeLeaderboardLoading && profile && (
+                  <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs font-bold">
+                    <span className="text-slate-400">Your Rank:</span>
+                    <span className="text-amber-400">
+                      #{profile.globalRank || '-'} ({profile.cumulativeScore || 0} pts)
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
 
               {/* Day Modal Overlay */}
               {showChallengeModal && selectedChallengeDay !== null && (() => {
