@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { collection, query, where, getDocs, orderBy, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { signOut, updatePassword } from 'firebase/auth';
@@ -310,6 +310,21 @@ const DEFAULT_DASHBOARD_CATEGORIES = [
 
 export default function Dashboard() {
   const { user, profile } = useAuth();
+  console.log("DEBUG [Dashboard] Rendering. User:", user?.uid, "Profile Role:", profile?.role);
+  const lastUserRef = useRef(user);
+  useEffect(() => {
+    if (user !== lastUserRef.current) {
+      console.log("DEBUG [Dashboard] User object reference changed!", { prev: lastUserRef.current, next: user });
+      lastUserRef.current = user;
+    }
+  });
+  const lastProfileRef = useRef(profile);
+  useEffect(() => {
+    if (profile !== lastProfileRef.current) {
+      console.log("DEBUG [Dashboard] Profile object reference changed!", { prev: lastProfileRef.current, next: profile });
+      lastProfileRef.current = profile;
+    }
+  });
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   
@@ -407,6 +422,37 @@ export default function Dashboard() {
     setSelectedTopic(null);
     setSearchParams({ tab: activeTab, cat });
   };
+
+  const lastStateRef = useRef<any>({});
+  useEffect(() => {
+    const changes: any = {};
+    const states = {
+      activeTestsLength: activeTests.length,
+      liveTestsLength: liveTests.length,
+      pastResultsLength: pastResults.length,
+      notesLength: notes.length,
+      videosLength: videos.length,
+      pyqsLength: pyqs.length,
+      patternsLength: patterns.length,
+      carouselsLength: carousels.length,
+      affairsLength: affairs.length,
+      practiceSetsLength: practiceSets.length,
+      loading,
+      selectedCategory,
+      selectedTopic,
+      expandedCategory,
+      expandedTopic
+    };
+    for (const [k, v] of Object.entries(states)) {
+      if (lastStateRef.current[k] !== v) {
+        changes[k] = { prev: lastStateRef.current[k], next: v };
+      }
+    }
+    if (Object.keys(changes).length > 0) {
+      console.log("DEBUG [Dashboard] State changes:", changes);
+    }
+    lastStateRef.current = states;
+  });
 
   // Analysis navigation helper
   const openAnalysis = (result: any) => {
@@ -516,6 +562,7 @@ export default function Dashboard() {
   const [videoNotes, setVideoNotes] = useState<string>('');
 
   useEffect(() => {
+    console.log("DEBUG [Dashboard] useEffect (fetchData) triggered. User:", user?.uid);
     async function fetchData() {
       if (!user) return;
 

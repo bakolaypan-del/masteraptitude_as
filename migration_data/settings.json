@@ -1,0 +1,241 @@
+{
+  "category_order": {
+    "order": [
+      "MATH",
+      "REASONING",
+      "GK",
+      "ENGLISH",
+      "COMPUTER"
+    ]
+  },
+  "affair_categories": {
+    "cats": [
+      {
+        "colorFrom": "#1d4ed8",
+        "name": "Important Days",
+        "order": 0,
+        "colorTo": "#4f46e5",
+        "id": "default_0",
+        "icon": "🗓️"
+      },
+      {
+        "colorTo": "#b91c1c",
+        "id": "default_1",
+        "icon": "🇮🇳",
+        "order": 1,
+        "colorFrom": "#ea580c",
+        "name": "National News"
+      },
+      {
+        "name": "International News",
+        "colorFrom": "#16a34a",
+        "order": 2,
+        "id": "default_2",
+        "icon": "🌍",
+        "colorTo": "#0f766e"
+      },
+      {
+        "colorTo": "#4338ca",
+        "id": "default_3",
+        "icon": "🏛️",
+        "colorFrom": "#7c3aed",
+        "name": "State News",
+        "order": 3
+      },
+      {
+        "order": 4,
+        "name": "Sports News",
+        "colorFrom": "#e11d48",
+        "icon": "⚽",
+        "id": "default_4",
+        "colorTo": "#be185d"
+      },
+      {
+        "colorTo": "#1d4ed8",
+        "icon": "🔬",
+        "id": "default_5",
+        "colorFrom": "#0284c7",
+        "name": "Science & Technology",
+        "order": 5
+      },
+      {
+        "colorTo": "#b45309",
+        "icon": "💰",
+        "id": "default_6",
+        "order": 6,
+        "colorFrom": "#d97706",
+        "name": "Economy"
+      },
+      {
+        "colorTo": "#a16207",
+        "id": "default_7",
+        "icon": "🏆",
+        "order": 7,
+        "colorFrom": "#ca8a04",
+        "name": "Awards & Honours"
+      },
+      {
+        "colorTo": "#334155",
+        "icon": "📰",
+        "id": "o34pg5sasempjc96fk",
+        "order": 8,
+        "colorFrom": "#475569",
+        "name": "Banking & Business"
+      },
+      {
+        "id": "luksrtnq1mrmpjca487",
+        "name": "Awards & Honours",
+        "icon": "📰",
+        "colorFrom": "#0284c7",
+        "colorTo": "#1d4ed8",
+        "order": 9
+      },
+      {
+        "id": "6wqehxnp1lkmpjcaj5r",
+        "name": "Appointments",
+        "icon": "📰",
+        "colorFrom": "#ea580c",
+        "colorTo": "#b91c1c",
+        "order": 10
+      },
+      {
+        "id": "4cxcggyh2ukmpjcb2ao",
+        "name": "Defence News",
+        "icon": null,
+        "colorFrom": "#e11d48",
+        "colorTo": "#be185d",
+        "order": 11
+      },
+      {
+        "id": "bnr1r3tmihsmpjcbhkv",
+        "name": "Acquisitions & Mergers  ",
+        "icon": "📰",
+        "colorFrom": "#ca8a04",
+        "colorTo": "#a16207",
+        "order": 12
+      },
+      {
+        "id": "ljqcijkocampjcbomu",
+        "name": "Rankings & Index ",
+        "icon": "📰",
+        "colorFrom": "#16a34a",
+        "colorTo": "#0f766e",
+        "order": 13
+      },
+      {
+        "id": "uyeifuc4ylmpjcbvvy",
+        "name": "Obituaries  ",
+        "icon": "📰",
+        "colorFrom": "#d97706",
+        "colorTo": "#b45309",
+        "order": 14
+      }
+    ]
+  },
+  "social_links": {
+    "youtube": "https://youtube.com/@masteraptitude?si=3h5-qzAlf0gbf_oF",
+    "telegram": "https://t.me/masteraptitude1",
+    "whatsapp": "https://chat.whatsapp.com/D7wEdq63mSC1vTx3hwcs2F",
+    "authorId": "0SCqNillT6Xe4z3RQzVzinzYiV12",
+    "updatedAt": "2026-05-09T21:34:26.539000"
+  },
+  "cache_state": {
+    "notes": 1784536026768,
+    "patterns": 1784536026768,
+    "videos": 1784536026768,
+    "carousel": 1784536026768,
+    "custom_categories": 1784536026768,
+    "reviews": 1784536026768,
+    "practice_sets": 1784536026768,
+    "categories": 1784536026768,
+    "affairs": 1784536026768,
+    "pyqs": 1784536026768,
+    "paid_mock_batches": 1784543846582,
+    "tests": 1784610681310,
+    "sitemap_updated_at": 1784610681310
+  },
+  "study_note_categories": {
+    "cats": [
+      {
+        "name": "🎭 ভারতীয় নৃত্যকলা",
+        "icon": "🔢",
+        "colorFrom": "#1d4ed8",
+        "colorTo": "#4f46e5",
+        "id": "default_0",
+        "order": 0
+      },
+      {
+        "name": "General Knowledge",
+        "icon": "🌐",
+        "colorFrom": "#16a34a",
+        "colorTo": "#0f766e",
+        "id": "default_1",
+        "order": 1
+      },
+      {
+        "name": "History",
+        "icon": "📜",
+        "colorFrom": "#b45309",
+        "colorTo": "#92400e",
+        "id": "default_2",
+        "order": 2
+      },
+      {
+        "name": "Geography",
+        "icon": "🗺️",
+        "colorFrom": "#0284c7",
+        "colorTo": "#0369a1",
+        "id": "default_3",
+        "order": 3
+      },
+      {
+        "name": "Science",
+        "icon": "🔬",
+        "colorFrom": "#7c3aed",
+        "colorTo": "#4338ca",
+        "id": "default_4",
+        "order": 4
+      },
+      {
+        "name": "English",
+        "icon": "📖",
+        "colorFrom": "#0f766e",
+        "colorTo": "#065f46",
+        "id": "default_5",
+        "order": 5
+      },
+      {
+        "name": "Reasoning",
+        "icon": "🧠",
+        "colorFrom": "#e11d48",
+        "colorTo": "#be185d",
+        "id": "default_6",
+        "order": 6
+      },
+      {
+        "name": "Computer",
+        "icon": "💻",
+        "colorFrom": "#475569",
+        "colorTo": "#334155",
+        "id": "default_7",
+        "order": 7
+      },
+      {
+        "name": "Current Affairs",
+        "icon": "📰",
+        "colorFrom": "#ea580c",
+        "colorTo": "#b91c1c",
+        "id": "default_8",
+        "order": 8
+      },
+      {
+        "name": "Polity & Governance",
+        "icon": "🏛️",
+        "colorFrom": "#ca8a04",
+        "colorTo": "#a16207",
+        "id": "default_9",
+        "order": 9
+      }
+    ]
+  }
+}

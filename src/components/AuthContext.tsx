@@ -64,7 +64,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    console.log("DEBUG [AuthContext] useEffect registered onAuthStateChanged");
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+      console.log("DEBUG [AuthContext] onAuthStateChanged fired. currentUser ID:", currentUser?.uid);
       setUser(currentUser);
       
       if (currentUser) {

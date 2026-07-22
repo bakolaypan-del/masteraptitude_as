@@ -18,6 +18,7 @@ import CurrentAffairsPage from './pages/CurrentAffairsPage';
 
 function SecurityWrapper({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  console.log("DEBUG [SecurityWrapper] Rendering. User ID:", user?.uid);
 
   useEffect(() => {
     // 1. Disable Right Click
@@ -86,6 +87,7 @@ function SecurityWrapper({ children }: { children: React.ReactNode }) {
 
 function ProtectedRoute({ children, adminOnly = false }: { children: React.ReactNode, adminOnly?: boolean }) {
   const { user, profile, loading } = useAuth();
+  console.log("DEBUG [ProtectedRoute] Rendering. User ID:", user?.uid, "Profile Role:", profile?.role, "Loading:", loading);
 
   if (loading) return <div className="flex items-center justify-center min-h-screen text-gray-500">Loading...</div>;
   if (!user) return <Navigate to="/login" replace />;
