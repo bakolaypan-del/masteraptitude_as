@@ -1,14 +1,15 @@
 import { auth } from './firebase';
 
 async function getAuthToken(): Promise<string> {
-  if (auth && auth.currentUser) {
+  let token = localStorage.getItem('ma_auth_token') || '';
+  if (!token && auth && auth.currentUser) {
     try {
-      return await auth.currentUser.getIdToken();
+      token = await auth.currentUser.getIdToken();
     } catch (e) {
       console.warn("[mockFirestore] Failed to get user auth token:", e);
     }
   }
-  return '';
+  return token;
 }
 
 // Mock Firestore Classes
@@ -130,6 +131,10 @@ async function handleErrorResponse(res: Response, defaultMsg: string): Promise<n
 // Client-to-Server API Requests
 export async function getDoc(docRef: DocumentReference): Promise<DocumentSnapshot> {
   const token = await getAuthToken();
+  if (!token) {
+    return new DocumentSnapshot(docRef.id, null, false);
+  }
+
   const res = await fetch('/api/mock-firestore/getDoc', {
     method: 'POST',
     headers: {
@@ -148,6 +153,10 @@ export async function getDoc(docRef: DocumentReference): Promise<DocumentSnapsho
 
 export async function getDocs(queryRef: CollectionReference | Query): Promise<QuerySnapshot> {
   const token = await getAuthToken();
+  if (!token) {
+    return new QuerySnapshot([]);
+  }
+
   const path = queryRef instanceof CollectionReference ? queryRef.path : queryRef.ref.path;
   const clauses = queryRef instanceof Query ? queryRef.clauses : [];
   
@@ -166,6 +175,8 @@ export async function getDocs(queryRef: CollectionReference | Query): Promise<Qu
 
 export async function setDoc(docRef: DocumentReference, data: any, options?: { merge?: boolean }): Promise<void> {
   const token = await getAuthToken();
+  if (!token) return;
+
   const res = await fetch('/api/mock-firestore/setDoc', {
     method: 'POST',
     headers: {
@@ -184,6 +195,8 @@ export async function setDoc(docRef: DocumentReference, data: any, options?: { m
 
 export async function updateDoc(docRef: DocumentReference, data: any): Promise<void> {
   const token = await getAuthToken();
+  if (!token) return;
+
   const res = await fetch('/api/mock-firestore/updateDoc', {
     method: 'POST',
     headers: {
@@ -201,6 +214,8 @@ export async function updateDoc(docRef: DocumentReference, data: any): Promise<v
 
 export async function addDoc(colRef: CollectionReference, data: any): Promise<DocumentReference> {
   const token = await getAuthToken();
+  if (!token) return new DocumentReference(colRef.firestore, colRef.path, '');
+
   const res = await fetch('/api/mock-firestore/addDoc', {
     method: 'POST',
     headers: {
@@ -219,6 +234,8 @@ export async function addDoc(colRef: CollectionReference, data: any): Promise<Do
 
 export async function deleteDoc(docRef: DocumentReference): Promise<void> {
   const token = await getAuthToken();
+  if (!token) return;
+
   const res = await fetch('/api/mock-firestore/deleteDoc', {
     method: 'POST',
     headers: {
