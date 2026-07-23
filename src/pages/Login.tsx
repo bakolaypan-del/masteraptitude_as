@@ -138,15 +138,7 @@ export default function Login() {
       setTimeout(() => navigate('/dashboard'), 1000);
     } catch (err: any) {
       console.error('Login error:', err);
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-        if (!isAdminLogin) {
-          setError('Invalid login details or Password. If you are new here, please click Register at the top.');
-        } else {
-          setError('Invalid Admin Email/ID or Password.');
-        }
-      } else {
-        setError(err.message || 'Error signing in. Please check your network.');
-      }
+      setError(err.message || 'Invalid login details or Password. If you are new here, please click Register at the top.');
     } finally {
       setLoading(false);
     }

@@ -1460,34 +1460,42 @@ ${allUrls.map(u => `  <url>
   });
 
   app.post("/api/auth/login", async (req, res) => {
-    const { email, password } = req.body;
+    const { email, password } = req.body || {};
     if (!email || !password) {
-      return res.status(400).json({ error: "Missing email or password" });
+      return res.status(400).json({ error: "Missing mobile number/email or password" });
     }
 
     try {
       if (!pgPool) initPostgres();
-      const digitsOnly = String(email).replace(/\D/g, '');
+      const rawEmail = String(email).trim();
+      const rawPassword = String(password).trim();
+
+      const digitsOnly = rawEmail.replace(/\D/g, '');
       const cleanPhone = digitsOnly.length >= 10 ? digitsOnly.slice(-10) : '';
       const pseudoEmail = cleanPhone ? `${cleanPhone}@students.myapp.com` : '';
 
-      // Look up user by email, pseudoEmail, or phone_number
+      // Look up user by email, pseudoEmail, phone_number, or metadata JSONB
       const userRes = await pgPool!.query(
-        "SELECT * FROM users WHERE email = $1 OR ($2 != '' AND email = $2) OR ($3 != '' AND phone_number IS NOT NULL AND phone_number = $3)",
-        [email, pseudoEmail, cleanPhone]
+        `SELECT * FROM users 
+         WHERE LOWER(email) = LOWER($1) 
+            OR ($2 != '' AND LOWER(email) = LOWER($2)) 
+            OR ($3 != '' AND phone_number IS NOT NULL AND phone_number = $3)
+            OR ($3 != '' AND metadata IS NOT NULL AND (metadata->>'phoneNumber' = $3 OR metadata->>'phone_number' = $3))`,
+        [rawEmail, pseudoEmail, cleanPhone]
       );
       if (userRes.rows.length === 0) {
-        return res.status(401).json({ error: "Invalid login credentials. User not found." });
+        return res.status(401).json({ error: "No account found with this mobile number/email. Please check your details or Register." });
       }
 
       const user = userRes.rows[0];
       if (!user.password_hash) {
-        return res.status(401).json({ error: "Password not set for this account. Please register or contact support." });
+        return res.status(401).json({ error: "Password not set for this account. Please use Forgot Password to set a password." });
       }
 
-      const isValid = bcrypt.compareSync(password, user.password_hash);
+      // Check password with both trimmed and original password
+      const isValid = bcrypt.compareSync(rawPassword, user.password_hash) || bcrypt.compareSync(String(password), user.password_hash);
       if (!isValid) {
-        return res.status(401).json({ error: "Incorrect password. Please try again." });
+        return res.status(401).json({ error: "Incorrect password. Please verify your password and try again." });
       }
 
       const token = jwt.sign({ uid: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: "30d" });
