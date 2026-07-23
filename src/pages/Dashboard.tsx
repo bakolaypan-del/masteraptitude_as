@@ -354,6 +354,7 @@ export default function Dashboard() {
   const [showChallengeModal, setShowChallengeModal] = useState<boolean>(false);
   const [challengeLeaderboard, setChallengeLeaderboard] = useState<any[]>([]);
   const [challengeLeaderboardLoading, setChallengeLeaderboardLoading] = useState(false);
+  const [challengeHeaderTab, setChallengeHeaderTab] = useState<'progress' | 'leaderboard'>('progress');
 
   const challengeTests = useMemo(() => {
     return activeTests.filter(t => t.category === "150 Days Free Practice" && t.isActive !== false);
@@ -2796,152 +2797,123 @@ export default function Dashboard() {
           )}
 
           {activeTab === 'mock_challenge' && (
-            <div className="space-y-8 animate-in fade-in duration-150">
-              {/* Unified Single Shape Banner Card: 50% Left (Progress) & 50% Right (Top 5 Student Leaderboard) */}
-              <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 rounded-3xl p-6 md:p-8 text-white shadow-2xl border border-indigo-500/20 relative overflow-hidden">
-                {/* Background decorative glows */}
-                <div className="absolute -top-12 -left-12 w-56 h-56 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
-                <div className="absolute -bottom-12 -right-12 w-56 h-56 bg-violet-500/15 rounded-full blur-3xl pointer-events-none" />
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10 items-stretch divide-y md:divide-y-0 md:divide-x divide-indigo-500/20">
+            <div className="space-y-4 animate-in fade-in duration-150">
+              {/* Ultra-Compact 30/70 Horizontal Banner: Progress (Left 30%) & Top 5 Leaderboard (Right 70%) */}
+              <div className="bg-white rounded-2xl p-3 sm:p-4 text-slate-900 shadow-sm border border-slate-200/90 relative overflow-hidden">
+                <div className="grid grid-cols-10 gap-3 sm:gap-4 relative z-10 items-stretch">
                   
-                  {/* Left Side Half Portion (50%): Progression & Details */}
-                  <div className="flex flex-col justify-between space-y-6 pb-6 md:pb-0 md:pr-4">
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <span className="bg-indigo-500/20 text-indigo-300 font-black uppercase text-[10px] px-3.5 py-1 rounded-full tracking-widest border border-indigo-500/30">
-                          150 Days Practice Challenge
-                        </span>
-                      </div>
-                      <h2 className="text-2xl md:text-3xl font-black tracking-tight text-white">
-                        Boost Your Preparation Daily
-                      </h2>
-                      <p className="text-xs text-indigo-200/80 font-medium leading-relaxed max-w-md">
-                        Complete all uploaded mock tests daily. Stay consistent, track your performance, and master aptitude for your dream career!
-                      </p>
+                  {/* Left 30% Portion: Progress Card (Light Indigo Tint) */}
+                  <div className="col-span-3 bg-indigo-50/70 border border-indigo-100/90 rounded-xl p-2.5 sm:p-3 flex flex-col justify-between space-y-1.5 shadow-2xs">
+                    <div className="flex items-center justify-between flex-wrap gap-1">
+                      <span className="text-[10px] sm:text-xs font-black text-indigo-950 uppercase tracking-wider flex items-center gap-1">
+                        <Award className="w-3.5 h-3.5 text-amber-500 shrink-0" /> Progress
+                      </span>
+                      <span className="text-[9px] sm:text-[10px] font-black text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full border border-emerald-200/80">
+                        {challengeStats.percentage}%
+                      </span>
                     </div>
 
-                    {/* Progression Card Widget */}
-                    <div className="bg-slate-800/60 backdrop-blur-md rounded-2xl p-4 border border-slate-700/60 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-amber-400 shrink-0">
-                            <Award className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Completed Progress</p>
-                            <h4 className="text-xl md:text-2xl font-black text-white">
-                              {challengeStats.completedDaysCount} <span className="text-sm text-slate-400 font-bold">/ 150 Days</span>
-                            </h4>
-                          </div>
-                        </div>
-                        <span className="text-xs font-black text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
-                          {challengeStats.percentage}% Done
-                        </span>
-                      </div>
-
-                      {/* Glowing progress bar */}
-                      <div className="w-full bg-slate-900/80 rounded-full h-3 p-0.5 border border-slate-700/50 overflow-hidden">
+                    <div className="my-auto space-y-1">
+                      <p className="text-[8px] sm:text-[9px] font-black text-indigo-600/80 uppercase tracking-widest">Completed</p>
+                      <h4 className="text-base sm:text-2xl font-black text-indigo-950 tracking-tight flex items-baseline gap-1">
+                        {challengeStats.completedDaysCount} <span className="text-[10px] sm:text-xs text-indigo-500 font-bold">/ 150</span>
+                      </h4>
+                      {/* Compact progress bar */}
+                      <div className="w-full bg-indigo-200/70 rounded-full h-1.5 sm:h-2 overflow-hidden border border-indigo-200/50 mt-1">
                         <div 
-                          className="bg-gradient-to-r from-amber-400 via-amber-300 to-emerald-400 h-full rounded-full transition-all duration-700 ease-out shadow-sm"
+                          className="bg-gradient-to-r from-amber-500 via-amber-400 to-emerald-500 h-full rounded-full transition-all duration-700 ease-out shadow-xs"
                           style={{ width: `${Math.min(100, Math.max(0, (challengeStats.completedDaysCount / 150) * 100))}%` }}
                         />
                       </div>
                     </div>
                   </div>
 
-                  {/* Right Side Half Portion (50%): Top 5 Student Leaderboard */}
-                  <div className="flex flex-col justify-between space-y-4 pt-6 md:pt-0 md:pl-8">
-                    <div>
-                      <div className="flex items-center justify-between mb-4 border-b border-indigo-500/20 pb-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-base">🏆</span>
-                          <h3 className="text-sm font-black text-white uppercase tracking-wider">
-                            Top 5 Student Leaders
-                          </h3>
-                        </div>
-                        <span className="text-[9px] font-black uppercase tracking-widest text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20">
-                          Students Only
-                        </span>
-                      </div>
+                  {/* Right 70% Portion: Top 5 Leaderboard Card (Light Slate/Amber Tint) */}
+                  <div className="col-span-7 bg-slate-50/80 border border-slate-200/80 rounded-xl p-2.5 sm:p-3 flex flex-col justify-between space-y-1.5 min-w-0 shadow-2xs">
+                    {(() => {
+                      const currentUserRankItem = challengeLeaderboard.find((r: any) => r.isCurrentUser);
+                      const myRankNum = currentUserRankItem?.rank || profile?.globalRank || null;
+                      const myScoreVal = currentUserRankItem ? currentUserRankItem.score : (profile?.cumulativeScore || 0);
 
-                      {challengeLeaderboardLoading ? (
-                        <div className="flex flex-col items-center justify-center py-8 space-y-2">
-                          <div className="w-6 h-6 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-                          <span className="text-xs text-indigo-300 font-medium">Calculating Ranks...</span>
-                        </div>
-                      ) : challengeLeaderboard.length === 0 ? (
-                        <div className="text-center py-8 text-xs text-slate-400 font-medium">
-                          No student scores recorded yet.
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {challengeLeaderboard.slice(0, 5).map((r: any) => (
-                            <div 
-                              key={r.userId} 
-                              className={`flex items-center justify-between p-2.5 rounded-2xl transition-all duration-200 ${
-                                r.isCurrentUser 
-                                  ? 'bg-indigo-600/30 border border-indigo-500/50 shadow-lg shadow-indigo-500/10' 
-                                  : r.rank === 1
-                                  ? 'bg-amber-500/10 border border-amber-500/20'
-                                  : r.rank === 2
-                                  ? 'bg-slate-800/70 border border-slate-700/40'
-                                  : r.rank === 3
-                                  ? 'bg-amber-900/15 border border-amber-800/20'
-                                  : 'bg-slate-800/40 border border-slate-800/50 hover:bg-slate-800/70'
-                              }`}
-                            >
-                              <div className="flex items-center gap-3 min-w-0">
-                                <span className={`text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center shrink-0 shadow-sm ${
-                                  r.rank === 1 ? 'bg-gradient-to-br from-amber-300 to-amber-500 text-amber-950 font-extrabold' :
-                                  r.rank === 2 ? 'bg-gradient-to-br from-slate-200 to-slate-400 text-slate-900 font-extrabold' :
-                                  r.rank === 3 ? 'bg-gradient-to-br from-amber-600 to-amber-800 text-amber-100 font-extrabold' :
-                                  'bg-slate-800 text-slate-300 border border-slate-700'
-                                }`}>
-                                  {r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : r.rank}
+                      return (
+                        <>
+                          <div className="flex items-center justify-between border-b border-slate-200/80 pb-1.5 flex-wrap gap-1">
+                            <span className="text-[10px] sm:text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1">
+                              🏆 Top 5 Leaders
+                            </span>
+                            {!challengeLeaderboardLoading && (
+                              <span className="text-[9px] sm:text-[10px] font-black text-amber-900 bg-amber-100/90 px-2.5 py-0.5 rounded-full border border-amber-300/80 shrink-0 flex items-center gap-1 shadow-2xs">
+                                <span>Your Rank:</span>
+                                <span className="text-amber-700 font-black">
+                                  {myRankNum ? `#${myRankNum}` : 'Not Ranked'} ({typeof myScoreVal === 'number' ? myScoreVal.toFixed(1) : myScoreVal} pts)
                                 </span>
-                                <span className={`text-xs font-bold truncate ${r.isCurrentUser ? 'text-indigo-300' : 'text-slate-100'}`}>
-                                  {r.name} {r.isCurrentUser && <span className="text-[9px] text-indigo-400 font-black">(You)</span>}
-                                </span>
-                              </div>
-                              <span className="text-xs font-black text-amber-400 shrink-0 tabular-nums">
-                                {r.score.toFixed(1)} pts
                               </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                            )}
+                          </div>
 
-                    {!challengeLeaderboardLoading && profile && profile.role !== 'admin' && (
-                      <div className="mt-2 pt-2.5 border-t border-indigo-500/20 flex items-center justify-between text-xs font-bold text-slate-300">
-                        <span className="text-slate-400">Your Rank:</span>
-                        <span className="text-amber-400 font-black">
-                          #{profile.globalRank || '-'} ({profile.cumulativeScore || 0} pts)
-                        </span>
-                      </div>
-                    )}
+                          {challengeLeaderboardLoading ? (
+                            <div className="flex flex-col items-center justify-center py-4 space-y-1">
+                              <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                              <span className="text-[10px] text-slate-500 font-medium">Loading Leaders...</span>
+                            </div>
+                          ) : challengeLeaderboard.length === 0 ? (
+                            <div className="text-center py-4 text-[10px] text-slate-500 font-medium">
+                              No scores recorded yet.
+                            </div>
+                          ) : (
+                            <div className="space-y-1">
+                              {challengeLeaderboard.slice(0, 5).map((r: any) => (
+                                <div 
+                                  key={r.userId} 
+                                  className={`flex items-center justify-between px-2 py-1 rounded-lg transition-all text-[10px] sm:text-xs border ${
+                                    r.isCurrentUser 
+                                      ? 'bg-indigo-100/80 border-indigo-300 shadow-2xs' 
+                                      : r.rank === 1
+                                      ? 'bg-amber-50/90 border-amber-200/90'
+                                      : 'bg-white border-slate-200/70 hover:border-slate-300'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-1.5 min-w-0 flex-1 pr-2">
+                                    <span className="text-[9px] sm:text-[10px] font-extrabold w-4 shrink-0 text-center">
+                                      {r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : `#${r.rank}`}
+                                    </span>
+                                    <span className={`font-extrabold truncate ${r.isCurrentUser ? 'text-indigo-950' : 'text-slate-900'}`}>
+                                      {r.name} {r.isCurrentUser && <span className="text-[8px] text-indigo-600 font-black ml-0.5">(You)</span>}
+                                    </span>
+                                  </div>
+                                  <span className="font-black text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded-md shrink-0 tabular-nums">
+                                    {r.score.toFixed(1)} pts
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
 
                 </div>
               </div>
 
               {/* Day Selection Grid */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                      <div className="w-1.5 h-8 bg-indigo-500 rounded-full"></div>
-                      <h3 className="text-lg font-black text-slate-800 tracking-tight">Daily Mock Calendars</h3>
-                    </div>
-                    <div className="flex items-center gap-3 text-[10px] sm:text-xs font-semibold text-slate-500 flex-wrap gap-y-1">
-                      <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-emerald-500"></span> Completed</span>
-                      <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-amber-500"></span> In Progress</span>
-                      <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-white border border-slate-200"></span> Available</span>
-                      <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-slate-100 border border-slate-200 border-dashed"></span> Locked</span>
-                    </div>
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-5 bg-indigo-600 rounded-full"></div>
+                    <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-tight">
+                      Daily Mock Schedule
+                    </h3>
                   </div>
+                  <div className="flex items-center gap-2.5 text-[9px] sm:text-[10px] font-bold text-slate-500 flex-wrap">
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 shadow-xs"></span> Completed</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500 shadow-xs"></span> In Progress</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-indigo-600 shadow-xs"></span> Available</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-300"></span> Locked</span>
+                  </div>
+                </div>
 
-                  <div className="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-10 lg:grid-cols-12 gap-3">
+                <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-1.5 sm:gap-2">
                   {Array.from({ length: 150 }, (_, i) => {
                     const dayNum = i + 1;
                     const tests = challengeDaysMap[dayNum] || [];
@@ -2958,40 +2930,40 @@ export default function Dashboard() {
                     let innerContent = null;
 
                     if (isFullyCompleted) {
-                      cardClass = "bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md border border-transparent shadow-emerald-100 hover:scale-105 active:scale-95";
+                      cardClass = "bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-xs border border-emerald-400/30 hover:shadow-emerald-200/50 hover:-translate-y-0.5 active:scale-95";
                       innerContent = (
-                        <div className="flex flex-col items-center justify-center h-full gap-1">
-                          <span className="text-[9px] font-black uppercase tracking-widest text-emerald-100">Day</span>
-                          <span className="text-lg font-black tracking-tight">{String(dayNum).padStart(2, '0')}</span>
-                          <CheckCircle className="w-4 h-4 text-white mt-0.5" />
+                        <div className="flex flex-col items-center justify-center h-full py-1">
+                          <span className="text-[8px] font-extrabold uppercase tracking-widest text-emerald-100 leading-none">Day</span>
+                          <span className="text-xs sm:text-sm font-black tracking-tight my-0.5">{String(dayNum).padStart(2, '0')}</span>
+                          <CheckCircle className="w-3 h-3 text-emerald-100 shrink-0" />
                         </div>
                       );
                     } else if (isInProgress) {
-                      cardClass = "bg-amber-500 text-white shadow-md border border-transparent shadow-amber-100 hover:scale-105 active:scale-95";
+                      cardClass = "bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-xs border border-amber-400/30 hover:shadow-amber-200/50 hover:-translate-y-0.5 active:scale-95";
                       innerContent = (
-                        <div className="flex flex-col items-center justify-center h-full gap-1">
-                          <span className="text-[9px] font-black uppercase tracking-widest text-amber-100">Day</span>
-                          <span className="text-lg font-black tracking-tight">{String(dayNum).padStart(2, '0')}</span>
-                          <span className="text-[9px] font-extrabold bg-white/20 px-1.5 py-0.5 rounded mt-0.5">{attemptedMocks}/{totalMocks}</span>
+                        <div className="flex flex-col items-center justify-center h-full py-1">
+                          <span className="text-[8px] font-extrabold uppercase tracking-widest text-amber-100 leading-none">Day</span>
+                          <span className="text-xs sm:text-sm font-black tracking-tight my-0.5">{String(dayNum).padStart(2, '0')}</span>
+                          <span className="text-[8px] font-extrabold bg-white/20 px-1 py-0.2 rounded leading-none">{attemptedMocks}/{totalMocks}</span>
                         </div>
                       );
                     } else if (isAvailable) {
-                      cardClass = "bg-white text-slate-700 hover:border-indigo-400 hover:text-indigo-600 shadow-sm border border-slate-200 hover:scale-105 active:scale-95 hover:shadow-md";
+                      cardClass = "bg-white text-slate-800 border border-slate-200/80 hover:border-indigo-500 hover:text-indigo-600 shadow-2xs hover:shadow-md hover:-translate-y-0.5 active:scale-95";
                       innerContent = (
-                        <div className="flex flex-col items-center justify-center h-full gap-1">
-                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Day</span>
-                          <span className="text-lg font-black tracking-tight">{String(dayNum).padStart(2, '0')}</span>
-                          <span className="text-[8px] font-black text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded mt-0.5 uppercase tracking-wider">{totalMocks} {totalMocks === 1 ? 'Mock' : 'Mocks'}</span>
+                        <div className="flex flex-col items-center justify-center h-full py-1">
+                          <span className="text-[8px] font-extrabold uppercase tracking-widest text-slate-400 leading-none">Day</span>
+                          <span className="text-xs sm:text-sm font-black tracking-tight my-0.5">{String(dayNum).padStart(2, '0')}</span>
+                          <span className="text-[8px] font-black text-indigo-600 bg-indigo-50 px-1 py-0.2 rounded leading-none">{totalMocks} {totalMocks === 1 ? 'Mock' : 'Mocks'}</span>
                         </div>
                       );
                     } else {
                       // Locked (no mocks)
-                      cardClass = "bg-slate-50/50 text-slate-300 border border-slate-200 border-dashed cursor-not-allowed";
+                      cardClass = "bg-slate-100/60 text-slate-400 border border-slate-200/50 cursor-not-allowed opacity-70";
                       innerContent = (
-                        <div className="flex flex-col items-center justify-center h-full opacity-60">
-                          <span className="text-[9px] font-black uppercase tracking-widest">Day</span>
-                          <span className="text-base font-black tracking-tight">{String(dayNum).padStart(2, '0')}</span>
-                          <Clock className="w-3.5 h-3.5 mt-1" />
+                        <div className="flex flex-col items-center justify-center h-full py-1">
+                          <span className="text-[8px] font-bold uppercase tracking-widest text-slate-400 leading-none">Day</span>
+                          <span className="text-xs sm:text-sm font-bold tracking-tight text-slate-400 my-0.5">{String(dayNum).padStart(2, '0')}</span>
+                          <Clock className="w-2.5 h-2.5 text-slate-300 shrink-0" />
                         </div>
                       );
                     }
@@ -3004,7 +2976,7 @@ export default function Dashboard() {
                           setSelectedChallengeDay(dayNum);
                           setShowChallengeModal(true);
                         }}
-                        className={`aspect-square rounded-2xl flex flex-col items-center justify-center p-2 text-center transition-all duration-200 cursor-pointer ${cardClass}`}
+                        className={`aspect-square rounded-xl flex flex-col items-center justify-center p-1 text-center transition-all duration-150 cursor-pointer ${cardClass}`}
                       >
                         {innerContent}
                       </button>
@@ -3019,32 +2991,32 @@ export default function Dashboard() {
                 const tests = challengeDaysMap[dayNum] || [];
                 return (
                   <>
-                    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setShowChallengeModal(false)}></div>
-                    <div className="fixed inset-x-4 bottom-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:max-w-2xl md:w-full z-50 bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200">
+                    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs transition-opacity" onClick={() => setShowChallengeModal(false)}></div>
+                    <div className="fixed inset-x-3 bottom-3 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:max-w-lg md:w-full z-50 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[80vh] animate-in fade-in zoom-in-95 duration-150">
                       
                       {/* Modal Header */}
-                      <div className="p-6 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white flex items-center justify-between shrink-0">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/10 shrink-0">
-                            <Calendar className="w-5 h-5 text-white" />
+                      <div className="p-3.5 sm:p-4 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white flex items-center justify-between shrink-0">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center border border-white/10 shrink-0">
+                            <Calendar className="w-4 h-4 text-white" />
                           </div>
                           <div>
-                            <span className="text-[10px] font-black text-indigo-200 uppercase tracking-widest block">Daily Challenge</span>
-                            <h3 className="text-xl font-black">Day {String(dayNum).padStart(2, '0')} Practice Sets</h3>
+                            <span className="text-[9px] font-black text-indigo-200 uppercase tracking-widest block leading-none">Daily Challenge</span>
+                            <h3 className="text-sm sm:text-base font-black mt-0.5">Day {String(dayNum).padStart(2, '0')} Practice Sets</h3>
                           </div>
                         </div>
                         <button 
                           onClick={() => setShowChallengeModal(false)}
-                          className="w-8 h-8 rounded-full bg-white/10 border border-white/5 flex items-center justify-center hover:bg-white/20 transition-all text-white active:scale-95 cursor-pointer"
+                          className="w-7 h-7 rounded-full bg-white/10 border border-white/5 flex items-center justify-center hover:bg-white/20 transition-all text-white active:scale-95 cursor-pointer"
                         >
-                          <X className="w-4 h-4" />
+                          <X className="w-3.5 h-3.5" />
                         </button>
                       </div>
 
                       {/* Modal Body */}
-                      <div className="p-6 overflow-y-auto space-y-4 flex-1">
+                      <div className="p-3 sm:p-4 overflow-y-auto space-y-2 flex-1">
                         {tests.length === 0 ? (
-                          <div className="text-center py-12 text-slate-400 font-medium text-sm">
+                          <div className="text-center py-8 text-slate-400 font-medium text-xs">
                             No mocks uploaded for this day yet.
                           </div>
                         ) : (
@@ -3063,84 +3035,84 @@ export default function Dashboard() {
                             const pillStyle = subjectColorPills[test.subjectName] || 'bg-slate-50 text-slate-700 border-slate-100';
 
                             return (
-                              <div key={test.id} className="bg-slate-50/50 border border-slate-200/60 rounded-2xl hover:border-indigo-100 hover:bg-white hover:shadow-xs transition-all duration-200 p-4">
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                              <div key={test.id} className="bg-slate-50/70 border border-slate-200/70 rounded-xl hover:border-indigo-200 hover:bg-white hover:shadow-2xs transition-all duration-150 p-2.5">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                   
                                   {/* Left Content */}
-                                  <div className="flex items-center gap-3.5 flex-1 min-w-0">
-                                    <div className="w-8 h-8 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-lg flex items-center justify-center shrink-0 font-black text-xs">
+                                  <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                                    <div className="w-6 h-6 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-md flex items-center justify-center shrink-0 font-black text-[10px]">
                                       {index + 1}
                                     </div>
                                     <div className="min-w-0">
-                                      <div className="flex items-center gap-2 flex-wrap">
-                                        <h4 className="font-extrabold text-slate-800 text-xs md:text-sm leading-snug">{test.title}</h4>
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <h4 className="font-extrabold text-slate-800 text-xs truncate max-w-[180px] sm:max-w-[240px]">{test.title}</h4>
                                         {test.subjectName && (
-                                          <span className={`px-2 py-0.5 text-[9px] font-extrabold uppercase border rounded-md ${pillStyle}`}>
+                                          <span className={`px-1.5 py-0.2 text-[8px] font-extrabold uppercase border rounded ${pillStyle}`}>
                                             {test.subjectName}
                                           </span>
                                         )}
                                         {attempted && (
-                                          <span className="px-1.5 py-0.5 bg-emerald-500 text-white text-[8px] font-black uppercase tracking-widest rounded-full shrink-0 flex items-center gap-0.5">
-                                            ✓ Attempted {attempts.length > 1 ? `×${attempts.length}` : ''}
+                                          <span className="px-1.5 py-0.2 bg-emerald-500 text-white text-[8px] font-black uppercase rounded-full shrink-0 flex items-center gap-0.5">
+                                            ✓ Done {attempts.length > 1 ? `×${attempts.length}` : ''}
                                           </span>
                                         )}
                                       </div>
                                       
-                                      <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                                        <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1">
-                                          ⏱️ {test.duration || 30} mins
-                                        </span>
-                                        <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1">
-                                          🎯 {test.marksPerCorrect || 1} Marks/Q
-                                        </span>
+                                      <div className="flex items-center gap-2 mt-1 flex-wrap text-[9px] font-bold text-slate-400">
+                                        <span>⏱️ {test.duration || 30}m</span>
+                                        <span>•</span>
+                                        <span>🎯 {test.marksPerCorrect || 1} M/Q</span>
                                         {attempted && latestAttempt && (
-                                          <span className="text-[9px] font-bold text-indigo-500 flex items-center gap-1">
-                                            📈 Best Score: {Math.max(...attempts.map(r => r.score || 0))} marks
-                                          </span>
+                                          <>
+                                            <span>•</span>
+                                            <span className="text-indigo-600 font-extrabold">
+                                              Best: {Math.max(...attempts.map(r => r.score || 0))} pts
+                                            </span>
+                                          </>
                                         )}
                                       </div>
                                     </div>
                                   </div>
 
                                   {/* Right Actions */}
-                                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto flex-wrap justify-end">
+                                  <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto flex-wrap justify-end">
                                     {attempted && (
                                       <>
                                         {/* Download PDF button */}
                                         <button
                                           onClick={() => handleDownloadPDF(test.id, test.title, test.category || 'N/A', test.testType || 'N/A')}
                                           disabled={downloadingPDF === test.id}
-                                          className="flex items-center justify-center p-2.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-500 rounded-xl transition-all disabled:opacity-50"
+                                          className="p-1.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-500 rounded-lg transition-all disabled:opacity-50"
                                           title="Download PDF"
                                         >
-                                          <Download className="w-3.5 h-3.5" />
+                                          <Download className="w-3 h-3" />
                                         </button>
 
                                         {/* Attempts list */}
                                         <div className="relative">
                                           <button
                                             onClick={() => setOpenAttemptDropdown(openAttemptDropdown === test.id ? null : test.id)}
-                                            className="flex items-center gap-1 px-3 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-all active:scale-95"
+                                            className="flex items-center gap-1 px-2 py-1 rounded-lg font-extrabold text-[8px] uppercase tracking-wider border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-all active:scale-95"
                                           >
-                                            <BarChart3 className="w-3 h-3" />
+                                            <BarChart3 className="w-2.5 h-2.5" />
                                             Attempts
-                                            <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${openAttemptDropdown === test.id ? 'rotate-180' : ''}`} />
+                                            <ChevronDown className={`w-2.5 h-2.5 transition-transform duration-200 ${openAttemptDropdown === test.id ? 'rotate-180' : ''}`} />
                                           </button>
 
                                           {openAttemptDropdown === test.id && (
                                             <>
                                               <div className="fixed inset-0 z-40" onClick={() => setOpenAttemptDropdown(null)} />
-                                              <div className="absolute right-0 bottom-full mb-1.5 sm:top-full sm:bottom-auto sm:mt-1.5 z-50 bg-white border border-slate-200 rounded-2xl shadow-xl min-w-[260px] overflow-hidden">
-                                                <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center gap-1.5">
-                                                  <BarChart3 className="w-3 h-3 text-indigo-500" />
-                                                  <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Select attempt for analysis</p>
+                                              <div className="absolute right-0 bottom-full mb-1 sm:top-full sm:bottom-auto sm:mt-1 z-50 bg-white border border-slate-200 rounded-xl shadow-xl min-w-[220px] overflow-hidden">
+                                                <div className="px-2.5 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center gap-1">
+                                                  <BarChart3 className="w-2.5 h-2.5 text-indigo-500" />
+                                                  <p className="text-[8px] font-black text-slate-500 uppercase tracking-wider">Select attempt</p>
                                                 </div>
-                                                <div className="py-0.5 max-h-[180px] overflow-y-auto">
+                                                <div className="py-0.5 max-h-[160px] overflow-y-auto">
                                                   {attempts.map((r: any, i: number) => (
                                                     <button
                                                       key={r.id}
                                                       onClick={() => { openAnalysis(r); setOpenAttemptDropdown(null); setShowChallengeModal(false); }}
-                                                      className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 active:bg-slate-100 transition-colors text-left text-[10px]"
+                                                      className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-slate-50 active:bg-slate-100 transition-colors text-left text-[9px]"
                                                     >
                                                       <span className="font-extrabold text-slate-700">Attempt {i + 1}</span>
                                                       <span className="font-black text-indigo-600">{r.score} marks</span>
@@ -3156,10 +3128,10 @@ export default function Dashboard() {
 
                                     <Link
                                       to={`/test/${test.id}`}
-                                      className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-black text-[9px] uppercase tracking-widest rounded-xl hover:from-slate-900 hover:to-slate-900 transition-all shadow-xs flex items-center gap-1 active:scale-95"
+                                      className="px-2.5 py-1 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-black text-[8px] uppercase tracking-wider rounded-lg hover:from-slate-900 hover:to-slate-900 transition-all shadow-2xs flex items-center gap-0.5 active:scale-95 shrink-0"
                                     >
                                       {attempted ? 'Reattempt' : 'Attempt'}
-                                      <ChevronRight className="w-3 h-3" />
+                                      <ChevronRight className="w-2.5 h-2.5" />
                                     </Link>
                                   </div>
 
