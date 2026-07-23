@@ -6,49 +6,49 @@ import { invalidateCacheField } from '../lib/cache';
 import {
   Plus, Trash2, Edit2, Save, X, Search, Filter,
   FileText, Image as ImgIcon, FileUp, Sparkles, Check,
-  Pin, RefreshCw, Eye, ExternalLink, Download, Newspaper, Link2
+  Pin, RefreshCw, Eye, ExternalLink, Download, BookOpen, Layers, Trophy
 } from 'lucide-react';
 
-export interface CurrentAffairItem {
+export interface ExamPatternItem {
   id: string;
   title: string;
-  subject: string;
+  examCategory: string;
   format: 'text' | 'image' | 'pdf' | 'mixed';
   content?: string;
   imageUrl?: string;
   imageCaption?: string;
   pdfUrl?: string;
   pdfTitle?: string;
+  files?: Array<{ name: string; url: string; type?: string }>;
   status: 'published' | 'draft';
   pinned?: boolean;
   createdAt?: any;
   updatedAt?: any;
 }
 
-const AFFAIRS_CATEGORY_OPTIONS = [
-  'National News',
-  'International News',
-  'Important Days & Themes',
-  'Sports News',
-  'Science & Technology',
-  'Economy & Banking',
-  'Awards & Honours',
-  'Appointments & Resignations',
-  'State Current Affairs',
-  'General Current Affairs'
+const EXAM_CATEGORY_OPTIONS = [
+  'SSC (CGL, CHSL, CPO, MTS)',
+  'Railway (RRB NTPC, Group D, ALP)',
+  'Banking (IBPS, SBI, RBI)',
+  'Defence (NDA, CDS, AFCAT)',
+  'Police & State Exams',
+  'Teaching (CTET, State TET)',
+  'UPSC / Civil Services',
+  'Engineering / GATE',
+  'General / Other'
 ];
 
-export default function AdminCurrentAffairs() {
-  const [items, setItems] = useState<CurrentAffairItem[]>([]);
+export default function AdminExamPatterns() {
+  const [items, setItems] = useState<ExamPatternItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'editor'>('list');
-  const [editingItem, setEditingItem] = useState<CurrentAffairItem | null>(null);
+  const [editingItem, setEditingItem] = useState<ExamPatternItem | null>(null);
 
   // Form states
   const [title, setTitle] = useState('');
-  const [subject, setSubject] = useState(AFFAIRS_CATEGORY_OPTIONS[0]);
-  const [customSubject, setCustomSubject] = useState('');
-  const [format, setFormat] = useState<'text' | 'image' | 'pdf' | 'mixed'>('text');
+  const [examCategory, setExamCategory] = useState(EXAM_CATEGORY_OPTIONS[0]);
+  const [customCategory, setCustomCategory] = useState('');
+  const [format, setFormat] = useState<'text' | 'image' | 'pdf' | 'mixed'>('pdf');
   const [content, setContent] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [imageCaption, setImageCaption] = useState('');
@@ -64,57 +64,57 @@ export default function AdminCurrentAffairs() {
 
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterSubject, setFilterSubject] = useState('ALL');
+  const [filterCategory, setFilterCategory] = useState('ALL');
   const [filterFormat, setFilterFormat] = useState('ALL');
-  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchAffairs();
+    fetchPatterns();
   }, []);
 
-  const fetchAffairs = async () => {
+  const fetchPatterns = async () => {
     setLoading(true);
     try {
-      const q = query(collection(db, 'affairs'), orderBy('createdAt', 'desc'));
+      const q = query(collection(db, 'patterns'), orderBy('createdAt', 'desc'));
       const snap = await getDocs(q);
-      const list: CurrentAffairItem[] = snap.docs.map(d => {
+      const list: ExamPatternItem[] = snap.docs.map(d => {
         const data = d.data();
-        let legacyPdfUrl = data.pdfUrl || data.link || '';
+        // Handle legacy files format if present
+        let legacyPdfUrl = data.pdfUrl || '';
         let legacyPdfTitle = data.pdfTitle || '';
-        let legacyImageUrl = data.imageUrl || data.thumbnailUrl || '';
+        let legacyImageUrl = data.imageUrl || '';
 
-        // If legacy sections exist
-        if (data.sections && Array.isArray(data.sections)) {
-          const pdfSec = data.sections.find((s: any) => s.type === 'pdf' && s.pdfUrl);
-          if (pdfSec && !legacyPdfUrl) {
-            legacyPdfUrl = pdfSec.pdfUrl;
-            legacyPdfTitle = pdfSec.pdfTitle || '';
+        if (!legacyPdfUrl && data.files && data.files.length > 0) {
+          const pdfFile = data.files.find((f: any) => f.type?.includes('pdf') || f.name?.endsWith('.pdf') || f.url?.includes('.pdf'));
+          if (pdfFile) {
+            legacyPdfUrl = pdfFile.url;
+            legacyPdfTitle = pdfFile.name;
           }
-          const imgSec = data.sections.find((s: any) => s.type === 'image' && s.imageUrl);
-          if (imgSec && !legacyImageUrl) {
-            legacyImageUrl = imgSec.imageUrl;
+          const imgFile = data.files.find((f: any) => f.type?.includes('image') || f.name?.match(/\.(jpg|png|jpeg|webp)$/i));
+          if (imgFile && !legacyImageUrl) {
+            legacyImageUrl = imgFile.url;
           }
         }
 
         return {
           id: d.id,
           title: data.title || '',
-          subject: data.subject || data.category || 'General',
+          examCategory: data.examCategory || 'General',
           format: data.format || (legacyImageUrl ? 'image' : legacyPdfUrl ? 'pdf' : 'text'),
-          content: data.content || data.description || '',
+          content: data.content || '',
           imageUrl: legacyImageUrl,
           imageCaption: data.imageCaption || '',
           pdfUrl: legacyPdfUrl,
-          pdfTitle: legacyPdfTitle || (legacyPdfUrl ? 'Monthly Capsule PDF' : ''),
+          pdfTitle: legacyPdfTitle,
+          files: data.files || [],
           status: data.status || 'published',
-          pinned: !!(data.pinned || data.pinToHomepage),
+          pinned: !!data.pinned,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt,
         };
       });
       setItems(list);
     } catch (err: any) {
-      console.error("Failed to fetch Current Affairs:", err);
+      console.error("Failed to fetch exam patterns:", err);
     } finally {
       setLoading(false);
     }
@@ -123,8 +123,8 @@ export default function AdminCurrentAffairs() {
   const handleOpenCreate = () => {
     setEditingItem(null);
     setTitle('');
-    setSubject(AFFAIRS_CATEGORY_OPTIONS[0]);
-    setCustomSubject('');
+    setExamCategory(EXAM_CATEGORY_OPTIONS[0]);
+    setCustomCategory('');
     setFormat('text');
     setContent('');
     setImageUrl('');
@@ -136,15 +136,15 @@ export default function AdminCurrentAffairs() {
     setViewMode('editor');
   };
 
-  const handleOpenEdit = (item: CurrentAffairItem) => {
+  const handleOpenEdit = (item: ExamPatternItem) => {
     setEditingItem(item);
     setTitle(item.title || '');
-    if (AFFAIRS_CATEGORY_OPTIONS.includes(item.subject)) {
-      setSubject(item.subject);
-      setCustomSubject('');
+    if (EXAM_CATEGORY_OPTIONS.includes(item.examCategory)) {
+      setExamCategory(item.examCategory);
+      setCustomCategory('');
     } else {
-      setSubject('General Current Affairs');
-      setCustomSubject(item.subject || '');
+      setExamCategory('General / Other');
+      setCustomCategory(item.examCategory || '');
     }
     setFormat(item.format || 'text');
     setContent(item.content || '');
@@ -162,7 +162,7 @@ export default function AdminCurrentAffairs() {
     if (!file) return;
     setUploadingImage(true);
     try {
-      const url = await uploadFileViaBackend(file, 'affairs_images', auth.currentUser);
+      const url = await uploadFileViaBackend(file, 'patterns_images', auth.currentUser);
       setImageUrl(url);
     } catch (err: any) {
       alert(`Image upload failed: ${err.message}`);
@@ -176,7 +176,7 @@ export default function AdminCurrentAffairs() {
     if (!file) return;
     setUploadingPdf(true);
     try {
-      const url = await uploadFileViaBackend(file, 'affairs_pdfs', auth.currentUser, file.name);
+      const url = await uploadFileViaBackend(file, 'patterns_pdfs', auth.currentUser, file.name);
       setPdfUrl(url);
       if (!pdfTitle) setPdfTitle(file.name);
     } catch (err: any) {
@@ -189,74 +189,72 @@ export default function AdminCurrentAffairs() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
-      alert('Please enter Current Affair News Title.');
+      alert('Please enter Exam / Pattern Title.');
       return;
     }
 
-    const finalSubject = subject === 'General Current Affairs' ? (customSubject.trim() || 'General') : subject;
+    const finalCategory = examCategory === 'General / Other' ? (customCategory.trim() || 'General') : examCategory;
 
     setSaving(true);
     try {
+      // Build updated files array for backwards compatibility
+      const files: Array<{ name: string; url: string; type?: string }> = [];
+      if (pdfUrl) {
+        files.push({ name: pdfTitle || 'Syllabus PDF', url: pdfUrl, type: 'application/pdf' });
+      }
+      if (imageUrl) {
+        files.push({ name: imageCaption || 'Pattern Diagram Image', url: imageUrl, type: 'image/png' });
+      }
+
       const payload: any = {
         title: title.trim(),
-        subject: finalSubject,
-        category: finalSubject, // Legacy compatibility
+        examCategory: finalCategory,
         format,
         content: content.trim(),
-        description: content.trim(), // Legacy compatibility
         imageUrl: imageUrl.trim(),
-        thumbnailUrl: imageUrl.trim(), // Legacy compatibility
+        imageCaption: imageCaption.trim(),
         pdfUrl: pdfUrl.trim(),
-        link: pdfUrl.trim() || imageUrl.trim(), // Legacy compatibility
         pdfTitle: pdfTitle.trim(),
+        files,
         status,
         pinned,
-        pinToHomepage: pinned, // Legacy compatibility
         updatedAt: serverTimestamp(),
       };
 
       if (editingItem) {
         // UPDATE existing document
-        const docRef = doc(db, 'affairs', editingItem.id);
+        const docRef = doc(db, 'patterns', editingItem.id);
         await updateDoc(docRef, payload);
-        console.log("Current Affair item updated successfully:", editingItem.id);
+        console.log("Exam pattern updated successfully:", editingItem.id);
       } else {
         // CREATE new document
         payload.createdAt = serverTimestamp();
         payload.authorId = auth.currentUser?.uid || '';
-        await addDoc(collection(db, 'affairs'), payload);
-        console.log("New Current Affair added successfully.");
+        await addDoc(collection(db, 'patterns'), payload);
+        console.log("New exam pattern added successfully.");
       }
 
-      await invalidateCacheField('affairs');
-      await fetchAffairs();
+      await invalidateCacheField('patterns');
+      await fetchPatterns();
       setViewMode('list');
-      alert(editingItem ? 'Current Affair post updated successfully!' : 'Current Affair post published successfully!');
+      alert(editingItem ? 'Exam Pattern & Syllabus updated successfully!' : 'Exam Pattern & Syllabus published successfully!');
     } catch (err: any) {
-      console.error("Error saving Current Affair:", err);
-      alert(`Failed to save Current Affair: ${err.message}`);
+      console.error("Error saving exam pattern:", err);
+      alert(`Failed to save Exam Pattern: ${err.message}`);
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this Current Affair item?')) return;
+    if (!confirm('Are you sure you want to delete this Exam Pattern & Syllabus?')) return;
     try {
-      await deleteDoc(doc(db, 'affairs', id));
-      await invalidateCacheField('affairs');
+      await deleteDoc(doc(db, 'patterns', id));
+      await invalidateCacheField('patterns');
       setItems(items.filter(i => i.id !== id));
     } catch (err: any) {
       alert(`Failed to delete: ${err.message}`);
     }
-  };
-
-  const copyShareLink = (url: string, id: string) => {
-    if (!url) return;
-    navigator.clipboard.writeText(url).then(() => {
-      setCopiedId(id);
-      setTimeout(() => setCopiedId(null), 2000);
-    }).catch(() => alert(`Link: ${url}`));
   };
 
   // Filtered items
@@ -264,12 +262,12 @@ export default function AdminCurrentAffairs() {
     const matchesSearch = 
       item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (item.content || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.subject || '').toLowerCase().includes(searchQuery.toLowerCase());
+      (item.examCategory || '').toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesSubject = filterSubject === 'ALL' || item.subject === filterSubject;
+    const matchesCategory = filterCategory === 'ALL' || item.examCategory === filterCategory;
     const matchesFormat = filterFormat === 'ALL' || item.format === filterFormat;
 
-    return matchesSearch && matchesSubject && matchesFormat;
+    return matchesSearch && matchesCategory && matchesFormat;
   });
 
   return (
@@ -278,23 +276,23 @@ export default function AdminCurrentAffairs() {
       <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
         <div>
           <div className="flex items-center gap-2">
-            <span className="p-2 bg-orange-50 text-orange-600 rounded-xl">
-              <Newspaper className="w-5 h-5" />
+            <span className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+              <Trophy className="w-5 h-5" />
             </span>
-            <h2 className="text-xl font-black text-slate-800 tracking-tight">Current Affairs Management</h2>
+            <h2 className="text-xl font-black text-slate-800 tracking-tight">Exam Pattern & Syllabus Management</h2>
           </div>
           <p className="text-xs text-slate-500 font-medium mt-1">
-            Post, edit, and update daily & monthly Current Affairs in Text, Image, and PDF formats.
+            Create, edit, and manage exam patterns and syllabus in Text, Image, and PDF formats for students.
           </p>
         </div>
 
         {viewMode === 'list' ? (
           <button
             onClick={handleOpenCreate}
-            className="px-5 py-2.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-md transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+            className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-md transition-all flex items-center gap-2 cursor-pointer active:scale-95"
           >
             <Plus className="w-4 h-4" />
-            Add New Current Affair
+            Add New Exam Pattern & Syllabus
           </button>
         ) : (
           <button
@@ -312,53 +310,53 @@ export default function AdminCurrentAffairs() {
         <form onSubmit={handleSave} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6 animate-in fade-in duration-200">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-orange-600" />
-              {editingItem ? `Edit: ${editingItem.title}` : 'Add New Current Affair Post'}
+              <Sparkles className="w-5 h-5 text-blue-600" />
+              {editingItem ? `Edit: ${editingItem.title}` : 'Add New Exam Pattern & Syllabus'}
             </h3>
             {editingItem && (
               <span className="px-3 py-1 bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold rounded-lg">
-                Editing Existing Post
+                Editing Existing Item
               </span>
             )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Title */}
+            {/* Exam Name / Title */}
             <div className="md:col-span-2 space-y-1.5">
               <label className="block text-xs font-black text-slate-500 uppercase tracking-wider">
-                Current Affair Title & Headline <span className="text-rose-500">*</span>
+                Exam Title & Year <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
                 required
                 value={title}
                 onChange={e => setTitle(e.target.value)}
-                placeholder="e.g. India's GDP Growth Reaches 7.8% in Q4: Key Economic Highlights"
-                className="w-full rounded-2xl border-2 border-slate-200 p-3 text-sm font-bold text-slate-800 focus:border-orange-600 outline-none transition-all"
+                placeholder="e.g. SSC CGL 2026 Tier 1 & Tier 2 Exam Pattern & Detailed Syllabus"
+                className="w-full rounded-2xl border-2 border-slate-200 p-3 text-sm font-bold text-slate-800 focus:border-blue-600 outline-none transition-all"
               />
             </div>
 
-            {/* Topic / Category */}
+            {/* Exam Category */}
             <div className="space-y-1.5">
               <label className="block text-xs font-black text-slate-500 uppercase tracking-wider">
-                Topic / News Category
+                Exam Category / Board
               </label>
               <select
-                value={subject}
-                onChange={e => setSubject(e.target.value)}
-                className="w-full rounded-2xl border-2 border-slate-200 p-3 text-sm font-bold text-slate-800 focus:border-orange-600 outline-none transition-all"
+                value={examCategory}
+                onChange={e => setExamCategory(e.target.value)}
+                className="w-full rounded-2xl border-2 border-slate-200 p-3 text-sm font-bold text-slate-800 focus:border-blue-600 outline-none transition-all"
               >
-                {AFFAIRS_CATEGORY_OPTIONS.map(opt => (
+                {EXAM_CATEGORY_OPTIONS.map(opt => (
                   <option key={opt} value={opt}>{opt}</option>
                 ))}
               </select>
-              {subject === 'General Current Affairs' && (
+              {examCategory === 'General / Other' && (
                 <input
                   type="text"
-                  value={customSubject}
-                  onChange={e => setCustomSubject(e.target.value)}
+                  value={customCategory}
+                  onChange={e => setCustomCategory(e.target.value)}
                   placeholder="Enter custom category name"
-                  className="w-full rounded-2xl border-2 border-slate-200 p-3 text-sm font-bold text-slate-800 focus:border-orange-600 outline-none mt-2"
+                  className="w-full rounded-2xl border-2 border-slate-200 p-3 text-sm font-bold text-slate-800 focus:border-blue-600 outline-none mt-2"
                 />
               )}
             </div>
@@ -366,14 +364,14 @@ export default function AdminCurrentAffairs() {
             {/* Content Format Selector */}
             <div className="space-y-1.5">
               <label className="block text-xs font-black text-slate-500 uppercase tracking-wider">
-                Content Format
+                Syllabus Content Format
               </label>
               <div className="grid grid-cols-4 gap-1.5 p-1 bg-slate-100 rounded-2xl border border-slate-200">
                 <button
                   type="button"
                   onClick={() => setFormat('text')}
                   className={`py-2 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1 ${
-                    format === 'text' ? 'bg-white text-orange-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                    format === 'text' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
                   <FileText className="w-3.5 h-3.5" /> Text
@@ -382,7 +380,7 @@ export default function AdminCurrentAffairs() {
                   type="button"
                   onClick={() => setFormat('image')}
                   className={`py-2 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1 ${
-                    format === 'image' ? 'bg-white text-orange-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                    format === 'image' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
                   <ImgIcon className="w-3.5 h-3.5" /> Image
@@ -391,7 +389,7 @@ export default function AdminCurrentAffairs() {
                   type="button"
                   onClick={() => setFormat('pdf')}
                   className={`py-2 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1 ${
-                    format === 'pdf' ? 'bg-white text-orange-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                    format === 'pdf' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
                   <FileUp className="w-3.5 h-3.5" /> PDF
@@ -400,7 +398,7 @@ export default function AdminCurrentAffairs() {
                   type="button"
                   onClick={() => setFormat('mixed')}
                   className={`py-2 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1 ${
-                    format === 'mixed' ? 'bg-white text-orange-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                    format === 'mixed' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
                   <Sparkles className="w-3.5 h-3.5" /> All
@@ -412,14 +410,14 @@ export default function AdminCurrentAffairs() {
             {(format === 'text' || format === 'mixed') && (
               <div className="md:col-span-2 space-y-1.5">
                 <label className="block text-xs font-black text-slate-500 uppercase tracking-wider">
-                  Current Affair News Summary / Detailed Points
+                  Detailed Exam Pattern & Syllabus Text / Notes
                 </label>
                 <textarea
                   rows={5}
                   value={content}
                   onChange={e => setContent(e.target.value)}
-                  placeholder="Enter current affairs news text, key points, MCQs, or background analysis..."
-                  className="w-full rounded-2xl border-2 border-slate-200 p-3 text-sm font-medium text-slate-800 focus:border-orange-600 outline-none transition-all leading-relaxed"
+                  placeholder="Enter detailed Exam Pattern, Marking Scheme, Section Breakdown, and Topic Syllabus..."
+                  className="w-full rounded-2xl border-2 border-slate-200 p-3 text-sm font-medium text-slate-800 focus:border-blue-600 outline-none transition-all leading-relaxed"
                 />
               </div>
             )}
@@ -428,11 +426,11 @@ export default function AdminCurrentAffairs() {
             {(format === 'image' || format === 'mixed') && (
               <div className="md:col-span-2 space-y-2 p-4 bg-slate-50 rounded-2xl border border-slate-200">
                 <label className="block text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <ImgIcon className="w-4 h-4 text-orange-600" /> News Image / Infographic Diagram
+                  <ImgIcon className="w-4 h-4 text-blue-600" /> Pattern Infographic / Diagram Image
                 </label>
 
                 <div className="flex flex-wrap items-center gap-3">
-                  <label className="px-4 py-2.5 bg-orange-50 hover:bg-orange-100 text-orange-700 font-extrabold text-xs rounded-xl border border-orange-200 cursor-pointer transition-all flex items-center gap-1.5">
+                  <label className="px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-extrabold text-xs rounded-xl border border-blue-200 cursor-pointer transition-all flex items-center gap-1.5">
                     {uploadingImage ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ImgIcon className="w-4 h-4" />}
                     {uploadingImage ? 'Uploading Image...' : 'Upload Image File'}
                     <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploadingImage} />
@@ -442,8 +440,8 @@ export default function AdminCurrentAffairs() {
                     type="text"
                     value={imageUrl}
                     onChange={e => setImageUrl(e.target.value)}
-                    placeholder="Paste News Image URL directly"
-                    className="flex-1 min-w-[200px] rounded-xl border-2 border-slate-200 p-2.5 text-xs font-medium text-slate-800 outline-none focus:border-orange-600"
+                    placeholder="Paste Image URL directly"
+                    className="flex-1 min-w-[200px] rounded-xl border-2 border-slate-200 p-2.5 text-xs font-medium text-slate-800 outline-none focus:border-blue-600"
                   />
                 </div>
 
@@ -451,8 +449,8 @@ export default function AdminCurrentAffairs() {
                   type="text"
                   value={imageCaption}
                   onChange={e => setImageCaption(e.target.value)}
-                  placeholder="Image caption (optional)"
-                  className="w-full rounded-xl border-2 border-slate-200 p-2.5 text-xs font-medium text-slate-800 outline-none focus:border-orange-600"
+                  placeholder="Image diagram caption (optional)"
+                  className="w-full rounded-xl border-2 border-slate-200 p-2.5 text-xs font-medium text-slate-800 outline-none focus:border-blue-600"
                 />
 
                 {imageUrl && (
@@ -474,7 +472,7 @@ export default function AdminCurrentAffairs() {
             {(format === 'pdf' || format === 'mixed') && (
               <div className="md:col-span-2 space-y-2 p-4 bg-slate-50 rounded-2xl border border-slate-200">
                 <label className="block text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <FileUp className="w-4 h-4 text-rose-600" /> Current Affairs PDF Monthly Capsule / Paper Document
+                  <FileUp className="w-4 h-4 text-rose-600" /> Syllabus PDF Document
                 </label>
 
                 <div className="flex flex-wrap items-center gap-3">
@@ -488,8 +486,8 @@ export default function AdminCurrentAffairs() {
                     type="text"
                     value={pdfUrl}
                     onChange={e => setPdfUrl(e.target.value)}
-                    placeholder="Paste Current Affairs PDF URL directly"
-                    className="flex-1 min-w-[200px] rounded-xl border-2 border-slate-200 p-2.5 text-xs font-medium text-slate-800 outline-none focus:border-orange-600"
+                    placeholder="Paste Syllabus PDF URL directly"
+                    className="flex-1 min-w-[200px] rounded-xl border-2 border-slate-200 p-2.5 text-xs font-medium text-slate-800 outline-none focus:border-blue-600"
                   />
                 </div>
 
@@ -497,8 +495,8 @@ export default function AdminCurrentAffairs() {
                   type="text"
                   value={pdfTitle}
                   onChange={e => setPdfTitle(e.target.value)}
-                  placeholder="PDF Title / Download button label (e.g. Download Monthly Current Affairs Capsule PDF)"
-                  className="w-full rounded-xl border-2 border-slate-200 p-2.5 text-xs font-medium text-slate-800 outline-none focus:border-orange-600"
+                  placeholder="PDF Title / Download button label (e.g. Download Official Notification PDF)"
+                  className="w-full rounded-xl border-2 border-slate-200 p-2.5 text-xs font-medium text-slate-800 outline-none focus:border-blue-600"
                 />
 
                 {pdfUrl && (
@@ -526,7 +524,7 @@ export default function AdminCurrentAffairs() {
               <select
                 value={status}
                 onChange={e => setStatus(e.target.value as any)}
-                className="w-full rounded-2xl border-2 border-slate-200 p-3 text-sm font-bold text-slate-800 focus:border-orange-600 outline-none transition-all"
+                className="w-full rounded-2xl border-2 border-slate-200 p-3 text-sm font-bold text-slate-800 focus:border-blue-600 outline-none transition-all"
               >
                 <option value="published">🚀 Published (Visible to Students)</option>
                 <option value="draft">📝 Draft (Hidden)</option>
@@ -536,13 +534,13 @@ export default function AdminCurrentAffairs() {
             <div className="flex items-center gap-2 pt-6">
               <input
                 type="checkbox"
-                id="pinned_affair"
+                id="pinned_pattern"
                 checked={pinned}
                 onChange={e => setPinned(e.target.checked)}
-                className="w-4 h-4 text-orange-600 rounded focus:ring-orange-500"
+                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
               />
-              <label htmlFor="pinned_affair" className="text-xs font-extrabold text-slate-700 cursor-pointer flex items-center gap-1">
-                <Pin className="w-3.5 h-3.5 text-orange-600" /> Pin / Highlight to Top of Current Affairs
+              <label htmlFor="pinned_pattern" className="text-xs font-extrabold text-slate-700 cursor-pointer flex items-center gap-1">
+                <Pin className="w-3.5 h-3.5 text-blue-600" /> Pin / Highlight to Top of Exam Patterns
               </label>
             </div>
           </div>
@@ -559,10 +557,10 @@ export default function AdminCurrentAffairs() {
             <button
               type="submit"
               disabled={saving}
-              className="px-6 py-2.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50"
+              className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50"
             >
               {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              {saving ? 'Saving...' : editingItem ? 'Update Current Affair' : 'Save & Publish Current Affair'}
+              {saving ? 'Saving...' : editingItem ? 'Update Exam Pattern' : 'Save & Publish Exam Pattern'}
             </button>
           </div>
         </form>
@@ -578,22 +576,22 @@ export default function AdminCurrentAffairs() {
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Search Current Affairs by news title, topic or content..."
+                placeholder="Search patterns by exam name, syllabus or details..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full bg-white rounded-xl border border-slate-200 pl-9 pr-3 py-2 text-xs font-bold text-slate-800 focus:border-orange-600 outline-none"
+                className="w-full bg-white rounded-xl border border-slate-200 pl-9 pr-3 py-2 text-xs font-bold text-slate-800 focus:border-blue-600 outline-none"
               />
             </div>
 
-            {/* Filter Subject */}
+            {/* Filter Category */}
             <select
-              value={filterSubject}
-              onChange={e => setFilterSubject(e.target.value)}
+              value={filterCategory}
+              onChange={e => setFilterCategory(e.target.value)}
               className="bg-white rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 outline-none"
             >
-              <option value="ALL">All News Topics</option>
-              {AFFAIRS_CATEGORY_OPTIONS.map(s => (
-                <option key={s} value={s}>{s}</option>
+              <option value="ALL">All Exam Categories</option>
+              {EXAM_CATEGORY_OPTIONS.map(c => (
+                <option key={c} value={c}>{c}</option>
               ))}
             </select>
 
@@ -605,8 +603,8 @@ export default function AdminCurrentAffairs() {
             >
               <option value="ALL">All Formats</option>
               <option value="text">Text Only</option>
-              <option value="image">Image Format</option>
-              <option value="pdf">PDF Capsule</option>
+              <option value="image">Image Diagram</option>
+              <option value="pdf">PDF Syllabus</option>
               <option value="mixed">Mixed Format</option>
             </select>
           </div>
@@ -614,12 +612,12 @@ export default function AdminCurrentAffairs() {
           {/* Table / List */}
           {loading ? (
             <div className="py-12 text-center text-slate-400 flex flex-col items-center justify-center space-y-2">
-              <RefreshCw className="w-6 h-6 animate-spin text-orange-600" />
-              <span className="text-xs font-medium">Loading Current Affairs...</span>
+              <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
+              <span className="text-xs font-medium">Loading Exam Patterns...</span>
             </div>
           ) : filteredItems.length === 0 ? (
             <div className="py-12 text-center text-slate-400 font-medium text-xs">
-              No Current Affair uploaded yet. Click "Add New Current Affair" to post news.
+              No Exam Pattern uploaded yet. Click "Add New Exam Pattern & Syllabus" to post one.
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -627,13 +625,13 @@ export default function AdminCurrentAffairs() {
                 <div
                   key={item.id}
                   className={`p-5 rounded-3xl border transition-all flex flex-col justify-between space-y-4 relative ${
-                    item.status === 'draft' ? 'bg-slate-50 border-slate-200 opacity-75' : 'bg-white border-slate-200 hover:border-orange-300 hover:shadow-md'
+                    item.status === 'draft' ? 'bg-slate-50 border-slate-200 opacity-75' : 'bg-white border-slate-200 hover:border-blue-300 hover:shadow-md'
                   }`}
                 >
                   <div className="space-y-3">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <span className="px-2.5 py-0.5 bg-orange-50 text-orange-700 border border-orange-100 text-[10px] font-black uppercase rounded-lg">
-                        {item.subject}
+                      <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 text-[10px] font-black uppercase rounded-lg">
+                        {item.examCategory}
                       </span>
                       <div className="flex items-center gap-1.5">
                         {item.pinned && (
@@ -675,41 +673,28 @@ export default function AdminCurrentAffairs() {
                         className="flex items-center justify-between w-full px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl font-black text-xs transition-all"
                       >
                         <span className="truncate flex items-center gap-1.5">
-                          <FileUp className="w-3.5 h-3.5 shrink-0" /> {item.pdfTitle || 'Download Monthly Capsule PDF'}
+                          <FileUp className="w-3.5 h-3.5 shrink-0" /> {item.pdfTitle || 'Download Syllabus PDF'}
                         </span>
                         <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                       </a>
                     )}
 
-                    {/* Actions: SHARE, EDIT & DELETE */}
-                    <div className="flex items-center justify-between pt-1">
+                    {/* Actions: EDIT & DELETE */}
+                    <div className="flex items-center justify-end gap-2 pt-1">
                       <button
-                        onClick={() => copyShareLink(item.pdfUrl || item.imageUrl || '', `affair-${item.id}`)}
-                        className={`p-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
-                          copiedId === `affair-${item.id}` ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        }`}
-                        title="Copy share link"
+                        onClick={() => handleOpenEdit(item)}
+                        className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 font-extrabold text-xs rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+                        title="Edit Exam Pattern"
                       >
-                        {copiedId === `affair-${item.id}` ? <Check className="w-3.5 h-3.5" /> : <Link2 className="w-3.5 h-3.5" />}
-                        {copiedId === `affair-${item.id}` ? 'Copied!' : 'Link'}
+                        <Edit2 className="w-3.5 h-3.5" /> Edit
                       </button>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleOpenEdit(item)}
-                          className="px-3 py-1.5 bg-orange-50 text-orange-700 hover:bg-orange-100 font-extrabold text-xs rounded-xl transition-all flex items-center gap-1 cursor-pointer"
-                          title="Edit Current Affair"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" /> Edit
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          className="px-3 py-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 font-extrabold text-xs rounded-xl transition-all flex items-center gap-1 cursor-pointer"
-                          title="Delete Current Affair"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" /> Delete
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => handleDelete(item.id)}
+                        className="px-3 py-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 font-extrabold text-xs rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+                        title="Delete Exam Pattern"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Delete
+                      </button>
                     </div>
                   </div>
                 </div>

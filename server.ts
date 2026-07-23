@@ -2984,6 +2984,98 @@ ${allUrls.map(u => `  <url>
     }
   });
 
+  // ── One Liners CRUD ──────────────────────────────────────────────────────────
+  app.get("/api/one-liners", async (req, res) => {
+    setCDNCache(res);
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      let queryRef: any = currentDb.collection("one_liners");
+      const { subject } = req.query;
+      if (subject && typeof subject === 'string') {
+        queryRef = queryRef.where("subject", "==", subject);
+      }
+      const snap = await queryRef.get();
+      let posts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      posts = posts.filter((p: any) => p.status !== 'draft');
+      posts.sort((a: any, b: any) => {
+        const timeA = new Date(a.createdAt || 0).getTime();
+        const timeB = new Date(b.createdAt || 0).getTime();
+        return timeB - timeA;
+      });
+      res.json({ posts });
+    } catch (error: any) {
+      console.error("[API] Failed to fetch one liners", error);
+      res.status(500).json({ error: "Failed to fetch one liners" });
+    }
+  });
+
+  app.get("/api/admin/one-liners", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const snap = await currentDb.collection("one_liners").get();
+      let posts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      posts.sort((a: any, b: any) => {
+        const timeA = new Date(a.createdAt || 0).getTime();
+        const timeB = new Date(b.createdAt || 0).getTime();
+        return timeB - timeA;
+      });
+      res.json({ posts });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch one liners", message: error.message });
+    }
+  });
+
+  app.post("/api/admin/one-liners", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    const user = (req as any).user;
+    try {
+      const data = {
+        ...req.body,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        authorId: user.uid,
+      };
+      const ref = await currentDb.collection("one_liners").add(data);
+      await invalidateCacheField("one_liners");
+      res.json({ id: ref.id, message: "One Liner created successfully" });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to create one liner", message: error.message });
+    }
+  });
+
+  app.put("/api/admin/one-liners/:id", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    const { id } = req.params;
+    try {
+      const data = {
+        ...req.body,
+        updatedAt: new Date().toISOString(),
+      };
+      await currentDb.collection("one_liners").doc(id).update(data);
+      await invalidateCacheField("one_liners");
+      res.json({ success: true, message: "One Liner updated successfully" });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to update one liner", message: error.message });
+    }
+  });
+
+  app.delete("/api/admin/one-liners/:id", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    const { id } = req.params;
+    try {
+      await currentDb.collection("one_liners").doc(id).delete();
+      await invalidateCacheField("one_liners");
+      res.json({ success: true, message: "One Liner deleted successfully" });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to delete one liner", message: error.message });
+    }
+  });
+
   // ── Study Notes CRUD ──────────────────────────────────────────────────────
 
   app.get("/api/admin/study-notes", verifyToken, verifyAdmin, async (req, res) => {

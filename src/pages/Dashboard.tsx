@@ -13,11 +13,12 @@ import AppBottomNav from '../components/AppBottomNav';
 import AppUpdateToast from '../components/AppUpdateToast';
 import ReviewPopup from '../components/ReviewPopup';
 import ReviewSlider from '../components/ReviewSlider';
-import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ChevronLeft, ArrowLeft, ExternalLink, Menu, X, Youtube, MessageCircle, Send, LayoutDashboard, History, ChevronDown, ArrowRight, User, Info, Phone, Download, Printer, AlertCircle, BarChart3, Keyboard, Globe, Layers, CheckSquare, Volume2, VolumeX, Maximize, NotebookPen, Award, Calendar, ClipboardList, Crown, Brain, Book, Newspaper, Megaphone } from 'lucide-react';
+import ComingSoonBox from '../components/ComingSoonBox';
+import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ChevronLeft, ArrowLeft, ExternalLink, Menu, X, Youtube, MessageCircle, Send, LayoutDashboard, History, ChevronDown, ArrowRight, User, Info, Phone, Download, Printer, AlertCircle, BarChart3, Keyboard, Globe, Layers, CheckSquare, Volume2, VolumeX, Maximize, NotebookPen, Award, Calendar, ClipboardList, Crown, Brain, Book, Newspaper, Megaphone, Bookmark, Eye, Sparkles, FileUp, Search, Filter } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-type DashboardTab = 'home' | 'profile' | 'mock_topic' | 'mock_sectional' | 'mock_full' | 'notes' | 'video' | 'pyq' | 'pattern' | 'affairs' | 'practice' | 'about' | 'contact' | 'learn_landing' | 'mock_landing' | 'live_test' | 'mock_challenge';
+type DashboardTab = 'home' | 'profile' | 'mock_topic' | 'mock_sectional' | 'mock_full' | 'notes' | 'video' | 'pyq' | 'pattern' | 'affairs' | 'practice' | 'about' | 'contact' | 'learn_landing' | 'mock_landing' | 'live_test' | 'mock_challenge' | 'one_liner';
 
 const WELCOME_QUOTES = [
   "Success doesn't come from luck — it comes from daily practice.",
@@ -269,10 +270,10 @@ const getCategoryStyle = (title: string, dbColor?: string, dbIcon?: string) => {
     icon = '👑';
     LucideIcon = Crown;
     iconBgClass = 'bg-violet-50 text-violet-600 border-violet-200/50 group-hover:bg-violet-100 group-hover:text-violet-700';
-  } else if (t.includes('quiz') || iconStr === '🧠') {
-    icon = '🧠';
-    LucideIcon = Brain;
-    iconBgClass = 'bg-fuchsia-50 text-fuchsia-600 border-fuchsia-200/50 group-hover:bg-fuchsia-100 group-hover:text-fuchsia-700';
+  } else if (t.includes('one liner') || t.includes('one_liner') || t.includes('quiz') || iconStr === '📌' || iconStr === '🧠') {
+    icon = '📌';
+    LucideIcon = Bookmark;
+    iconBgClass = 'bg-violet-50 text-violet-600 border-violet-200/50 group-hover:bg-violet-100 group-hover:text-violet-700';
   } else if (t.includes('ebook') || iconStr === '📖') {
     icon = '📖';
     LucideIcon = Book;
@@ -301,7 +302,7 @@ const DEFAULT_DASHBOARD_CATEGORIES = [
   { title: 'Syllabus', textColor: 'default', iconType: '📋', actionType: 'tab', actionValue: 'pattern', priority: 4, isActive: true },
   { title: 'Previous Year Paper', textColor: 'default', iconType: '📁', actionType: 'tab', actionValue: 'pyq', priority: 5, isActive: true },
   { title: 'Paid Test', textColor: 'default', iconType: '👑', actionType: 'route', actionValue: '/paid-mock', priority: 6, isActive: true },
-  { title: 'Quiz', textColor: 'default', iconType: '🧠', actionType: 'tab', actionValue: 'mock_topic:Quiz', priority: 7, isActive: true },
+  { title: 'One Liner', textColor: 'default', iconType: '📌', actionType: 'tab', actionValue: 'one_liner', priority: 7, isActive: true },
   { title: 'Ebook', textColor: 'default', iconType: '📖', actionType: 'tab', actionValue: 'notes', priority: 8, isActive: true },
   { title: 'Current Affairs', textColor: 'default', iconType: '📰', actionType: 'route', actionValue: '/current-affairs', priority: 9, isActive: true },
   { title: 'Practice Set', textColor: 'default', iconType: '✅', actionType: 'tab', actionValue: 'practice', priority: 10, isActive: true },
@@ -356,6 +357,28 @@ export default function Dashboard() {
   const [challengeLeaderboardLoading, setChallengeLeaderboardLoading] = useState(false);
   const [challengeHeaderTab, setChallengeHeaderTab] = useState<'progress' | 'leaderboard'>('progress');
 
+  // One Liner student state
+  const [oneLiners, setOneLiners] = useState<any[]>([]);
+  const [oneLinersLoading, setOneLinersLoading] = useState(false);
+  const [oneLinerSubjectFilter, setOneLinerSubjectFilter] = useState('ALL');
+  const [oneLinerSearch, setOneLinerSearch] = useState('');
+  const [selectedPreviewImage, setSelectedPreviewImage] = useState<string | null>(null);
+
+  const fetchOneLiners = async () => {
+    setOneLinersLoading(true);
+    try {
+      const res = await fetch('/api/one-liners');
+      if (res.ok) {
+        const data = await res.json();
+        setOneLiners(data.posts || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch one-liners:", err);
+    } finally {
+      setOneLinersLoading(false);
+    }
+  };
+
   const challengeTests = useMemo(() => {
     return activeTests.filter(t => t.category === "150 Days Free Practice" && t.isActive !== false);
   }, [activeTests]);
@@ -403,6 +426,12 @@ export default function Dashboard() {
   
   const activeTab = (searchParams.get('tab') as DashboardTab) || 'home';
   const selectedCategory = searchParams.get('cat') || '';
+
+  useEffect(() => {
+    if (activeTab === 'one_liner') {
+      fetchOneLiners();
+    }
+  }, [activeTab]);
 
   const setActiveTab = (tab: DashboardTab) => {
     setSearchParams({ tab, cat: '' });
@@ -1986,35 +2015,124 @@ export default function Dashboard() {
           {/* Practice Set Tab Content */}
           {activeTab === 'practice' && (
             <div className="space-y-6 animate-in fade-in duration-150">
-              <div className="flex items-center gap-3">
-                <div className="w-1.5 h-8 bg-gradient-to-b from-teal-500 to-emerald-600 rounded-full"></div>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight">✅ Practice Sets</h2>
+              {/* Banner Header */}
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-teal-600 via-emerald-600 to-teal-700 p-6 rounded-3xl text-white shadow-lg relative overflow-hidden">
+                <div className="space-y-1 relative z-10">
+                  <span className="bg-white/20 text-white font-black uppercase text-[10px] px-3 py-1 rounded-full tracking-widest border border-white/20 inline-block">
+                    Topic Practice & Model Papers
+                  </span>
+                  <h2 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
+                    <Target className="w-6 h-6 text-amber-300 shrink-0" /> Practice Sets & Worksheets
+                  </h2>
+                  <p className="text-xs sm:text-sm text-teal-100 font-medium leading-relaxed max-w-xl">
+                    High-yield practice worksheets, topic-wise question banks, model papers, and detailed solution keys.
+                  </p>
+                </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {practiceSets.map(item => (
-                  <div key={item.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group hover:shadow-xl hover:shadow-teal-50 hover:-translate-y-1 transition-all duration-300 overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/5 rounded-full translate-x-1/2 -translate-y-1/2 group-hover:scale-150 transition-transform duration-500 pointer-events-none"></div>
-                    <div className="w-12 h-12 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-2xl flex items-center justify-center text-white mb-4 shadow-lg shadow-teal-200 group-hover:scale-110 transition-transform duration-300">
-                      <CheckCircle className="w-6 h-6" />
-                    </div>
-                    <h4 className="font-black text-slate-800 text-base mb-1 tracking-tight line-clamp-2">{item.title}</h4>
-                    <p className="text-[10px] font-black text-teal-600 uppercase tracking-widest mb-5 bg-teal-50 inline-block px-2 py-0.5 rounded-md">{item.subject || 'Practice'}</p>
-                    <a
-                      href={item.link} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center justify-between w-full text-teal-700 font-bold text-xs uppercase tracking-wider bg-teal-50 border border-teal-100 px-4 py-2.5 rounded-xl hover:bg-teal-600 hover:text-white hover:border-transparent transition-all"
+
+              {/* Search & Subject Filter Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                <div className="relative flex-1 min-w-[220px]">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search Practice Sets..."
+                    value={oneLinerSearch}
+                    onChange={e => setOneLinerSearch(e.target.value)}
+                    className="w-full bg-slate-50 rounded-xl border border-slate-200 pl-9 pr-3 py-2 text-xs font-bold text-slate-800 focus:border-teal-600 outline-none"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+                  {['ALL', 'Mathematics', 'Reasoning', 'General Knowledge', 'English Language', 'Computer Knowledge', 'Full Model Practice Set', 'SSC Special', 'Railway Special'].map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setOneLinerSubjectFilter(cat)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-black shrink-0 transition-all cursor-pointer ${
+                        oneLinerSubjectFilter === cat
+                          ? 'bg-teal-600 text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
                     >
-                      Download PDF
-                      <Download className="w-3.5 h-3.5" />
-                    </a>
-                  </div>
-                ))}
-                {practiceSets.length === 0 && (
-                  <div className="col-span-full bg-white rounded-3xl p-16 border border-slate-100 text-center shadow-sm">
-                    <div className="w-16 h-16 bg-teal-50 rounded-3xl flex items-center justify-center mx-auto mb-4">
-                      <CheckCircle className="w-8 h-8 text-teal-200" />
-                    </div>
-                    <p className="font-black text-sm uppercase tracking-widest text-slate-400">No Practice Sets uploaded yet.</p>
-                  </div>
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Practice Sets Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {practiceSets
+                  .filter(p => p.status !== 'draft')
+                  .filter(p => {
+                    const matchesSearch = 
+                      (p.title || '').toLowerCase().includes(oneLinerSearch.toLowerCase()) ||
+                      (p.content || p.description || '').toLowerCase().includes(oneLinerSearch.toLowerCase()) ||
+                      (p.subject || '').toLowerCase().includes(oneLinerSearch.toLowerCase());
+                    const matchesSub = oneLinerSubjectFilter === 'ALL' || (p.subject || '').includes(oneLinerSubjectFilter);
+                    return matchesSearch && matchesSub;
+                  })
+                  .map(item => {
+                    const titleText = item.title || 'Practice Set';
+                    const subjectText = item.subject || 'General';
+                    const pdfLink = item.pdfUrl || item.fileUrl || item.link;
+                    const coverImage = item.imageUrl || item.thumbnailUrl;
+                    const contentText = item.content || item.description;
+
+                    return (
+                      <div key={item.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs relative group hover:shadow-lg transition-all flex flex-col justify-between space-y-4">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <span className="px-2.5 py-0.5 bg-teal-50 text-teal-700 border border-teal-100 text-[10px] font-black uppercase rounded-lg">
+                              {subjectText}
+                            </span>
+                            {(item.pinned || item.pinToHomepage) && (
+                              <span className="px-2 py-0.5 bg-amber-500 text-slate-950 text-[9px] font-black uppercase rounded-md flex items-center gap-1">
+                                📌 Pinned
+                              </span>
+                            )}
+                          </div>
+
+                          <h4 className="font-black text-slate-900 text-base leading-snug tracking-tight">{titleText}</h4>
+
+                          {contentText && (
+                            <p className="text-xs text-slate-600 font-medium leading-relaxed whitespace-pre-line bg-slate-50 p-3 rounded-xl border border-slate-100">
+                              {contentText}
+                            </p>
+                          )}
+
+                          {coverImage && (
+                            <div 
+                              onClick={() => setSelectedPreviewImage(coverImage)}
+                              className="relative rounded-xl border border-slate-200 overflow-hidden cursor-pointer group max-h-48 bg-slate-100"
+                            >
+                              <img src={coverImage} alt={titleText} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                              <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1">
+                                <Eye className="w-4 h-4" /> View full image
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="space-y-2 pt-3 border-t border-slate-100">
+                          {pdfLink ? (
+                            <a 
+                              href={pdfLink} target="_blank" rel="noopener noreferrer"
+                              className="flex items-center justify-between w-full text-rose-700 font-bold text-xs uppercase tracking-wider bg-rose-50 border border-rose-200 px-4 py-2.5 rounded-xl hover:bg-rose-100 transition-all"
+                            >
+                              <span className="truncate flex items-center gap-2">
+                                📄 {item.pdfTitle || 'Download Practice Set PDF'}
+                              </span>
+                              <Download className="w-4 h-4 shrink-0" />
+                            </a>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                {practiceSets.filter(p => p.status !== 'draft').filter(p => oneLinerSubjectFilter === 'ALL' || (p.subject || '').includes(oneLinerSubjectFilter)).length === 0 && (
+                  <ComingSoonBox categoryName={oneLinerSubjectFilter !== 'ALL' ? oneLinerSubjectFilter : 'Practice Sets & Worksheets'} />
                 )}
               </div>
             </div>
@@ -3148,37 +3266,275 @@ export default function Dashboard() {
             </div>
           )}
 
+          {activeTab === 'one_liner' && (
+            <div className="space-y-6 animate-in fade-in duration-150">
+              {/* Banner Header */}
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-violet-600 via-indigo-600 to-indigo-700 p-6 rounded-3xl text-white shadow-lg relative overflow-hidden">
+                <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+                <div className="space-y-1 relative z-10">
+                  <span className="bg-white/20 text-white font-black uppercase text-[10px] px-3 py-1 rounded-full tracking-widest border border-white/20 inline-block">
+                    Quick Revision
+                  </span>
+                  <h2 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
+                    <Bookmark className="w-6 h-6 text-amber-300 shrink-0" /> One Liner Study Notes
+                  </h2>
+                  <p className="text-xs sm:text-sm text-violet-100 font-medium leading-relaxed max-w-xl">
+                    High-yield One Liners in Text, Image, and PDF formats posted directly by teachers for fast exam preparation.
+                  </p>
+                </div>
+              </div>
+
+              {/* Search & Filter Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                <div className="relative flex-1 min-w-[220px]">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search One Liners by topic..."
+                    value={oneLinerSearch}
+                    onChange={e => setOneLinerSearch(e.target.value)}
+                    className="w-full bg-slate-50 rounded-xl border border-slate-200 pl-9 pr-3 py-2 text-xs font-bold text-slate-800 focus:border-indigo-600 outline-none"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+                  {['ALL', 'General Knowledge', 'History', 'Geography', 'Science', 'English', 'Mathematics', 'Reasoning', 'Computer', 'Polity', 'Current Affairs'].map(sub => (
+                    <button
+                      key={sub}
+                      onClick={() => setOneLinerSubjectFilter(sub)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-black shrink-0 transition-all cursor-pointer ${
+                        oneLinerSubjectFilter === sub
+                          ? 'bg-indigo-600 text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {sub}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* List of One Liners */}
+              {oneLinersLoading ? (
+                <div className="py-16 text-center text-slate-400 flex flex-col items-center justify-center space-y-2">
+                  <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-xs font-medium">Loading One Liners...</span>
+                </div>
+              ) : (() => {
+                const filtered = oneLiners.filter(item => {
+                  const matchesSearch = 
+                    (item.title || '').toLowerCase().includes(oneLinerSearch.toLowerCase()) ||
+                    (item.content || '').toLowerCase().includes(oneLinerSearch.toLowerCase());
+                  const matchesSub = oneLinerSubjectFilter === 'ALL' || item.subject === oneLinerSubjectFilter;
+                  return matchesSearch && matchesSub;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <ComingSoonBox categoryName={oneLinerSubjectFilter !== 'ALL' ? oneLinerSubjectFilter : 'One Liners'} />
+                  );
+                }
+
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {filtered.map(item => (
+                      <div key={item.id} className="bg-white rounded-2xl border border-slate-200/90 hover:border-indigo-200 p-4 shadow-xs hover:shadow-md transition-all space-y-3 flex flex-col justify-between">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 text-[10px] font-black uppercase rounded-lg">
+                              {item.subject}
+                            </span>
+                            {item.pinned && (
+                              <span className="px-2 py-0.5 bg-amber-500 text-slate-950 text-[9px] font-black uppercase rounded-md flex items-center gap-1">
+                                📌 Pinned
+                              </span>
+                            )}
+                          </div>
+
+                          <h3 className="text-sm sm:text-base font-black text-slate-900 leading-snug">{item.title}</h3>
+
+                          {item.content && (
+                            <p className="text-xs text-slate-600 font-medium leading-relaxed whitespace-pre-line bg-slate-50 p-3 rounded-xl border border-slate-100">
+                              {item.content}
+                            </p>
+                          )}
+
+                          {item.imageUrl && (
+                            <div className="space-y-1">
+                              <div 
+                                onClick={() => setSelectedPreviewImage(item.imageUrl)}
+                                className="relative rounded-xl border border-slate-200 overflow-hidden cursor-pointer group max-h-48 bg-slate-100"
+                              >
+                                <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1.5">
+                                  <Eye className="w-4 h-4" /> Click to view full image
+                                </div>
+                              </div>
+                              {item.imageCaption && (
+                                <p className="text-[10px] text-slate-400 font-medium italic">{item.imageCaption}</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {item.pdfUrl && (
+                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                            <span className="text-xs font-bold text-slate-600 truncate flex items-center gap-1.5">
+                              📄 {item.pdfTitle || 'PDF Document'}
+                            </span>
+                            <a
+                              href={item.pdfUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl font-extrabold text-xs transition-all flex items-center gap-1.5 shrink-0"
+                            >
+                              <Download className="w-3.5 h-3.5" /> Download PDF
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+
+              {/* Image Preview Lightbox Modal */}
+              {selectedPreviewImage && (
+                <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setSelectedPreviewImage(null)}>
+                  <div className="relative max-w-3xl max-h-[90vh] bg-white rounded-2xl overflow-hidden shadow-2xl p-2" onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={() => setSelectedPreviewImage(null)}
+                      className="absolute top-3 right-3 p-2 bg-slate-900/70 hover:bg-slate-900 text-white rounded-full transition-all cursor-pointer z-10"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    <img src={selectedPreviewImage} alt="Preview" className="w-full h-full max-h-[85vh] object-contain rounded-xl" />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === 'notes' && (
             <div className="space-y-6 animate-in fade-in duration-150">
-              <div className="flex items-center gap-3">
-                <div className="w-1.5 h-8 bg-gradient-to-b from-emerald-500 to-teal-600 rounded-full"></div>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight">📚 Study Materials</h2>
+              {/* Banner Header */}
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 p-6 rounded-3xl text-white shadow-lg relative overflow-hidden">
+                <div className="space-y-1 relative z-10">
+                  <span className="bg-white/20 text-white font-black uppercase text-[10px] px-3 py-1 rounded-full tracking-widest border border-white/20 inline-block">
+                    Ebooks & Study Notes
+                  </span>
+                  <h2 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
+                    <BookOpen className="w-6 h-6 text-amber-200 shrink-0" /> Ebooks & Comprehensive Study Materials
+                  </h2>
+                  <p className="text-xs sm:text-sm text-emerald-100 font-medium leading-relaxed max-w-xl">
+                    High-yield Ebooks, formula handbooks, and topic-wise study notes prepared for competitive exams.
+                  </p>
+                </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {notes.map(note => (
-                  <div key={note.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group hover:shadow-xl hover:shadow-emerald-50 hover:-translate-y-1 transition-all duration-300 overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full translate-x-1/2 -translate-y-1/2 group-hover:scale-150 transition-transform duration-500 pointer-events-none"></div>
-                    <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center text-white mb-4 shadow-lg shadow-emerald-200 group-hover:scale-110 transition-transform duration-300">
-                      <BookOpen className="w-6 h-6" />
-                    </div>
-                    <h4 className="font-black text-slate-800 text-base mb-1 tracking-tight line-clamp-2">{note.title}</h4>
-                    <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-5 bg-emerald-50 inline-block px-2 py-0.5 rounded-md">{note.subject || 'Notes'}</p>
-                    <a
-                      href={note.link} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center justify-between w-full text-emerald-700 font-bold text-xs uppercase tracking-wider bg-emerald-50 border border-emerald-100 px-4 py-2.5 rounded-xl hover:bg-emerald-600 hover:text-white hover:border-transparent transition-all"
+
+              {/* Search & Subject Filter Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                <div className="relative flex-1 min-w-[220px]">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search Ebooks or Study Notes..."
+                    value={oneLinerSearch}
+                    onChange={e => setOneLinerSearch(e.target.value)}
+                    className="w-full bg-slate-50 rounded-xl border border-slate-200 pl-9 pr-3 py-2 text-xs font-bold text-slate-800 focus:border-emerald-600 outline-none"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+                  {['ALL', 'Mathematics', 'General Knowledge', 'History', 'Geography', 'Science', 'English Language', 'Reasoning', 'Computer Knowledge', 'Polity'].map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setOneLinerSubjectFilter(cat)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-black shrink-0 transition-all cursor-pointer ${
+                        oneLinerSubjectFilter === cat
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
                     >
-                      Open Resource
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  </div>
-                ))}
-                {notes.length === 0 && (
-                  <div className="col-span-full bg-white rounded-3xl p-16 border border-slate-100 text-center shadow-sm">
-                    <div className="w-16 h-16 bg-emerald-50 rounded-3xl flex items-center justify-center mx-auto mb-4">
-                      <BookOpen className="w-8 h-8 text-emerald-200" />
-                    </div>
-                    <p className="font-black text-sm uppercase tracking-widest text-slate-400">Knowledge Base is Empty</p>
-                  </div>
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Ebooks Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {notes
+                  .filter(p => p.status !== 'draft')
+                  .filter(p => {
+                    const matchesSearch = 
+                      (p.title || '').toLowerCase().includes(oneLinerSearch.toLowerCase()) ||
+                      (p.content || p.description || '').toLowerCase().includes(oneLinerSearch.toLowerCase()) ||
+                      (p.subject || '').toLowerCase().includes(oneLinerSearch.toLowerCase());
+                    const matchesSub = oneLinerSubjectFilter === 'ALL' || (p.subject || '').includes(oneLinerSubjectFilter);
+                    return matchesSearch && matchesSub;
+                  })
+                  .map(note => {
+                    const titleText = note.title || 'Ebook Study Note';
+                    const subjectText = note.subject || 'General';
+                    const pdfLink = note.pdfUrl || note.link;
+                    const coverImage = note.imageUrl || note.thumbnailUrl;
+                    const contentText = note.content || note.description;
+
+                    return (
+                      <div key={note.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs relative group hover:shadow-lg transition-all flex flex-col justify-between space-y-4">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-black uppercase rounded-lg">
+                              {subjectText}
+                            </span>
+                            {(note.pinned || note.pinToHomepage) && (
+                              <span className="px-2 py-0.5 bg-amber-500 text-slate-950 text-[9px] font-black uppercase rounded-md flex items-center gap-1">
+                                📌 Pinned
+                              </span>
+                            )}
+                          </div>
+
+                          <h4 className="font-black text-slate-900 text-base leading-snug tracking-tight">{titleText}</h4>
+
+                          {contentText && (
+                            <p className="text-xs text-slate-600 font-medium leading-relaxed whitespace-pre-line bg-slate-50 p-3 rounded-xl border border-slate-100">
+                              {contentText}
+                            </p>
+                          )}
+
+                          {coverImage && (
+                            <div 
+                              onClick={() => setSelectedPreviewImage(coverImage)}
+                              className="relative rounded-xl border border-slate-200 overflow-hidden cursor-pointer group max-h-48 bg-slate-100"
+                            >
+                              <img src={coverImage} alt={titleText} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                              <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1">
+                                <Eye className="w-4 h-4" /> View full image
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="space-y-2 pt-3 border-t border-slate-100">
+                          {pdfLink ? (
+                            <a 
+                              href={pdfLink} target="_blank" rel="noopener noreferrer"
+                              className="flex items-center justify-between w-full text-rose-700 font-bold text-xs uppercase tracking-wider bg-rose-50 border border-rose-200 px-4 py-2.5 rounded-xl hover:bg-rose-100 transition-all"
+                            >
+                              <span className="truncate flex items-center gap-2">
+                                📄 {note.pdfTitle || 'Download Ebook PDF'}
+                              </span>
+                              <Download className="w-4 h-4 shrink-0" />
+                            </a>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                {notes.filter(p => p.status !== 'draft').filter(p => oneLinerSubjectFilter === 'ALL' || (p.subject || '').includes(oneLinerSubjectFilter)).length === 0 && (
+                  <ComingSoonBox categoryName={oneLinerSubjectFilter !== 'ALL' ? oneLinerSubjectFilter : 'Ebooks & Study Notes'} />
                 )}
               </div>
             </div>
@@ -3225,79 +3581,381 @@ export default function Dashboard() {
 
           {activeTab === 'pyq' && (
             <div className="space-y-6 animate-in fade-in duration-150">
-              <div className="flex items-center gap-3">
-                <div className="w-1.5 h-8 bg-gradient-to-b from-amber-500 to-orange-600 rounded-full"></div>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight">📄 Previous Year Questions</h2>
+              {/* Banner Header */}
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 p-6 rounded-3xl text-white shadow-lg relative overflow-hidden">
+                <div className="space-y-1 relative z-10">
+                  <span className="bg-white/20 text-white font-black uppercase text-[10px] px-3 py-1 rounded-full tracking-widest border border-white/20 inline-block">
+                    Archive & Practice
+                  </span>
+                  <h2 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
+                    <History className="w-6 h-6 text-amber-200 shrink-0" /> Previous Year Question Papers (PYQs)
+                  </h2>
+                  <p className="text-xs sm:text-sm text-amber-100 font-medium leading-relaxed max-w-xl">
+                    Download authentic Previous Year Question Papers, memory-based questions, and key solutions.
+                  </p>
+                </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {pyqs.map(pyq => (
-                  <div key={pyq.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group hover:shadow-xl hover:shadow-amber-50 hover:-translate-y-1 transition-all duration-300 overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full translate-x-1/2 -translate-y-1/2 group-hover:scale-150 transition-transform duration-500 pointer-events-none"></div>
-                    <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center text-white mb-4 shadow-lg shadow-amber-200 group-hover:scale-110 transition-transform duration-300">
-                      <FileText className="w-6 h-6" />
-                    </div>
-                    <h4 className="font-black text-slate-800 text-base mb-1 tracking-tight line-clamp-2">{pyq.title}</h4>
-                    <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-5 bg-amber-50 inline-block px-2 py-0.5 rounded-md">{pyq.subject || 'PYQ'}</p>
-                    <a
-                      href={pyq.link} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center justify-between w-full text-amber-700 font-bold text-xs uppercase tracking-wider bg-amber-50 border border-amber-100 px-4 py-2.5 rounded-xl hover:bg-amber-500 hover:text-white hover:border-transparent transition-all"
+
+              {/* Search & Subject Filter Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                <div className="relative flex-1 min-w-[220px]">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search Previous Year Papers..."
+                    value={oneLinerSearch}
+                    onChange={e => setOneLinerSearch(e.target.value)}
+                    className="w-full bg-slate-50 rounded-xl border border-slate-200 pl-9 pr-3 py-2 text-xs font-bold text-slate-800 focus:border-amber-600 outline-none"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+                  {['ALL', 'Full Question Paper', 'Mathematics', 'Reasoning', 'General Knowledge', 'English Language', 'Computer Knowledge', 'SSC Exams', 'Railway Exams', 'Banking Exams'].map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setOneLinerSubjectFilter(cat)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-black shrink-0 transition-all cursor-pointer ${
+                        oneLinerSubjectFilter === cat
+                          ? 'bg-amber-600 text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
                     >
-                      Open Document
-                      <Download className="w-3.5 h-3.5" />
-                    </a>
-                  </div>
-                ))}
-                {pyqs.length === 0 && (
-                  <div className="col-span-full bg-white rounded-3xl p-16 border border-slate-100 text-center shadow-sm">
-                    <div className="w-16 h-16 bg-amber-50 rounded-3xl flex items-center justify-center mx-auto mb-4">
-                      <FileText className="w-8 h-8 text-amber-200" />
-                    </div>
-                    <p className="font-black text-sm uppercase tracking-widest text-slate-400">No PYQs uploaded yet.</p>
-                  </div>
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* PYQs Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {pyqs
+                  .filter(p => p.status !== 'draft')
+                  .filter(p => {
+                    const matchesSearch = 
+                      (p.title || p.pyqTitle || '').toLowerCase().includes(oneLinerSearch.toLowerCase()) ||
+                      (p.content || '').toLowerCase().includes(oneLinerSearch.toLowerCase()) ||
+                      (p.subject || p.pyqSubject || '').toLowerCase().includes(oneLinerSearch.toLowerCase());
+                    const matchesSub = oneLinerSubjectFilter === 'ALL' || (p.subject || p.pyqSubject || '').includes(oneLinerSubjectFilter);
+                    return matchesSearch && matchesSub;
+                  })
+                  .map(pyq => {
+                    const titleText = pyq.title || pyq.pyqTitle || 'Previous Year Paper';
+                    const subjectText = pyq.subject || pyq.pyqSubject || 'General';
+                    const pdfLink = pyq.pdfUrl || pyq.fileUrl || pyq.link;
+
+                    return (
+                      <div key={pyq.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs relative group hover:shadow-lg transition-all flex flex-col justify-between space-y-4">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <span className="px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-100 text-[10px] font-black uppercase rounded-lg">
+                              {subjectText}
+                            </span>
+                            {pyq.pinned && (
+                              <span className="px-2 py-0.5 bg-amber-500 text-slate-950 text-[9px] font-black uppercase rounded-md flex items-center gap-1">
+                                📌 Pinned
+                              </span>
+                            )}
+                          </div>
+
+                          <h4 className="font-black text-slate-900 text-base leading-snug tracking-tight">{titleText}</h4>
+
+                          {pyq.content && (
+                            <p className="text-xs text-slate-600 font-medium leading-relaxed whitespace-pre-line bg-slate-50 p-3 rounded-xl border border-slate-100">
+                              {pyq.content}
+                            </p>
+                          )}
+
+                          {pyq.imageUrl && (
+                            <div 
+                              onClick={() => setSelectedPreviewImage(pyq.imageUrl)}
+                              className="relative rounded-xl border border-slate-200 overflow-hidden cursor-pointer group max-h-48 bg-slate-100"
+                            >
+                              <img src={pyq.imageUrl} alt={titleText} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                              <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1">
+                                <Eye className="w-4 h-4" /> View full image
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="space-y-2 pt-3 border-t border-slate-100">
+                          {pdfLink ? (
+                            <a 
+                              href={pdfLink} target="_blank" rel="noopener noreferrer"
+                              className="flex items-center justify-between w-full text-rose-700 font-bold text-xs uppercase tracking-wider bg-rose-50 border border-rose-200 px-4 py-2.5 rounded-xl hover:bg-rose-100 transition-all"
+                            >
+                              <span className="truncate flex items-center gap-2">
+                                📄 {pyq.pdfTitle || 'Download Question Paper PDF'}
+                              </span>
+                              <Download className="w-4 h-4 shrink-0" />
+                            </a>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                {pyqs.filter(p => p.status !== 'draft').filter(p => oneLinerSubjectFilter === 'ALL' || (p.subject || p.pyqSubject || '').includes(oneLinerSubjectFilter)).length === 0 && (
+                  <ComingSoonBox categoryName={oneLinerSubjectFilter !== 'ALL' ? oneLinerSubjectFilter : 'Previous Year Question Papers'} />
                 )}
               </div>
             </div>
           )}
 
           {activeTab === 'pattern' && (
-            <div className="space-y-8 animate-in fade-in duration-150">
-              <h2 className="text-xl font-black text-slate-900 tracking-tight">
-                Exam Pattern & Syllabus
-              </h2>
+            <div className="space-y-6 animate-in fade-in duration-150">
+              {/* Banner Header */}
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 p-6 rounded-3xl text-white shadow-lg relative overflow-hidden">
+                <div className="space-y-1 relative z-10">
+                  <span className="bg-white/20 text-white font-black uppercase text-[10px] px-3 py-1 rounded-full tracking-widest border border-white/20 inline-block">
+                    Official Guidelines
+                  </span>
+                  <h2 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
+                    <Trophy className="w-6 h-6 text-amber-300 shrink-0" /> Exam Pattern & Syllabus
+                  </h2>
+                  <p className="text-xs sm:text-sm text-blue-100 font-medium leading-relaxed max-w-xl">
+                    Official Exam Patterns, Marking Schemes, Sectional Cut-offs, and detailed Syllabus PDFs.
+                  </p>
+                </div>
+              </div>
+
+              {/* Search & Category Filter Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                <div className="relative flex-1 min-w-[220px]">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search Exam Pattern or Syllabus..."
+                    value={oneLinerSearch}
+                    onChange={e => setOneLinerSearch(e.target.value)}
+                    className="w-full bg-slate-50 rounded-xl border border-slate-200 pl-9 pr-3 py-2 text-xs font-bold text-slate-800 focus:border-blue-600 outline-none"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+                  {['ALL', 'SSC', 'Railway', 'Banking', 'Defence', 'Police & State Exams', 'Teaching', 'General'].map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setOneLinerSubjectFilter(cat)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-black shrink-0 transition-all cursor-pointer ${
+                        oneLinerSubjectFilter === cat
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Patterns Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {patterns.map(pattern => (
-                  <div key={pattern.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs relative group hover:shadow-lg transition-all">
-                    <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 mb-4 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                      <Trophy className="w-6 h-6" />
+                {patterns
+                  .filter(p => p.status !== 'draft')
+                  .filter(p => {
+                    const matchesSearch = 
+                      (p.title || '').toLowerCase().includes(oneLinerSearch.toLowerCase()) ||
+                      (p.content || '').toLowerCase().includes(oneLinerSearch.toLowerCase()) ||
+                      (p.examCategory || '').toLowerCase().includes(oneLinerSearch.toLowerCase());
+                    const matchesCat = oneLinerSubjectFilter === 'ALL' || (p.examCategory || '').includes(oneLinerSubjectFilter);
+                    return matchesSearch && matchesCat;
+                  })
+                  .map(pattern => (
+                    <div key={pattern.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs relative group hover:shadow-lg transition-all flex flex-col justify-between space-y-4">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 text-[10px] font-black uppercase rounded-lg">
+                            {pattern.examCategory || 'Exam Pattern'}
+                          </span>
+                          {pattern.pinned && (
+                            <span className="px-2 py-0.5 bg-amber-500 text-slate-950 text-[9px] font-black uppercase rounded-md flex items-center gap-1">
+                              📌 Pinned
+                            </span>
+                          )}
+                        </div>
+
+                        <h4 className="font-black text-slate-900 text-base leading-snug tracking-tight">{pattern.title}</h4>
+
+                        {pattern.content && (
+                          <p className="text-xs text-slate-600 font-medium leading-relaxed whitespace-pre-line bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            {pattern.content}
+                          </p>
+                        )}
+
+                        {pattern.imageUrl && (
+                          <div 
+                            onClick={() => setSelectedPreviewImage(pattern.imageUrl)}
+                            className="relative rounded-xl border border-slate-200 overflow-hidden cursor-pointer group max-h-48 bg-slate-100"
+                          >
+                            <img src={pattern.imageUrl} alt={pattern.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                            <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1">
+                              <Eye className="w-4 h-4" /> View full image
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-2 pt-3 border-t border-slate-100">
+                        {pattern.pdfUrl ? (
+                          <a 
+                            href={pattern.pdfUrl} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center justify-between w-full text-rose-700 font-bold text-xs uppercase tracking-wider bg-rose-50 border border-rose-200 px-4 py-2.5 rounded-xl hover:bg-rose-100 transition-all"
+                          >
+                            <span className="truncate flex items-center gap-2">
+                              📄 {pattern.pdfTitle || 'Download Syllabus PDF'}
+                            </span>
+                            <Download className="w-4 h-4 shrink-0" />
+                          </a>
+                        ) : pattern.files ? pattern.files.map((file: any, idx: number) => (
+                          <a 
+                            key={idx}
+                            href={file.url} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center justify-between w-full text-blue-600 font-bold text-[10px] uppercase tracking-wider bg-blue-50 px-4 py-2.5 rounded-xl hover:bg-blue-600 hover:text-white transition-all"
+                          >
+                            {file.name.length > 25 ? file.name.substring(0, 22) + '...' : file.name}
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        )) : pattern.link ? (
+                          <a 
+                            href={pattern.link} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center justify-between w-full text-blue-600 font-bold text-xs uppercase tracking-wider bg-blue-50 px-4 py-2.5 rounded-xl hover:bg-blue-600 hover:text-white transition-all"
+                          >
+                            Open Syllabus
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
+                        ) : null}
+                      </div>
                     </div>
-                    <h4 className="font-bold text-slate-800 text-lg mb-4 tracking-tight">{pattern.title}</h4>
-                    <div className="space-y-2">
-                       {pattern.files ? pattern.files.map((file: any, idx: number) => (
-                        <a 
-                          key={idx}
-                          href={file.url} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center justify-between w-full text-blue-600 font-bold text-[10px] uppercase tracking-wider bg-blue-50 px-4 py-2.5 rounded-lg hover:bg-blue-600 hover:text-white transition-all"
-                        >
-                          {file.name.length > 25 ? file.name.substring(0, 22) + '...' : file.name}
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
-                      )) : (
-                        <a 
-                          href={pattern.link} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center justify-between w-full text-blue-600 font-bold text-xs uppercase tracking-wider bg-blue-50 px-4 py-2.5 rounded-lg hover:bg-blue-600 hover:text-white transition-all"
-                        >
-                          Open Syllabus
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {patterns.length === 0 && (
-                  <div className="col-span-full bg-white rounded-3xl p-16 border border-slate-200 text-center">
-                    <Trophy className="w-12 h-12 mx-auto mb-4 text-slate-200" />
-                    <p className="font-bold text-sm uppercase tracking-widest text-slate-500 mb-2">No Pattern / Syllabus uploaded yet.</p>
-                  </div>
+                  ))}
+
+                {patterns.filter(p => p.status !== 'draft').filter(p => oneLinerSubjectFilter === 'ALL' || (p.examCategory || '').includes(oneLinerSubjectFilter)).length === 0 && (
+                  <ComingSoonBox categoryName={oneLinerSubjectFilter !== 'ALL' ? oneLinerSubjectFilter : 'Exam Pattern & Syllabus'} />
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'affairs' && (
+            <div className="space-y-6 animate-in fade-in duration-150">
+              {/* Banner Header */}
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-700 p-6 rounded-3xl text-white shadow-lg relative overflow-hidden">
+                <div className="space-y-1 relative z-10">
+                  <span className="bg-white/20 text-white font-black uppercase text-[10px] px-3 py-1 rounded-full tracking-widest border border-white/20 inline-block">
+                    Daily & Monthly Updates
+                  </span>
+                  <h2 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
+                    <Newspaper className="w-6 h-6 text-amber-200 shrink-0" /> Current Affairs & General Awareness
+                  </h2>
+                  <p className="text-xs sm:text-sm text-orange-100 font-medium leading-relaxed max-w-xl">
+                    Stay updated with daily national & international news highlights, sports events, awards, and monthly PDF capsules.
+                  </p>
+                </div>
+              </div>
+
+              {/* Search & Topic Filter Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                <div className="relative flex-1 min-w-[220px]">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search Current Affairs by news headline or topic..."
+                    value={oneLinerSearch}
+                    onChange={e => setOneLinerSearch(e.target.value)}
+                    className="w-full bg-slate-50 rounded-xl border border-slate-200 pl-9 pr-3 py-2 text-xs font-bold text-slate-800 focus:border-orange-600 outline-none"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+                  {['ALL', 'National News', 'International News', 'Important Days', 'Sports News', 'Science & Technology', 'Economy & Banking', 'Awards & Honours'].map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setOneLinerSubjectFilter(cat)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-black shrink-0 transition-all cursor-pointer ${
+                        oneLinerSubjectFilter === cat
+                          ? 'bg-orange-600 text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Current Affairs Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {affairs
+                  .filter(p => p.status !== 'draft')
+                  .filter(p => {
+                    const matchesSearch = 
+                      (p.title || '').toLowerCase().includes(oneLinerSearch.toLowerCase()) ||
+                      (p.content || p.description || '').toLowerCase().includes(oneLinerSearch.toLowerCase()) ||
+                      (p.subject || p.category || '').toLowerCase().includes(oneLinerSearch.toLowerCase());
+                    const matchesSub = oneLinerSubjectFilter === 'ALL' || (p.subject || p.category || '').includes(oneLinerSubjectFilter);
+                    return matchesSearch && matchesSub;
+                  })
+                  .map(affair => {
+                    const titleText = affair.title || 'Current Affair Update';
+                    const subjectText = affair.subject || affair.category || 'General';
+                    const pdfLink = affair.pdfUrl || affair.link;
+                    const coverImage = affair.imageUrl || affair.thumbnailUrl;
+                    const contentText = affair.content || affair.description;
+
+                    return (
+                      <div key={affair.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs relative group hover:shadow-lg transition-all flex flex-col justify-between space-y-4">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <span className="px-2.5 py-0.5 bg-orange-50 text-orange-700 border border-orange-100 text-[10px] font-black uppercase rounded-lg">
+                              {subjectText}
+                            </span>
+                            {(affair.pinned || affair.pinToHomepage) && (
+                              <span className="px-2 py-0.5 bg-amber-500 text-slate-950 text-[9px] font-black uppercase rounded-md flex items-center gap-1">
+                                📌 Pinned
+                              </span>
+                            )}
+                          </div>
+
+                          <h4 className="font-black text-slate-900 text-base leading-snug tracking-tight">{titleText}</h4>
+
+                          {contentText && (
+                            <p className="text-xs text-slate-600 font-medium leading-relaxed whitespace-pre-line bg-slate-50 p-3 rounded-xl border border-slate-100">
+                              {contentText}
+                            </p>
+                          )}
+
+                          {coverImage && (
+                            <div 
+                              onClick={() => setSelectedPreviewImage(coverImage)}
+                              className="relative rounded-xl border border-slate-200 overflow-hidden cursor-pointer group max-h-48 bg-slate-100"
+                            >
+                              <img src={coverImage} alt={titleText} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                              <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1">
+                                <Eye className="w-4 h-4" /> View full image
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="space-y-2 pt-3 border-t border-slate-100">
+                          {pdfLink ? (
+                            <a 
+                              href={pdfLink} target="_blank" rel="noopener noreferrer"
+                              className="flex items-center justify-between w-full text-rose-700 font-bold text-xs uppercase tracking-wider bg-rose-50 border border-rose-200 px-4 py-2.5 rounded-xl hover:bg-rose-100 transition-all"
+                            >
+                              <span className="truncate flex items-center gap-2">
+                                📄 {affair.pdfTitle || 'Download Monthly Capsule PDF'}
+                              </span>
+                              <Download className="w-4 h-4 shrink-0" />
+                            </a>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                {affairs.filter(p => p.status !== 'draft').filter(p => oneLinerSubjectFilter === 'ALL' || (p.subject || p.category || '').includes(oneLinerSubjectFilter)).length === 0 && (
+                  <ComingSoonBox categoryName={oneLinerSubjectFilter !== 'ALL' ? oneLinerSubjectFilter : 'Current Affairs'} />
                 )}
               </div>
             </div>

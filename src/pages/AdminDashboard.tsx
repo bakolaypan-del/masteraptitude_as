@@ -14,13 +14,19 @@ import 'jspdf-autotable';
 import AdminTypingTests from '../components/AdminTypingTests';
 import AdminCurrentAffairs from '../components/AdminCurrentAffairs';
 import AdminStudyNotes from '../components/AdminStudyNotes';
+import AdminOneLiners from '../components/AdminOneLiners';
+import AdminExamPatterns from '../components/AdminExamPatterns';
+import AdminPyqs from '../components/AdminPyqs';
+import AdminEbooks from '../components/AdminEbooks';
+import AdminPracticeSets from '../components/AdminPracticeSets';
+import AdminJobNotifications from '../components/AdminJobNotifications';
 import { invalidateCacheField } from '../lib/cache';
 import { uploadFileViaBackend } from '../lib/upload';
-import { Keyboard } from 'lucide-react';
+import { Keyboard, Bookmark } from 'lucide-react';
 import { RenderMathText } from '../components/MathRenderer';
 import RichTextEditor, { RenderQuestionHTML } from '../components/RichTextEditor';
 
-type AdminTab = 'students' | 'mock' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'blog' | 'reviews' | 'paid_mock' | 'dashboard_grid';
+type AdminTab = 'students' | 'mock' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'blog' | 'reviews' | 'paid_mock' | 'dashboard_grid' | 'one_liner';
 
 // ─── Image Cropper Modal ─────────────────────────────────────────────────────
 function ImageCropper({
@@ -1894,9 +1900,21 @@ function AdminHome() {
           <Layers className="w-4 h-4" />
           Dashboard Grid
         </button>
+        <button
+          onClick={() => setActiveTab('one_liner')}
+          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all
+            ${activeTab === 'one_liner' ? 'bg-violet-600 text-white shadow-md shadow-violet-100' : 'text-slate-500 hover:text-violet-600 hover:bg-violet-50'}`}
+        >
+          <Bookmark className="w-4 h-4" />
+          One Liner
+        </button>
       </div>
 
-      
+      {activeTab === 'one_liner' && (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <AdminOneLiners />
+        </div>
+      )}
 
       {activeTab === 'mock' && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -2350,7 +2368,7 @@ function AdminHome() {
         <AdminTypingTests />
       )}
 
-      {activeTab === 'notes' && <AdminStudyNotes />}
+      {activeTab === 'notes' && <AdminEbooks />}
 
       {activeTab === 'video' && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -2450,199 +2468,13 @@ function AdminHome() {
 
       {activeTab === 'pyq' && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-2">
-            <span className="w-2 h-8 bg-amber-600 rounded-full"></span>
-            Previous Year Questions
-          </h2>
-          
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
-            <h3 className="text-lg font-bold text-slate-800 mb-6">{editingPyqId ? 'Update PYQ' : 'Upload New PYQ'}</h3>
-            <form onSubmit={handleAddPyq} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-                <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Title <span className="text-rose-500">*</span></label>
-                  <input 
-                    type="text" required
-                    className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
-                    value={pyqTitle} onChange={e => setPyqTitle(e.target.value)} 
-                    placeholder="e.g. 2023 Paper"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Subject (Optional)</label>
-                  <input 
-                    type="text"
-                    className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
-                    value={pyqSubject} onChange={e => setPyqSubject(e.target.value)} 
-                    placeholder="e.g. Maths"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Resource Link (Optional)</label>
-                  <input 
-                    type="url"
-                    className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
-                    value={pyqLink} onChange={e => setPyqLink(e.target.value)} 
-                    placeholder="https://..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">OR Upload File (Optional)</label>
-                  <input 
-                    id="pyq-file-input"
-                    type="file" 
-                    className="w-full rounded-xl border-slate-200 border-2 p-2 outline-hidden font-medium text-xs file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100"
-                    onChange={e => {
-                      if (e.target.files && e.target.files[0]) {
-                        setPyqFile(e.target.files[0]);
-                      }
-                    }}
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end pt-2">
-                <button 
-                  disabled={uploadingPyq}
-                  type="submit" 
-                  className="bg-amber-600 disabled:opacity-50 text-white px-8 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-amber-50 flex items-center justify-center gap-2"
-                >
-                  {uploadingPyq ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-5 h-5" />
-                      {editingPyqId ? 'Update PYQ' : 'Add PYQ'}
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {pyqs.map(pyq => (
-              <div key={pyq.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group hover:shadow-md transition-all">
-                <div className="absolute top-4 right-4 flex gap-1">
-                  <button
-                    onClick={() => copyLink(pyq.fileUrl || pyq.link || '', `pyq-${pyq.id}`)}
-                    className={`p-2 rounded-xl transition-colors ${copiedId === `pyq-${pyq.id}` ? 'text-emerald-600 bg-emerald-50' : 'text-violet-500 hover:bg-violet-50'}`}
-                    title="Copy shareable link"
-                  >
-                    {copiedId === `pyq-${pyq.id}` ? <Check className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
-                  </button>
-                  <button
-                    onClick={() => handleEditPyq(pyq)}
-                    className="text-indigo-500 hover:bg-indigo-50 p-2 rounded-xl transition-colors"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteContent('pyqs', pyq.id)}
-                    className="text-rose-500 hover:bg-rose-50 p-2 rounded-xl transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600 mb-4 group-hover:bg-amber-600 group-hover:text-white transition-all">
-                  <FileText className="w-6 h-6" />
-                </div>
-                <h4 className="font-bold text-slate-800 mb-1">{pyq.title}</h4>
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">{pyq.subject}</p>
-                <a 
-                  href={pyq.link} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center text-amber-600 font-bold text-sm bg-amber-50 px-4 py-2 rounded-xl hover:bg-amber-100 transition-colors"
-                >
-                  View Resource
-                </a>
-              </div>
-            ))}
-            {pyqs.length === 0 && <div className="col-span-full py-12 text-center text-slate-400 font-bold">No Pyqs uploaded yet.</div>}
-          </div>
+          <AdminPyqs />
         </div>
       )}
 
       {activeTab === 'pattern' && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-2">
-            <span className="w-2 h-8 bg-blue-600 rounded-full"></span>
-            Exam Pattern & Syllabus
-          </h2>
-          
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
-            <h3 className="text-lg font-bold text-slate-800 mb-6">Upload Exam Pattern & Syllabus</h3>
-            <form onSubmit={handleAddPattern} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Exam Name</label>
-                <input 
-                  type="text" required
-                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium" 
-                  value={patternExamName} onChange={e => setPatternExamName(e.target.value)} 
-                  placeholder="e.g. SSC CGL 2024"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Syllabus Files (PDF/Images)</label>
-                <input 
-                  id="pattern-files-input"
-                  type="file" required multiple
-                  accept="image/*,.pdf"
-                  className="w-full rounded-xl border-slate-200 border-2 p-2.5 outline-hidden font-medium text-sm file:mr-4 file:py-1 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-black file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" 
-                  onChange={e => setPatternFiles(Array.from(e.target.files || []))} 
-                />
-              </div>
-              <button 
-                type="submit" 
-                disabled={uploadingPattern}
-                className="bg-blue-600 text-white px-6 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg shadow-blue-50 flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {uploadingPattern ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <Plus className="w-5 h-5" />
-                )}
-                {uploadingPattern ? 'Uploading...' : 'Add Pattern'}
-              </button>
-            </form>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {patterns.map(pattern => (
-              <div key={pattern.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group hover:shadow-md transition-all">
-                <button 
-                  onClick={() => handleDeleteContent('patterns', pattern.id)} 
-                  className="absolute top-4 right-4 text-rose-500 hover:bg-rose-50 p-2 rounded-xl"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-                <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 mb-4 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                  <FileText className="w-6 h-6" />
-                </div>
-                <h4 className="font-bold text-slate-800 mb-4">{pattern.title}</h4>
-                <div className="flex flex-wrap gap-2">
-                  {pattern.files ? pattern.files.map((file: any, idx: number) => (
-                    <a 
-                      key={idx}
-                      href={file.url} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center text-blue-600 font-bold text-[10px] bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors uppercase tracking-tight"
-                    >
-                      {file.name.length > 15 ? file.name.substring(0, 12) + '...' : file.name}
-                    </a>
-                  )) : (
-                    <a 
-                      href={pattern.link} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center text-blue-600 font-bold text-sm bg-blue-50 px-4 py-2 rounded-xl hover:bg-blue-100 transition-colors"
-                    >
-                      View Resource
-                    </a>
-                  )}
-                </div>
-              </div>
-            ))}
-            {patterns.length === 0 && <div className="col-span-full py-12 text-center text-slate-400 font-bold">No Pattern uploaded yet.</div>}
-          </div>
+          <AdminExamPatterns />
         </div>
       )}
 
@@ -3013,107 +2845,7 @@ function AdminHome() {
 
       {activeTab === 'practice' && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-2">
-            <span className="w-2 h-8 bg-teal-600 rounded-full"></span>
-            Practice Set Management
-          </h2>
-          
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8 space-y-5">
-            <h3 className="text-lg font-bold text-slate-800">Add Practice Set</h3>
-            <form onSubmit={handleAddPractice} className="space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Title *</label>
-                  <input type="text" required className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
-                    value={practiceTitle} onChange={e => setPracticeTitle(e.target.value)} placeholder="e.g. WBP Practice Set PDF — GK 2026" />
-                </div>
-                <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Subject / Exam Category</label>
-                  <input type="text" className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
-                    value={practiceSubject} onChange={e => setPracticeSubject(e.target.value)} placeholder="e.g. GK / Maths / Reasoning" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Short Description / SEO Meta (max 160 chars)</label>
-                <input type="text" maxLength={160} className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
-                  value={practiceDesc} onChange={e => setPracticeDesc(e.target.value)} placeholder="Download WBP Practice Set PDF with answers..." />
-                <p className="text-[10px] text-slate-400 mt-1 text-right">{practiceDesc.length}/160</p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Tags (comma separated)</label>
-                  <input type="text" className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
-                    value={practiceTags} onChange={e => setPracticeTags(e.target.value)} placeholder="WBP, PSC, Maths, GK" />
-                </div>
-                <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">File Upload (PDF/DOCX)</label>
-                  <input id="practice-file-input" type="file" accept=".pdf,.doc,.docx,.zip"
-                    className="w-full rounded-xl border-slate-200 border-2 p-2 text-xs file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-teal-50 file:text-teal-700 file:font-bold"
-                    onChange={e => setPracticeFile(e.target.files?.[0] || null)} />
-                </div>
-                <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">OR External Link</label>
-                  <input type="url" className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
-                    value={practiceLink} onChange={e => setPracticeLink(e.target.value)} placeholder="https://..." />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Featured Image (optional)</label>
-                  <input type="file" accept="image/*" className="w-full rounded-xl border-slate-200 border-2 p-2 text-xs file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-teal-50 file:text-teal-700 file:font-bold"
-                    onChange={e => setPracticeThumb(e.target.files?.[0] || null)} />
-                </div>
-                <div className="flex gap-6 items-end pb-1">
-                  <div>
-                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Status</label>
-                    <select className="rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium text-sm"
-                      value={practiceStatus} onChange={e => setPracticeStatus(e.target.value as 'published' | 'draft')}>
-                      <option value="published">✅ Published</option>
-                      <option value="draft">📝 Draft</option>
-                    </select>
-                  </div>
-                  <label className="flex items-center gap-2 cursor-pointer pb-2">
-                    <input type="checkbox" checked={practicePin} onChange={e => setPracticePin(e.target.checked)} className="w-4 h-4 accent-teal-600" />
-                    <span className="text-sm font-bold text-slate-600">📌 Pin to Homepage</span>
-                  </label>
-                </div>
-              </div>
-              <button disabled={uploadingPractice} type="submit" className="bg-teal-600 disabled:opacity-50 text-white px-8 py-4 rounded-xl hover:bg-slate-900 font-bold transition-all shadow-lg flex items-center gap-2">
-                <Plus className="w-5 h-5" />
-                {uploadingPractice ? 'Uploading...' : 'Publish Practice Set'}
-              </button>
-            </form>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {practiceSets.map(item => (
-              <div key={item.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group">
-                <div className="absolute top-4 right-4 flex gap-1">
-                  <button
-                    onClick={() => copyLink(item.fileUrl || item.link || '', `ps-${item.id}`)}
-                    className={`p-2 rounded-xl transition-colors ${copiedId === `ps-${item.id}` ? 'text-emerald-600 bg-emerald-50' : 'text-violet-500 hover:bg-violet-50'}`}
-                    title="Copy shareable link"
-                  >
-                    {copiedId === `ps-${item.id}` ? <Check className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
-                  </button>
-                  <button
-                    onClick={() => handleDeleteContent('practice_sets', item.id)}
-                    className="text-rose-500 hover:bg-rose-50 p-2 rounded-xl"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-                <FileText className="w-6 h-6 text-teal-600 mb-4" />
-                <h4 className="font-bold text-slate-800 mb-1">{item.title}</h4>
-                <p className="text-xs font-bold text-slate-400 mb-4">{item.subject}</p>
-                {item.link && (
-                  <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-teal-600 text-sm font-bold hover:underline">
-                    Download / View →
-                  </a>
-                )}
-              </div>
-            ))}
-          </div>
+          <AdminPracticeSets />
         </div>
       )}
 
@@ -3836,170 +3568,8 @@ function AdminHome() {
 
       {/* ── Latest Job Notification Tab ─────────────────────────────────────────── */}
       {activeTab === 'blog' && (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
-              <span className="w-2 h-8 bg-violet-600 rounded-full" />
-              Latest Job Notification
-            </h2>
-            <button
-              onClick={() => { setShowBlogForm(true); setEditingBlogId(null); setBlogTitle(''); setBlogContent(''); setBlogTags(''); setBlogCategory('News'); setBlogPublishDate(''); setBlogThumbnailFile(null); setBlogThumbnailPreview(''); setBlogThumbnailUrl(''); setBlogSeoTitle(''); setBlogMetaDesc(''); setBlogKeywords(''); setBlogSlug(''); setBlogIsTrending(false); }}
-              className="flex items-center gap-2 px-5 py-3 bg-violet-600 text-white rounded-2xl font-black text-xs uppercase tracking-wider hover:bg-violet-700 shadow-lg shadow-violet-100 transition-all"
-            >
-              <Plus className="w-4 h-4" /> New Post
-            </button>
-          </div>
-
-          {/* Blog Post Form */}
-          {showBlogForm && (
-            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8 space-y-6 animate-in fade-in duration-300">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-black text-slate-800">{editingBlogId ? 'Edit Post' : 'Create New Post'}</h3>
-                <button onClick={() => setShowBlogForm(false)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors"><X className="w-4 h-4" /></button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="md:col-span-2">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Post Title *</label>
-                  <input
-                    type="text" value={blogTitle}
-                    onChange={e => { setBlogTitle(e.target.value); if (!blogSlug) setBlogSlug(slugify(e.target.value)); }}
-                    placeholder="e.g. RRB NTPC 2025 Official Notification Released"
-                    className="w-full rounded-xl border-2 border-slate-200 p-3 font-medium outline-hidden focus:border-violet-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Category</label>
-                  <select value={blogCategory} onChange={e => setBlogCategory(e.target.value)} className="w-full rounded-xl border-2 border-slate-200 p-3 font-medium outline-hidden focus:border-violet-500">
-                    {['News', 'Update', 'Blog', 'Exam Alert', 'Result', 'Admit Card', 'Answer Key', 'Tips & Tricks'].map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Publish Date</label>
-                  <input type="date" value={blogPublishDate} onChange={e => setBlogPublishDate(e.target.value)} className="w-full rounded-xl border-2 border-slate-200 p-3 font-medium outline-hidden focus:border-violet-500" />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Tags <span className="text-slate-300 normal-case font-normal">(comma separated)</span></label>
-                  <input type="text" value={blogTags} onChange={e => setBlogTags(e.target.value)} placeholder="RRB, NTPC, 2025, Railway" className="w-full rounded-xl border-2 border-slate-200 p-3 font-medium outline-hidden focus:border-violet-500" />
-                </div>
-
-                <div className="flex items-end gap-4">
-                  <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border-2 border-amber-100 rounded-xl cursor-pointer select-none" onClick={() => setBlogIsTrending(v => !v)}>
-                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${blogIsTrending ? 'bg-amber-500 border-amber-500' : 'border-slate-300'}`}>
-                      {blogIsTrending && <Check className="w-3 h-3 text-white" />}
-                    </div>
-                    <span className="text-xs font-black text-amber-700 uppercase tracking-wider">🔥 Mark as Trending</span>
-                  </div>
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Thumbnail Image</label>
-                  <div className={`relative border-2 border-dashed rounded-2xl transition-all ${blogThumbnailPreview ? 'border-violet-200 bg-violet-50/20' : 'border-slate-200 bg-slate-50 hover:border-violet-300'}`}>
-                    {blogThumbnailPreview ? (
-                      <div className="p-4 flex items-center gap-4">
-                        <img src={blogThumbnailPreview} alt="Thumbnail" className="w-24 h-16 object-cover rounded-xl border border-slate-100" />
-                        <button type="button" onClick={() => { setBlogThumbnailFile(null); setBlogThumbnailPreview(''); setBlogThumbnailUrl(''); }} className="text-xs font-bold text-rose-500 flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-rose-50 border border-rose-100"><X className="w-3 h-3" /> Remove</button>
-                      </div>
-                    ) : (
-                      <label className="flex flex-col items-center justify-center gap-2 p-6 cursor-pointer">
-                        <FileText className="w-8 h-8 text-slate-300" />
-                        <span className="text-sm font-bold text-slate-400">Click to upload thumbnail</span>
-                        <input type="file" accept="image/*" className="hidden" onChange={e => {
-                          const f = e.target.files?.[0];
-                          if (f) { setBlogThumbnailFile(f); setBlogThumbnailPreview(URL.createObjectURL(f)); setBlogThumbnailUrl(''); }
-                        }} />
-                      </label>
-                    )}
-                  </div>
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Content / Body *</label>
-                  <textarea
-                    rows={8} value={blogContent} onChange={e => setBlogContent(e.target.value)}
-                    placeholder="Write your full post content here. You can use plain text or Markdown..."
-                    className="w-full rounded-xl border-2 border-slate-200 p-3 font-medium outline-hidden focus:border-violet-500 resize-y"
-                  />
-                </div>
-              </div>
-
-              {/* SEO Section */}
-              <div className="bg-slate-50 rounded-2xl border border-slate-100 p-6 space-y-4">
-                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                  <Search className="w-3.5 h-3.5 text-violet-500" /> SEO Settings
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">SEO Title <span className="text-slate-300 normal-case font-normal">(≤60 chars)</span></label>
-                    <input type="text" value={blogSeoTitle} onChange={e => setBlogSeoTitle(e.target.value)} placeholder="Optimized title for search engines" className="w-full rounded-xl border-2 border-slate-200 p-3 font-medium outline-hidden focus:border-violet-500 bg-white" />
-                    <p className="text-[10px] text-slate-400 mt-1">{blogSeoTitle.length}/60 chars</p>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">URL Slug</label>
-                    <input type="text" value={blogSlug} onChange={e => setBlogSlug(slugify(e.target.value))} placeholder="e.g. rrb-ntpc-2025-notification" className="w-full rounded-xl border-2 border-slate-200 p-3 font-medium outline-hidden focus:border-violet-500 bg-white font-mono text-sm" />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Meta Description <span className="text-slate-300 normal-case font-normal">(≤160 chars)</span></label>
-                    <textarea rows={2} value={blogMetaDesc} onChange={e => setBlogMetaDesc(e.target.value)} placeholder="Brief description shown in search results..." className="w-full rounded-xl border-2 border-slate-200 p-3 font-medium outline-hidden focus:border-violet-500 bg-white resize-none" />
-                    <p className="text-[10px] text-slate-400 mt-1">{blogMetaDesc.length}/160 chars</p>
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Focus Keywords <span className="text-slate-300 normal-case font-normal">(comma separated)</span></label>
-                    <input type="text" value={blogKeywords} onChange={e => setBlogKeywords(e.target.value)} placeholder="RRB NTPC 2025, Railway recruitment, NTPC notification" className="w-full rounded-xl border-2 border-slate-200 p-3 font-medium outline-hidden focus:border-violet-500 bg-white" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-4 justify-end">
-                <button onClick={() => setShowBlogForm(false)} className="px-6 py-3 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all">Cancel</button>
-                <button
-                  onClick={handleBlogSave}
-                  disabled={blogSavingPost || uploadingBlogThumb || !blogTitle.trim() || !blogContent.trim()}
-                  className="px-6 py-3 bg-violet-600 text-white rounded-2xl font-bold hover:bg-violet-700 transition-all shadow-lg shadow-violet-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {blogSavingPost ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Saving...</> : <><Check className="w-4 h-4" />{editingBlogId ? 'Update Post' : 'Publish Post'}</>}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Blog Posts List */}
-          {blogPosts.length === 0 ? (
-            <div className="bg-white rounded-3xl border border-slate-100 py-16 text-center text-slate-400 font-bold">
-              No posts yet. Create your first post!
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {blogPosts.map(post => (
-                <div key={post.id} className="bg-white rounded-3xl border border-slate-100 p-6 flex gap-5 items-start hover:shadow-md transition-all group">
-                  {post.thumbnailUrl && (
-                    <img src={post.thumbnailUrl} alt="" className="w-20 h-14 object-cover rounded-2xl shrink-0 border border-slate-100" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-violet-100 text-violet-600">{post.category || 'News'}</span>
-                      {post.isTrending && <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-amber-100 text-amber-600">🔥 Trending</span>}
-                      <span className="text-[10px] text-slate-400 font-medium">{post.publishDate || (post.createdAt?.toDate ? post.createdAt.toDate().toLocaleDateString() : '')}</span>
-                    </div>
-                    <h4 className="font-black text-slate-800 text-sm leading-snug mb-1 line-clamp-1">{post.title}</h4>
-                    <p className="text-xs text-slate-400 font-medium line-clamp-2 mb-2">{post.content?.slice(0, 120)}...</p>
-                    <div className="flex flex-wrap gap-1">
-                      {(post.tags || []).slice(0, 4).map((tag: string) => (
-                        <span key={tag} className="text-[9px] font-black px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{tag}</span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex gap-2 shrink-0">
-                    <button onClick={() => handleEditBlog(post)} className="text-amber-600 hover:bg-amber-100 px-3 py-1.5 rounded-lg border border-amber-100 font-bold text-xs transition-all">Edit</button>
-                    <button onClick={() => handleDeleteBlog(post.id)} className="text-rose-500 hover:bg-rose-100 px-3 py-1.5 rounded-lg border border-rose-100 font-bold text-xs transition-all">Delete</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <AdminJobNotifications />
         </div>
       )}
 
