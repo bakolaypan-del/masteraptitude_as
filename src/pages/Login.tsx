@@ -44,7 +44,7 @@ export default function Login() {
     const digitsOnly = phoneNumber.replace(/\D/g, '');
     const cleanPhone = digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
     
-    if (!fullName.trim() || !cleanPhone || !password || !confirmPassword || !email.trim()) {
+    if (!fullName.trim() || !cleanPhone || !password) {
       setError('All fields are mandatory for registration.');
       return;
     }
@@ -56,11 +56,6 @@ export default function Login() {
 
     if (password.length < 6) {
       setError('Password must be at least 6 characters long.');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError('Passwords do not match. Please verify.');
       return;
     }
     
@@ -98,7 +93,6 @@ export default function Login() {
         name: fullName.trim(),
         phoneNumber: cleanPhone,
         email: pseudoEmail,
-        studentEmail: email.trim(),
         role: 'user',
         registrationDate: new Date().toISOString(),
         totalTestsTaken: 0,
@@ -183,7 +177,8 @@ export default function Login() {
       });
       
       if (!res.ok) {
-        throw new Error('Failed to reset password. Please contact support.');
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to reset password. Please contact support.');
       }
 
       setSuccess('Password updated successfully! Redirecting to login tab.');
@@ -286,7 +281,7 @@ export default function Login() {
                 {!isAdminLogin && mode === 'register' && (
                   <>
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Full Name</label>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Student Name</label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
                           <UserIcon size={16} />
@@ -304,25 +299,7 @@ export default function Login() {
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Email Address</label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                          <Mail size={16} />
-                        </div>
-                        <input
-                          id="reg-email"
-                          type="email"
-                          required
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          className="block w-full pl-10 pr-4 py-3 bg-slate-900/80 border border-slate-800 rounded-xl placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm text-slate-100 font-medium transition-all"
-                          placeholder="johndoe@example.com"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Mobile Number</label>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Phone Number</label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
                           <Phone size={16} />
@@ -340,7 +317,7 @@ export default function Login() {
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Create Password</label>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Password</label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
                           <Lock size={16} />
@@ -360,31 +337,6 @@ export default function Login() {
                           className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300"
                         >
                           {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Confirm Password</label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                          <Lock size={16} />
-                        </div>
-                        <input
-                          id="password-confirm"
-                          type={showConfirmPassword ? "text" : "password"}
-                          required
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="block w-full pl-10 pr-10 py-3 bg-slate-900/80 border border-slate-800 rounded-xl placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm text-slate-100 font-medium transition-all"
-                          placeholder="Repeat your password"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300"
-                        >
-                          {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                         </button>
                       </div>
                     </div>

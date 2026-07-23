@@ -219,7 +219,6 @@ const tableColumnMap: { [table: string]: { [jsKey: string]: string } } = {
     id: "id",
     name: "name",
     email: "email",
-    studentEmail: "email",
     phoneNumber: "phone_number",
     role: "role",
     totalTestsTaken: "total_tests_taken",
@@ -1421,8 +1420,16 @@ ${allUrls.map(u => `  <url>
 
     try {
       if (!pgPool) initPostgres();
-      // Check if email or pseudo-email matches phone number is already taken
-      const userRes = await pgPool!.query("SELECT id FROM users WHERE email = $1", [email]);
+
+      const digitsOnly = String(email).split('@')[0].replace(/\D/g, '');
+      const cleanPhone = digitsOnly.length >= 10 ? digitsOnly.slice(-10) : '';
+      const pseudoEmail = cleanPhone ? `${cleanPhone}@students.myapp.com` : email;
+
+      // Check if email or pseudo-email or phone number is already registered
+      const userRes = await pgPool!.query(
+        "SELECT id FROM users WHERE email = $1 OR ($2 != '' AND email = $2) OR ($3 != '' AND phone_number IS NOT NULL AND phone_number = $3)",
+        [email, pseudoEmail, cleanPhone]
+      );
       if (userRes.rows.length > 0) {
         return res.status(400).json({ error: "Email or phone number is already registered" });
       }
@@ -1432,16 +1439,16 @@ ${allUrls.map(u => `  <url>
       const salt = bcrypt.genSaltSync(10);
       const hash = bcrypt.hashSync(password, salt);
 
-      // Insert minimal user record.
+      // Insert user record with phone_number
       await pgPool!.query(
-        "INSERT INTO users (id, email, password_hash, role, total_tests_taken, cumulative_score, global_rank, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-        [uid, email, hash, "user", 0, 0, 0, "active"]
+        "INSERT INTO users (id, email, phone_number, password_hash, role, total_tests_taken, cumulative_score, global_rank, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+        [uid, pseudoEmail, cleanPhone || null, hash, "user", 0, 0, 0, "active"]
       );
 
-      const token = jwt.sign({ uid, email, role: "user" }, JWT_SECRET, { expiresIn: "30d" });
+      const token = jwt.sign({ uid, email: pseudoEmail, role: "user" }, JWT_SECRET, { expiresIn: "30d" });
       return res.json({
         token,
-        user: { uid, email, name: "", role: "user" }
+        user: { uid, email: pseudoEmail, phoneNumber: cleanPhone || "", name: "", role: "user" }
       });
     } catch (e: any) {
       console.error("[Auth Register] Error:", e.message);
@@ -1457,8 +1464,15 @@ ${allUrls.map(u => `  <url>
 
     try {
       if (!pgPool) initPostgres();
-      // Look up user by email
-      const userRes = await pgPool!.query("SELECT * FROM users WHERE email = $1", [email]);
+      const digitsOnly = String(email).replace(/\D/g, '');
+      const cleanPhone = digitsOnly.length >= 10 ? digitsOnly.slice(-10) : '';
+      const pseudoEmail = cleanPhone ? `${cleanPhone}@students.myapp.com` : '';
+
+      // Look up user by email, pseudoEmail, or phone_number
+      const userRes = await pgPool!.query(
+        "SELECT * FROM users WHERE email = $1 OR ($2 != '' AND email = $2) OR ($3 != '' AND phone_number IS NOT NULL AND phone_number = $3)",
+        [email, pseudoEmail, cleanPhone]
+      );
       if (userRes.rows.length === 0) {
         return res.status(401).json({ error: "Invalid login credentials. User not found." });
       }
@@ -1480,7 +1494,7 @@ ${allUrls.map(u => `  <url>
           uid: user.id,
           email: user.email,
           name: user.name || "",
-          phoneNumber: user.phone_number || "",
+          phoneNumber: user.phone_number || cleanPhone || "",
           role: user.role || "user"
         }
       });
@@ -1514,14 +1528,21 @@ ${allUrls.map(u => `  <url>
   });
 
   app.post("/api/auth/check-mobile", async (req, res) => {
-    const { mobile } = req.body;
+    const { mobile } = req.body || {};
     if (!mobile) {
       return res.status(400).json({ error: "Missing mobile number" });
     }
 
     try {
       if (!pgPool) initPostgres();
-      const userRes = await pgPool!.query("SELECT id FROM users WHERE phone_number = $1", [mobile]);
+      const digitsOnly = String(mobile).replace(/\D/g, '');
+      const cleanPhone = digitsOnly.length >= 10 ? digitsOnly.slice(-10) : digitsOnly;
+      const pseudoEmail = cleanPhone.length === 10 ? `${cleanPhone}@students.myapp.com` : '';
+
+      const userRes = await pgPool!.query(
+        "SELECT id FROM users WHERE (phone_number IS NOT NULL AND phone_number = $1) OR ($2 != '' AND email = $2)",
+        [cleanPhone, pseudoEmail]
+      );
       return res.json({ exists: userRes.rows.length > 0 });
     } catch (e: any) {
       console.error("[Auth Check Mobile] Error:", e.message);
@@ -2115,49 +2136,41 @@ ${allUrls.map(u => `  <url>
     }
   });
 
-  // Auth Helpers for students
-  app.post("/api/auth/check-mobile", async (req, res) => {
-    const currentDb = getDb();
-    if (!currentDb) {
-      console.error("[Auth] check-mobile failed: Database offline");
-      return res.status(503).json({ error: "System is initializing. Please wait a moment." });
-    }
-    const { mobile } = req.body || {};
-    if (!mobile) return res.status(400).json({ error: "Mobile number is required" });
-    
-    try {
-      const digitsOnly = String(mobile).replace(/\D/g, '');
-      const cleanMobile = digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
-      
-      if (cleanMobile.length < 10) {
-        return res.status(400).json({ error: "Invalid mobile number." });
-      }
-
-      const snap = await currentDb.collection("profiles").where("phoneNumber", "==", cleanMobile).get();
-      res.json({ exists: !snap.empty });
-    } catch (error: any) {
-      console.error("[Auth] Mobile check error:", error);
-      res.status(500).json({ error: "Failed to verify mobile number." });
-    }
-  });
-
   app.post("/api/auth/reset-password", async (req, res) => {
-    const currentDb = getDb();
-    if (!currentDb) return res.status(500).json({ error: "System error" });
     const { mobile, newPassword } = req.body;
     if (!mobile || !newPassword) return res.status(400).json({ error: "Missing data" });
     
     try {
+      if (!pgPool) initPostgres();
       const digitsOnly = mobile.toString().replace(/\D/g, '');
-      const cleanMobile = digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
-      const snap = await currentDb.collection("profiles").where("phoneNumber", "==", cleanMobile).get();
-      if (snap.empty) return res.status(404).json({ error: "No account found." });
-      
-      const userId = snap.docs[0].id;
-      await admin.auth().updateUser(userId, { password: newPassword });
-      res.json({ success: true });
+      const cleanMobile = digitsOnly.length >= 10 ? digitsOnly.slice(-10) : digitsOnly;
+      const pseudoEmail = `${cleanMobile}@students.myapp.com`;
+
+      const salt = bcrypt.genSaltSync(10);
+      const hash = bcrypt.hashSync(newPassword, salt);
+
+      // Search and update by phone_number, email, or metadata JSONB
+      const userRes = await pgPool!.query(
+        `UPDATE users 
+         SET password_hash = $1,
+             phone_number = COALESCE(phone_number, $2),
+             email = CASE WHEN email LIKE '%@students.myapp.com' OR email IS NULL OR email = '' THEN $3 ELSE email END
+         WHERE (phone_number IS NOT NULL AND phone_number = $2)
+            OR email = $3
+            OR (metadata IS NOT NULL AND (metadata->>'phoneNumber' = $2 OR metadata->>'phone_number' = $2 OR metadata->>'phoneNumber' = $4))
+         RETURNING id`,
+        [hash, cleanMobile, pseudoEmail, mobile]
+      );
+
+      if (userRes.rows.length === 0) {
+        return res.status(404).json({ error: "No account found with this mobile number. Please click Register at the top to create a new account." });
+      }
+
+      console.log(`[Reset Password] Successfully updated password for user ID: ${userRes.rows[0].id}`);
+      return res.json({ success: true, message: "Password updated successfully." });
     } catch (error: any) {
-      res.status(500).json({ error: "Failed to reset password." });
+      console.error("[Reset Password] Error:", error);
+      return res.status(500).json({ error: "Failed to reset password." });
     }
   });
 
