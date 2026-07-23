@@ -64,9 +64,9 @@ export default function AppInstallGate() {
         </button>
 
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 text-center">
-          <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-[28px] flex items-center justify-center shadow-2xl mb-6"
+          <div className="w-20 h-20 bg-white rounded-[28px] flex items-center justify-center shadow-2xl mb-6 p-1 overflow-hidden"
             style={{ boxShadow: '0 16px 48px rgba(99,102,241,0.5)' }}>
-            <span className="text-4xl font-black text-white">M</span>
+            <img src="/logo.png" alt="Master Aptitude" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-2xl font-black text-white mb-1">Install on iPhone</h1>
           <p className="text-white/50 text-sm mb-8">Follow 2 quick steps to add to your home screen</p>
@@ -131,9 +131,9 @@ export default function AppInstallGate() {
               transition={{ delay: 0.15, type: 'spring', stiffness: 280, damping: 22 }}
               className="relative mb-6"
             >
-              <div className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-[32px] flex items-center justify-center shadow-2xl"
+              <div className="w-24 h-24 bg-white rounded-[32px] flex items-center justify-center shadow-2xl p-1 overflow-hidden"
                 style={{ boxShadow: '0 20px 60px rgba(99,102,241,0.55)' }}>
-                <span className="text-5xl font-black text-white">M</span>
+                <img src="/logo.png" alt="Master Aptitude" className="w-full h-full object-contain" />
               </div>
               <div className="absolute -bottom-1.5 -right-1.5 w-7 h-7 bg-green-400 rounded-full flex items-center justify-center border-2 border-[#0f0c29]">
                 <Star className="w-3.5 h-3.5 text-white fill-white" />

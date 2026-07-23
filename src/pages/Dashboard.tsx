@@ -1241,8 +1241,8 @@ export default function Dashboard() {
       <aside className={`fixed inset-y-0 left-0 bg-white flex flex-col w-64 h-full shrink-0 z-50 transform transition-transform duration-300 md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`} style={{borderRight: '1px solid #e8ecf3'}}>
         <div className="flex items-center justify-between px-5 py-4 shrink-0" style={{borderBottom: '1px solid #f1f5f9'}}>
           <button onClick={() => { setActiveTab('home'); setIsSidebarOpen(false); }} className="flex items-center gap-3 hover:opacity-90 transition-opacity text-left flex-1 min-w-0">
-            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center shadow-lg shrink-0" style={{boxShadow: '0 4px 16px rgba(99,102,241,0.4)'}}>
-              <Trophy className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 bg-white border border-slate-100 rounded-xl flex items-center justify-center shadow-md shrink-0 overflow-hidden p-0.5">
+              <img src="/logo.png" alt="Master Aptitude" className="w-full h-full object-contain" />
             </div>
             <div className="min-w-0">
               <div className="text-[13px] font-black tracking-tight leading-tight truncate" style={{color: '#1e293b'}}>Master<span style={{color: '#4f46e5'}}>Aptitude</span></div>
@@ -1465,8 +1465,8 @@ export default function Dashboard() {
             {/* Mobile app logo (replaces hamburger — bottom nav handles navigation) */}
             <button onClick={() => setActiveTab('home')}
               className="md:hidden flex items-center gap-2.5">
-              <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center shadow-md">
-                <span className="text-white text-sm font-black">M</span>
+              <div className="w-8 h-8 bg-white border border-slate-100 rounded-xl flex items-center justify-center shadow-md overflow-hidden p-0.5">
+                <img src="/logo.png" alt="Master Aptitude" className="w-full h-full object-contain" />
               </div>
               <span className="text-sm font-black" style={{color: '#1e293b'}}>Master<span style={{color: '#6366f1'}}>Aptitude</span></span>
             </button>
