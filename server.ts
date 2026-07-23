@@ -183,8 +183,12 @@ let pgPool: Pool | null = null;
 function initPostgres() {
   if (pgPool) return;
   console.log("[Postgres] Initializing connection pool to Supabase...");
+  let connStr = process.env.SUPABASE_DB_URI || "";
+  if (connStr.includes(".pooler.supabase.com:5432")) {
+    connStr = connStr.replace(".pooler.supabase.com:5432", ".pooler.supabase.com:6543");
+  }
   pgPool = new Pool({
-    connectionString: process.env.SUPABASE_DB_URI,
+    connectionString: connStr,
     ssl: { rejectUnauthorized: false },
     max: 8,
     idleTimeoutMillis: 2000,
