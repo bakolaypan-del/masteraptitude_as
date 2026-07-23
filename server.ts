@@ -185,7 +185,10 @@ function initPostgres() {
   console.log("[Postgres] Initializing connection pool to Supabase...");
   pgPool = new Pool({
     connectionString: process.env.SUPABASE_DB_URI,
-    ssl: { rejectUnauthorized: false }
+    ssl: { rejectUnauthorized: false },
+    max: 8,
+    idleTimeoutMillis: 2000,
+    connectionTimeoutMillis: 5000
   });
 }
 
