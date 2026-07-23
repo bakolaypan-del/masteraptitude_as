@@ -566,36 +566,52 @@ export default function TestRunner() {
               })}
             </div>
 
-            {/* Navigation buttons */}
-            <div className="mt-8 pt-6 lg:mt-auto border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
-              <div className="flex gap-2 w-full sm:w-auto">
+            {/* Navigation & Action buttons (Lower portion) */}
+            <div className="mt-8 pt-6 lg:mt-auto border-t border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4 flex-wrap">
+              <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
                 <button onClick={handlePrev} disabled={currentIdx === 0}
-                  className="flex-1 sm:flex-none px-4 md:px-6 py-2 md:py-2.5 rounded-xl border border-slate-300 text-slate-600 font-bold text-xs md:text-sm flex items-center justify-center gap-2 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                  className="flex-1 sm:flex-none px-3.5 md:px-5 py-2 md:py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs md:text-sm flex items-center justify-center gap-1.5 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                   <ChevronLeft className="w-4 h-4" />
-                  <span className="hidden xs:inline">Previous</span>
-                  <span className="xs:hidden">Prev</span>
+                  <span>Previous</span>
                 </button>
-                <button onClick={handleNext} disabled={currentIdx === questions.length - 1}
-                  className="flex-1 sm:flex-none px-4 md:px-6 py-2 md:py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-xs md:text-sm flex items-center justify-center gap-2 hover:from-indigo-700 hover:to-violet-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md shadow-indigo-100">
-                  <span className="hidden xs:inline">Save &amp; Next</span>
-                  <span className="xs:hidden">Next</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="flex gap-2 w-full sm:w-auto justify-center">
-                <button onClick={() => clearResponse(currentQuestion.id)}
-                  className="px-3 md:px-4 py-2 md:py-2.5 rounded-xl border border-slate-200 text-slate-500 font-bold text-[10px] md:text-sm hover:bg-slate-50 transition-colors whitespace-nowrap">
-                  Clear
-                </button>
+
                 <button onClick={() => toggleReview(currentQuestion.id)}
-                  className={`px-3 md:px-4 py-2 md:py-2.5 rounded-xl border font-bold text-[10px] md:text-sm flex items-center gap-2 transition-colors whitespace-nowrap
+                  className={`flex-1 sm:flex-none px-3.5 md:px-4 py-2 md:py-2.5 rounded-xl border font-bold text-xs md:text-sm flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap
                     ${review.has(currentQuestion.id)
                       ? 'bg-amber-100 border-amber-400 text-amber-800 hover:bg-amber-200'
                       : 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50'}`}>
-                  <Flag className="w-3 h-3 md:w-4 md:h-4 shrink-0" />
-                  Review
+                  <Flag className="w-3.5 h-3.5 shrink-0" />
+                  <span>{review.has(currentQuestion.id) ? 'Marked' : 'Mark for Review'}</span>
+                </button>
+
+                <button onClick={() => clearResponse(currentQuestion.id)}
+                  className="flex-1 sm:flex-none px-3.5 md:px-4 py-2 md:py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs md:text-sm hover:bg-slate-50 transition-colors whitespace-nowrap">
+                  Clear
+                </button>
+
+                <button onClick={handleNext} disabled={currentIdx === questions.length - 1}
+                  className="flex-1 sm:flex-none px-3.5 md:px-5 py-2 md:py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-xs md:text-sm flex items-center justify-center gap-1.5 hover:from-indigo-700 hover:to-violet-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md shadow-indigo-100">
+                  <span>Save &amp; Next</span>
+                  <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
+
+              {/* Submit Test button in lower portion */}
+              <button onClick={() => handleSubmission(false)} disabled={submitting}
+                className="w-full sm:w-auto px-5 md:px-6 py-2.5 text-white rounded-xl font-black uppercase tracking-wider text-xs md:text-sm transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg active:scale-95 disabled:opacity-75 disabled:cursor-not-allowed md:ml-auto"
+                style={{ background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)' }}>
+                {submitting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    Submit Test
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </section>

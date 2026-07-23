@@ -204,6 +204,12 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
         <ToolBtn onClick={() => exec('justifyCenter')} title="Center">
           <svg viewBox="0 0 14 10" className="w-3.5 h-3.5 fill-current"><rect x="0" y="0" width="14" height="1.5"/><rect x="2" y="4" width="10" height="1.5"/><rect x="1" y="8" width="12" height="1.5"/></svg>
         </ToolBtn>
+        <ToolBtn onClick={() => exec('justifyRight')} title="Align Right">
+          <svg viewBox="0 0 14 10" className="w-3.5 h-3.5 fill-current"><rect x="0" y="0" width="14" height="1.5"/><rect x="4" y="4" width="10" height="1.5"/><rect x="2" y="8" width="12" height="1.5"/></svg>
+        </ToolBtn>
+        <ToolBtn onClick={() => exec('justifyFull')} title="Justify">
+          <svg viewBox="0 0 14 10" className="w-3.5 h-3.5 fill-current"><rect x="0" y="0" width="14" height="1.5"/><rect x="0" y="4" width="14" height="1.5"/><rect x="0" y="8" width="14" height="1.5"/></svg>
+        </ToolBtn>
 
         <Sep />
 

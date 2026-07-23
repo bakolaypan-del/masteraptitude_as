@@ -1528,16 +1528,51 @@ ${allUrls.map(u => `  <url>
         return res.status(404).json({ error: "User profile not found." });
       }
 
-      const profile = userRes.rows[0];
+      const dbUser = userRes.rows[0];
       return res.json({
-        uid: profile.id,
-        email: profile.email,
-        name: profile.name,
-        phoneNumber: profile.phone_number,
-        role: profile.role
+        uid: dbUser.id,
+        email: dbUser.email,
+        name: dbUser.name || "",
+        phoneNumber: dbUser.phone_number || "",
+        role: dbUser.role || "user"
       });
     } catch (e: any) {
-      console.error("[Auth Me] Error:", e.message);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/global-leaderboard", verifyToken, async (req, res) => {
+    try {
+      if (!pgPool) initPostgres();
+      
+      const leaderboardRes = await pgPool!.query(`
+        SELECT u.id as "userId", u.name, u.email, u.role,
+               COALESCE(SUM(r.score), u.cumulative_score, 0) as "score", 
+               COUNT(DISTINCT r.test_id) as "testsTaken"
+        FROM users u
+        LEFT JOIN results r ON r.user_id = u.id
+        WHERE (u.role IS NULL OR LOWER(u.role) != 'admin') 
+          AND LOWER(u.email) NOT LIKE '%bakolaypan%'
+          AND LOWER(u.name) NOT LIKE '%suman%'
+          AND LOWER(u.name) NOT LIKE '%kolay%'
+        GROUP BY u.id, u.name, u.email, u.role, u.cumulative_score, u.total_tests_taken
+        ORDER BY "score" DESC, "testsTaken" DESC
+        LIMIT 10
+      `);
+
+      const topRankers = leaderboardRes.rows.map((row: any, idx: number) => ({
+        rank: idx + 1,
+        userId: row.userId,
+        name: row.name || `Student ${idx + 1}`,
+        email: row.email,
+        role: row.role || 'user',
+        score: parseFloat(row.score || 0),
+        testsTaken: parseInt(row.testsTaken || 0, 10)
+      }));
+
+      return res.json({ topRankers });
+    } catch (e: any) {
+      console.error("[Leaderboard] Error:", e.message);
       return res.status(500).json({ error: e.message });
     }
   });

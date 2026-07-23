@@ -906,7 +906,19 @@ export default function Dashboard() {
         });
         if (res.ok) {
           const data = await res.json();
-          setChallengeLeaderboard(data.topRankers || []);
+          const list = (data.topRankers || [])
+            .filter((r: any) => {
+              const nameLower = (r.name || '').toLowerCase();
+              const emailLower = (r.email || '').toLowerCase();
+              const isSuman = nameLower.includes('suman') || nameLower.includes('kolay') || emailLower.includes('suman') || emailLower.includes('bakolaypan');
+              return r.role !== 'admin' && !isSuman;
+            })
+            .map((r: any, idx: number) => ({
+              ...r,
+              rank: idx + 1,
+              isCurrentUser: r.userId === user.uid
+            }));
+          setChallengeLeaderboard(list);
         } else {
           console.error("Failed to fetch challenge leaderboard");
         }
@@ -2784,58 +2796,140 @@ export default function Dashboard() {
           )}
 
           {activeTab === 'mock_challenge' && (
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 animate-in fade-in duration-150 items-start">
-              {/* Left Column: Calendar & Stats (takes 3 of 4 columns) */}
-              <div className="lg:col-span-3 space-y-8">
-                {/* Header / Stats Card */}
-                <div className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-3xl p-6 md:p-8 text-white shadow-xl shadow-indigo-500/10 relative overflow-hidden">
-                  {/* Background decorative circles */}
-                  <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
-                  <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
+            <div className="space-y-8 animate-in fade-in duration-150">
+              {/* Unified Single Shape Banner Card: 50% Left (Progress) & 50% Right (Top 5 Student Leaderboard) */}
+              <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 rounded-3xl p-6 md:p-8 text-white shadow-2xl border border-indigo-500/20 relative overflow-hidden">
+                {/* Background decorative glows */}
+                <div className="absolute -top-12 -left-12 w-56 h-56 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute -bottom-12 -right-12 w-56 h-56 bg-violet-500/15 rounded-full blur-3xl pointer-events-none" />
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10 items-stretch divide-y md:divide-y-0 md:divide-x divide-indigo-500/20">
                   
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-                    <div className="space-y-2">
-                      <span className="bg-white/20 text-white font-black uppercase text-[10px] px-3.5 py-1 rounded-full tracking-widest border border-white/10">
-                        150 Days Practice Challenge
-                      </span>
-                      <h2 className="text-2xl md:text-3xl font-black tracking-tight">Boost Your Preparation Daily</h2>
-                      <p className="text-xs text-indigo-100 font-medium max-w-xl">
-                        Complete all uploaded mock tests every day. Stay consistent, track your progress, and crack your exams!
+                  {/* Left Side Half Portion (50%): Progression & Details */}
+                  <div className="flex flex-col justify-between space-y-6 pb-6 md:pb-0 md:pr-4">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <span className="bg-indigo-500/20 text-indigo-300 font-black uppercase text-[10px] px-3.5 py-1 rounded-full tracking-widest border border-indigo-500/30">
+                          150 Days Practice Challenge
+                        </span>
+                      </div>
+                      <h2 className="text-2xl md:text-3xl font-black tracking-tight text-white">
+                        Boost Your Preparation Daily
+                      </h2>
+                      <p className="text-xs text-indigo-200/80 font-medium leading-relaxed max-w-md">
+                        Complete all uploaded mock tests daily. Stay consistent, track your performance, and master aptitude for your dream career!
                       </p>
                     </div>
-                    
-                    {/* Stats circles / progress */}
-                    <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 shrink-0">
-                      <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white shrink-0 shadow-inner">
-                        <Award className="w-6 h-6 text-yellow-300" />
+
+                    {/* Progression Card Widget */}
+                    <div className="bg-slate-800/60 backdrop-blur-md rounded-2xl p-4 border border-slate-700/60 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                            <Award className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Completed Progress</p>
+                            <h4 className="text-xl md:text-2xl font-black text-white">
+                              {challengeStats.completedDaysCount} <span className="text-sm text-slate-400 font-bold">/ 150 Days</span>
+                            </h4>
+                          </div>
+                        </div>
+                        <span className="text-xs font-black text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                          {challengeStats.percentage}% Done
+                        </span>
                       </div>
-                      <div>
-                        <p className="text-[10px] font-black text-indigo-200 uppercase tracking-wider">Progress</p>
-                        <h4 className="text-xl font-black">
-                          {challengeStats.completedDaysCount} / 150 Days
-                        </h4>
-                        <p className="text-[9px] font-bold text-indigo-100/80 mt-0.5">
-                          {challengeStats.percentage}% Completed
-                        </p>
+
+                      {/* Glowing progress bar */}
+                      <div className="w-full bg-slate-900/80 rounded-full h-3 p-0.5 border border-slate-700/50 overflow-hidden">
+                        <div 
+                          className="bg-gradient-to-r from-amber-400 via-amber-300 to-emerald-400 h-full rounded-full transition-all duration-700 ease-out shadow-sm"
+                          style={{ width: `${Math.min(100, Math.max(0, (challengeStats.completedDaysCount / 150) * 100))}%` }}
+                        />
                       </div>
                     </div>
                   </div>
 
-                  {/* Progress bar */}
-                  <div className="mt-6 relative z-10">
-                    <div className="w-full bg-white/20 rounded-full h-2.5 overflow-hidden">
-                      <div 
-                        className="bg-yellow-300 h-full rounded-full transition-all duration-500 ease-out"
-                        style={{ width: `${Math.min(100, Math.max(0, (challengeStats.completedDaysCount / 150) * 100))}%` }}
-                      ></div>
+                  {/* Right Side Half Portion (50%): Top 5 Student Leaderboard */}
+                  <div className="flex flex-col justify-between space-y-4 pt-6 md:pt-0 md:pl-8">
+                    <div>
+                      <div className="flex items-center justify-between mb-4 border-b border-indigo-500/20 pb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">🏆</span>
+                          <h3 className="text-sm font-black text-white uppercase tracking-wider">
+                            Top 5 Student Leaders
+                          </h3>
+                        </div>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20">
+                          Students Only
+                        </span>
+                      </div>
+
+                      {challengeLeaderboardLoading ? (
+                        <div className="flex flex-col items-center justify-center py-8 space-y-2">
+                          <div className="w-6 h-6 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                          <span className="text-xs text-indigo-300 font-medium">Calculating Ranks...</span>
+                        </div>
+                      ) : challengeLeaderboard.length === 0 ? (
+                        <div className="text-center py-8 text-xs text-slate-400 font-medium">
+                          No student scores recorded yet.
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {challengeLeaderboard.slice(0, 5).map((r: any) => (
+                            <div 
+                              key={r.userId} 
+                              className={`flex items-center justify-between p-2.5 rounded-2xl transition-all duration-200 ${
+                                r.isCurrentUser 
+                                  ? 'bg-indigo-600/30 border border-indigo-500/50 shadow-lg shadow-indigo-500/10' 
+                                  : r.rank === 1
+                                  ? 'bg-amber-500/10 border border-amber-500/20'
+                                  : r.rank === 2
+                                  ? 'bg-slate-800/70 border border-slate-700/40'
+                                  : r.rank === 3
+                                  ? 'bg-amber-900/15 border border-amber-800/20'
+                                  : 'bg-slate-800/40 border border-slate-800/50 hover:bg-slate-800/70'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <span className={`text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center shrink-0 shadow-sm ${
+                                  r.rank === 1 ? 'bg-gradient-to-br from-amber-300 to-amber-500 text-amber-950 font-extrabold' :
+                                  r.rank === 2 ? 'bg-gradient-to-br from-slate-200 to-slate-400 text-slate-900 font-extrabold' :
+                                  r.rank === 3 ? 'bg-gradient-to-br from-amber-600 to-amber-800 text-amber-100 font-extrabold' :
+                                  'bg-slate-800 text-slate-300 border border-slate-700'
+                                }`}>
+                                  {r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : r.rank}
+                                </span>
+                                <span className={`text-xs font-bold truncate ${r.isCurrentUser ? 'text-indigo-300' : 'text-slate-100'}`}>
+                                  {r.name} {r.isCurrentUser && <span className="text-[9px] text-indigo-400 font-black">(You)</span>}
+                                </span>
+                              </div>
+                              <span className="text-xs font-black text-amber-400 shrink-0 tabular-nums">
+                                {r.score.toFixed(1)} pts
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
+
+                    {!challengeLeaderboardLoading && profile && profile.role !== 'admin' && (
+                      <div className="mt-2 pt-2.5 border-t border-indigo-500/20 flex items-center justify-between text-xs font-bold text-slate-300">
+                        <span className="text-slate-400">Your Rank:</span>
+                        <span className="text-amber-400 font-black">
+                          #{profile.globalRank || '-'} ({profile.cumulativeScore || 0} pts)
+                        </span>
+                      </div>
+                    )}
                   </div>
+
                 </div>
+              </div>
 
-                {/* Day Selection Grid */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+              {/* Day Selection Grid */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
                       <div className="w-1.5 h-8 bg-indigo-500 rounded-full"></div>
                       <h3 className="text-lg font-black text-slate-800 tracking-tight">Daily Mock Calendars</h3>
                     </div>
@@ -2847,7 +2941,7 @@ export default function Dashboard() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-8 lg:grid-cols-10 gap-3">
+                  <div className="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-10 lg:grid-cols-12 gap-3">
                   {Array.from({ length: 150 }, (_, i) => {
                     const dayNum = i + 1;
                     const tests = challengeDaysMap[dayNum] || [];
@@ -2918,70 +3012,6 @@ export default function Dashboard() {
                   })}
                 </div>
               </div>
-            </div>
-
-            {/* Right Column: Top 10 Leaderboard (takes 1 of 4 columns) */}
-            <div className="lg:col-span-1 space-y-6">
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 text-white shadow-xl relative overflow-hidden h-fit">
-                <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
-                  <h3 className="text-sm font-black text-slate-200 uppercase tracking-widest flex items-center gap-2">
-                    🏆 Top 10 Leaders
-                  </h3>
-                </div>
-                
-                {challengeLeaderboardLoading ? (
-                  <div className="flex flex-col items-center justify-center py-10 space-y-2">
-                    <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="text-xs text-slate-400 font-medium">Loading...</span>
-                  </div>
-                ) : challengeLeaderboard.length === 0 ? (
-                  <div className="text-center py-8 text-xs text-slate-500 font-medium">
-                    No leaderboard data yet.
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {challengeLeaderboard.map((r: any) => (
-                      <div 
-                        key={r.userId} 
-                        className={`flex items-center justify-between p-3 rounded-2xl transition-all duration-200 ${
-                          r.isCurrentUser 
-                            ? 'bg-indigo-500/20 border border-indigo-500/30' 
-                            : 'bg-slate-800/40 border border-slate-800/50 hover:bg-slate-800/70'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          {/* Rank badge */}
-                          <span className={`text-[11px] font-black w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
-                            r.rank === 1 ? 'bg-amber-400 text-amber-950' :
-                            r.rank === 2 ? 'bg-slate-300 text-slate-900' :
-                            r.rank === 3 ? 'bg-amber-600/60 text-amber-100' :
-                            'bg-slate-700 text-slate-300'
-                          }`}>
-                            {r.rank}
-                          </span>
-                          <span className="text-xs font-bold text-slate-100 truncate">
-                            {r.name}
-                          </span>
-                        </div>
-                        <span className="text-xs font-black text-indigo-300 whitespace-nowrap">
-                          {r.score.toFixed(1)} pts
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Current User Rank Footer */}
-                {!challengeLeaderboardLoading && profile && (
-                  <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs font-bold">
-                    <span className="text-slate-400">Your Rank:</span>
-                    <span className="text-amber-400">
-                      #{profile.globalRank || '-'} ({profile.cumulativeScore || 0} pts)
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
 
               {/* Day Modal Overlay */}
               {showChallengeModal && selectedChallengeDay !== null && (() => {

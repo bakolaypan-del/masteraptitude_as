@@ -5760,46 +5760,6 @@ function QuestionManager() {
              </div>
            </div>
 
-           <div>
-             <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
-               Math / Equation <span className="text-slate-300 normal-case font-normal">(optional — use LaTeX syntax, e.g. \frac{'{'}{'{'}a{'}'}{'}'}{'{'}{'{'}b{'}'}{'}'} or x^2+y^2=r^2)</span>
-             </label>
-             <textarea
-               className="w-full rounded-2xl border-slate-200 border-2 p-4 outline-hidden font-medium font-mono text-sm"
-               rows={2} value={qEquation} onChange={e => setQEquation(e.target.value)}
-               placeholder="e.g.  \frac{a}{b} = c   or   x^2 + y^2 = r^2   or   \sqrt{a^2+b^2}"
-             />
-             {qEquation.trim() && (
-               <div className="mt-2 p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
-                 <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">Live Preview</p>
-                 <div className="text-center text-lg overflow-x-auto">
-                   <RenderMathText text={`$$${qEquation}$$`} />
-                 </div>
-               </div>
-             )}
-             <div className="mt-2 flex flex-wrap gap-1.5">
-               {[
-                 { label: 'Fraction', latex: '\\frac{a}{b}' },
-                 { label: 'Square Root', latex: '\\sqrt{x}' },
-                 { label: 'Power', latex: 'x^{2}' },
-                 { label: 'Subscript', latex: 'x_{n}' },
-                 { label: 'Sum Σ', latex: '\\sum_{i=1}^{n} x_i' },
-                 { label: 'Integral ∫', latex: '\\int_{a}^{b} f(x)dx' },
-                 { label: 'Pi π', latex: '\\pi' },
-                 { label: 'Alpha α', latex: '\\alpha' },
-                 { label: 'Theta θ', latex: '\\theta' },
-                 { label: '≥ / ≤', latex: '\\geq \\leq' },
-                 { label: '±', latex: '\\pm' },
-                 { label: 'Times ×', latex: '\\times' },
-               ].map(({ label, latex }) => (
-                 <button
-                   key={label} type="button"
-                   onClick={() => setQEquation(prev => prev ? `${prev} ${latex}` : latex)}
-                   className="px-2.5 py-1 text-[10px] font-bold bg-slate-100 hover:bg-indigo-100 hover:text-indigo-700 text-slate-500 rounded-lg border border-slate-200 hover:border-indigo-200 transition-all"
-                 >{label}</button>
-               ))}
-             </div>
-           </div>
 
            <div>
              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Solution / More Details</label>
