@@ -465,6 +465,82 @@ function AdminHome() {
   const [batchThumbFile, setBatchThumbFile] = useState<File | null>(null);
   const [batchThumbPreview, setBatchThumbPreview] = useState('');
 
+  // ── 150 Days Schedule Table Admin State ──
+  const [showAdminScheduleModal, setShowAdminScheduleModal] = useState(false);
+  const [scheduleDocTitle, setScheduleDocTitle] = useState('150 Days Challenge Master Schedule');
+  const [scheduleDocDesc, setScheduleDocDesc] = useState('Official Day-by-Day Mock Test & Subject Syllabus');
+  const [scheduleTable, setScheduleTable] = useState<Array<{ day: number; math: string; reasoning: string; englishGk: string }>>([]);
+  const [adminScheduleSearch, setAdminScheduleSearch] = useState('');
+  const [savingScheduleDoc, setSavingScheduleDoc] = useState(false);
+
+  const handleOpenScheduleModal = () => {
+    if (scheduleTable.length === 0) {
+      const initial = Array.from({ length: 150 }, (_, i) => ({
+        day: i + 1,
+        math: '',
+        reasoning: '',
+        englishGk: ''
+      }));
+
+      tests.forEach((t: any) => {
+        const cat = (t.category || '').toLowerCase();
+        const title = (t.title || '').toLowerCase();
+        const topic = (t.topic || '').toLowerCase();
+        if (cat.includes('150') || title.includes('150') || topic.includes('150') || t.testType === 'mock_challenge') {
+          const match = (topic + ' ' + title).match(/(?:day|d)\s*(\d+)/i) || (topic + ' ' + title).match(/\b(\d+)\b/);
+          if (match) {
+            const dayNum = parseInt(match[1], 10);
+            if (dayNum >= 1 && dayNum <= 150) {
+              const idx = dayNum - 1;
+              const sub = (t.subjectName || '').toLowerCase();
+              const topName = t.topic || t.title || `Day ${dayNum} Practice`;
+              if (sub.includes('math') || sub.includes('quant')) initial[idx].math = topName;
+              else if (sub.includes('reason') || sub.includes('gi')) initial[idx].reasoning = topName;
+              else initial[idx].englishGk = topName;
+            }
+          }
+        }
+      });
+
+      setScheduleTable(initial);
+    }
+    setShowAdminScheduleModal(true);
+  };
+
+  const handleAutoFillFromTests = () => {
+    const updated = [...scheduleTable];
+    if (updated.length < 150) {
+      for (let i = updated.length + 1; i <= 150; i++) {
+        updated.push({ day: i, math: '', reasoning: '', englishGk: '' });
+      }
+    }
+    tests.forEach((t: any) => {
+      const cat = (t.category || '').toLowerCase();
+      const title = (t.title || '').toLowerCase();
+      const topic = (t.topic || '').toLowerCase();
+      if (cat.includes('150') || title.includes('150') || topic.includes('150') || t.testType === 'mock_challenge') {
+        const match = (topic + ' ' + title).match(/(?:day|d)\s*(\d+)/i) || (topic + ' ' + title).match(/\b(\d+)\b/);
+        if (match) {
+          const dayNum = parseInt(match[1], 10);
+          if (dayNum >= 1 && dayNum <= 150) {
+            const idx = dayNum - 1;
+            const sub = (t.subjectName || '').toLowerCase();
+            const topName = t.topic || t.title || `Day ${dayNum} Practice`;
+            if (sub.includes('math') || sub.includes('quant')) {
+              if (!updated[idx].math) updated[idx].math = topName;
+            } else if (sub.includes('reason') || sub.includes('gi')) {
+              if (!updated[idx].reasoning) updated[idx].reasoning = topName;
+            } else {
+              if (!updated[idx].englishGk) updated[idx].englishGk = topName;
+            }
+          }
+        }
+      }
+    });
+    setScheduleTable(updated);
+    alert('Pre-filled schedule table from existing tests!');
+  };
+
   const { user, profile } = useAuth();
   const passwordInputRef = useRef<HTMLInputElement>(null);
 
@@ -562,6 +638,17 @@ function AdminHome() {
       }
     }, (err) => console.error(err));
 
+    const unsubScheduleDoc = onSnapshot(doc(db, 'settings', 'challenge_schedule'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        setScheduleDocTitle(data.title || '150 Days Challenge Master Schedule');
+        setScheduleDocDesc(data.description || 'Official Day-by-Day Mock Test & Subject Syllabus');
+        if (Array.isArray(data.scheduleTable)) {
+          setScheduleTable(data.scheduleTable);
+        }
+      }
+    }, (err) => console.error(err));
+
     const fetchStats = async () => {
       if (!user) return;
       try {
@@ -608,6 +695,7 @@ function AdminHome() {
       unsubBlog();
       unsubSocials();
       unsubInfo();
+      unsubScheduleDoc();
       clearInterval(statsInterval);
     };
   }, []);
@@ -1959,14 +2047,22 @@ function AdminHome() {
               <span className="w-2 h-8 bg-indigo-600 rounded-full"></span>
               Mock Test Management
             </h2>
-            <button 
-              onClick={handleUpdateCategoryOrder}
-              disabled={isUpdatingOrder}
-              className="px-4 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-indigo-600 transition-all flex items-center gap-2 shadow-lg shadow-slate-200"
-            >
-              <LayoutDashboard className="w-3.5 h-3.5" />
-              {isUpdatingOrder ? 'Updating...' : 'Set Category Order'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleOpenScheduleModal}
+                className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:from-amber-600 hover:to-amber-700 transition-all flex items-center gap-2 shadow-lg shadow-amber-100 cursor-pointer"
+              >
+                <span>📅</span> 150 Days Schedule Table Editor
+              </button>
+              <button 
+                onClick={handleUpdateCategoryOrder}
+                disabled={isUpdatingOrder}
+                className="px-4 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-indigo-600 transition-all flex items-center gap-2 shadow-lg shadow-slate-200"
+              >
+                <LayoutDashboard className="w-3.5 h-3.5" />
+                {isUpdatingOrder ? 'Updating...' : 'Set Category Order'}
+              </button>
+            </div>
           </div>
           
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
@@ -4859,6 +4955,253 @@ function AdminHome() {
         </div>
       )}
 
+      {/* ── Admin 150 Days Schedule Table Editor Modal ── */}
+      {showAdminScheduleModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-200">
+          <div className="bg-slate-50 rounded-3xl shadow-2xl border border-slate-200 w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            
+            {/* Header */}
+            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0 shadow-md">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-black text-base shadow-md">
+                  📅
+                </div>
+                <div>
+                  <h3 className="text-base font-black tracking-tight text-white flex items-center gap-2">
+                    150 Days Schedule Table Editor
+                    <span className="text-[9px] font-black uppercase tracking-widest bg-emerald-500 text-white px-2 py-0.5 rounded-full">Live Table Mode</span>
+                  </h3>
+                  <p className="text-xs text-slate-300 font-medium">Manually edit Day-wise mock test topics &amp; subject names</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowAdminScheduleModal(false)}
+                className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center font-bold text-sm transition-all cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Action Bar & Controls */}
+            <div className="p-4 bg-white border-b border-slate-200 flex flex-wrap gap-3 items-center justify-between shrink-0">
+              <div className="relative flex-1 min-w-[220px]">
+                <input
+                  type="text"
+                  placeholder="Search Day (e.g. Day 5), Math, Reasoning, or GK topic..."
+                  value={adminScheduleSearch}
+                  onChange={e => setAdminScheduleSearch(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 pl-9 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                {adminScheduleSearch && (
+                  <button onClick={() => setAdminScheduleSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600">✕</button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap shrink-0">
+                <button
+                  type="button"
+                  onClick={handleAutoFillFromTests}
+                  className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-black text-[10px] uppercase tracking-wider rounded-xl border border-indigo-200 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                >
+                  <span>✨</span> Auto-Fill from Mocks
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextDay = scheduleTable.length + 1;
+                    setScheduleTable(prev => [...prev, { day: nextDay, math: '', reasoning: '', englishGk: '' }]);
+                  }}
+                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-[10px] uppercase tracking-wider rounded-xl border border-slate-200 transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
+                >
+                  <Plus className="w-3.5 h-3.5 text-slate-600" /> Add Day {scheduleTable.length + 1} Row
+                </button>
+              </div>
+            </div>
+
+            {/* Editable Schedule Table */}
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1 bg-slate-100">
+              <div className="bg-white rounded-2xl border border-slate-300 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[700px]">
+                    <thead>
+                      <tr className="bg-slate-900 text-white text-[10px] font-black uppercase tracking-wider divide-x divide-slate-800">
+                        <th className="py-3 px-3 w-20 text-center">Day #</th>
+                        <th className="py-3 px-4">Mathematics Topic</th>
+                        <th className="py-3 px-4">Reasoning / GI Topic</th>
+                        <th className="py-3 px-4">English / GK Topic</th>
+                        <th className="py-3 px-3 w-16 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 text-xs font-medium">
+                      {(() => {
+                        const filtered = scheduleTable.filter(row => {
+                          if (!adminScheduleSearch.trim()) return true;
+                          const q = adminScheduleSearch.toLowerCase().trim();
+                          const dayStr = `day ${row.day}`.toLowerCase();
+                          return (
+                            dayStr.includes(q) ||
+                            row.day.toString() === q ||
+                            (row.math || '').toLowerCase().includes(q) ||
+                            (row.reasoning || '').toLowerCase().includes(q) ||
+                            (row.englishGk || '').toLowerCase().includes(q)
+                          );
+                        });
+
+                        if (filtered.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan={5} className="py-10 text-center text-slate-400 font-bold">
+                                No schedule rows found for your search.
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        return filtered.map((row) => {
+                          const realIdx = scheduleTable.findIndex(r => r.day === row.day);
+                          return (
+                            <tr key={row.day} className="divide-x divide-slate-200 hover:bg-slate-50/70 transition-colors">
+                              {/* Day Badge */}
+                              <td className="py-2 px-3 text-center bg-slate-100/60 font-black text-slate-900 text-xs">
+                                Day {row.day < 10 ? `0${row.day}` : row.day}
+                              </td>
+
+                              {/* Math Topic Input */}
+                              <td className="p-1.5">
+                                <input
+                                  type="text"
+                                  placeholder="e.g. Number System &amp; HCF"
+                                  value={row.math}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    setScheduleTable(prev => {
+                                      const next = [...prev];
+                                      if (next[realIdx]) next[realIdx].math = val;
+                                      return next;
+                                    });
+                                  }}
+                                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-indigo-50/20"
+                                />
+                              </td>
+
+                              {/* Reasoning Topic Input */}
+                              <td className="p-1.5">
+                                <input
+                                  type="text"
+                                  placeholder="e.g. Alphabet Test &amp; Coding"
+                                  value={row.reasoning}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    setScheduleTable(prev => {
+                                      const next = [...prev];
+                                      if (next[realIdx]) next[realIdx].reasoning = val;
+                                      return next;
+                                    });
+                                  }}
+                                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-emerald-50/20"
+                                />
+                              </td>
+
+                              {/* English/GK Topic Input */}
+                              <td className="p-1.5">
+                                <input
+                                  type="text"
+                                  placeholder="e.g. Polity &amp; Current Affairs"
+                                  value={row.englishGk}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    setScheduleTable(prev => {
+                                      const next = [...prev];
+                                      if (next[realIdx]) next[realIdx].englishGk = val;
+                                      return next;
+                                    });
+                                  }}
+                                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-violet-900 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:bg-violet-50/20"
+                                />
+                              </td>
+
+                              {/* Action */}
+                              <td className="py-2 px-2 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setScheduleTable(prev => {
+                                      const next = [...prev];
+                                      if (next[realIdx]) {
+                                        next[realIdx].math = '';
+                                        next[realIdx].reasoning = '';
+                                        next[realIdx].englishGk = '';
+                                      }
+                                      return next;
+                                    });
+                                  }}
+                                  className="p-1 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
+                                  title="Clear Day Topics"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        });
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="px-6 py-4 bg-white border-t border-slate-200 flex items-center justify-between shrink-0">
+              <div className="text-xs font-bold text-slate-500">
+                Total Days: <span className="font-black text-slate-900">{scheduleTable.length} Days</span>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAdminScheduleModal(false)}
+                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={savingScheduleDoc}
+                  onClick={async () => {
+                    if (!user) return;
+                    setSavingScheduleDoc(true);
+                    try {
+                      await setDoc(doc(db, 'settings', 'challenge_schedule'), {
+                        title: scheduleDocTitle || '150 Days Challenge Master Schedule',
+                        description: scheduleDocDesc || 'Official Day-by-Day Mock Test & Subject Syllabus',
+                        scheduleTable: scheduleTable,
+                        updatedAt: serverTimestamp(),
+                        authorId: user.uid
+                      }, { merge: true });
+                      await invalidateCacheField('categories');
+                      alert('150 Days Schedule Table saved successfully!');
+                      setShowAdminScheduleModal(false);
+                    } catch (err: any) {
+                      console.error(err);
+                      alert('Error saving schedule table: ' + err.message);
+                    } finally {
+                      setSavingScheduleDoc(false);
+                    }
+                  }}
+                  className="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-md shadow-amber-200 transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  {savingScheduleDoc ? 'Saving Table...' : '💾 Save Schedule Table'}
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }

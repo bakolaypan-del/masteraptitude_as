@@ -377,6 +377,10 @@ export default function Dashboard() {
   const [myGlobalRank, setMyGlobalRank] = useState<number | null>(null);
   const [totalStudentsCount, setTotalStudentsCount] = useState<number | null>(null);
   const [challengeTotalStudents, setChallengeTotalStudents] = useState<number | null>(null);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduleSearch, setScheduleSearch] = useState('');
+  const [scheduleFilter, setScheduleFilter] = useState<'all' | 'available' | 'upcoming'>('all');
+  const [scheduleDoc, setScheduleDoc] = useState<any>(null);
 
   const handleOpenOneLiner = (item: any) => {
     setActiveOneLinerModal(item);
@@ -1023,6 +1027,13 @@ export default function Dashboard() {
       } catch (error) {
         handleFirestoreError(error, OperationType.GET, 'multiple collections');
       } finally {
+        // Listen to 150 Days Schedule Document from Admin
+        onSnapshot(doc(db, 'settings', 'challenge_schedule'), (snap) => {
+          if (snap.exists()) {
+            setScheduleDoc(snap.data());
+          }
+        }, (err) => console.error(err));
+
         setLoading(false);
       }
     }
@@ -3536,6 +3547,27 @@ export default function Dashboard() {
 
           {activeTab === 'mock_challenge' && (
             <div className="space-y-4 animate-in fade-in duration-150">
+              {/* Header Bar with Schedule Option */}
+              <div className="flex items-center justify-between gap-3 flex-wrap bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-600 to-indigo-800 text-white flex items-center justify-center font-black text-xs shadow-md shadow-indigo-200">
+                    150
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900 leading-tight">150 Days Free Practice Challenge</h3>
+                    <p className="text-[10px] font-bold text-slate-500">Day-by-day mock test roadmap</p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setShowScheduleModal(true)}
+                  className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-black text-xs rounded-xl shadow-md shadow-amber-200 transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer ml-auto"
+                >
+                  <Calendar className="w-4 h-4" />
+                  <span>📅 View Schedule</span>
+                </button>
+              </div>
+
               {/* Ultra-Compact 30/70 Horizontal Banner: Progress (Left 30%) & Top 5 Leaderboard (Right 70%) */}
               <div className="bg-white rounded-2xl p-3 sm:p-4 text-slate-900 shadow-sm border border-slate-200/90 relative overflow-hidden">
                 <div className="grid grid-cols-10 gap-3 sm:gap-4 relative z-10 items-stretch">
@@ -5202,6 +5234,319 @@ export default function Dashboard() {
 
       {/* App install gate — prompts mobile browser users to install */}
       {profile?.role !== 'admin' && <AppInstallGate />}
+
+      {/* ── 150 Days Mock Challenge Schedule Document Modal ── */}
+      {showScheduleModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-slate-100 rounded-3xl shadow-2xl border border-slate-300 w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            
+            {/* Document Action Bar Header */}
+            <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between shrink-0 shadow-md">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-black text-sm shadow-md">
+                  📄
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-black tracking-tight text-white flex items-center gap-2">
+                    {scheduleDoc?.title || '150 Days Challenge Official Document Schedule'}
+                    <span className="text-[8px] font-black uppercase tracking-widest bg-emerald-500 text-white px-2 py-0.5 rounded-full">PDF Document</span>
+                  </h3>
+                  <p className="text-[10px] sm:text-xs text-slate-300 font-medium">
+                    {scheduleDoc?.description || 'Official Day-by-day structured topic schedule'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {scheduleDoc?.pdfUrl ? (
+                  <a
+                    href={scheduleDoc.pdfUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-[10px] uppercase tracking-wider rounded-xl transition-all flex items-center gap-1 shadow-xs cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Download PDF File
+                  </a>
+                ) : (
+                  <button
+                    onClick={() => {
+                      window.print();
+                    }}
+                    className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-[10px] uppercase tracking-wider rounded-xl transition-all flex items-center gap-1 shadow-xs cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Print / Save PDF
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowScheduleModal(false)}
+                  className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center font-bold text-sm transition-all cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {scheduleDoc?.pdfUrl ? (
+              <div className="flex-1 bg-slate-900 overflow-hidden relative flex flex-col min-h-[500px]">
+                <iframe
+                  src={scheduleDoc.pdfUrl}
+                  className="w-full h-full min-h-[550px] border-none"
+                  title="150 Days Challenge Schedule Document"
+                />
+              </div>
+            ) : (
+              <>
+
+            {/* Document Controls & Filter Bar */}
+            <div className="p-3.5 bg-white border-b border-slate-200/90 flex flex-wrap gap-3 items-center justify-between shrink-0">
+              <div className="relative flex-1 min-w-[200px]">
+                <input
+                  type="text"
+                  placeholder="Search Day (e.g. Day 01), Math, Reasoning, GK topic..."
+                  value={scheduleSearch}
+                  onChange={e => setScheduleSearch(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-1.5 pl-8 text-xs font-bold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                {scheduleSearch && (
+                  <button onClick={() => setScheduleSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600">✕</button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0">
+                <button
+                  onClick={() => setScheduleFilter('all')}
+                  className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${scheduleFilter === 'all' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-200'}`}
+                >
+                  All Days (150)
+                </button>
+                <button
+                  onClick={() => setScheduleFilter('available')}
+                  className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${scheduleFilter === 'available' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-200'}`}
+                >
+                  🟢 Published ({Object.keys(challengeDaysMap).length})
+                </button>
+                <button
+                  onClick={() => setScheduleFilter('upcoming')}
+                  className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${scheduleFilter === 'upcoming' ? 'bg-amber-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-200'}`}
+                >
+                  ⏳ Upcoming ({Math.max(0, 150 - Object.keys(challengeDaysMap).length)})
+                </button>
+              </div>
+            </div>
+
+            {/* PDF Paper Sheet Document Container */}
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1 bg-slate-200/60">
+              <div className="bg-white rounded-2xl shadow-xl border border-slate-300 p-6 sm:p-8 max-w-4xl mx-auto min-h-full">
+                
+                {/* Official Letterhead Header */}
+                <div className="border-b-2 border-slate-900 pb-5 mb-5 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-black text-xl shadow-md">
+                      MA
+                    </div>
+                    <div>
+                      <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight uppercase">MASTER APTITUDE BY SUMAN SIR</h1>
+                      <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">150 Days Free Practice Challenge • Master Syllabus Schedule</p>
+                    </div>
+                  </div>
+
+                  <div className="text-right text-[10px] font-bold text-slate-500 space-y-0.5">
+                    <p className="text-slate-900 font-black uppercase tracking-wider">Document Ref: MA-150D-2026</p>
+                    <p>Published Days: <span className="font-black text-emerald-600">{Object.keys(challengeDaysMap).length} / 150</span></p>
+                    <p>Status: <span className="font-black text-indigo-600">Auto-Synchronized</span></p>
+                  </div>
+                </div>
+
+                {/* Structured Document Table */}
+                <div className="overflow-x-auto border border-slate-300 rounded-xl shadow-xs">
+                  <table className="w-full text-left border-collapse min-w-[640px]">
+                    <thead>
+                      <tr className="bg-slate-900 text-white text-[10px] font-black uppercase tracking-wider divide-x divide-slate-800">
+                        <th className="py-3 px-3 w-16 text-center">Day</th>
+                        <th className="py-3 px-3">Mathematics Topic</th>
+                        <th className="py-3 px-3">Reasoning / GI Topic</th>
+                        <th className="py-3 px-3">English / GK Topic</th>
+                        <th className="py-3 px-3 w-28 text-center">Status / Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 text-xs font-medium text-slate-800">
+                      {(() => {
+                        const daysList = Array.from({ length: 150 }, (_, i) => i + 1);
+
+                        const filteredDays = daysList.filter(dayNum => {
+                          const tests = challengeDaysMap[dayNum] || [];
+                          const isAvailable = tests.length > 0;
+                          
+                          if (scheduleFilter === 'available' && !isAvailable) return false;
+                          if (scheduleFilter === 'upcoming' && isAvailable) return false;
+
+                          if (scheduleSearch.trim()) {
+                            const q = scheduleSearch.toLowerCase().trim();
+                            const dayStr = `day ${dayNum}`.toLowerCase();
+                            const dayPadded = `day 0${dayNum}`.toLowerCase();
+                            const matchesDay = dayStr.includes(q) || dayPadded.includes(q) || dayNum.toString() === q;
+                            const matchesTests = tests.some((t: any) => 
+                              (t.title || '').toLowerCase().includes(q) ||
+                              (t.topic || '').toLowerCase().includes(q) ||
+                              (t.subjectName || '').toLowerCase().includes(q)
+                            );
+                            return matchesDay || matchesTests;
+                          }
+                          return true;
+                        });
+
+                        if (filteredDays.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan={5} className="py-12 text-center text-slate-400 font-bold">
+                                No schedule rows match your search/filter.
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        return filteredDays.map(dayNum => {
+                          const tests = challengeDaysMap[dayNum] || [];
+                          const isAvailable = tests.length > 0;
+                          const firstTest = tests[0];
+
+                          let mathTopic = '—';
+                          let reasoningTopic = '—';
+                          let englishGkTopic = '—';
+
+                          // Read admin scheduleTable entries if set by admin
+                          const adminRow = Array.isArray(scheduleDoc?.scheduleTable)
+                            ? scheduleDoc.scheduleTable.find((r: any) => Number(r.day) === dayNum)
+                            : null;
+
+                          if (adminRow) {
+                            if (adminRow.math) mathTopic = adminRow.math;
+                            if (adminRow.reasoning) reasoningTopic = adminRow.reasoning;
+                            if (adminRow.englishGk) englishGkTopic = adminRow.englishGk;
+                          }
+
+                          if (isAvailable) {
+                            tests.forEach((t: any) => {
+                              const sub = (t.subjectName || '').toLowerCase();
+                              const cat = (t.category || '').toLowerCase();
+                              const top = t.topic || t.title || `Day ${dayNum} Topic`;
+
+                              if (sub.includes('math') || sub.includes('quant') || cat.includes('math')) {
+                                if (mathTopic === '—') mathTopic = top;
+                              } else if (sub.includes('reason') || sub.includes('gi') || cat.includes('reason')) {
+                                if (reasoningTopic === '—') reasoningTopic = top;
+                              } else if (sub.includes('english') || sub.includes('gk') || sub.includes('awareness') || sub.includes('general')) {
+                                if (englishGkTopic === '—') englishGkTopic = top;
+                              } else {
+                                if (mathTopic === '—') mathTopic = top;
+                                else if (reasoningTopic === '—') reasoningTopic = top;
+                                else if (englishGkTopic === '—') englishGkTopic = top;
+                              }
+                            });
+                          } else if (!adminRow) {
+                            mathTopic = `Day ${dayNum} Mathematics`;
+                            reasoningTopic = `Day ${dayNum} General Intelligence`;
+                            englishGkTopic = `Day ${dayNum} General Knowledge`;
+                          }
+
+                          const attemptsForDay = tests.flatMap((t: any) => pastResults.filter((r: any) => r.testId === t.id));
+                          const isAttempted = attemptsForDay.length > 0;
+                          const topScore = isAttempted ? Math.max(...attemptsForDay.map((r: any) => r.score || 0)) : null;
+
+                          return (
+                            <tr
+                              key={dayNum}
+                              className={`divide-x divide-slate-200 transition-colors ${
+                                isAvailable
+                                  ? isAttempted
+                                    ? 'bg-emerald-50/50 hover:bg-emerald-50'
+                                    : 'bg-white hover:bg-indigo-50/40'
+                                  : 'bg-slate-50/60 hover:bg-slate-100/60'
+                              }`}
+                            >
+                              {/* Day Column */}
+                              <td className="py-2.5 px-3 text-center font-black text-slate-900 bg-slate-100/50">
+                                Day {dayNum < 10 ? `0${dayNum}` : dayNum}
+                              </td>
+
+                              {/* Math Topic */}
+                              <td className="py-2.5 px-3 font-bold text-slate-800">
+                                <span className={isAvailable ? 'text-indigo-700 font-extrabold' : 'text-slate-400'}>
+                                  {mathTopic}
+                                </span>
+                              </td>
+
+                              {/* Reasoning Topic */}
+                              <td className="py-2.5 px-3 font-bold text-slate-800">
+                                <span className={isAvailable ? 'text-emerald-700 font-extrabold' : 'text-slate-400'}>
+                                  {reasoningTopic}
+                                </span>
+                              </td>
+
+                              {/* English/GK Topic */}
+                              <td className="py-2.5 px-3 font-bold text-slate-800">
+                                <span className={isAvailable ? 'text-violet-700 font-extrabold' : 'text-slate-400'}>
+                                  {englishGkTopic}
+                                </span>
+                              </td>
+
+                              {/* Status / Action */}
+                              <td className="py-2.5 px-3 text-center">
+                                {isAvailable ? (
+                                  <div className="flex flex-col items-center gap-1">
+                                    <Link
+                                      to={`/test/${firstTest.id}`}
+                                      onClick={() => setShowScheduleModal(false)}
+                                      className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[9px] font-black uppercase tracking-wider rounded-lg transition-all shadow-2xs block w-full text-center"
+                                    >
+                                      {isAttempted ? 'Reattempt' : 'Attempt'}
+                                    </Link>
+                                    {isAttempted && (
+                                      <span className="text-[8px] font-black text-emerald-600">✓ {topScore} pts</span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="px-2 py-0.5 bg-slate-100 text-slate-400 text-[8px] font-black uppercase tracking-widest rounded-md border border-slate-200 block text-center">
+                                    Upcoming
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        });
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Document Footer Note */}
+                <div className="mt-6 pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between text-[10px] font-bold text-slate-400 gap-2">
+                  <p>© Master Aptitude by Suman Sir — Official 150 Days Practice Schedule</p>
+                  <p className="text-slate-500">Auto-updated from live mock test engine</p>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 bg-white border-t border-slate-200 flex items-center justify-between text-xs font-bold text-slate-500 shrink-0">
+              <span className="text-[10px] uppercase font-black tracking-wider text-slate-400">
+                150 Days Practice Roadmap Table View
+              </span>
+              <button
+                onClick={() => setShowScheduleModal(false)}
+                className="px-4 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs transition-all cursor-pointer"
+              >
+                Close Document
+              </button>
+            </div>
+          </>
+        )}
+
+          </div>
+        </div>
+      )}
 
       {/* SW update toast — notifies when a new version is deployed */}
       <AppUpdateToast />
