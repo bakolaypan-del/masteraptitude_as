@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { auth } from '../lib/firebase';
 import { uploadFileViaBackend } from '../lib/upload';
+import RichTextEditor, { RenderQuestionHTML } from './RichTextEditor';
 import {
   Plus, Trash2, Edit2, Save, X, Search, Filter,
   FileText, Image as ImgIcon, FileUp, Sparkles, Check,
-  Pin, RefreshCw, Eye, ExternalLink, Download, Bookmark
+  Pin, RefreshCw, Eye, ExternalLink, Download, Bookmark, Share2, Copy, Link2
 } from 'lucide-react';
 
 export interface OneLinerItem {
@@ -19,6 +20,7 @@ export interface OneLinerItem {
   pdfTitle?: string;
   status: 'published' | 'draft';
   pinned?: boolean;
+  readCount?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -88,6 +90,21 @@ export default function AdminOneLiners() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterSubject, setFilterSubject] = useState('ALL');
   const [filterFormat, setFilterFormat] = useState('ALL');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopyShareLink = (item: OneLinerItem) => {
+    const url = `${window.location.origin}/dashboard?tab=one_liner&id=${item.id}`;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(() => {
+        setCopiedId(item.id);
+        setTimeout(() => setCopiedId(null), 2500);
+      }).catch(() => {
+        prompt('Copy One-Liner Share Link:', url);
+      });
+    } else {
+      prompt('Copy One-Liner Share Link:', url);
+    }
+  };
 
   useEffect(() => {
     fetchOneLiners();
@@ -229,7 +246,7 @@ export default function AdminOneLiners() {
   // Filtered list
   const filteredItems = items.filter(item => {
     const matchesSearch = 
-      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (item.content || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (item.subject || '').toLowerCase().includes(searchQuery.toLowerCase());
     
@@ -368,18 +385,17 @@ export default function AdminOneLiners() {
               </div>
             </div>
 
-            {/* Text Format Input */}
+            {/* Text Format Input with Rich Formatting Tools */}
             {(format === 'text' || format === 'mixed') && (
               <div className="md:col-span-2 space-y-1.5">
                 <label className="block text-xs font-black text-slate-500 uppercase tracking-wider">
-                  Text Content / Notes
+                  Text Content / Formatted Notes (Bengali & English, Styles, Colors, Icons, Alignment)
                 </label>
-                <textarea
-                  rows={4}
+                <RichTextEditor
                   value={content}
-                  onChange={e => setContent(e.target.value)}
-                  placeholder="Enter One Liner text content, notes, key points..."
-                  className="w-full rounded-2xl border-2 border-slate-200 p-3 text-sm font-medium text-slate-800 focus:border-indigo-600 outline-none transition-all leading-relaxed"
+                  onChange={setContent}
+                  placeholder="Type or copy-paste One Liner text content, Bengali/English formatted notes..."
+                  minHeight={160}
                 />
               </div>
             )}
@@ -612,14 +628,17 @@ export default function AdminOneLiners() {
                           Draft
                         </span>
                       )}
+                      <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 text-[9px] font-black rounded-md flex items-center gap-1">
+                        <Eye className="w-3 h-3 text-indigo-600" /> {item.readCount || 0} Reads
+                      </span>
                     </div>
 
                     <h4 className="text-sm font-black text-slate-900">{item.title}</h4>
 
                     {item.content && (
-                      <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
-                        {item.content}
-                      </p>
+                      <div className="text-xs text-slate-600 line-clamp-2 leading-relaxed bg-slate-50 p-2 rounded-xl border border-slate-100">
+                        <RenderQuestionHTML html={item.content} />
+                      </div>
                     )}
 
                     <div className="flex items-center gap-3 text-[10px] text-slate-400 font-medium pt-1 flex-wrap">
@@ -639,6 +658,25 @@ export default function AdminOneLiners() {
 
                   {/* Actions */}
                   <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                    <button
+                      onClick={() => handleCopyShareLink(item)}
+                      className={`px-3 py-2 rounded-xl font-black text-xs transition-all flex items-center gap-1.5 cursor-pointer border ${
+                        copiedId === item.id 
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-xs' 
+                          : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                      }`}
+                      title="Copy Shareable Link for Students"
+                    >
+                      {copiedId === item.id ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-600" /> Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Share2 className="w-3.5 h-3.5 text-indigo-600" /> Share Link
+                        </>
+                      )}
+                    </button>
                     <button
                       onClick={() => handleOpenEdit(item)}
                       className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-xl transition-all cursor-pointer"

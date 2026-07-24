@@ -10,9 +10,17 @@ interface RichTextEditorProps {
 }
 
 const BENGALI_FONTS = [
-  { name: 'Hind Siliguri', label: 'হিন্দ', desc: 'Clean & readable' },
-  { name: 'Baloo Da 2',    label: 'বালু',  desc: 'Stylish & bold' },
-  { name: 'Noto Sans Bengali', label: 'নোটো', desc: 'Universal' },
+  { name: 'Hind Siliguri', label: 'হিন্দ (Hind Siliguri)', desc: 'Clean & readable' },
+  { name: 'Baloo Da 2',    label: 'বালু (Baloo Da 2)',  desc: 'Stylish & bold' },
+  { name: 'Noto Sans Bengali', label: 'নোটো (Noto Sans)', desc: 'Universal' },
+  { name: 'Tiro Bengali', label: 'তিরো (Tiro Bengali)', desc: 'Classic Serif' },
+];
+
+const ENGLISH_FONTS = [
+  { name: 'sans-serif', label: 'Sans-Serif (Standard)' },
+  { name: 'serif', label: 'Classic Serif' },
+  { name: 'monospace', label: 'Code Monospace' },
+  { name: 'Caveat', label: 'Stylish Cursive' },
 ];
 
 const TEXT_COLORS = [
@@ -31,8 +39,10 @@ const BG_COLORS = [
   { c: '#bfdbfe', label: 'Blue' },
   { c: '#fce7f3', label: 'Pink' },
   { c: '#fed7aa', label: 'Orange' },
+  { c: '#e2e8f0', label: 'Grey' },
 ];
 
+const STYLISH_ICONS = ['📌', '💡', '🔥', '⭐', '🎯', '🚀', '✍️', '📝', '🧠', '⚡', '🔔', '🏆', '💎', '📢', '📖', '🏷️', '🔑', '🎓', '🚩', '💬', '✅', '❌', '❓', '❗', '🇧🇩', '🇮🇳'];
 const MATH_SYMBOLS = ['²', '³', '½', '¼', '√', '∛', '∞', '≠', '≈', '≤', '≥', '±', '÷', '×', '∑', 'π', 'θ', '°', '→', '←', '↑', '↓'];
 
 export default function RichTextEditor({ value, onChange, placeholder, minHeight = 120 }: RichTextEditorProps) {
@@ -41,6 +51,7 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
   const [bengaliMode, setBengaliMode] = useState(false);
   const [selectedBengaliFont, setSelectedBengaliFont] = useState(BENGALI_FONTS[0].name);
   const [showFontMenu, setShowFontMenu] = useState(false);
+  const [showIconMenu, setShowIconMenu] = useState(false);
   const [showEqPopup, setShowEqPopup] = useState(false);
   const [eqInput, setEqInput] = useState('');
   const [eqDisplay, setEqDisplay] = useState(false);
@@ -161,7 +172,7 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
         <Sep />
 
         {/* Font sizes */}
-        {([['1', 'XS', 10], ['2', 'S', 11], ['3', 'M', 13], ['4', 'L', 15], ['5', 'XL', 17]] as [string, string, number][]).map(([sz, lbl, fs]) => (
+        {([['1', 'XS', 10], ['2', 'S', 11], ['3', 'M', 13], ['4', 'L', 15], ['5', 'XL', 17], ['6', 'XXL', 20]] as [string, string, number][]).map(([sz, lbl, fs]) => (
           <React.Fragment key={sz}>
             <ToolBtn onClick={() => exec('fontSize', sz)} title={`Size ${lbl}`}>
               <span style={{ fontSize: fs, fontWeight: 700 }}>A</span>
@@ -176,7 +187,7 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
           <button
             key={c} title={`${label} text`}
             onClick={() => exec('foreColor', c)}
-            className="w-5 h-5 rounded-full border-2 border-white shadow-sm hover:scale-110 transition-transform shrink-0"
+            className="w-5 h-5 rounded-full border-2 border-white shadow-sm hover:scale-110 transition-transform shrink-0 cursor-pointer"
             style={{ background: c }}
           />
         ))}
@@ -188,7 +199,7 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
           <button
             key={c} title={`${label} highlight`}
             onClick={() => exec('hiliteColor', c)}
-            className="w-5 h-5 rounded border-2 border-slate-300 shadow-sm hover:scale-110 transition-transform flex items-center justify-center shrink-0"
+            className="w-5 h-5 rounded border-2 border-slate-300 shadow-sm hover:scale-110 transition-transform flex items-center justify-center shrink-0 cursor-pointer"
             style={{ background: c }}
           >
             <span className="text-[7px] font-black text-slate-600">H</span>
@@ -213,6 +224,34 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
 
         <Sep />
 
+        {/* Stylish Icons Picker */}
+        <div className="relative" onMouseDown={noBlur}>
+          <button
+            type="button"
+            onClick={() => setShowIconMenu(p => !p)}
+            title="Insert Stylish Emojis & Icons"
+            className="h-7 px-2 rounded-lg text-xs font-black text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
+          >
+            <span>📌</span> Icons ▾
+          </button>
+          {showIconMenu && (
+            <div className="absolute top-8 left-0 z-50 bg-white rounded-2xl shadow-xl border border-slate-200 p-2.5 grid grid-cols-6 gap-1 min-w-[200px]">
+              {STYLISH_ICONS.map(icon => (
+                <button
+                  key={icon}
+                  type="button"
+                  onClick={() => { insertSym(icon); setShowIconMenu(false); }}
+                  className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-sm transition-transform hover:scale-125 cursor-pointer"
+                >
+                  {icon}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <Sep />
+
         {/* Math symbols */}
         <div className="flex items-center gap-0.5 flex-wrap">
           {MATH_SYMBOLS.map(sym => (
@@ -220,7 +259,7 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
               key={sym}
               onClick={() => insertSym(sym)}
               title={sym}
-              className="w-6 h-6 rounded text-slate-700 hover:bg-slate-200 flex items-center justify-center transition-colors text-xs font-medium"
+              className="w-6 h-6 rounded text-slate-700 hover:bg-slate-200 flex items-center justify-center transition-colors text-xs font-medium cursor-pointer"
             >
               {sym}
             </button>
@@ -229,13 +268,13 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
 
         <Sep />
 
-        {/* ── Inline Equation Button ── */}
+        {/* Inline Equation Button */}
         <button
           type="button"
           onMouseDown={noBlur}
           onClick={openEqPopup}
           title="Insert Inline Equation (LaTeX)"
-          className="h-7 px-2.5 rounded-lg text-xs font-black flex items-center gap-1 transition-all shrink-0 bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm"
+          className="h-7 px-2.5 rounded-lg text-xs font-black flex items-center gap-1 transition-all shrink-0 bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm cursor-pointer"
         >
           <span style={{ fontSize: 13 }}>∑</span>
           <span style={{ fontSize: 10 }}>Equation</span>
@@ -243,14 +282,14 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
 
         <Sep />
 
-        {/* ── Bengali Font Section ── */}
+        {/* ── Bengali & English Font Section ── */}
         <div className="flex items-center gap-1" onMouseDown={noBlur}>
           {/* Bengali mode toggle */}
           <button
             type="button"
             onClick={toggleBengaliMode}
             title={bengaliMode ? 'Exit Bengali Mode' : 'Enable Bengali Mode (whole editor)'}
-            className={`px-2 h-7 rounded-lg text-xs font-black transition-all shrink-0 ${
+            className={`px-2 h-7 rounded-lg text-xs font-black transition-all shrink-0 cursor-pointer ${
               bengaliMode
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-indigo-600 hover:bg-indigo-50 border border-indigo-200'
@@ -265,25 +304,43 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
             <button
               type="button"
               onClick={() => setShowFontMenu(p => !p)}
-              title="Choose Bengali Font"
-              className="h-7 px-2 rounded-lg text-[10px] font-black text-slate-500 hover:bg-slate-100 border border-slate-200 transition-colors flex items-center gap-1 shrink-0"
+              title="Choose Bengali / Stylish Font"
+              className="h-7 px-2 rounded-lg text-[10px] font-black text-slate-500 hover:bg-slate-100 border border-slate-200 transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
             >
               <span style={{ fontFamily: `'${selectedBengaliFont}', sans-serif`, fontSize: 12 }}>অ</span>
               ▾
             </button>
             {showFontMenu && (
-              <div className="absolute top-8 left-0 z-50 bg-white rounded-xl shadow-xl border border-slate-200 py-1 min-w-[160px]">
+              <div className="absolute top-8 left-0 z-50 bg-white rounded-xl shadow-xl border border-slate-200 py-1 min-w-[180px]">
+                <div className="px-3 py-1 text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50">Bengali Fonts</div>
                 {BENGALI_FONTS.map(f => (
                   <button
                     key={f.name}
                     type="button"
                     onClick={() => selectBengaliFont(f.name)}
-                    className={`w-full text-left px-3 py-2 hover:bg-indigo-50 transition-colors flex flex-col gap-0.5 ${selectedBengaliFont === f.name ? 'bg-indigo-50' : ''}`}
+                    className={`w-full text-left px-3 py-1.5 hover:bg-indigo-50 transition-colors flex flex-col gap-0.5 cursor-pointer ${selectedBengaliFont === f.name ? 'bg-indigo-50' : ''}`}
                   >
-                    <span className="font-black text-sm text-slate-800" style={{ fontFamily: `'${f.name}', sans-serif` }}>
-                      {f.label} — {f.name}
+                    <span className="font-black text-xs text-slate-800" style={{ fontFamily: `'${f.name}', sans-serif` }}>
+                      {f.label}
                     </span>
-                    <span className="text-[10px] text-slate-400">{f.desc}</span>
+                    <span className="text-[9px] text-slate-400">{f.desc}</span>
+                  </button>
+                ))}
+
+                <div className="px-3 py-1 text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 mt-1">English / Stylish Fonts</div>
+                {ENGLISH_FONTS.map(ef => (
+                  <button
+                    key={ef.name}
+                    type="button"
+                    onClick={() => {
+                      exec('fontName', ef.name);
+                      setShowFontMenu(false);
+                    }}
+                    className="w-full text-left px-3 py-1.5 hover:bg-indigo-50 transition-colors flex flex-col gap-0.5 cursor-pointer"
+                  >
+                    <span className="font-black text-xs text-slate-800" style={{ fontFamily: ef.name }}>
+                      {ef.label}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -295,7 +352,7 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
             type="button"
             onClick={() => applyBengaliFont()}
             title={`Apply ${selectedBengaliFont} to selected text`}
-            className="h-7 px-2 rounded-lg text-[10px] font-black text-slate-600 hover:bg-slate-100 border border-slate-200 transition-colors shrink-0"
+            className="h-7 px-2 rounded-lg text-[10px] font-black text-slate-600 hover:bg-slate-100 border border-slate-200 transition-colors shrink-0 cursor-pointer"
           >
             Apply
           </button>
@@ -305,7 +362,7 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
 
         {/* Clear formatting */}
         <ToolBtn onClick={() => exec('removeFormat')} title="Clear Formatting">
-          <span className="text-rose-500 font-black text-xs">✕</span>
+          <span className="text-rose-500 font-black text-xs">✕ Clear</span>
         </ToolBtn>
       </div>
 
@@ -347,7 +404,7 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
             ].map(({ label, t }) => (
               <button key={label} type="button"
                 onClick={() => setEqInput(p => p ? `${p} ${t}` : t)}
-                className="px-2 py-0.5 text-[10px] font-bold bg-white hover:bg-indigo-100 text-indigo-600 rounded-lg border border-indigo-200 transition-all">
+                className="px-2 py-0.5 text-[10px] font-bold bg-white hover:bg-indigo-100 text-indigo-600 rounded-lg border border-indigo-200 transition-all cursor-pointer">
                 {label}
               </button>
             ))}
@@ -376,12 +433,12 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
           {/* Insert button */}
           <div className="flex justify-end gap-2">
             <button type="button" onClick={() => setShowEqPopup(false)}
-              className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-lg transition-all">
+              className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-lg transition-all cursor-pointer">
               Cancel
             </button>
             <button type="button" onClick={insertInlineEquation}
               disabled={!eqInput.trim()}
-              className="px-4 py-1.5 text-xs font-black text-white rounded-lg transition-all disabled:opacity-40"
+              className="px-4 py-1.5 text-xs font-black text-white rounded-lg transition-all disabled:opacity-40 cursor-pointer"
               style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>
               Insert Equation
             </button>
@@ -390,7 +447,7 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
       )}
 
       {/* ── Editable area ── */}
-      <div className="relative" onClick={() => setShowFontMenu(false)}>
+      <div className="relative" onClick={() => { setShowFontMenu(false); setShowIconMenu(false); }}>
         <div
           ref={editorRef}
           contentEditable
@@ -411,7 +468,7 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
             className="absolute top-4 left-4 text-slate-400 pointer-events-none select-none text-sm"
             style={{ fontFamily: bengaliMode ? `'${selectedBengaliFont}', sans-serif` : 'inherit' }}
           >
-            {placeholder || 'Write the question here...'}
+            {placeholder || 'Write content here...'}
           </div>
         )}
       </div>
@@ -425,7 +482,7 @@ function ToolBtn({ onClick, title, children }: { onClick: () => void; title: str
       type="button"
       onClick={onClick}
       title={title}
-      className="w-7 h-7 rounded-lg text-slate-600 hover:bg-slate-200 flex items-center justify-center transition-colors shrink-0"
+      className="w-7 h-7 rounded-lg text-slate-600 hover:bg-slate-200 flex items-center justify-center transition-colors shrink-0 cursor-pointer"
     >
       {children}
     </button>
@@ -436,7 +493,7 @@ function Sep() {
   return <div className="w-px h-5 bg-slate-300 mx-0.5 shrink-0" />;
 }
 
-// Safe HTML renderer for question text — supports both plain text and HTML
+// Safe HTML renderer for formatted content — supports both plain text and HTML
 export function RenderQuestionHTML({ html, className = '' }: { html: string; className?: string }) {
   if (!html) return null;
   // If it looks like plain text (no HTML tags), render as-is preserving line breaks
@@ -446,13 +503,9 @@ export function RenderQuestionHTML({ html, className = '' }: { html: string; cla
       <span className={className} style={{ whiteSpace: 'pre-wrap' }}>{html}</span>
     );
   }
-  // Inject Bengali font @font-face so <font face="Hind Siliguri"> renders correctly
-  const needsBengali = /font-family|Hind Siliguri|Baloo Da 2|Noto Sans Bengali/i.test(html);
   return (
     <>
-      {needsBengali && (
-        <style>{`@import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600&family=Baloo+Da+2:wght@400;600&family=Noto+Sans+Bengali:wght@400;600&display=swap');`}</style>
-      )}
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&family=Baloo+Da+2:wght@400;600;700&family=Noto+Sans+Bengali:wght@400;600;700&family=Tiro+Bengali&family=Caveat:wght@600;700&display=swap');`}</style>
       <span
         className={className}
         style={{ whiteSpace: 'pre-wrap' }}

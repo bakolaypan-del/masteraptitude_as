@@ -217,7 +217,11 @@ const collectionTableMap: { [key: string]: string } = {
   review_links: "review_links",
   leaderboards: "leaderboards",
   question_stats: "question_stats",
-  news_posts: "news_posts"
+  news_posts: "news_posts",
+  one_liners: "one_liners",
+  practice_sets: "practice_sets",
+  patterns: "patterns",
+  pyqs: "pyqs"
 };
 
 // Column mapping for tables
@@ -944,7 +948,11 @@ const getDb = () => {
       "CREATE TABLE IF NOT EXISTS review_links (id VARCHAR(128) PRIMARY KEY, data JSONB)",
       "CREATE TABLE IF NOT EXISTS leaderboards (id VARCHAR(128) PRIMARY KEY, data JSONB)",
       "CREATE TABLE IF NOT EXISTS question_stats (id VARCHAR(128) PRIMARY KEY, data JSONB)",
-      "CREATE TABLE IF NOT EXISTS news_posts (id VARCHAR(128) PRIMARY KEY, data JSONB)"
+      "CREATE TABLE IF NOT EXISTS news_posts (id VARCHAR(128) PRIMARY KEY, data JSONB)",
+      "CREATE TABLE IF NOT EXISTS one_liners (id VARCHAR(128) PRIMARY KEY, data JSONB)",
+      "CREATE TABLE IF NOT EXISTS practice_sets (id VARCHAR(128) PRIMARY KEY, data JSONB)",
+      "CREATE TABLE IF NOT EXISTS patterns (id VARCHAR(128) PRIMARY KEY, data JSONB)",
+      "CREATE TABLE IF NOT EXISTS pyqs (id VARCHAR(128) PRIMARY KEY, data JSONB)"
     ];
     
     // Fire and forget column checks to avoid blocking startup
@@ -2986,19 +2994,21 @@ ${allUrls.map(u => `  <url>
 
   // ── One Liners CRUD ──────────────────────────────────────────────────────────
   app.get("/api/one-liners", async (req, res) => {
-    setCDNCache(res);
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     const currentDb = getDb();
     if (!currentDb) return res.status(500).json({ error: "Database offline" });
     try {
       let queryRef: any = currentDb.collection("one_liners");
       const { subject } = req.query;
-      if (subject && typeof subject === 'string') {
-        queryRef = queryRef.where("subject", "==", subject);
-      }
       const snap = await queryRef.get();
       let posts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (subject && typeof subject === 'string' && subject !== 'ALL') {
+        posts = posts.filter((p: any) => (p.subject || '').toLowerCase() === subject.toLowerCase());
+      }
       posts = posts.filter((p: any) => p.status !== 'draft');
       posts.sort((a: any, b: any) => {
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
         const timeA = new Date(a.createdAt || 0).getTime();
         const timeB = new Date(b.createdAt || 0).getTime();
         return timeB - timeA;
@@ -3027,6 +3037,23 @@ ${allUrls.map(u => `  <url>
     }
   });
 
+  app.post("/api/one-liners/:id/read", async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    const { id } = req.params;
+    try {
+      const ref = currentDb.collection("one_liners").doc(id);
+      const snap = await ref.get();
+      if (snap.exists) {
+        const currentCount = snap.data()?.readCount || 0;
+        await ref.update({ readCount: currentCount + 1 });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to update read count", message: error.message });
+    }
+  });
+
   app.post("/api/admin/one-liners", verifyToken, verifyAdmin, async (req, res) => {
     const currentDb = getDb();
     if (!currentDb) return res.status(500).json({ error: "Database offline" });
@@ -3034,6 +3061,7 @@ ${allUrls.map(u => `  <url>
     try {
       const data = {
         ...req.body,
+        readCount: req.body.readCount || 0,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         authorId: user.uid,
