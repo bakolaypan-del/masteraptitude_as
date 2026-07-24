@@ -233,6 +233,10 @@ def create_tables(conn):
         show_homepage BOOLEAN,
         created_at BIGINT
     );
+
+    CREATE TABLE IF NOT EXISTS one_liners (id VARCHAR(128) PRIMARY KEY, data JSONB);
+    CREATE TABLE IF NOT EXISTS practice_sets (id VARCHAR(128) PRIMARY KEY, data JSONB);
+    CREATE TABLE IF NOT EXISTS patterns (id VARCHAR(128) PRIMARY KEY, data JSONB);
     """
     cur.execute(schema_sql)
     conn.commit()

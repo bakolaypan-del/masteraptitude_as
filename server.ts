@@ -1551,6 +1551,7 @@ ${allUrls.map(u => `  <url>
 
   app.get("/api/global-leaderboard", verifyToken, async (req, res) => {
     try {
+      const user = (req as any).user;
       if (!pgPool) initPostgres();
       
       const leaderboardRes = await pgPool!.query(`
@@ -1565,20 +1566,29 @@ ${allUrls.map(u => `  <url>
           AND LOWER(u.name) NOT LIKE '%kolay%'
         GROUP BY u.id, u.name, u.email, u.role, u.cumulative_score, u.total_tests_taken
         ORDER BY "score" DESC, "testsTaken" DESC
-        LIMIT 10
       `);
 
-      const topRankers = leaderboardRes.rows.map((row: any, idx: number) => ({
+      const allRankers = leaderboardRes.rows.map((row: any, idx: number) => ({
         rank: idx + 1,
         userId: row.userId,
         name: row.name || `Student ${idx + 1}`,
         email: row.email,
         role: row.role || 'user',
         score: parseFloat(row.score || 0),
-        testsTaken: parseInt(row.testsTaken || 0, 10)
+        testsTaken: parseInt(row.testsTaken || 0, 10),
+        isCurrentUser: row.userId === user?.uid
       }));
 
-      return res.json({ topRankers });
+      const userIndex = allRankers.findIndex((r: any) => r.userId === user?.uid);
+      const userRank = userIndex !== -1 ? userIndex + 1 : null;
+      const userScore = userIndex !== -1 ? allRankers[userIndex].score : 0;
+
+      return res.json({ 
+        topRankers: allRankers.slice(0, 50), 
+        userRank, 
+        userScore,
+        totalStudents: allRankers.length 
+      });
     } catch (e: any) {
       console.error("[Leaderboard] Error:", e.message);
       return res.status(500).json({ error: e.message });
@@ -1999,7 +2009,7 @@ ${allUrls.map(u => `  <url>
     }
   });
 
-  // Global leaderboard - top 10 students by cumulativeScore
+  // Global leaderboard - all students by cumulativeScore with userRank
   app.get("/api/global-leaderboard", verifyToken, async (req, res) => {
     const currentDb = getDb();
     if (!currentDb) return res.status(503).json({ error: "Database offline" });
@@ -2007,10 +2017,9 @@ ${allUrls.map(u => `  <url>
     try {
       const snapshot = await currentDb.collection("profiles")
         .orderBy("cumulativeScore", "desc")
-        .limit(10)
         .get();
 
-      const topRankers = snapshot.docs.map((doc, idx) => {
+      const allRankers = snapshot.docs.map((doc, idx) => {
         const data = doc.data();
         return {
           rank: idx + 1,
@@ -2021,7 +2030,16 @@ ${allUrls.map(u => `  <url>
         };
       });
 
-      return res.json({ topRankers });
+      const userIndex = allRankers.findIndex((r: any) => r.userId === user?.uid);
+      const userRank = userIndex !== -1 ? userIndex + 1 : null;
+      const userScore = userIndex !== -1 ? allRankers[userIndex].score : 0;
+
+      return res.json({ 
+        topRankers: allRankers.slice(0, 50), 
+        userRank, 
+        userScore,
+        totalStudents: allRankers.length 
+      });
     } catch (error: any) {
       console.error("[global-leaderboard] failed:", error);
       return res.status(500).json({ error: "Failed to fetch leaderboard" });

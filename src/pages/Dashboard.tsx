@@ -297,6 +297,7 @@ const getCategoryStyle = (title: string, dbColor?: string, dbIcon?: string) => {
 };
 
 const DEFAULT_DASHBOARD_CATEGORIES = [
+  { title: 'Live Mock', textColor: 'red', iconType: '🔴', actionType: 'tab', actionValue: 'live_test', priority: 0, isActive: true },
   { title: 'Free Mock', textColor: 'green', iconType: '🏆', actionType: 'tab', actionValue: 'mock_landing', priority: 1, isActive: true },
   { title: '150 Days Free Practice', textColor: 'red', iconType: '📅', actionType: 'tab', actionValue: 'mock_challenge', priority: 2, isActive: true },
   { title: 'Typing Test', textColor: 'black', iconType: '⌨️', actionType: 'route', actionValue: '/typing-test', priority: 3, isActive: true },
@@ -372,6 +373,8 @@ export default function Dashboard() {
   const [selectedPreviewImage, setSelectedPreviewImage] = useState<string | null>(null);
   const [activeOneLinerModal, setActiveOneLinerModal] = useState<any | null>(null);
   const [copiedShareId, setCopiedShareId] = useState<string | null>(null);
+  const [liveSubTab, setLiveSubTab] = useState<'running' | 'past'>('running');
+  const [myGlobalRank, setMyGlobalRank] = useState<number | null>(null);
 
   const handleOpenOneLiner = (item: any) => {
     setActiveOneLinerModal(item);
@@ -667,15 +670,33 @@ export default function Dashboard() {
         const cachedSiteInfo = safeParse(localStorage.getItem('ma_cache_site_info'));
         const cachedSocialLinks = safeParse(localStorage.getItem('ma_cache_social_links'));
         const cachedCategoryOrder = safeParse(localStorage.getItem('ma_cache_category_order'));
-        const cachedResults = safeParse(localStorage.getItem('ma_cache_results'));
         const cachedPaidBatches = safeParse(localStorage.getItem('ma_cache_paid_batches'));
-        const cachedMyPurchases = safeParse(localStorage.getItem('ma_cache_my_purchases'));
+        
+        // Remove legacy un-scoped cache keys to prevent cross-student leakage
+        localStorage.removeItem('ma_cache_results');
+        localStorage.removeItem('ma_cache_results_ts');
+        localStorage.removeItem('ma_cache_my_purchases');
+        localStorage.removeItem('ma_cache_my_purchases_ts');
+
+        const cachedResults = user?.uid ? safeParse(localStorage.getItem(`ma_cache_results_${user.uid}`)) : null;
+        const cachedMyPurchases = user?.uid ? safeParse(localStorage.getItem(`ma_cache_my_purchases_${user.uid}`)) : null;
 
         let hasCachedData = false;
 
+        const checkIsLiveTest = (t: any) => {
+          if (t.isLive) return true;
+          const cat = String(t.category || '').toUpperCase();
+          if (cat.includes('LIVE')) return true;
+          const type = String(t.testType || '').toUpperCase();
+          if (type.includes('LIVE')) return true;
+          const title = String(t.title || '').toUpperCase();
+          if (title.includes('LIVE MOCK') || title.includes('MINI MOCK') || title.includes('LIVE TEST')) return true;
+          return false;
+        };
+
         if (cachedTests && Array.isArray(cachedTests)) {
-          setActiveTests(cachedTests);
-          setLiveTests(cachedTests.filter((t: any) => t.isLive));
+          setActiveTests(cachedTests.filter((t: any) => t.isActive !== false));
+          setLiveTests(cachedTests.filter(checkIsLiveTest));
           hasCachedData = true;
         }
         if (cachedNotes && Array.isArray(cachedNotes)) { setNotes(cachedNotes); hasCachedData = true; }
@@ -716,20 +737,30 @@ export default function Dashboard() {
       try {
         console.log("Fetching student data in background...");
         
-        // Fetch Active Tests (ordered by creation — first added = first shown)
+        // Fetch Tests (both active & live tests)
         const allTests = await getCachedCollection(
           'tests',
           async () => {
-            const testsQuery = query(collection(db, 'tests'), where('isActive', '==', true));
-            const snap = await getDocs(testsQuery);
+            const snap = await getDocs(collection(db, 'tests'));
             const tests = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             tests.sort((a: any, b: any) => (a.createdAt || 0) - (b.createdAt || 0));
             return tests;
           },
           'tests'
         );
-        setActiveTests(allTests);
-        setLiveTests(allTests.filter((t: any) => t.isLive));
+        const checkIsLiveTest = (t: any) => {
+          if (t.isLive) return true;
+          const cat = String(t.category || '').toUpperCase();
+          if (cat.includes('LIVE')) return true;
+          const type = String(t.testType || '').toUpperCase();
+          if (type.includes('LIVE')) return true;
+          const title = String(t.title || '').toUpperCase();
+          if (title.includes('LIVE MOCK') || title.includes('MINI MOCK') || title.includes('LIVE TEST')) return true;
+          return false;
+        };
+
+        setActiveTests(allTests.filter((t: any) => t.isActive !== false));
+        setLiveTests(allTests.filter(checkIsLiveTest));
         localStorage.setItem('ma_cache_tests', JSON.stringify(allTests));
         
         // Fetch Notes
@@ -890,28 +921,32 @@ export default function Dashboard() {
           }
         }
 
-        // Fetch Past Results (invalidated when profile.lastTestAt changes)
-        const cachedResults = localStorage.getItem('ma_cache_results');
-        const cachedResultsTs = localStorage.getItem('ma_cache_results_ts');
-        const profileLastTestAt = profile?.lastTestAt || 0;
-        
-        let shouldRefetchResults = true;
-        if (cachedResults && cachedResultsTs) {
-          const cacheTime = Number(cachedResultsTs);
-          if (profileLastTestAt <= cacheTime) {
-            setPastResults(JSON.parse(cachedResults));
-            shouldRefetchResults = false;
+        // Fetch Past Results for current logged-in user only
+        if (user?.uid) {
+          const userResultsKey = `ma_cache_results_${user.uid}`;
+          const userResultsTsKey = `ma_cache_results_ts_${user.uid}`;
+          const cachedResults = localStorage.getItem(userResultsKey);
+          const cachedResultsTs = localStorage.getItem(userResultsTsKey);
+          const profileLastTestAt = profile?.lastTestAt || 0;
+          
+          let shouldRefetchResults = true;
+          if (cachedResults && cachedResultsTs) {
+            const cacheTime = Number(cachedResultsTs);
+            if (profileLastTestAt <= cacheTime) {
+              setPastResults(JSON.parse(cachedResults));
+              shouldRefetchResults = false;
+            }
           }
-        }
-        
-        if (shouldRefetchResults) {
-          const resultsQuery = query(collection(db, 'results'), where('userId', '==', user.uid));
-          const resultsSnap = await getDocs(resultsQuery);
-          const results = resultsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }) as any);
-          results.sort((a: any, b: any) => b.timestamp - a.timestamp);
-          setPastResults(results);
-          localStorage.setItem('ma_cache_results', JSON.stringify(results));
-          localStorage.setItem('ma_cache_results_ts', String(Date.now()));
+          
+          if (shouldRefetchResults) {
+            const resultsQuery = query(collection(db, 'results'), where('userId', '==', user.uid));
+            const resultsSnap = await getDocs(resultsQuery);
+            const results = resultsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }) as any);
+            results.sort((a: any, b: any) => b.timestamp - a.timestamp);
+            setPastResults(results);
+            localStorage.setItem(userResultsKey, JSON.stringify(results));
+            localStorage.setItem(userResultsTsKey, String(Date.now()));
+          }
         }
 
         // Fetch Paid Batches + My Purchases + Payment Config (cached with versioning)
@@ -937,19 +972,23 @@ export default function Dashboard() {
             }
           }
 
-          // My Purchases: 1 hour cache
-          const cachedPurchases = localStorage.getItem('ma_cache_my_purchases');
-          const cachedPurchasesTs = localStorage.getItem('ma_cache_my_purchases_ts');
-          if (cachedPurchases && cachedPurchasesTs && (Date.now() - Number(cachedPurchasesTs) < 60 * 60 * 1000)) {
-            setMyPurchases(JSON.parse(cachedPurchases));
-          } else {
-            const purchaseRes = await fetch('/api/my-purchases', { headers: { Authorization: `Bearer ${tok}` } });
-            if (purchaseRes.ok) {
-              const pd = await purchaseRes.json();
-              const pb = pd.purchasedBatches || [];
-              setMyPurchases(pb);
-              localStorage.setItem('ma_cache_my_purchases', JSON.stringify(pb));
-              localStorage.setItem('ma_cache_my_purchases_ts', String(Date.now()));
+          // My Purchases: 1 hour cache per user
+          if (user?.uid) {
+            const userPurchasesKey = `ma_cache_my_purchases_${user.uid}`;
+            const userPurchasesTsKey = `ma_cache_my_purchases_ts_${user.uid}`;
+            const cachedPurchases = localStorage.getItem(userPurchasesKey);
+            const cachedPurchasesTs = localStorage.getItem(userPurchasesTsKey);
+            if (cachedPurchases && cachedPurchasesTs && (Date.now() - Number(cachedPurchasesTs) < 60 * 60 * 1000)) {
+              setMyPurchases(JSON.parse(cachedPurchases));
+            } else {
+              const purchaseRes = await fetch('/api/my-purchases', { headers: { Authorization: `Bearer ${tok}` } });
+              if (purchaseRes.ok) {
+                const pd = await purchaseRes.json();
+                const pb = pd.purchasedBatches || [];
+                setMyPurchases(pb);
+                localStorage.setItem(userPurchasesKey, JSON.stringify(pb));
+                localStorage.setItem(userPurchasesTsKey, String(Date.now()));
+              }
             }
           }
 
@@ -1009,6 +1048,34 @@ export default function Dashboard() {
 
     fetchChallengeLeaderboard();
   }, [activeTab, user]);
+
+  useEffect(() => {
+    async function fetchUserRank() {
+      if (!user?.uid) {
+        setMyGlobalRank(null);
+        setPastResults([]);
+        setMyPurchases([]);
+        return;
+      }
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch('/api/global-leaderboard', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.userRank) {
+            setMyGlobalRank(data.userRank);
+          } else {
+            setMyGlobalRank(null);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to fetch user rank:", err);
+      }
+    }
+    fetchUserRank();
+  }, [user?.uid]);
 
   // Slideshow Logic
   useEffect(() => {
@@ -1257,6 +1324,81 @@ export default function Dashboard() {
     latestScore: pastResults.length > 0 ? pastResults[0].score : 0,
   };
 
+  const detailedPerformanceStats = useMemo(() => {
+    const totalTests = pastResults.length;
+    const bestScore = totalTests > 0 ? Math.max(...pastResults.map(r => r.score || 0)) : 0;
+    const avgScore = totalTests > 0 ? (pastResults.reduce((acc, r) => acc + (r.score || 0), 0) / totalTests).toFixed(1) : 0;
+
+    let totalCorrect = 0;
+    let totalAttemptedQs = 0;
+
+    pastResults.forEach(r => {
+      const correct = r.correctAnswers || r.correct || 0;
+      const wrong = r.wrongAnswers || r.wrong || 0;
+      totalCorrect += correct;
+      totalAttemptedQs += (correct + wrong);
+    });
+
+    const overallAccuracy = totalAttemptedQs > 0 
+      ? ((totalCorrect / totalAttemptedQs) * 100).toFixed(1) 
+      : (totalTests > 0 ? (pastResults.reduce((acc, r) => acc + (r.accuracy || 0), 0) / totalTests).toFixed(1) : '0.0');
+
+    const latestScore = totalTests > 0 ? (pastResults[0].score || 0) : 0;
+
+    // Group performance by Subject
+    const subjectMap: Record<string, { totalTests: number; totalScore: number; bestScore: number; correct: number; attempted: number }> = {};
+
+    pastResults.forEach(r => {
+      const matchedTest = activeTests.find(t => t.id === r.testId) || liveTests.find(t => t.id === r.testId);
+      const subjectName = r.subject || r.category || matchedTest?.category || matchedTest?.subjectName || 'General Mock';
+
+      if (!subjectMap[subjectName]) {
+        subjectMap[subjectName] = { totalTests: 0, totalScore: 0, bestScore: 0, correct: 0, attempted: 0 };
+      }
+
+      const c = r.correctAnswers || r.correct || 0;
+      const w = r.wrongAnswers || r.wrong || 0;
+      const score = r.score || 0;
+
+      subjectMap[subjectName].totalTests += 1;
+      subjectMap[subjectName].totalScore += score;
+      if (score > subjectMap[subjectName].bestScore) subjectMap[subjectName].bestScore = score;
+      subjectMap[subjectName].correct += c;
+      subjectMap[subjectName].attempted += (c + w);
+    });
+
+    const subjectStats = Object.entries(subjectMap).map(([subject, data]) => {
+      const accuracy = data.attempted > 0 ? ((data.correct / data.attempted) * 100) : 0;
+      const avgScore = (data.totalScore / data.totalTests);
+      return {
+        subject,
+        totalTests: data.totalTests,
+        bestScore: data.bestScore,
+        avgScore: avgScore.toFixed(1),
+        correct: data.correct,
+        attempted: data.attempted,
+        accuracy: parseFloat(accuracy.toFixed(1)),
+        status: accuracy >= 75 ? 'Strong 🟢' : accuracy >= 50 ? 'Moderate 🟡' : 'Needs Practice 🔴'
+      };
+    }).sort((a, b) => b.accuracy - a.accuracy);
+
+    const strongestSubject = subjectStats.length > 0 ? subjectStats[0] : null;
+    const weakestSubject = subjectStats.length > 1 ? subjectStats[subjectStats.length - 1] : null;
+
+    return {
+      totalTests,
+      bestScore,
+      avgScore,
+      avgAccuracy: overallAccuracy,
+      latestScore,
+      totalCorrect,
+      totalAttemptedQs,
+      subjectStats,
+      strongestSubject,
+      weakestSubject
+    };
+  }, [pastResults, activeTests, liveTests]);
+
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center" style={{background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)'}}>
       <div className="flex flex-col items-center gap-5">
@@ -1410,6 +1552,12 @@ export default function Dashboard() {
             
             {mockOpen && (
               <div className="pl-2 pr-1 py-2 space-y-1.5 bg-slate-950/20 rounded-xl border border-white/5 animate-in fade-in duration-100">
+                <button 
+                  onClick={() => { setActiveTab('live_test'); setIsSidebarOpen(false); }} 
+                  className={`w-full sub-category sub-mock-live ${activeTab === 'live_test' ? 'active' : ''}`}
+                >
+                  🔴 Live Mock Tests (Past & Running)
+                </button>
                 <button 
                   onClick={() => { setActiveTab('mock_topic'); setIsSidebarOpen(false); }} 
                   className={`w-full sub-category sub-mock-topic ${activeTab === 'mock_topic' ? 'active' : ''}`}
@@ -1591,30 +1739,6 @@ export default function Dashboard() {
             <div className="animate-in fade-in duration-150 space-y-5">
               {/* ── Welcome Hero ── */}
               <WelcomeHero name={profile?.name} />
-
-              {/* ── Live Test Banner (only when a test is actually live) ── */}
-              {(() => {
-                const now = new Date();
-                const activeLive = liveTests.find(t => new Date(t.liveStartDate) <= now && new Date(t.liveEndDate) >= now && t.isActive);
-                if (!activeLive) return null;
-                return (
-                  <div className="rounded-2xl p-4 md:p-5 flex items-center justify-between gap-4 flex-wrap" style={{background: '#fff', border: '1px solid #fecaca', boxShadow: '0 2px 12px rgba(239,68,68,0.08)'}}>
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0" style={{background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)'}}>🔴</div>
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                          <span className="text-[10px] font-black uppercase tracking-widest" style={{color: '#f87171'}}>Live Right Now</span>
-                        </div>
-                        <p className="font-black text-sm leading-tight" style={{color: '#1e293b'}}>{activeLive.title}</p>
-                      </div>
-                    </div>
-                    <button onClick={() => setActiveTab('live_test')} className="flex-shrink-0 px-5 py-2.5 rounded-xl font-black text-sm text-white uppercase tracking-wide transition-all hover:opacity-90" style={{background: 'linear-gradient(135deg, #dc2626, #ef4444)', boxShadow: '0 4px 16px rgba(239,68,68,0.3)'}}>
-                      Join Now →
-                    </button>
-                  </div>
-                );
-              })()}
 
               {/* ── Carousel (dark-themed) ── */}
               {carousels.length > 0 && (() => {
@@ -2007,41 +2131,163 @@ export default function Dashboard() {
                     </div>
                   </div>
 
-                  {/* ── Overall Mock Performance ── */}
-                  <div className="mt-8 pt-8 border-t border-slate-100">
-                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                      <div className="w-1 h-4 bg-indigo-500 rounded-full"/>
-                      Overall Mock Performance
-                    </h3>
-                    {performanceStats.totalTests === 0 ? (
-                      <div className="text-center py-6 text-slate-400 text-xs font-bold">
-                        No tests taken yet. Start a mock test to see your stats!
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100 text-center">
-                          <span className="block text-[9px] font-black text-indigo-400 uppercase tracking-tight mb-1">Tests Taken</span>
-                          <span className="text-2xl font-black text-indigo-700">{performanceStats.totalTests}</span>
+                  {/* ── Detailed Performance Analysis ── */}
+                  {(() => {
+                    const studentRankDisplay = myGlobalRank 
+                      ? `#${myGlobalRank}` 
+                      : (profile?.globalRank && profile.globalRank > 0 ? `#${profile.globalRank}` : (detailedPerformanceStats.totalTests > 0 ? '#1' : 'Not Ranked Yet'));
+                    
+                    return (
+                      <div className="mt-8 pt-8 border-t border-slate-100 space-y-6">
+                        <div className="flex items-center justify-between gap-4 flex-wrap">
+                          <div>
+                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                              <div className="w-1.5 h-4 bg-indigo-600 rounded-full"/>
+                              📊 Detailed Performance Analysis
+                            </h3>
+                            <p className="text-[11px] text-slate-500 font-medium mt-0.5">Comprehensive report of your scores, rank, accuracy, and subject strengths.</p>
+                          </div>
+                          {studentRankDisplay !== 'Not Ranked Yet' && (
+                            <span className="bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-xs">
+                              🏆 Global Rank: {studentRankDisplay}
+                            </span>
+                          )}
                         </div>
-                        <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 text-center">
-                          <span className="block text-[9px] font-black text-emerald-400 uppercase tracking-tight mb-1">Best Score</span>
-                          <span className="text-2xl font-black text-emerald-700">{performanceStats.bestScore}</span>
+
+                        {detailedPerformanceStats.totalTests === 0 ? (
+                          <div className="bg-slate-50 rounded-2xl p-8 border border-slate-200 text-center text-slate-400">
+                            <Trophy className="w-10 h-10 mx-auto mb-2 text-slate-300" />
+                            <p className="font-bold text-slate-700 text-sm">No Mock Tests Attempted Yet</p>
+                            <p className="text-xs text-slate-400 mt-1">Start taking tests to view detailed accuracy, global rank, and subject strength analysis here!</p>
+                          </div>
+                        ) : (
+                          <>
+                            {/* 4 Core Performance Cards */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                              <div className="bg-gradient-to-br from-amber-50 to-orange-50/60 p-4 rounded-2xl border border-amber-100 shadow-xs">
+                                <span className="block text-[9px] font-black text-amber-600 uppercase tracking-wider mb-1">Global Rank</span>
+                                <span className="text-xl sm:text-2xl font-black text-amber-900 block">{studentRankDisplay}</span>
+                                <span className="text-[9px] font-bold text-amber-600 mt-1 block">🏆 Overall Standings</span>
+                              </div>
+
+                          <div className="bg-gradient-to-br from-emerald-50 to-teal-50/60 p-4 rounded-2xl border border-emerald-100 shadow-xs">
+                            <span className="block text-[9px] font-black text-emerald-600 uppercase tracking-wider mb-1">Accuracy Rate</span>
+                            <span className="text-xl sm:text-2xl font-black text-emerald-800 block">{detailedPerformanceStats.avgAccuracy}%</span>
+                            <span className="text-[9px] font-bold text-emerald-600 mt-1 block">✓ {detailedPerformanceStats.totalCorrect} Correct Qs</span>
+                          </div>
+
+                          <div className="bg-gradient-to-br from-indigo-50 to-blue-50/60 p-4 rounded-2xl border border-indigo-100 shadow-xs">
+                            <span className="block text-[9px] font-black text-indigo-600 uppercase tracking-wider mb-1">Tests Attempted</span>
+                            <span className="text-xl sm:text-2xl font-black text-indigo-900 block">{detailedPerformanceStats.totalTests}</span>
+                            <span className="text-[9px] font-bold text-indigo-600 mt-1 block">📝 {detailedPerformanceStats.totalAttemptedQs} Qs Answered</span>
+                          </div>
+
+                          <div className="bg-gradient-to-br from-purple-50 to-indigo-50/60 p-4 rounded-2xl border border-purple-100 shadow-xs">
+                            <span className="block text-[9px] font-black text-purple-600 uppercase tracking-wider mb-1">Best Score</span>
+                            <span className="text-xl sm:text-2xl font-black text-purple-900 block">{detailedPerformanceStats.bestScore}</span>
+                            <span className="text-[9px] font-bold text-purple-600 mt-1 block">Avg: {detailedPerformanceStats.avgScore} pts</span>
+                          </div>
                         </div>
-                        <div className="bg-sky-50 p-4 rounded-2xl border border-sky-100 text-center">
-                          <span className="block text-[9px] font-black text-sky-400 uppercase tracking-tight mb-1">Avg Score</span>
-                          <span className="text-2xl font-black text-sky-700">{performanceStats.avgScore}</span>
+
+                        {/* Strongest vs Weakest Subject Spotlight */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {detailedPerformanceStats.strongestSubject && (
+                            <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-2xl p-4 flex items-center justify-between gap-3">
+                              <div className="space-y-0.5">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700 flex items-center gap-1">
+                                  💪 Strongest Subject
+                                </span>
+                                <p className="font-black text-slate-900 text-sm">{detailedPerformanceStats.strongestSubject.subject}</p>
+                                <p className="text-[10px] text-slate-500 font-bold">
+                                  {detailedPerformanceStats.strongestSubject.correct}/{detailedPerformanceStats.strongestSubject.attempted} Correct ({detailedPerformanceStats.strongestSubject.accuracy}%)
+                                </p>
+                              </div>
+                              <div className="px-3 py-1 bg-emerald-600 text-white font-black text-xs rounded-xl shadow-xs shrink-0">
+                                {detailedPerformanceStats.strongestSubject.accuracy}%
+                              </div>
+                            </div>
+                          )}
+
+                          {detailedPerformanceStats.weakestSubject ? (
+                            <div className="bg-rose-50/80 border border-rose-200/80 rounded-2xl p-4 flex items-center justify-between gap-3">
+                              <div className="space-y-0.5">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-rose-700 flex items-center gap-1">
+                                  🎯 Subject Needing Practice
+                                </span>
+                                <p className="font-black text-slate-900 text-sm">{detailedPerformanceStats.weakestSubject.subject}</p>
+                                <p className="text-[10px] text-slate-500 font-bold">
+                                  {detailedPerformanceStats.weakestSubject.correct}/{detailedPerformanceStats.weakestSubject.attempted} Correct ({detailedPerformanceStats.weakestSubject.accuracy}%)
+                                </p>
+                              </div>
+                              <div className="px-3 py-1 bg-rose-600 text-white font-black text-xs rounded-xl shadow-xs shrink-0">
+                                {detailedPerformanceStats.weakestSubject.accuracy}%
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="bg-indigo-50/80 border border-indigo-200/80 rounded-2xl p-4 flex items-center justify-between gap-3">
+                              <div className="space-y-0.5">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-indigo-700">
+                                  📈 Performance Status
+                                </span>
+                                <p className="font-black text-slate-900 text-sm">Keep Attempting Mocks!</p>
+                                <p className="text-[10px] text-slate-500 font-bold">Take tests across different subjects for deeper subject analysis.</p>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        <div className="bg-violet-50 p-4 rounded-2xl border border-violet-100 text-center">
-                          <span className="block text-[9px] font-black text-violet-400 uppercase tracking-tight mb-1">Avg Accuracy</span>
-                          <span className="text-2xl font-black text-violet-700">{performanceStats.avgAccuracy}%</span>
-                        </div>
-                        <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 text-center">
-                          <span className="block text-[9px] font-black text-amber-400 uppercase tracking-tight mb-1">Latest Score</span>
-                          <span className="text-2xl font-black text-amber-700">{performanceStats.latestScore}</span>
-                        </div>
-                      </div>
+
+                        {/* Subject-Wise Detailed Progress Bars */}
+                        {detailedPerformanceStats.subjectStats.length > 0 && (
+                          <div className="bg-slate-50/80 rounded-2xl p-5 border border-slate-200/80 space-y-4">
+                            <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center justify-between">
+                              <span>📚 Subject-Wise Accuracy Breakdown</span>
+                              <span className="text-[10px] text-slate-400 font-bold">({detailedPerformanceStats.subjectStats.length} Subjects Analyzed)</span>
+                            </h4>
+
+                            <div className="space-y-3.5 divide-y divide-slate-200/60">
+                              {detailedPerformanceStats.subjectStats.map((st) => (
+                                <div key={st.subject} className="pt-3 first:pt-0 space-y-1.5">
+                                  <div className="flex items-center justify-between text-xs gap-2">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="font-black text-slate-800 truncate">{st.subject}</span>
+                                      <span className="text-[9px] font-extrabold px-2 py-0.5 bg-white border border-slate-200 rounded-md text-slate-600 shrink-0">
+                                        {st.totalTests} {st.totalTests === 1 ? 'Test' : 'Tests'}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      <span className="font-black text-slate-900">{st.accuracy}%</span>
+                                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${
+                                        st.accuracy >= 75 ? 'bg-emerald-100 text-emerald-800' : st.accuracy >= 50 ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'
+                                      }`}>
+                                        {st.status}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Progress bar */}
+                                  <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                                    <div 
+                                      className={`h-full rounded-full transition-all duration-500 ${
+                                        st.accuracy >= 75 ? 'bg-gradient-to-r from-emerald-500 to-teal-500' : st.accuracy >= 50 ? 'bg-gradient-to-r from-amber-500 to-orange-500' : 'bg-gradient-to-r from-rose-500 to-red-500'
+                                      }`}
+                                      style={{ width: `${Math.min(100, Math.max(5, st.accuracy))}%` }}
+                                    />
+                                  </div>
+
+                                  <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold">
+                                    <span>Correct: {st.correct}/{st.attempted} Qs</span>
+                                    <span>Best Score: {st.bestScore} pts</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
+                    );
+                  })()}
 
                   {/* ── Purchased Batches ── */}
                   <div className="mt-6 pt-6 border-t border-slate-100">
@@ -2514,9 +2760,9 @@ export default function Dashboard() {
           {/* Live Test Tab */}
           {activeTab === 'live_test' && (() => {
             const now = new Date();
-            const activeLive = liveTests.filter(t => t.isActive && new Date(t.liveStartDate) <= now && new Date(t.liveEndDate) >= now);
-            const upcomingLive = liveTests.filter(t => t.isActive && new Date(t.liveStartDate) > now);
-            const pastLive = liveTests.filter(t => new Date(t.liveEndDate) < now || !t.isActive);
+            const activeLive = liveTests.filter(t => t.liveStartDate && new Date(t.liveStartDate) <= now && (!t.liveEndDate || new Date(t.liveEndDate) >= now) && (t.isActive ?? true));
+            const upcomingLive = liveTests.filter(t => t.liveStartDate && new Date(t.liveStartDate) > now && (t.isActive ?? true));
+            const pastLive = liveTests.filter(t => !activeLive.includes(t) && !upcomingLive.includes(t));
 
             const openLiveAnalysis = (_testId: string, result: any) => openAnalysis(result);
 
@@ -2524,172 +2770,260 @@ export default function Dashboard() {
               const attemptsForLive = pastResults
                 .filter((r: any) => r.testId === t.id)
                 .sort((a: any, b: any) => a.timestamp - b.timestamp);
-              const prevResult = attemptsForLive[0]; // first attempt for rank display
+              const prevResult = attemptsForLive[0];
               const hasAttempted = attemptsForLive.length > 0;
 
-              return (
-              <div className={`bg-white rounded-2xl border shadow-sm p-5 flex flex-col gap-3 transition-all hover:shadow-md ${badge === 'live' ? 'border-rose-200 shadow-rose-50' : 'border-slate-100'}`}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      {badge === 'live' && (
-                        <span className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest bg-rose-100 text-rose-600 px-2.5 py-1 rounded-full">
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
-                          Live Now
-                        </span>
-                      )}
-                      {badge === 'upcoming' && <span className="text-[9px] font-black uppercase tracking-widest bg-amber-100 text-amber-600 px-2.5 py-1 rounded-full">Upcoming</span>}
-                      {badge === 'past' && (
-                        <>
-                          <span className="text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">Live Ended</span>
-                          <span className="text-[9px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-600 px-2.5 py-1 rounded-full border border-emerald-200">Attempt Anytime</span>
-                        </>
-                      )}
-                      {hasAttempted && (
-                        <span className="text-[9px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-600 px-2.5 py-1 rounded-full flex items-center gap-1">
-                          <CheckCircle className="w-2.5 h-2.5" /> Attempted
-                        </span>
-                      )}
+              // Sleek, compact professional list item for Past Live Mocks
+              if (badge === 'past') {
+                return (
+                  <div className="bg-white rounded-2xl border border-slate-200/90 hover:border-indigo-300 p-4 shadow-xs hover:shadow-md transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-start sm:items-center gap-3.5 flex-1 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-bold text-sm shrink-0">
+                        📜
+                      </div>
+
+                      <div className="space-y-1 flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {t.subjectName && (
+                            <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 text-[10px] font-black uppercase rounded-lg">
+                              {t.subjectName}
+                            </span>
+                          )}
+                          <span className="px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 text-[9px] font-extrabold rounded-md">
+                            📜 Past Live Paper
+                          </span>
+                          {hasAttempted && (
+                            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] font-black uppercase rounded-md flex items-center gap-1">
+                              <CheckCircle className="w-3 h-3 text-emerald-600" /> Attempted ({attemptsForLive.length})
+                            </span>
+                          )}
+                        </div>
+
+                        <h4 className="font-black text-slate-900 text-sm leading-snug truncate sm:whitespace-normal">
+                          {t.title}
+                        </h4>
+
+                        <div className="flex items-center gap-3 text-[11px] font-bold text-slate-500 flex-wrap">
+                          <span>⏱ {t.duration || 30} Mins</span>
+                          <span>📝 {t.totalQuestions || 0} Qs</span>
+                          {t.marksPerCorrect && <span>🎯 {t.marksPerCorrect * (t.totalQuestions || 0)} Marks</span>}
+                          {hasAttempted && <span className="text-emerald-600 font-black">Best Score: {prevResult.score}</span>}
+                          {t.liveEndDate && <span className="text-slate-400">Ended: {new Date(t.liveEndDate).toLocaleDateString()}</span>}
+                        </div>
+                      </div>
                     </div>
-                    <h4 className="font-black text-slate-800 text-base leading-snug">{t.title}</h4>
-                    {t.description && <p className="text-xs text-slate-500 font-medium mt-1">{t.description}</p>}
-                    <div className="flex gap-3 mt-1.5 text-[10px] font-bold text-slate-400 flex-wrap">
-                      {t.duration && <span>⏱ {t.duration} min</span>}
-                      {t.totalQuestions && <span>📝 {t.totalQuestions} Qs</span>}
-                      {hasAttempted && <span className="text-emerald-600">Score: {prevResult.score}</span>}
-                      {(t.uniqueStudentCount ?? 0) > 0 && <span>👥 {(t.uniqueStudentCount as number).toLocaleString()} Students</span>}
-                    </div>
-                  </div>
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-md ${badge === 'live' ? 'bg-gradient-to-br from-rose-500 to-pink-600 shadow-rose-200' : badge === 'upcoming' ? 'bg-gradient-to-br from-amber-500 to-orange-500 shadow-amber-200' : 'bg-gradient-to-br from-slate-400 to-slate-500 shadow-slate-200'}`}>
-                    <BarChart3 className="w-6 h-6 text-white" />
-                  </div>
-                </div>
 
-                <div className="flex gap-4 text-[10px] font-black text-slate-400 uppercase tracking-widest border-t border-slate-50 pt-3">
-                  <span>Start: {new Date(t.liveStartDate).toLocaleString()}</span>
-                  <span>End: {new Date(t.liveEndDate).toLocaleString()}</span>
-                </div>
+                    {/* Compact Action Buttons */}
+                    <div className="flex items-center justify-end gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                      {hasAttempted ? (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <div className="relative">
+                            <button
+                              onClick={() => setOpenAttemptDropdown(openAttemptDropdown === t.id ? null : t.id)}
+                              className="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <BarChart3 className="w-3.5 h-3.5" />
+                              Solutions ({attemptsForLive.length})
+                              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${openAttemptDropdown === t.id ? 'rotate-180' : ''}`} />
+                            </button>
 
-                {badge === 'upcoming' ? (
-                  <div className="w-full py-3 rounded-xl bg-amber-50 border border-amber-100 text-amber-600 font-black text-xs uppercase tracking-widest text-center">
-                    Opens on {new Date(t.liveStartDate).toLocaleString()}
-                  </div>
-                ) : hasAttempted ? (
-                  /* Already attempted — Previous Attempt Analysis dropdown + Re-attempt */
-                  <div className="flex gap-2">
-                    {/* Previous Attempt Analysis dropdown */}
-                    <div className="relative flex-1">
-                      <button
-                        onClick={() => setOpenAttemptDropdown(openAttemptDropdown === t.id ? null : t.id)}
-                        className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-all active:scale-95"
-                      >
-                        <BarChart3 className="w-3.5 h-3.5" />
-                        Previous Attempt Analysis
-                        <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${openAttemptDropdown === t.id ? 'rotate-180' : ''}`} />
-                      </button>
-
-                      {openAttemptDropdown === t.id && (
-                        <>
-                          <div className="fixed inset-0 z-40" onClick={() => setOpenAttemptDropdown(null)} />
-                          <div className="absolute left-0 top-full mt-1.5 z-50 bg-white border border-slate-200 rounded-2xl shadow-2xl shadow-slate-300/40 min-w-[300px] overflow-hidden">
-                            <div className="px-4 py-2.5 bg-gradient-to-r from-indigo-50 to-slate-50 border-b border-slate-100 flex items-center gap-2">
-                              <BarChart3 className="w-3.5 h-3.5 text-indigo-500" />
-                              <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">All Attempts — Select to View</p>
-                            </div>
-                            <div className="py-1">
-                              {attemptsForLive.map((r: any, i: number) => (
-                                <button
-                                  key={r.id}
-                                  onClick={() => { openAnalysis(r); setOpenAttemptDropdown(null); }}
-                                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 active:bg-slate-100 transition-colors text-left group/item"
-                                >
-                                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-[11px] font-black shadow-sm ${
-                                    i === 0 ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'
-                                  }`}>
-                                    {i + 1}
+                            {openAttemptDropdown === t.id && (
+                              <>
+                                <div className="fixed inset-0 z-40" onClick={() => setOpenAttemptDropdown(null)} />
+                                <div className="absolute right-0 top-full mt-1.5 z-50 bg-white border border-slate-200 rounded-2xl shadow-2xl min-w-[280px] overflow-hidden">
+                                  <div className="px-4 py-2.5 bg-gradient-to-r from-indigo-50 to-slate-50 border-b border-slate-100 flex items-center gap-2">
+                                    <BarChart3 className="w-3.5 h-3.5 text-indigo-600" />
+                                    <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Select Attempt</p>
                                   </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-[11px] font-black text-slate-800 flex items-center gap-1.5">
-                                      {i === 0 ? '1st' : i === 1 ? '2nd' : i === 2 ? '3rd' : `${i + 1}th`} Attempt
-                                      {i === 0 && (
-                                        <span className="text-[8px] font-black text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">Rank</span>
-                                      )}
-                                    </p>
-                                    <p className="text-[9px] font-medium text-slate-400 mt-0.5 tabular-nums">{formatAttemptDate(r.timestamp)}</p>
+                                  <div className="py-1">
+                                    {attemptsForLive.map((r: any, i: number) => (
+                                      <button
+                                        key={r.id}
+                                        onClick={() => { openAnalysis(r); setOpenAttemptDropdown(null); }}
+                                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 active:bg-slate-100 transition-colors text-left cursor-pointer"
+                                      >
+                                        <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 text-[10px] font-black ${
+                                          i === 0 ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'
+                                        }`}>
+                                          {i + 1}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-xs font-black text-slate-800">
+                                            {i === 0 ? '1st' : i === 1 ? '2nd' : `${i + 1}th`} Attempt
+                                          </p>
+                                          <p className="text-[9px] font-medium text-slate-400 tabular-nums">{formatAttemptDate(r.timestamp)}</p>
+                                        </div>
+                                        <span className="text-xs font-black shrink-0 text-indigo-600 tabular-nums">
+                                          {r.score} pts
+                                        </span>
+                                      </button>
+                                    ))}
                                   </div>
-                                  <span className={`text-[12px] font-black shrink-0 tabular-nums ${i === 0 ? 'text-indigo-600' : 'text-amber-600'}`}>
-                                    {r.score}
-                                  </span>
-                                  <ChevronRight className="w-3.5 h-3.5 text-slate-300 shrink-0 group-hover/item:text-indigo-400 transition-colors" />
-                                </button>
-                              ))}
-                            </div>
+                                </div>
+                              </>
+                            )}
                           </div>
-                        </>
+
+                          <button
+                            onClick={() => navigate(`/test/${t.id}`)}
+                            className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-extrabold text-xs transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            <Play className="w-3.5 h-3.5" /> Reattempt
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => navigate(`/test/${t.id}`)}
+                          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Play className="w-3.5 h-3.5 text-amber-400" /> Attempt Past Test →
+                        </button>
                       )}
                     </div>
-
-                    {/* Reattempt button */}
-                    <button
-                      onClick={() => navigate(`/test/${t.id}`)}
-                      className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all active:scale-95 shrink-0"
-                    >
-                      <Play className="w-3.5 h-3.5" /> Reattempt
-                    </button>
                   </div>
-                ) : (
-                  /* Not yet attempted */
+                );
+              }
+
+              // Running Live Mock Card
+              return (
+                <div className="bg-gradient-to-br from-white via-rose-50/20 to-white rounded-3xl border border-rose-300 shadow-rose-100/50 shadow-md p-5 flex flex-col gap-3.5 hover:shadow-xl transition-all">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <span className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest bg-rose-500 text-white px-3 py-1 rounded-full shadow-xs">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                          Live Right Now
+                        </span>
+                        {t.subjectName && (
+                          <span className="px-2.5 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-black uppercase rounded-lg border border-rose-200">
+                            {t.subjectName}
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="font-black text-slate-900 text-base sm:text-lg leading-snug tracking-tight">{t.title}</h4>
+                      {t.description && <p className="text-xs text-slate-600 font-medium leading-relaxed">{t.description}</p>}
+                      <div className="flex gap-3 pt-1 text-[11px] font-bold text-slate-500 flex-wrap">
+                        {t.duration && <span className="bg-white px-2.5 py-1 rounded-lg border border-rose-100">⏱ {t.duration} Mins</span>}
+                        {t.totalQuestions && <span className="bg-white px-2.5 py-1 rounded-lg border border-rose-100">📝 {t.totalQuestions} Questions</span>}
+                        {t.marksPerCorrect && <span className="bg-white px-2.5 py-1 rounded-lg border border-rose-100">🎯 {t.marksPerCorrect * (t.totalQuestions || 0)} Total Marks</span>}
+                      </div>
+                    </div>
+
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-md bg-gradient-to-br from-rose-500 to-red-600 text-white shadow-rose-200">
+                      <BarChart3 className="w-6 h-6" />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] font-black text-slate-600 uppercase tracking-wider bg-rose-50/80 p-3 rounded-2xl border border-rose-100">
+                    <span>Starts: {t.liveStartDate ? new Date(t.liveStartDate).toLocaleString() : 'N/A'}</span>
+                    <span>Ends: {t.liveEndDate ? new Date(t.liveEndDate).toLocaleString() : 'N/A'}</span>
+                  </div>
+
                   <button
                     onClick={() => navigate(`/test/${t.id}`)}
-                    className={`w-full py-3 rounded-xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm ${
-                      badge === 'live'
-                        ? 'bg-gradient-to-r from-rose-500 to-pink-600 text-white hover:from-rose-600 hover:to-pink-700 shadow-rose-200'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
+                    className="w-full py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white cursor-pointer"
                   >
-                    <Play className="w-4 h-4" /> {badge === 'live' ? 'Attempt Now' : 'Attempt Test'}
+                    <Play className="w-4 h-4" /> Attempt Live Test Now →
                   </button>
-                )}
-              </div>
+                </div>
               );
             };
 
+            const displayedTests = 
+              liveSubTab === 'running' ? activeLive :
+              liveSubTab === 'past' ? pastLive :
+              liveSubTab === 'upcoming' ? upcomingLive :
+              liveTests;
+
             return (
-              <div className="space-y-8 animate-in fade-in duration-150">
-                <div className="flex items-center gap-3">
-                  <div className="w-1.5 h-8 bg-gradient-to-b from-rose-500 to-pink-600 rounded-full" />
-                  <h2 className="text-xl font-black text-slate-900 tracking-tight">🔴 Live Tests</h2>
+              <div className="space-y-6 animate-in fade-in duration-150">
+                {/* Header Banner */}
+                <div className="flex flex-wrap items-center justify-between gap-4 bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 p-6 rounded-3xl text-white shadow-xl relative overflow-hidden">
+                  <div className="space-y-1.5 relative z-10 max-w-xl">
+                    <span className="bg-white/20 text-white font-black uppercase text-[10px] px-3 py-1 rounded-full tracking-widest border border-white/20 inline-block">
+                      🔴 Live Mock Category
+                    </span>
+                    <h2 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
+                      🔴 Live Mock Tests
+                    </h2>
+                    <p className="text-xs sm:text-sm text-rose-100 font-medium leading-relaxed">
+                      Attempt currently running live mock tests in real-time or practice all past live mock papers anytime.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3 shrink-0 relative z-10 flex-wrap">
+                    <div 
+                      onClick={() => setLiveSubTab('running')}
+                      className={`px-4 py-2.5 rounded-2xl border transition-all cursor-pointer text-center ${
+                        liveSubTab === 'running' ? 'bg-white/25 border-white text-white font-black shadow-md' : 'bg-white/10 border-white/20 text-rose-100'
+                      }`}
+                    >
+                      <span className="block text-[9px] font-black uppercase tracking-widest">Running Live</span>
+                      <span className="text-xl font-black">{activeLive.length}</span>
+                    </div>
+                    <div 
+                      onClick={() => setLiveSubTab('past')}
+                      className={`px-4 py-2.5 rounded-2xl border transition-all cursor-pointer text-center ${
+                        liveSubTab === 'past' ? 'bg-white/25 border-white text-white font-black shadow-md' : 'bg-white/10 border-white/20 text-rose-100'
+                      }`}
+                    >
+                      <span className="block text-[9px] font-black uppercase tracking-widest">Past Live</span>
+                      <span className="text-xl font-black">{pastLive.length}</span>
+                    </div>
+                  </div>
                 </div>
 
-                {liveTests.length === 0 && (
-                  <div className="bg-white rounded-3xl p-16 border border-slate-200 text-center text-slate-400 shadow-sm flex flex-col items-center">
-                    <BarChart3 className="w-12 h-12 mb-4 text-slate-200" />
-                    <h3 className="font-black text-slate-700 text-lg mb-1">No Live Tests Yet</h3>
-                    <p className="text-sm font-medium">Live tests will appear here when scheduled. Check back soon!</p>
-                  </div>
-                )}
+                {/* Sub-Tab Filtering Bar: ONLY Running & Past */}
+                <div className="flex items-center gap-2 p-1.5 bg-slate-100 rounded-2xl border border-slate-200/80 overflow-x-auto no-scrollbar">
+                  <button
+                    onClick={() => setLiveSubTab('running')}
+                    className={`px-5 py-2.5 rounded-xl text-xs font-black shrink-0 transition-all cursor-pointer flex items-center gap-2 ${
+                      liveSubTab === 'running'
+                        ? 'bg-rose-600 text-white shadow-md'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                    }`}
+                  >
+                    🔥 Running Live Mocks ({activeLive.length})
+                  </button>
+                  <button
+                    onClick={() => setLiveSubTab('past')}
+                    className={`px-5 py-2.5 rounded-xl text-xs font-black shrink-0 transition-all cursor-pointer flex items-center gap-2 ${
+                      liveSubTab === 'past'
+                        ? 'bg-slate-900 text-white shadow-md'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                    }`}
+                  >
+                    📜 Past Live Mocks ({pastLive.length})
+                  </button>
+                </div>
 
-                {activeLive.length > 0 && (
-                  <div className="space-y-3">
-                    <h3 className="text-xs font-black text-rose-600 uppercase tracking-widest flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping inline-block" />
-                      Happening Now
+                {displayedTests.length === 0 ? (
+                  <div className="bg-white rounded-3xl p-12 border border-slate-200 text-center text-slate-400 shadow-sm flex flex-col items-center">
+                    <BarChart3 className="w-12 h-12 mb-3 text-slate-300" />
+                    <h3 className="font-black text-slate-700 text-base mb-1">
+                      {liveSubTab === 'running' ? 'No Live Mocks Running Right Now' : 'No Past Live Mocks Found'}
                     </h3>
-                    {activeLive.map(t => <LiveCard key={t.id} t={t} badge="live" />)}
+                    <p className="text-xs font-medium max-w-md">
+                      {liveSubTab === 'running' 
+                        ? 'There are currently no active live mocks running. Click below to view and practice all past live mock test papers!' 
+                        : 'Past live mock test papers will appear here as live tests complete.'}
+                    </p>
+                    {liveSubTab === 'running' && pastLive.length > 0 && (
+                      <button
+                        onClick={() => setLiveSubTab('past')}
+                        className="mt-4 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-black text-xs transition-all cursor-pointer shadow-sm"
+                      >
+                        View Past Live Mocks ({pastLive.length}) →
+                      </button>
+                    )}
                   </div>
-                )}
-
-                {upcomingLive.length > 0 && (
-                  <div className="space-y-3">
-                    <h3 className="text-xs font-black text-amber-600 uppercase tracking-widest">Upcoming</h3>
-                    {upcomingLive.map(t => <LiveCard key={t.id} t={t} badge="upcoming" />)}
-                  </div>
-                )}
-
-                {pastLive.length > 0 && (
-                  <div className="space-y-3">
-                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Past Live Tests</h3>
-                    {pastLive.map(t => <LiveCard key={t.id} t={t} badge="past" />)}
+                ) : (
+                  <div className={liveSubTab === 'past' ? "space-y-3" : "grid grid-cols-1 md:grid-cols-2 gap-6"}>
+                    {displayedTests.map(t => {
+                      const isNowRunning = t.liveStartDate && new Date(t.liveStartDate) <= now && (!t.liveEndDate || new Date(t.liveEndDate) >= now) && (t.isActive ?? true);
+                      const badgeType = isNowRunning ? 'live' : 'past';
+                      return <LiveCard key={t.id} t={t} badge={badgeType} />;
+                    })}
                   </div>
                 )}
               </div>
@@ -2956,60 +3290,6 @@ export default function Dashboard() {
                     })}
                   </div>
                 )}
-
-              {/* Performance Analytics Section - Moved here and made compact */}
-              <div className="bg-white rounded-3xl p-6 border border-indigo-100 shadow-xl shadow-indigo-500/5 relative overflow-hidden group mt-12 mb-8">
-                  <div className="absolute top-0 right-0 p-4 text-indigo-50/20 pointer-events-none transition-transform group-hover:scale-105 duration-700">
-                    <Trophy className="w-32 h-32 -mr-6 -mt-6 rotate-12" />
-                  </div>
-                  
-                  <h3 className="text-lg font-black text-slate-800 mb-6 flex items-center gap-3 relative z-10">
-                    <div className="w-1.5 h-6 bg-indigo-600 rounded-full"></div>
-                    Performance Insights
-                  </h3>
-                  
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 relative z-10">
-                    <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 shadow-xs text-center flex flex-col items-center justify-center hover:border-indigo-300 transition-colors">
-                      <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 mb-2">
-                        <Trophy className="w-4 h-4" />
-                      </div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Best Score</p>
-                      <p className="text-lg font-black text-indigo-600 tracking-tighter">{performanceStats.bestScore}</p>
-                    </div>
-                    
-                    <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 shadow-xs text-center flex flex-col items-center justify-center hover:border-emerald-300 transition-colors">
-                      <div className="w-8 h-8 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 mb-2">
-                        <Target className="w-4 h-4" />
-                      </div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Avg Score</p>
-                      <p className="text-lg font-black text-emerald-600 tracking-tighter">{performanceStats.avgScore}</p>
-                    </div>
-
-                    <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 shadow-xs text-center flex flex-col items-center justify-center hover:border-amber-300 transition-colors">
-                      <div className="w-8 h-8 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 mb-2">
-                        <User className="w-4 h-4" />
-                      </div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Global Rank</p>
-                      <p className="text-lg font-black text-amber-600 tracking-tighter">#{profile?.globalRank || '-'}</p>
-                    </div>
-
-                    <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 shadow-xs text-center flex flex-col items-center justify-center hover:border-rose-300 transition-colors">
-                      <div className="w-8 h-8 bg-rose-50 rounded-xl flex items-center justify-center text-rose-600 mb-2">
-                        <CheckCircle className="w-4 h-4" />
-                      </div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Accuracy</p>
-                      <p className="text-lg font-black text-rose-600 tracking-tighter">{performanceStats.avgAccuracy}%</p>
-                    </div>
-
-                    <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 shadow-xs text-center flex flex-col items-center justify-center hover:border-violet-300 transition-colors">
-                      <div className="w-8 h-8 bg-violet-50 rounded-xl flex items-center justify-center text-violet-600 mb-2">
-                        <History className="w-4 h-4" />
-                      </div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Latest</p>
-                      <p className="text-lg font-black text-violet-600 tracking-tighter">{performanceStats.latestScore}</p>
-                    </div>
-                  </div>
-              </div>
             </div>
           )}
 

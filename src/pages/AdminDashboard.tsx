@@ -1710,7 +1710,8 @@ function AdminHome() {
         { title: 'Ebook', textColor: 'default', iconType: '📖', actionType: 'tab', actionValue: 'notes', priority: 8, isActive: true },
         { title: 'Current Affairs', textColor: 'default', iconType: '📰', actionType: 'route', actionValue: '/current-affairs', priority: 9, isActive: true },
         { title: 'Practice Set', textColor: 'default', iconType: '✅', actionType: 'tab', actionValue: 'practice', priority: 10, isActive: true },
-        { title: 'Latest Job Notification', textColor: 'default', iconType: '📢', actionType: 'route', actionValue: '/news', priority: 11, isActive: true }
+        { title: 'One Liner Notes', textColor: 'purple', iconType: '📌', actionType: 'tab', actionValue: 'one_liner', priority: 11, isActive: true },
+        { title: 'Latest Job Notification', textColor: 'default', iconType: '📢', actionType: 'route', actionValue: '/news', priority: 12, isActive: true }
       ];
 
       for (const cat of defaults) {
