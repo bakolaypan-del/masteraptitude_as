@@ -25,21 +25,23 @@ const ENGLISH_FONTS = [
 
 const TEXT_COLORS = [
   { c: '#dc2626', label: 'Red' },
-  { c: '#d97706', label: 'Orange' },
+  { c: '#ea580c', label: 'Orange' },
   { c: '#16a34a', label: 'Green' },
-  { c: '#2563eb', label: 'Blue' },
+  { c: '#0284c7', label: 'Blue' },
   { c: '#9333ea', label: 'Purple' },
   { c: '#db2777', label: 'Pink' },
   { c: '#0f172a', label: 'Black' },
 ];
 
 const BG_COLORS = [
-  { c: '#fef08a', label: 'Yellow' },
-  { c: '#bbf7d0', label: 'Green' },
-  { c: '#bfdbfe', label: 'Blue' },
-  { c: '#fce7f3', label: 'Pink' },
-  { c: '#fed7aa', label: 'Orange' },
-  { c: '#e2e8f0', label: 'Grey' },
+  { c: '#fef08a', label: 'Neon Yellow', border: '#facc15' },
+  { c: '#bbf7d0', label: 'Electric Mint', border: '#4ade80' },
+  { c: '#bfdbfe', label: 'Cyan Blue', border: '#60a5fa' },
+  { c: '#fce7f3', label: 'Vivid Pink', border: '#f472b6' },
+  { c: '#fed7aa', label: 'Sunset Orange', border: '#fb923c' },
+  { c: '#e9d5ff', label: 'Purple Lilac', border: '#c084fc' },
+  { c: '#d9f99d', label: 'Lime Green', border: '#a3e635' },
+  { c: '#e2e8f0', label: 'Slate Grey', border: '#94a3b8' },
 ];
 
 const STYLISH_ICONS = ['📌', '💡', '🔥', '⭐', '🎯', '🚀', '✍️', '📝', '🧠', '⚡', '🔔', '🏆', '💎', '📢', '📖', '🏷️', '🔑', '🎓', '🚩', '💬', '✅', '❌', '❓', '❗', '🇧🇩', '🇮🇳'];
@@ -195,16 +197,23 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
         <Sep />
 
         {/* Highlight colors */}
-        {BG_COLORS.map(({ c, label }) => (
-          <button
-            key={c} title={`${label} highlight`}
-            onClick={() => exec('hiliteColor', c)}
-            className="w-5 h-5 rounded border-2 border-slate-300 shadow-sm hover:scale-110 transition-transform flex items-center justify-center shrink-0 cursor-pointer"
-            style={{ background: c }}
-          >
-            <span className="text-[7px] font-black text-slate-600">H</span>
-          </button>
-        ))}
+        <div className="flex items-center gap-1 bg-amber-50/80 px-2 py-0.5 rounded-xl border border-amber-200/70" title="Highlighters">
+          <span className="text-[10px] font-black text-amber-800 uppercase tracking-wider flex items-center gap-0.5 mr-0.5">
+            <span>🖍️</span> Highlight:
+          </span>
+          {BG_COLORS.map(({ c, label, border }) => (
+            <button
+              key={c}
+              type="button"
+              title={`Highlight in ${label}`}
+              onClick={() => exec('hiliteColor', c)}
+              className="w-5 h-5 rounded-md shadow-xs hover:scale-125 transition-transform flex items-center justify-center shrink-0 cursor-pointer border hover:ring-2 hover:ring-indigo-400"
+              style={{ background: c, borderColor: border || '#cbd5e1' }}
+            >
+              <span className="text-[7px] font-black text-slate-800 opacity-70">H</span>
+            </button>
+          ))}
+        </div>
 
         <Sep />
 

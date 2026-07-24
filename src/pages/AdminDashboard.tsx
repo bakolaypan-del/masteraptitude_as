@@ -694,6 +694,36 @@ function AdminHome() {
         })
       });
       if (res.ok) {
+        let resData: any = {};
+        try { resData = await res.json(); } catch {}
+        
+        const testObj = {
+          id: resData?.id || editingTestId || `test_${Date.now()}`,
+          title,
+          topic,
+          subjectName: subjectName || '',
+          category: category || 'GK',
+          testType: testType || 'topic',
+          description: description || '',
+          duration: parseInt(duration) || 30,
+          marksPerCorrect: parseFloat(marksPerCorrect) || 1,
+          negativeMarks: parseFloat(negativeMarks) || 0,
+          isActive: true,
+          isPaid,
+          isLive,
+          liveStartDate: liveStartDate || '',
+          liveEndDate: liveEndDate || '',
+          createdAt: Date.now()
+        };
+
+        setTests(prev => {
+          const targetId = editingTestId || resData?.id;
+          if (targetId && prev.some(t => t.id === targetId)) {
+            return prev.map(t => t.id === targetId ? { ...t, ...testObj } : t);
+          }
+          return [testObj, ...prev];
+        });
+
         setTitle('');
         setTopic('');
         setSubjectName('');
@@ -1335,6 +1365,9 @@ function AdminHome() {
       console.log(`Server responded with status: ${res.status}`);
       if (res.ok) {
         console.log(`${coll} delete successfully acknowledged by server`);
+        if (coll === 'tests') {
+          setTests(prev => prev.filter(t => t.id !== id));
+        }
         alert('Deleted successfully!');
       } else {
         const bodyText = await res.text();
@@ -1357,6 +1390,8 @@ function AdminHome() {
   const toggleActive = async (test: any) => {
     try {
       if(!user) return;
+      const nextActive = !test.isActive;
+      setTests(prev => prev.map(t => t.id === test.id ? { ...t, isActive: nextActive } : t));
       const token = await user.getIdToken();
       await fetch(`/api/admin/tests/${test.id}`, {
         method: 'PUT',
@@ -1371,7 +1406,7 @@ function AdminHome() {
           category: test.category,
           testType: test.testType,
           duration: test.duration || 30,
-          isActive: !test.isActive 
+          isActive: nextActive 
         })
       });
     } catch (err) {
@@ -5009,6 +5044,7 @@ function QuestionManager() {
         throw new Error(await res.text() || 'Failed to save parsed questions');
       }
 
+      setQuestions(prev => [...prev, ...formattedQs]);
       alert(`Successfully imported ${parsedQuestions.length} questions!`);
       setShowParseModal(false);
       setParsedQuestions([]);
@@ -5104,6 +5140,31 @@ function QuestionManager() {
         })
       });
       if (res.ok) {
+        let resData: any = {};
+        try { resData = await res.json(); } catch {}
+
+        const newQObj = {
+          id: resData?.id || editingQuestionId || `q_${Date.now()}`,
+          testId,
+          topic: qTopic,
+          qNo: editingQuestionId ? (questions.find(q => q.id === editingQuestionId)?.qNo || 1) : questions.length + 1,
+          questionText: qText,
+          options: [...qOptions],
+          correctAnswer: qCorrect,
+          solution: qSolution,
+          imageUrl: finalImageUrl,
+          equationLatex: qEquation,
+          sourceExam: qSourceExam.trim() || undefined
+        };
+
+        setQuestions(prev => {
+          const targetId = editingQuestionId || resData?.id;
+          if (targetId && prev.some(q => q.id === targetId)) {
+            return prev.map(q => q.id === targetId ? { ...q, ...newQObj } : q);
+          }
+          return [...prev, newQObj];
+        });
+
         setQText(''); setQTopic(''); setQOptions(['', '', '', '']); setQCorrect(''); setQSolution('');
         setQImageFile(null); setQImagePreview(''); setQImageUrl('');
         setQEquation(''); setQSourceExam('');
@@ -5146,6 +5207,7 @@ function QuestionManager() {
       });
       if (res.ok) {
         console.log('Question delete initiated');
+        setQuestions(prev => prev.filter(q => q.id !== qId));
         alert('Question deleted!');
       } else {
         const bodyText = await res.text();
