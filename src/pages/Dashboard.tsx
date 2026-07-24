@@ -15,7 +15,7 @@ import ReviewPopup from '../components/ReviewPopup';
 import ReviewSlider from '../components/ReviewSlider';
 import ComingSoonBox from '../components/ComingSoonBox';
 import { RenderQuestionHTML } from '../components/RichTextEditor';
-import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ChevronLeft, ArrowLeft, ExternalLink, Menu, X, Youtube, MessageCircle, Send, LayoutDashboard, History, ChevronDown, ArrowRight, User, Info, Phone, Download, Printer, AlertCircle, BarChart3, Keyboard, Globe, Layers, CheckSquare, Volume2, VolumeX, Maximize, NotebookPen, Award, Calendar, ClipboardList, Crown, Brain, Book, Newspaper, Megaphone, Bookmark, Eye, Sparkles, FileUp, Search, Filter, Image as ImgIcon, Check, Share2 } from 'lucide-react';
+import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ChevronLeft, ArrowLeft, ExternalLink, Menu, X, Youtube, MessageCircle, Send, LayoutDashboard, History, ChevronDown, ArrowRight, User, Info, Phone, Download, Printer, AlertCircle, BarChart3, Keyboard, Globe, Layers, CheckSquare, Volume2, VolumeX, Maximize, NotebookPen, Award, Calendar, ClipboardList, Crown, Brain, Book, Newspaper, Megaphone, Bookmark, Eye, Sparkles, FileUp, Search, Filter, Image as ImgIcon, Check, Share2, Pencil, Mail, Lock, ShieldCheck } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -375,6 +375,8 @@ export default function Dashboard() {
   const [copiedShareId, setCopiedShareId] = useState<string | null>(null);
   const [liveSubTab, setLiveSubTab] = useState<'running' | 'past'>('running');
   const [myGlobalRank, setMyGlobalRank] = useState<number | null>(null);
+  const [totalStudentsCount, setTotalStudentsCount] = useState<number | null>(null);
+  const [challengeTotalStudents, setChallengeTotalStudents] = useState<number | null>(null);
 
   const handleOpenOneLiner = (item: any) => {
     setActiveOneLinerModal(item);
@@ -416,20 +418,37 @@ export default function Dashboard() {
     }
   };
 
-  const challengeTests = useMemo(() => {
-    return activeTests.filter(t => t.category === "150 Days Free Practice" && t.isActive !== false);
-  }, [activeTests]);
-
-  const parseDayNumber = (topicStr: string): number | null => {
-    if (!topicStr) return null;
-    const match = topicStr.match(/\d+/);
-    return match ? parseInt(match[0], 10) : null;
+  const parseDayNumber = (test: any): number | null => {
+    if (!test) return null;
+    const str = `${test.topic || ''} ${test.title || ''} ${test.category || ''}`;
+    const match = str.match(/(?:day|day-|\bd\b)\s*(\d+)/i) || str.match(/\b(\d+)\b/);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num >= 1 && num <= 150) return num;
+    }
+    return null;
   };
+
+  const challengeTests = useMemo(() => {
+    return activeTests.filter(t => 
+      t.isActive !== false && 
+      (
+        t.category === "150 Days Free Practice" || 
+        t.category === "150 Days Mock Challenge" ||
+        (t.category && (t.category.toLowerCase().includes("150") || t.category.toLowerCase().includes("challenge"))) ||
+        (t.testType && (t.testType.toLowerCase().includes("challenge") || t.testType === "mock_challenge")) ||
+        (t.title && (t.title.toLowerCase().includes("150 day") || t.title.toLowerCase().includes("challenge")))
+      )
+    );
+  }, [activeTests]);
 
   const challengeDaysMap = useMemo(() => {
     const map: Record<number, any[]> = {};
-    challengeTests.forEach(test => {
-      const d = parseDayNumber(test.topic);
+    challengeTests.forEach((test, idx) => {
+      let d = parseDayNumber(test);
+      if (d === null) {
+        d = (idx % 150) + 1;
+      }
       if (d !== null) {
         if (!map[d]) map[d] = [];
         map[d].push(test);
@@ -602,6 +621,7 @@ export default function Dashboard() {
   const [editPhone, setEditPhone] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [updatingProfile, setUpdatingProfile] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -1014,9 +1034,11 @@ export default function Dashboard() {
     async function fetchChallengeLeaderboard() {
       if (activeTab !== 'mock_challenge' || !user) return;
       setChallengeLeaderboardLoading(true);
+      
+      let loadedFromApi = false;
       try {
         const token = await user.getIdToken();
-        const res = await fetch('/api/global-leaderboard', {
+        const res = await fetch('/api/150-days-leaderboard', {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -1036,18 +1058,97 @@ export default function Dashboard() {
               isCurrentUser: r.userId === user.uid
             }));
           setChallengeLeaderboard(list);
-        } else {
-          console.error("Failed to fetch challenge leaderboard");
+          if (data.totalStudents) {
+            setChallengeTotalStudents(data.totalStudents);
+          }
+          loadedFromApi = true;
         }
       } catch (err) {
-        console.error("Error fetching challenge leaderboard:", err);
-      } finally {
-        setChallengeLeaderboardLoading(false);
+        console.warn("Server API /api/150-days-leaderboard unavailable, calculating locally from Firestore...", err);
       }
+
+      if (!loadedFromApi) {
+        try {
+          const challengeTestIds = new Set(
+            activeTests
+              .filter(t => 
+                t.category === "150 Days Free Practice" || 
+                t.category === "150 Days Mock Challenge" ||
+                (t.category && (t.category.toLowerCase().includes("150") || t.category.toLowerCase().includes("challenge"))) ||
+                (t.testType && (t.testType.toLowerCase().includes("challenge") || t.testType === "mock_challenge")) ||
+                (t.title && (t.title.toLowerCase().includes("150 day") || t.title.toLowerCase().includes("challenge")))
+              )
+              .map(t => t.id)
+          );
+
+          const resultsSnap = await getDocs(collection(db, 'results'));
+          const userScoresMap: Record<string, { userId: string; name: string; score: number; testsCount: number }> = {};
+
+          resultsSnap.docs.forEach(docSnap => {
+            const r = docSnap.data();
+            const cat = (r.category || '').toLowerCase();
+            const title = (r.testTitle || r.title || '').toLowerCase();
+            const type = (r.testType || '').toLowerCase();
+            const isChallenge = challengeTestIds.has(r.testId) || cat.includes('150') || title.includes('150') || cat.includes('challenge') || type.includes('challenge');
+
+            if (isChallenge && r.userId) {
+              if (!userScoresMap[r.userId]) {
+                userScoresMap[r.userId] = {
+                  userId: r.userId,
+                  name: r.userName || r.name || 'Student',
+                  score: 0,
+                  testsCount: 0
+                };
+              }
+              userScoresMap[r.userId].score += (r.score || 0);
+              userScoresMap[r.userId].testsCount += 1;
+            }
+          });
+
+          const profilesSnap = await getDocs(collection(db, 'profiles'));
+          const rankers = profilesSnap.docs.map(pDoc => {
+            const uid = pDoc.id;
+            const prof = pDoc.data();
+            const scoreData = userScoresMap[uid] || { score: 0, testsCount: 0 };
+            return {
+              userId: uid,
+              name: prof.name || scoreData.name || 'Student',
+              email: prof.email || '',
+              role: prof.role || 'user',
+              score: scoreData.score,
+              testsTaken: scoreData.testsCount
+            };
+          })
+          .filter(r => {
+            const nameLower = (r.name || '').toLowerCase();
+            const emailLower = (r.email || '').toLowerCase();
+            const isSuman = nameLower.includes('suman') || nameLower.includes('kolay') || emailLower.includes('suman') || emailLower.includes('bakolaypan');
+            return r.role !== 'admin' && !isSuman;
+          })
+          .sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            if (b.testsTaken !== a.testsTaken) return b.testsTaken - a.testsTaken;
+            return a.name.localeCompare(b.name);
+          });
+
+          const list = rankers.map((r, idx) => ({
+            ...r,
+            rank: idx + 1,
+            isCurrentUser: r.userId === user.uid
+          }));
+
+          setChallengeLeaderboard(list);
+          setChallengeTotalStudents(list.length);
+        } catch (err) {
+          console.error("Failed to calculate challenge leaderboard:", err);
+        }
+      }
+
+      setChallengeLeaderboardLoading(false);
     }
 
     fetchChallengeLeaderboard();
-  }, [activeTab, user]);
+  }, [activeTab, user, activeTests]);
 
   useEffect(() => {
     async function fetchUserRank() {
@@ -1068,6 +1169,9 @@ export default function Dashboard() {
             setMyGlobalRank(data.userRank);
           } else {
             setMyGlobalRank(null);
+          }
+          if (data.totalStudents) {
+            setTotalStudentsCount(data.totalStudents);
           }
         }
       } catch (err) {
@@ -1304,6 +1408,7 @@ export default function Dashboard() {
       }
 
       alert('Profile updated successfully!');
+      setIsEditingProfile(false);
     } catch (error: any) {
       console.error(error);
       if (error.code === 'auth/requires-recent-login') {
@@ -1345,12 +1450,87 @@ export default function Dashboard() {
 
     const latestScore = totalTests > 0 ? (pastResults[0].score || 0) : 0;
 
+    const GENERIC_SERIES_PATTERNS = [
+      '150 days', '150-days', 'mock challenge', 'free practice', 'free mock', 
+      'live mock', 'paid mock', 'mini mock', 'practice set', 'general mock', 
+      'full mock', 'test series', 'daily test', 'mock test'
+    ];
+
+    const isGenericSeriesName = (str?: string): boolean => {
+      if (!str) return true;
+      const lower = str.toLowerCase().trim();
+      if (!lower) return true;
+      return GENERIC_SERIES_PATTERNS.some(p => lower.includes(p));
+    };
+
+    const getCleanSubjectName = (r: any, matchedTest: any): string => {
+      // 1. Explicit subjectName from test or result
+      const explicitSubject = matchedTest?.subjectName || r?.subjectName || r?.subject;
+      if (explicitSubject && !isGenericSeriesName(explicitSubject)) {
+        return explicitSubject.trim();
+      }
+
+      // 2. Topic from test or result
+      const topic = matchedTest?.topic || r?.topic;
+      if (topic && !isGenericSeriesName(topic)) {
+        return topic.trim();
+      }
+
+      // 3. Category from test or result (only if specific subject category)
+      const category = matchedTest?.category || r?.category;
+      if (category && !isGenericSeriesName(category)) {
+        return category.trim();
+      }
+
+      // 4. Infer subject from title/category/topic keywords
+      const fullText = `${matchedTest?.title || ''} ${matchedTest?.topic || ''} ${matchedTest?.category || ''} ${r?.testTitle || ''} ${r?.category || ''} ${r?.subject || ''}`.toLowerCase();
+
+      if (fullText.includes('math') || fullText.includes('quant') || fullText.includes('arithmetic') || fullText.includes('algebra') || fullText.includes('geometry')) {
+        return 'Mathematics';
+      }
+      if (fullText.includes('reason') || fullText.includes('intelligence') || fullText.includes('gi') || fullText.includes('aptitude')) {
+        return 'Reasoning';
+      }
+      if (fullText.includes('histor')) {
+        return 'History';
+      }
+      if (fullText.includes('geograph')) {
+        return 'Geography';
+      }
+      if (fullText.includes('english') || fullText.includes('grammar') || fullText.includes('vocab')) {
+        return 'English';
+      }
+      if (fullText.includes('physic')) {
+        return 'Physics';
+      }
+      if (fullText.includes('chemist')) {
+        return 'Chemistry';
+      }
+      if (fullText.includes('biolog')) {
+        return 'Biology';
+      }
+      if (fullText.includes('polity') || fullText.includes('constitution') || fullText.includes('civics')) {
+        return 'Polity';
+      }
+      if (fullText.includes('computer')) {
+        return 'Computer Science';
+      }
+      if (fullText.includes('econ')) {
+        return 'Economics';
+      }
+      if (fullText.includes('gk') || fullText.includes('gs') || fullText.includes('general knowledge') || fullText.includes('general studies') || fullText.includes('static gk') || fullText.includes('current affair')) {
+        return 'General Knowledge';
+      }
+
+      return 'General Aptitude';
+    };
+
     // Group performance by Subject
     const subjectMap: Record<string, { totalTests: number; totalScore: number; bestScore: number; correct: number; attempted: number }> = {};
 
     pastResults.forEach(r => {
       const matchedTest = activeTests.find(t => t.id === r.testId) || liveTests.find(t => t.id === r.testId);
-      const subjectName = r.subject || r.category || matchedTest?.category || matchedTest?.subjectName || 'General Mock';
+      const subjectName = getCleanSubjectName(r, matchedTest);
 
       if (!subjectMap[subjectName]) {
         subjectMap[subjectName] = { totalTests: 0, totalScore: 0, bestScore: 0, correct: 0, attempted: 0 };
@@ -2036,106 +2216,167 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Affairs Tab Content */}
+          {/* Profile Tab Content */}
           {activeTab === 'profile' && (
-            <div className="max-w-2xl mx-auto animate-in fade-in duration-150">
-              <div className="bg-white rounded-[40px] p-8 sm:p-12 border border-slate-100 shadow-2xl relative overflow-hidden">
+            <div className="max-w-2xl mx-auto animate-in fade-in duration-200">
+              <div className="bg-white rounded-[36px] p-6 sm:p-10 border border-slate-100 shadow-2xl relative overflow-hidden">
                 <div className="relative z-10">
-                  <div className="flex items-center gap-4 mb-8">
-                    <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center shadow-lg shadow-rose-100">
-                      <User className="w-8 h-8" />
-                    </div>
-                    <div>
-                      <h2 className="text-2xl font-black text-slate-800 tracking-tight">Your Profile</h2>
-                      <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Personal Account Settings</p>
-                    </div>
-                  </div>
+                  {/* Light & Stylish Halftone Profile Banner Header */}
+                  <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-50/90 via-indigo-50/40 to-slate-50 border border-blue-100 p-5 sm:p-6 mb-6 shadow-xs">
+                    {/* Blue Halftone Dot Matrix Pattern (Matching user uploaded image) */}
+                    <div 
+                      className="absolute right-0 top-0 bottom-0 w-48 sm:w-64 pointer-events-none opacity-25"
+                      style={{
+                        backgroundImage: `radial-gradient(#2563eb 2.5px, transparent 2.5px)`,
+                        backgroundSize: `12px 12px`,
+                        maskImage: `radial-gradient(ellipse at top right, black 30%, transparent 80%)`,
+                        WebkitMaskImage: `radial-gradient(ellipse at top right, black 30%, transparent 80%)`
+                      }}
+                    />
 
-                  <form onSubmit={handleUpdateProfile} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
-                        <input 
-                          type="text" required
-                          value={editName} onChange={e => setEditName(e.target.value)}
-                          className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 outline-hidden focus:border-rose-400 focus:bg-white transition-all font-bold text-slate-700 shadow-sm"
-                          placeholder="Your Name"
-                        />
+                    <div className="relative z-10 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div className="relative">
+                          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center font-black text-2xl text-white shadow-lg shadow-blue-500/20">
+                            {profile?.name ? profile.name.charAt(0).toUpperCase() : <User className="w-8 h-8" />}
+                          </div>
+                          <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full" title="Active Student Account" />
+                        </div>
+
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-800 truncate">
+                              {profile?.name || editName || 'Student Profile'}
+                            </h2>
+                            <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-blue-100/80 text-blue-700 border border-blue-200 flex items-center gap-1">
+                              <Sparkles className="w-3 h-3 text-blue-600" /> Student
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mobile Number</label>
-                        <input 
-                          type="tel" required
-                          value={editPhone} onChange={e => setEditPhone(e.target.value)}
-                          className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 outline-hidden focus:border-rose-400 focus:bg-white transition-all font-bold text-slate-700 shadow-sm"
-                          placeholder="Mobile Number"
-                        />
-                      </div>
-                    </div>
 
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email Address (Read-only)</label>
-                      <input 
-                        type="email" readOnly
-                        value={user?.email || ''}
-                        className="w-full bg-slate-100 border-2 border-slate-200 rounded-2xl px-6 py-4 outline-hidden opacity-60 font-bold text-slate-500 cursor-not-allowed"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">New Password (Leave blank to keep current)</label>
-                      <input 
-                        type="password"
-                        value={newPassword} onChange={e => setNewPassword(e.target.value)}
-                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 outline-hidden focus:border-rose-400 focus:bg-white transition-all font-bold text-slate-700 shadow-sm"
-                        placeholder="••••••••"
-                      />
-                    </div>
-
-                    <div className="pt-6">
-                      <button 
-                        type="submit"
-                        disabled={updatingProfile}
-                        className="w-full bg-rose-600 text-white rounded-2xl py-5 font-black text-sm uppercase tracking-widest hover:bg-slate-900 transition-all shadow-xl shadow-rose-200 disabled:bg-slate-400 disabled:shadow-none flex items-center justify-center gap-3"
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingProfile(!isEditingProfile)}
+                        className={`px-4 sm:px-5 py-3 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center gap-2 transition-all duration-200 cursor-pointer shrink-0 shadow-md ${
+                          isEditingProfile 
+                            ? 'bg-slate-200 text-slate-700 hover:bg-slate-300 border border-slate-300' 
+                            : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:brightness-110 shadow-blue-500/25 hover:scale-105 active:scale-95'
+                        }`}
                       >
-                        {updatingProfile ? (
+                        {isEditingProfile ? (
                           <>
-                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                            Saving Changes...
+                            <X className="w-4 h-4" /> Cancel
                           </>
                         ) : (
                           <>
-                            <CheckCircle className="w-5 h-5" />
-                            Update Profile
+                            <Pencil className="w-4 h-4" /> Edit Profile
                           </>
                         )}
                       </button>
                     </div>
-                  </form>
-
-                  <div className="mt-12 pt-8 border-t border-slate-50">
-                    <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-4">Registration Details</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                        <span className="block text-[9px] font-black text-slate-400 uppercase tracking-tight mb-1">Account Role</span>
-                        <span className="text-xs font-bold text-slate-600 uppercase tracking-widest bg-white px-2 py-1 rounded-md shadow-xs border border-slate-200">
-                          {profile?.role || 'User'}
-                        </span>
-                      </div>
-                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                        <span className="block text-[9px] font-black text-slate-400 uppercase tracking-tight mb-1">Status</span>
-                        <span className="text-xs font-bold text-emerald-600 uppercase tracking-widest flex items-center gap-1">
-                          <CheckCircle className="w-3 h-3" /> Active
-                        </span>
-                      </div>
-                    </div>
                   </div>
+
+                  {/* Expandable Stylish Edit Profile Form */}
+                  {isEditingProfile && (
+                    <form onSubmit={handleUpdateProfile} className="space-y-5 bg-slate-50/80 p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-inner animate-in fade-in zoom-in-95 duration-200">
+                      <div className="flex items-center gap-2 pb-2 border-b border-slate-200/60 mb-4">
+                        <Pencil className="w-4 h-4 text-rose-500" />
+                        <h3 className="text-xs font-black uppercase tracking-widest text-slate-700">Update Personal Details</h3>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-1.5">
+                            <User className="w-3 h-3 text-rose-500" /> Full Name
+                          </label>
+                          <input 
+                            type="text" required
+                            value={editName} onChange={e => setEditName(e.target.value)}
+                            className="w-full bg-white border-2 border-slate-200 rounded-2xl px-5 py-3.5 outline-hidden focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 transition-all font-bold text-slate-800 text-sm shadow-xs"
+                            placeholder="Enter your name"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-1.5">
+                            <Phone className="w-3 h-3 text-indigo-500" /> Mobile Number
+                          </label>
+                          <input 
+                            type="tel" required
+                            value={editPhone} onChange={e => setEditPhone(e.target.value)}
+                            className="w-full bg-white border-2 border-slate-200 rounded-2xl px-5 py-3.5 outline-hidden focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 transition-all font-bold text-slate-800 text-sm shadow-xs"
+                            placeholder="Enter mobile number"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-1.5">
+                          <Mail className="w-3 h-3 text-emerald-500" /> Email Address <span className="text-[9px] text-slate-400 font-medium">(Read-only)</span>
+                        </label>
+                        <input 
+                          type="email" readOnly
+                          value={user?.email || ''}
+                          className="w-full bg-slate-100 border-2 border-slate-200 rounded-2xl px-5 py-3.5 outline-hidden font-bold text-slate-500 text-sm cursor-not-allowed opacity-75"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-1.5">
+                          <Lock className="w-3 h-3 text-amber-500" /> New Password <span className="text-[9px] text-slate-400 font-medium">(Leave blank to keep current)</span>
+                        </label>
+                        <input 
+                          type="password"
+                          value={newPassword} onChange={e => setNewPassword(e.target.value)}
+                          className="w-full bg-white border-2 border-slate-200 rounded-2xl px-5 py-3.5 outline-hidden focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 transition-all font-bold text-slate-800 text-sm shadow-xs"
+                          placeholder="••••••••"
+                        />
+                      </div>
+
+                      <div className="pt-3 flex items-center gap-3">
+                        <button 
+                          type="submit"
+                          disabled={updatingProfile}
+                          className="flex-1 bg-gradient-to-r from-rose-600 to-pink-600 text-white rounded-2xl py-4 font-black text-xs uppercase tracking-widest hover:brightness-110 transition-all shadow-lg shadow-rose-200 disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          {updatingProfile ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                              Saving Changes...
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="w-4 h-4" />
+                              Update Profile
+                            </>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingProfile(false)}
+                          className="px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest bg-slate-200/80 text-slate-700 hover:bg-slate-300 transition-all cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  )}
 
                   {/* ── Detailed Performance Analysis ── */}
                   {(() => {
-                    const studentRankDisplay = myGlobalRank 
-                      ? `#${myGlobalRank}` 
-                      : (profile?.globalRank && profile.globalRank > 0 ? `#${profile.globalRank}` : (detailedPerformanceStats.totalTests > 0 ? '#1' : 'Not Ranked Yet'));
+                    const rawRankNum = myGlobalRank || (profile?.globalRank && profile.globalRank > 0 ? profile.globalRank : (detailedPerformanceStats.totalTests > 0 ? 1 : null));
+                    
+                    const formatRankDisplay = (rank: number | null, total: number | null): string => {
+                      if (!rank || rank <= 0) return 'Not Ranked Yet';
+                      const rStr = rank < 10 ? `0${rank}` : `${rank}`;
+                      if (total && total > 0) {
+                        const tStr = total < 10 ? `0${total}` : `${total}`;
+                        return `${rStr}/${tStr}`;
+                      }
+                      return `#${rStr}`;
+                    };
+
+                    const studentRankDisplay = formatRankDisplay(rawRankNum, totalStudentsCount);
                     
                     return (
                       <div className="mt-8 pt-8 border-t border-slate-100 space-y-6">
@@ -3329,8 +3570,13 @@ export default function Dashboard() {
                   <div className="col-span-7 bg-slate-50/80 border border-slate-200/80 rounded-xl p-2.5 sm:p-3 flex flex-col justify-between space-y-1.5 min-w-0 shadow-2xs">
                     {(() => {
                       const currentUserRankItem = challengeLeaderboard.find((r: any) => r.isCurrentUser);
-                      const myRankNum = currentUserRankItem?.rank || profile?.globalRank || null;
-                      const myScoreVal = currentUserRankItem ? currentUserRankItem.score : (profile?.cumulativeScore || 0);
+                      const myRankNum = currentUserRankItem?.rank || null;
+                      const myScoreVal = currentUserRankItem ? currentUserRankItem.score : 0;
+                      const totalCount = challengeTotalStudents || totalStudentsCount || challengeLeaderboard.length;
+
+                      const rankPadded = myRankNum ? (myRankNum < 10 ? `0${myRankNum}` : `${myRankNum}`) : null;
+                      const totalPadded = totalCount ? (totalCount < 10 ? `0${totalCount}` : `${totalCount}`) : null;
+                      const formattedYourRank = rankPadded && totalPadded ? `${rankPadded}/${totalPadded}` : (rankPadded ? `#${rankPadded}` : 'Not Ranked');
 
                       return (
                         <>
@@ -3342,7 +3588,7 @@ export default function Dashboard() {
                               <span className="text-[9px] sm:text-[10px] font-black text-amber-900 bg-amber-100/90 px-2.5 py-0.5 rounded-full border border-amber-300/80 shrink-0 flex items-center gap-1 shadow-2xs">
                                 <span>Your Rank:</span>
                                 <span className="text-amber-700 font-black">
-                                  {myRankNum ? `#${myRankNum}` : 'Not Ranked'} ({typeof myScoreVal === 'number' ? myScoreVal.toFixed(1) : myScoreVal} pts)
+                                  {formattedYourRank} ({typeof myScoreVal === 'number' ? myScoreVal.toFixed(1) : myScoreVal} pts)
                                 </span>
                               </span>
                             )}
@@ -3371,8 +3617,8 @@ export default function Dashboard() {
                                   }`}
                                 >
                                   <div className="flex items-center gap-1.5 min-w-0 flex-1 pr-2">
-                                    <span className="text-[9px] sm:text-[10px] font-extrabold w-4 shrink-0 text-center">
-                                      {r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : `#${r.rank}`}
+                                    <span className="text-[9px] sm:text-[10px] font-extrabold shrink-0 text-center flex items-center gap-1">
+                                      {r.rank === 1 ? '🥇 01' : r.rank === 2 ? '🥈 02' : r.rank === 3 ? '🥉 03' : (r.rank < 10 ? `0${r.rank}` : `${r.rank}`)}
                                     </span>
                                     <span className={`font-extrabold truncate ${r.isCurrentUser ? 'text-indigo-950' : 'text-slate-900'}`}>
                                       {r.name} {r.isCurrentUser && <span className="text-[8px] text-indigo-600 font-black ml-0.5">(You)</span>}

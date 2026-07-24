@@ -1595,6 +1595,82 @@ ${allUrls.map(u => `  <url>
     }
   });
 
+  app.get("/api/150-days-leaderboard", verifyToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      if (!pgPool) initPostgres();
+      
+      const leaderboardRes = await pgPool!.query(`
+        SELECT u.id as "userId", u.name, u.email, u.role,
+               COALESCE(
+                 SUM(
+                   CASE 
+                     WHEN LOWER(COALESCE(r.category, '')) LIKE '%150%'
+                       OR LOWER(COALESCE(t.category, '')) LIKE '%150%'
+                       OR LOWER(COALESCE(t.title, '')) LIKE '%150%'
+                       OR LOWER(COALESCE(r.test_title, '')) LIKE '%150%'
+                       OR LOWER(COALESCE(t.test_type, '')) LIKE '%challenge%'
+                       OR LOWER(COALESCE(r.test_type, '')) LIKE '%challenge%'
+                       OR LOWER(COALESCE(t.category, '')) LIKE '%challenge%'
+                       OR LOWER(COALESCE(r.category, '')) LIKE '%challenge%'
+                     THEN r.score 
+                     ELSE 0 
+                   END
+                 ), 
+                 0
+               ) as "score", 
+               COUNT(
+                 DISTINCT CASE 
+                   WHEN LOWER(COALESCE(r.category, '')) LIKE '%150%'
+                     OR LOWER(COALESCE(t.category, '')) LIKE '%150%'
+                     OR LOWER(COALESCE(t.title, '')) LIKE '%150%'
+                     OR LOWER(COALESCE(r.test_title, '')) LIKE '%150%'
+                     OR LOWER(COALESCE(t.test_type, '')) LIKE '%challenge%'
+                     OR LOWER(COALESCE(r.test_type, '')) LIKE '%challenge%'
+                     OR LOWER(COALESCE(t.category, '')) LIKE '%challenge%'
+                     OR LOWER(COALESCE(r.category, '')) LIKE '%challenge%'
+                   THEN r.test_id 
+                   ELSE NULL 
+                 END
+               ) as "testsTaken"
+        FROM users u
+        LEFT JOIN results r ON r.user_id = u.id
+        LEFT JOIN tests t ON t.id = r.test_id
+        WHERE (u.role IS NULL OR LOWER(u.role) != 'admin') 
+          AND LOWER(u.email) NOT LIKE '%bakolaypan%'
+          AND LOWER(u.name) NOT LIKE '%suman%'
+          AND LOWER(u.name) NOT LIKE '%kolay%'
+        GROUP BY u.id, u.name, u.email, u.role
+        ORDER BY "score" DESC, "testsTaken" DESC, u.name ASC
+      `);
+
+      const allRankers = leaderboardRes.rows.map((row: any, idx: number) => ({
+        rank: idx + 1,
+        userId: row.userId,
+        name: row.name || `Student ${idx + 1}`,
+        email: row.email,
+        role: row.role || 'user',
+        score: parseFloat(row.score || 0),
+        testsTaken: parseInt(row.testsTaken || 0, 10),
+        isCurrentUser: row.userId === user?.uid
+      }));
+
+      const userIndex = allRankers.findIndex((r: any) => r.userId === user?.uid);
+      const userRank = userIndex !== -1 ? userIndex + 1 : null;
+      const userScore = userIndex !== -1 ? allRankers[userIndex].score : 0;
+
+      return res.json({ 
+        topRankers: allRankers.slice(0, 50), 
+        userRank, 
+        userScore,
+        totalStudents: allRankers.length 
+      });
+    } catch (e: any) {
+      console.error("[150-Days-Leaderboard] Error:", e.message);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
   app.post("/api/auth/check-mobile", async (req, res) => {
     const { mobile } = req.body || {};
     if (!mobile) {
@@ -2043,6 +2119,93 @@ ${allUrls.map(u => `  <url>
     } catch (error: any) {
       console.error("[global-leaderboard] failed:", error);
       return res.status(500).json({ error: "Failed to fetch leaderboard" });
+    }
+  });
+
+  app.get("/api/150-days-leaderboard", verifyToken, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(503).json({ error: "Database offline" });
+    const user = (req as any).user;
+    try {
+      // 1. Fetch challenge test IDs
+      const testsSnap = await currentDb.collection("tests").get();
+      const challengeTestIds = new Set<string>();
+      testsSnap.docs.forEach(doc => {
+        const data = doc.data();
+        const cat = (data.category || '').toLowerCase();
+        const title = (data.title || '').toLowerCase();
+        const type = (data.testType || '').toLowerCase();
+        if (cat.includes('150') || title.includes('150') || cat.includes('challenge') || type.includes('challenge')) {
+          challengeTestIds.add(doc.id);
+        }
+      });
+
+      // 2. Fetch results for challenge tests only
+      const resultsSnap = await currentDb.collection("results").get();
+      const userScoresMap: Record<string, { userId: string; score: number; testsTaken: Set<string> }> = {};
+
+      resultsSnap.docs.forEach(doc => {
+        const r = doc.data();
+        const cat = (r.category || '').toLowerCase();
+        const title = (r.testTitle || r.title || '').toLowerCase();
+        const type = (r.testType || '').toLowerCase();
+        const isChallenge = challengeTestIds.has(r.testId) || cat.includes('150') || title.includes('150') || cat.includes('challenge') || type.includes('challenge');
+
+        if (r.userId) {
+          if (!userScoresMap[r.userId]) {
+            userScoresMap[r.userId] = { userId: r.userId, score: 0, testsTaken: new Set() };
+          }
+          if (isChallenge) {
+            userScoresMap[r.userId].score += (r.score || 0);
+            if (r.testId) userScoresMap[r.userId].testsTaken.add(r.testId);
+          }
+        }
+      });
+
+      // 3. Fetch profiles to rank all students
+      const profilesSnap = await currentDb.collection("profiles").get();
+      const allRankersList = profilesSnap.docs.map(doc => {
+        const p = doc.data();
+        const uid = doc.id;
+        const scoreData = userScoresMap[uid] || { score: 0, testsTaken: new Set() };
+        return {
+          userId: uid,
+          name: p.name || 'Student',
+          email: p.email || '',
+          role: p.role || 'user',
+          score: scoreData.score,
+          testsTaken: scoreData.testsTaken.size
+        };
+      }).filter(r => {
+        const nameLower = (r.name || '').toLowerCase();
+        const emailLower = (r.email || '').toLowerCase();
+        const isSuman = nameLower.includes('suman') || nameLower.includes('kolay') || emailLower.includes('suman') || emailLower.includes('bakolaypan');
+        return r.role !== 'admin' && !isSuman;
+      }).sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        if (b.testsTaken !== a.testsTaken) return b.testsTaken - a.testsTaken;
+        return a.name.localeCompare(b.name);
+      });
+
+      const allRankers = allRankersList.map((r, idx) => ({
+        rank: idx + 1,
+        ...r,
+        isCurrentUser: r.userId === user?.uid
+      }));
+
+      const userIndex = allRankers.findIndex(r => r.userId === user?.uid);
+      const userRank = userIndex !== -1 ? userIndex + 1 : null;
+      const userScore = userIndex !== -1 ? allRankers[userIndex].score : 0;
+
+      return res.json({ 
+        topRankers: allRankers.slice(0, 50), 
+        userRank, 
+        userScore,
+        totalStudents: allRankers.length 
+      });
+    } catch (error: any) {
+      console.error("[150-days-leaderboard] failed:", error);
+      return res.status(500).json({ error: "Failed to fetch challenge leaderboard" });
     }
   });
 
