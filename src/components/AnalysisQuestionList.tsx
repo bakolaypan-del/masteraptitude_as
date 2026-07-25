@@ -14,6 +14,7 @@ import React, { useState } from 'react';
 import { CheckCircle, X, Clock, Target, ChevronDown, Lightbulb, BookOpen } from 'lucide-react';
 import { RenderMathText } from './MathRenderer';
 import { RenderQuestionHTML } from './RichTextEditor';
+import { RenderMultilingualQuestion, RenderMultilingualOption } from './MultilingualQuestion';
 
 export interface AnalysisQuestion {
   id: string;
@@ -138,7 +139,7 @@ function QuestionCard({
 
         {/* ── Question text ──────────────────────────────────────────── */}
         <div className="text-[13px] sm:text-sm font-semibold text-slate-800 leading-snug break-words">
-          <RenderQuestionHTML html={q.questionText} />
+          <RenderMultilingualQuestion questionText={q.questionText} />
           {(q as any).sourceExam && (
             <div className="mt-1.5">
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-emerald-700 text-white">
@@ -186,7 +187,7 @@ function QuestionCard({
                   {label}
                 </span>
                 <span className="flex-1 break-words min-w-0">
-                  <RenderMathText text={opt} />
+                  <RenderMultilingualOption optionText={opt} />
                 </span>
                 {isOptCorrect && <CheckCircle className="w-3 h-3 text-emerald-500 shrink-0 mt-0.5" />}
                 {isOptWrong   && <X           className="w-3 h-3 text-rose-500    shrink-0 mt-0.5" />}

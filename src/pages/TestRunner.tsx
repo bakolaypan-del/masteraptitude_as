@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthContext';
 import { RenderMathText } from '../components/MathRenderer';
 import { RenderQuestionHTML } from '../components/RichTextEditor';
-import { Clock, AlertTriangle, ChevronRight, ChevronLeft, CheckCircle, Flag, Info, Play, Menu, X, Target, Zap, BookOpen, Shield } from 'lucide-react';
+import { RenderMultilingualQuestion, RenderMultilingualOption, LanguageMode } from '../components/MultilingualQuestion';
+import { Clock, AlertTriangle, ChevronRight, ChevronLeft, CheckCircle, Flag, Info, Play, Menu, X, Target, Zap, BookOpen, Shield, Globe } from 'lucide-react';
 
 export default function TestRunner() {
   const { testId } = useParams();
@@ -27,6 +28,7 @@ export default function TestRunner() {
   const [warnings, setWarnings] = useState(0);
   const [showInstructions, setShowInstructions] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [langMode, setLangMode] = useState<LanguageMode>('both');
 
   const isSubmittingRef = useRef(false);
   const timerRef = useRef<any>(null);
@@ -352,6 +354,36 @@ export default function TestRunner() {
             </div>
           </div>
 
+          {/* Language Mode Selector */}
+          <div className="px-6 pb-5">
+            <label className="block text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+              <Globe className="w-3.5 h-3.5 text-indigo-400" />
+              Select Exam Language Mode:
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: 'both', label: 'Bilingual', sub: 'Eng + বাংলা', icon: '🌐' },
+                { id: 'en', label: 'English', sub: 'English Only', icon: '🇬🇧' },
+                { id: 'bn', label: 'বাংলা', sub: 'Bengali Only', icon: '🇧🇩' },
+              ].map(item => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setLangMode(item.id as LanguageMode)}
+                  className={`p-2.5 rounded-2xl border text-center transition-all flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
+                    langMode === item.id
+                      ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-900/50 scale-[1.03]'
+                      : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
+                  }`}
+                >
+                  <span className="text-base mb-0.5">{item.icon}</span>
+                  <span className="text-xs font-black leading-none">{item.label}</span>
+                  <span className="text-[8px] opacity-70 font-medium leading-none">{item.sub}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Rules */}
           <div className="px-6 pb-5 space-y-2">
             {[
@@ -454,6 +486,37 @@ export default function TestRunner() {
           </h1>
         </div>
         <div className="flex items-center gap-3 md:gap-5">
+          {/* Header Language Mode Switcher */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0">
+            <button
+              onClick={() => setLangMode('both')}
+              className={`px-2 py-1 rounded-lg text-[9px] md:text-[10px] font-black transition-all cursor-pointer ${
+                langMode === 'both' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="Bilingual Mode (Both English & Bengali)"
+            >
+              Both
+            </button>
+            <button
+              onClick={() => setLangMode('en')}
+              className={`px-2 py-1 rounded-lg text-[9px] md:text-[10px] font-black transition-all cursor-pointer ${
+                langMode === 'en' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="English Only"
+            >
+              ENG
+            </button>
+            <button
+              onClick={() => setLangMode('bn')}
+              className={`px-2 py-1 rounded-lg text-[9px] md:text-[10px] font-black transition-all cursor-pointer ${
+                langMode === 'bn' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="Bengali Only"
+            >
+              বাংলা
+            </button>
+          </div>
+
           {/* Timer */}
           <div className={`flex items-center gap-1.5 md:gap-2 px-2.5 md:px-4 py-1 md:py-2 rounded-full font-mono font-black text-xs md:text-sm transition-all border
             ${isTimeCritical
@@ -511,9 +574,7 @@ export default function TestRunner() {
           {/* Question card */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 md:p-8 flex-1 flex flex-col select-none" style={{ borderLeft: '4px solid #4f46e5' }}>
             <div className="mb-4 md:mb-5">
-              <h2 className="text-base md:text-xl font-semibold leading-relaxed text-slate-800">
-                <RenderQuestionHTML html={currentQuestion.questionText} />
-              </h2>
+              <RenderMultilingualQuestion questionText={currentQuestion.questionText} langMode={langMode} />
               {currentQuestion.sourceExam && (
                 <div className="mt-2 flex justify-end">
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-700 text-white shadow-sm">
@@ -555,7 +616,7 @@ export default function TestRunner() {
                         : 'bg-slate-100 group-hover:bg-slate-200 text-slate-500'}`}>
                       {optionLabel}
                     </span>
-                    <span className="font-medium text-sm md:text-base pr-6">{opt}</span>
+                    <RenderMultilingualOption optionText={opt} langMode={langMode} className="text-sm md:text-base pr-6" />
                     {isSelected && (
                       <div className="absolute right-3 md:right-4 w-5 h-5 bg-indigo-600 rounded-full flex items-center justify-center shrink-0 shadow-md">
                         <CheckCircle className="w-3 h-3 text-white" />

@@ -619,6 +619,9 @@ export default function Dashboard() {
     setMockOpen(tabParam.startsWith('mock'));
   }, [tabParam]);
   
+  // Exam Category Filter State for Mock Tests
+  const [selectedExamCategory, setSelectedExamCategory] = useState<string>('ALL');
+
   // Profile Update State
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
@@ -3097,7 +3100,7 @@ export default function Dashboard() {
           {activeTab.startsWith('mock') && activeTab !== 'mock_landing' && activeTab !== 'mock_challenge' && (
             <div className="space-y-8 animate-in fade-in duration-150">
 
-              <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-4">
                 <div className="flex items-center gap-3">
                   <div className="w-1.5 h-8 bg-gradient-to-b from-indigo-500 to-violet-600 rounded-full"></div>
                   <h2 className="text-xl font-black text-slate-900 tracking-tight">
@@ -3106,7 +3109,149 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {categories.length === 0 ? (
+              {activeTab === 'mock_full' ? (() => {
+                const fullTests = activeTests.filter(t => (t.testType || 'topic') === 'full');
+
+                if (fullTests.length === 0) {
+                  return (
+                    <div className="bg-white rounded-3xl p-12 py-16 border border-slate-200 text-center text-slate-400 shadow-sm flex flex-col items-center max-w-2xl mx-auto w-full">
+                      <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                        <FileText className="w-8 h-8 text-slate-300" />
+                      </div>
+                      <h3 className="font-black text-slate-800 text-base uppercase tracking-widest mb-1">No Full Mock Tests Available</h3>
+                      <p className="text-slate-400 text-xs font-medium">No full mock tests have been published yet. Check back soon!</p>
+                    </div>
+                  );
+                }
+
+                // Group full tests by examCategory
+                const examGroupMap: Record<string, typeof fullTests> = {};
+                fullTests.forEach(t => {
+                  const ex = t.examCategory || t.category || 'General Full Mock';
+                  if (!examGroupMap[ex]) examGroupMap[ex] = [];
+                  examGroupMap[ex].push(t);
+                });
+
+                return (
+                  <div className="space-y-4">
+                    {Object.entries(examGroupMap).map(([examName, examTests]) => {
+                      const totalExamTests = examTests.length;
+                      const takenExamCount = examTests.filter(t => pastResults.some(r => r.testId === t.id)).length;
+                      const isExamExpanded = expandedCategory === examName || expandedCategory === null;
+
+                      return (
+                        <div key={examName} className="bg-white border border-slate-200/60 rounded-2xl shadow-xs overflow-hidden transition-all duration-300">
+                          <button
+                            onClick={() => setExpandedCategory(expandedCategory === examName ? 'none' : examName)}
+                            className="w-full flex items-center justify-between p-4 md:p-5 border-l-4 border-l-indigo-600 bg-indigo-50/30 text-left transition-colors duration-200"
+                          >
+                            <div className="flex items-center gap-3.5">
+                              <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 shadow-xs font-black text-sm">
+                                🎯
+                              </div>
+                              <div>
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Target Exam</span>
+                                <h3 className="font-extrabold text-slate-900 text-sm md:text-base leading-tight">{examName}</h3>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700">
+                                {totalExamTests} Full {totalExamTests === 1 ? 'Mock' : 'Mocks'} ({takenExamCount} Done)
+                              </span>
+                              <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${isExamExpanded ? 'rotate-180 text-indigo-500' : ''}`} />
+                            </div>
+                          </button>
+
+                          {isExamExpanded && (
+                            <div className="p-4 md:p-5 bg-white space-y-3 border-t border-slate-100">
+                              {examTests.map((test, testIdx) => {
+                                const attemptsForTest = pastResults
+                                  .filter((r: any) => r.testId === test.id)
+                                  .sort((a: any, b: any) => a.timestamp - b.timestamp);
+                                const isTaken = attemptsForTest.length > 0;
+                                const attemptCount = attemptsForTest.length;
+                                const latestAttempt = attemptsForTest[attemptCount - 1];
+
+                                return (
+                                  <div key={test.id} className="bg-slate-50/50 rounded-2xl border border-slate-200/60 hover:border-indigo-100 hover:bg-white hover:shadow-xs transition-all duration-200 p-4">
+                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                                        <div className="w-8 h-8 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-lg flex items-center justify-center shrink-0 font-black text-xs">
+                                          {testIdx + 1}
+                                        </div>
+                                        <div className="min-w-0">
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            <h4 className="font-extrabold text-slate-800 text-xs md:text-sm leading-snug">{test.title}</h4>
+                                            {test.examCategory && (
+                                              <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 text-[8px] font-black uppercase tracking-wider rounded-md shrink-0">
+                                                🎯 {test.examCategory}
+                                              </span>
+                                            )}
+                                            {test.isPaid && myPurchases.length === 0
+                                              ? <span className="px-1.5 py-0.5 bg-rose-100 text-rose-600 text-[8px] font-black uppercase tracking-widest rounded-full border border-rose-200 shrink-0">👑 Premium</span>
+                                              : test.isPaid
+                                                ? <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[8px] font-black uppercase tracking-widest rounded-full border border-emerald-200 shrink-0">✔ Unlocked</span>
+                                                : <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded-full border border-emerald-100 shrink-0">Free</span>
+                                            }
+                                            {isTaken && (
+                                              <span className="px-1.5 py-0.5 bg-emerald-500 text-white text-[8px] font-black uppercase tracking-widest rounded-full shrink-0">
+                                                ✓ Attempted {attemptCount > 1 ? `×${attemptCount}` : ''}
+                                              </span>
+                                            )}
+                                          </div>
+                                          
+                                          <div className="flex items-center gap-3 mt-1 flex-wrap">
+                                            <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1">
+                                              ⏱️ {test.duration || 30} mins
+                                            </span>
+                                            <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1">
+                                              🎯 {test.marksPerCorrect || 1} Marks/Question
+                                            </span>
+                                            {isTaken && latestAttempt && (
+                                              <span className="text-[9px] font-bold text-indigo-500 flex items-center gap-1">
+                                                📈 Latest Score: {latestAttempt.score} marks
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-center gap-2 shrink-0 self-end md:self-auto flex-wrap justify-end">
+                                        {test.isPaid && myPurchases.length === 0 ? (
+                                          <button
+                                            onClick={() => {
+                                              const b = paidBatches[0];
+                                              if (b) {
+                                                window.open(`${razorpayMeUrl}?amount=${b.price * 100}&description=${encodeURIComponent(b.examName)}`, '_blank');
+                                                setBuyingBatch(b); setBuyError(''); setTxnId('');
+                                              } else navigate('/paid-mock');
+                                            }}
+                                            className="px-3.5 py-2 font-black text-[9px] uppercase tracking-widest rounded-xl flex items-center gap-1.5 transition-all hover:brightness-110 active:scale-95 text-white shadow-xs"
+                                            style={{background:'linear-gradient(135deg,#10b981,#059669)'}}>
+                                            🛒 Buy Now
+                                          </button>
+                                        ) : (
+                                          <Link
+                                            to={`/test/${test.id}`}
+                                            className="px-3.5 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-black text-[9px] uppercase tracking-widest rounded-xl hover:from-slate-900 hover:to-slate-900 transition-all shadow-xs flex items-center gap-1 active:scale-95"
+                                          >
+                                            {isTaken ? 'Reattempt' : 'Attempt'}
+                                            <ChevronRight className="w-3 h-3" />
+                                          </Link>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })() : categories.length === 0 ? (
                   <div className="bg-white rounded-3xl p-12 py-20 border border-slate-200 text-center text-slate-400 shadow-sm flex flex-col items-center max-w-2xl mx-auto w-full">
                     <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6">
                       <FileText className="w-10 h-10 text-slate-200" />
@@ -3232,6 +3377,11 @@ export default function Dashboard() {
                                                   <div className="min-w-0">
                                                     <div className="flex items-center gap-2 flex-wrap">
                                                       <h4 className="font-extrabold text-slate-800 text-xs md:text-sm leading-snug">{test.title}</h4>
+                                                      {test.examCategory && (
+                                                        <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 text-[8px] font-black uppercase tracking-wider rounded-md shrink-0">
+                                                          🎯 {test.examCategory}
+                                                        </span>
+                                                      )}
                                                       {test.isPaid && myPurchases.length === 0
                                                         ? <span className="px-1.5 py-0.5 bg-rose-100 text-rose-600 text-[8px] font-black uppercase tracking-widest rounded-full border border-rose-200 shrink-0">👑 Premium</span>
                                                         : test.isPaid

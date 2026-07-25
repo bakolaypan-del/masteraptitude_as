@@ -1,9 +1,4 @@
-/**
- * Utility for exporting Mock Test Question Papers, One Liners, Syllabus, PYQs, Notes,
- * Practice Sets, Current Affairs, and Custom Question Papers to PDF (A4 Print) and Word (.doc/.docx).
- * Formatted for clean, concise, 2-column justified A4 printing with Bengali text (UTF-8) support.
- * Guaranteed no right-column cutoff with strict box-sizing, page bounds, and responsive word wrapping.
- */
+import { WATERMARK_BASE64 } from './watermarkBase64';
 
 export interface ExportTestMeta {
   category?: string;
@@ -12,6 +7,7 @@ export interface ExportTestMeta {
   duration?: number | string;
   marksPerCorrect?: number | string;
   negativeMarks?: number | string;
+  logoUrl?: string;
 }
 
 export interface GenericExportItem {
@@ -98,22 +94,44 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
     const correctIdx = options.findIndex(opt => opt.trim() !== '' && opt.trim() === correctAnswer.trim());
     const correctLetter = correctIdx >= 0 ? optionLetters[correctIdx] : '';
 
+    // Check if question text has English and Bengali
+    const hasBengaliQ = /[\u0980-\u09FF]/.test(qTextClean);
+    let engQ = qTextClean;
+    let benQ = '';
+
+    if (hasBengaliQ) {
+      const matchBengali = qTextClean.match(/[\u0980-\u09FF].*/s);
+      if (matchBengali) {
+        benQ = matchBengali[0].trim();
+        engQ = qTextClean.replace(benQ, '').trim();
+      }
+    }
+
     const optionsHTML = options.map((opt, i) => {
       const letter = optionLetters[i] || String(i + 1);
-      const isCorrect = opt.trim() !== '' && opt.trim() === correctAnswer.trim();
+      const cleanOpt = cleanText(opt) || opt;
+      const isBengaliOpt = /[\u0980-\u09FF]/.test(cleanOpt);
+      const fontClass = isBengaliOpt ? 'opt-text-bn' : 'opt-text-en';
+
       return `
-        <div class="option-item ${isCorrect ? 'correct-option' : ''}">
-          <span class="option-letter">(${letter})</span>
-          <span class="option-text">${cleanText(opt) || opt}</span>
+        <div class="option-item">
+          <span class="${fontClass}">(${letter}) ${cleanOpt}</span>
         </div>
       `;
     }).join('');
+
+    const isBengaliAns = /[\u0980-\u09FF]/.test(correctAnswer);
+    const ansFontClass = isBengaliAns ? 'ans-box-bn' : 'ans-box-en';
 
     return `
       <div class="question-block">
         <div class="question-header">
           <span class="q-num">Q${qNo}.</span>
-          <div class="q-text">${qTextClean}</div>
+          <div class="q-text-container">
+            ${engQ ? `<div class="q-text-en">${engQ}</div>` : ''}
+            ${benQ ? `<div class="q-text-bn">${benQ}</div>` : ''}
+            ${!engQ && !benQ ? `<div class="q-text-en">${qTextClean}</div>` : ''}
+          </div>
         </div>
 
         ${q.equationLatex ? `<div class="equation-box">LaTeX: ${q.equationLatex}</div>` : ''}
@@ -123,13 +141,13 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
           ${optionsHTML}
         </div>
 
-        <div class="ans-box">
-          <strong>Ans:</strong> Option ${correctLetter ? `(${correctLetter})` : ''} ${correctAnswer ? `— ${cleanText(correctAnswer)}` : ''}
+        <div class="ans-box ${ansFontClass}">
+          Answer: Option ${correctLetter ? `(${correctLetter})` : ''} ${correctAnswer ? `— ${cleanText(correctAnswer)}` : ''}
         </div>
 
         ${solution ? `
           <div class="solution-box">
-            <strong>Solution:</strong> ${solution}
+            <strong>📌 Solution:</strong> ${solution}
           </div>
         ` : ''}
       </div>
@@ -141,6 +159,7 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
 <head>
   <meta charset="utf-8">
   <title>${testTitle} - Mock Test Paper</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&family=Noto+Serif+Bengali:wght@600;700&family=Hind+Siliguri:wght@600;700&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after {
       box-sizing: border-box !important;
@@ -158,15 +177,18 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
         background: #fff !important;
         color: #000 !important;
         overflow: visible !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
       .no-print { display: none !important; }
       .question-block { page-break-inside: avoid; break-inside: avoid; -webkit-column-break-inside: avoid; }
+      .pdf-watermark { display: block !important; opacity: 0.12 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     }
     html, body {
-      font-family: 'SolaimanLipi', 'Noto Serif Bengali', 'Kalpurush', 'Hind Siliguri', 'Vrinda', Arial, sans-serif;
-      font-size: 9pt;
-      line-height: 1.35;
-      color: #0f172a;
+      font-family: 'Cambria', 'Georgia', 'Tiro Bangla', 'Noto Serif Bengali', serif;
+      font-size: 14pt;
+      line-height: 1.45;
+      color: #000000;
       background-color: #ffffff;
       margin: 0;
       padding: 0;
@@ -177,7 +199,7 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
     }
     .paper-header {
       text-align: center;
-      border-bottom: 2px solid #0f172a;
+      border-bottom: 2px solid #000000;
       padding-bottom: 6px;
       margin-bottom: 10px;
       width: 100%;
@@ -186,18 +208,19 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
       -webkit-column-span: all;
     }
     .paper-title {
-      font-size: 14pt;
+      font-size: 16pt;
       font-weight: 900;
+      font-family: 'Cambria', 'Georgia', serif;
       margin: 0 0 3px 0;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      color: #0f172a;
+      color: #000000;
       word-break: break-word;
     }
     .paper-subtitle {
-      font-size: 9.5pt;
+      font-size: 12pt;
       font-weight: 700;
-      color: #475569;
+      color: #334155;
       margin: 0 0 4px 0;
     }
     .paper-meta-table {
@@ -205,9 +228,9 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
       margin-top: 4px;
       border-top: 1px solid #cbd5e1;
       padding-top: 4px;
-      font-size: 8.5pt;
+      font-size: 11pt;
       font-weight: bold;
-      color: #334155;
+      color: #000000;
     }
     .paper-meta-table td { padding: 1px 4px; }
     
@@ -220,9 +243,9 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
       column-gap: 12px;
       -webkit-column-gap: 12px;
       -moz-column-gap: 12px;
-      column-rule: 1px solid #e2e8f0;
-      -webkit-column-rule: 1px solid #e2e8f0;
-      -moz-column-rule: 1px solid #e2e8f0;
+      column-rule: 2px solid #000000;
+      -webkit-column-rule: 2px solid #000000;
+      -moz-column-rule: 2px solid #000000;
     }
 
     .question-block {
@@ -237,7 +260,6 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
       word-break: break-word;
       overflow-wrap: break-word;
       text-align: justify;
-      text-justify: inter-word;
     }
     .question-header {
       display: flex;
@@ -247,38 +269,49 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
       width: 100%;
     }
     .q-num {
+      font-family: 'Cambria', 'Georgia', serif;
       font-weight: 900;
-      font-size: 9pt;
-      color: #0f172a;
-      min-width: 22px;
+      font-size: 14pt;
+      color: #000000;
+      min-width: 26px;
       shrink: 0;
     }
-    .q-text {
-      font-weight: 700;
-      font-size: 9pt;
-      color: #1e293b;
-      white-space: pre-line;
+    .q-text-container {
       flex: 1;
       min-width: 0;
-      word-break: break-word;
-      overflow-wrap: break-word;
+    }
+    .q-text-en {
+      font-family: 'Cambria', 'Georgia', serif !important;
+      font-weight: bold !important;
+      font-size: 14pt !important;
+      color: #000000 !important;
+      margin-bottom: 3px;
+      white-space: pre-line;
       text-align: justify;
-      text-justify: inter-word;
+    }
+    .q-text-bn {
+      font-family: 'Tiro Bangla', 'Noto Serif Bengali', 'SolaimanLipi', sans-serif !important;
+      font-weight: bold !important;
+      font-size: 14pt !important;
+      color: #dc2626 !important;
+      margin-bottom: 3px;
+      white-space: pre-line;
+      text-align: justify;
     }
     .equation-box {
-      margin: 4px 0 6px 22px;
+      margin: 3px 0 4px 24px;
       padding: 3px 6px;
       background: #f8fafc;
       border: 1px solid #e2e8f0;
       border-radius: 4px;
       font-family: monospace;
-      font-size: 8pt;
+      font-size: 11pt;
       word-break: break-word;
     }
-    .q-img { margin: 4px 0 4px 22px; max-width: 100%; }
+    .q-img { margin: 4px 0 4px 24px; max-width: 100%; }
     .q-img img {
       max-width: 100% !important;
-      max-height: 130px;
+      max-height: 140px;
       height: auto;
       object-fit: contain;
       border: 1px solid #cbd5e1;
@@ -286,66 +319,93 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
       display: block;
     }
     .options-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      margin-left: 22px;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 2px 6px;
+      margin-left: 24px;
       margin-bottom: 4px;
-      width: calc(100% - 22px);
+      width: calc(100% - 24px);
     }
     .option-item {
       display: flex;
       align-items: flex-start;
-      gap: 4px;
-      padding: 2px 4px;
-      font-size: 8.5pt;
-      border-radius: 3px;
+      padding: 1px 0;
       word-break: break-word;
-      overflow-wrap: break-word;
-      text-align: justify;
     }
-    .correct-option { background-color: #f0fdf4; font-weight: bold; }
-    .option-letter { font-weight: 800; color: #475569; min-width: 16px; shrink: 0; }
-    .option-text { color: #334155; text-align: justify; word-break: break-word; flex: 1; min-width: 0; }
+    .opt-text-en {
+      font-family: 'Cambria', 'Georgia', serif !important;
+      font-weight: bold !important;
+      font-size: 14pt !important;
+      color: #16a34a !important;
+    }
+    .opt-text-bn {
+      font-family: 'Tiro Bangla', 'Noto Serif Bengali', 'SolaimanLipi', sans-serif !important;
+      font-weight: bold !important;
+      font-size: 14pt !important;
+      color: #16a34a !important;
+    }
     .ans-box {
-      margin-left: 22px;
+      margin-left: 24px;
       margin-top: 4px;
-      padding: 2px 5px;
-      background: #f1f5f9;
-      border-left: 3px solid #10b981;
-      font-size: 8pt;
-      color: #065f46;
-      text-align: justify;
+      padding: 3px 8px;
+      background-color: #fef08a !important;
+      border: 1px solid #fde047;
+      border-radius: 4px;
+      display: inline-block;
+      font-size: 14pt !important;
+      font-weight: bold !important;
+      color: #000000 !important;
       word-break: break-word;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    .ans-box-en {
+      font-family: 'Cambria', 'Georgia', serif !important;
+    }
+    .ans-box-bn {
+      font-family: 'Tiro Bangla', 'Noto Serif Bengali', 'SolaimanLipi', sans-serif !important;
     }
     .solution-box {
-      margin-left: 22px;
-      margin-top: 4px;
-      padding: 3px 5px;
-      background: #fefce8;
-      border-left: 3px solid #f59e0b;
-      font-size: 8pt;
-      color: #78350f;
-      text-align: justify;
+      margin-left: 0 !important;
+      margin-top: 6px;
+      padding: 4px 8px;
+      border-left: 3.5px solid #2563eb !important;
+      background-color: #f8fafc;
+      font-size: 12pt !important;
+      color: #1e293b !important;
       white-space: pre-wrap;
       word-break: break-word;
       overflow-wrap: break-word;
     }
+    .pdf-watermark {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 400px;
+      max-width: 75%;
+      height: auto;
+      opacity: 0.12 !important;
+      filter: grayscale(10%);
+      pointer-events: none;
+      z-index: -100;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
     .footer-note {
-      column-span: all;
-      -webkit-column-span: all;
       text-align: center;
-      margin-top: 14px;
-      padding-top: 6px;
-      border-top: 2px solid #0f172a;
-      font-size: 8pt;
+      margin-top: 18px;
+      padding-top: 8px;
+      border-top: 2px solid #000000;
+      font-size: 11pt;
       font-weight: bold;
-      color: #64748b;
+      color: #475569;
       width: 100%;
     }
   </style>
 </head>
 <body>
+  <img src="${meta?.logoUrl || WATERMARK_BASE64}" class="pdf-watermark" alt="Watermark" />
   <div class="paper-header">
     <h1 class="paper-title">${testTitle}</h1>
     ${meta?.topic ? `<div class="paper-subtitle">Topic: ${meta.topic}</div>` : ''}

@@ -25,6 +25,7 @@ import { uploadFileViaBackend } from '../lib/upload';
 import { Keyboard, Bookmark } from 'lucide-react';
 import { RenderMathText } from '../components/MathRenderer';
 import RichTextEditor, { RenderQuestionHTML } from '../components/RichTextEditor';
+import { parseEnglishAndBengali } from '../components/MultilingualQuestion';
 import { exportMockTestToPDF, exportMockTestToWord } from '../lib/exportMockTest';
 import AdminQuestionPaperMaker from '../components/AdminQuestionPaperMaker';
 
@@ -407,6 +408,7 @@ function AdminHome() {
   const [topic, setTopic] = useState('');
   const [subjectName, setSubjectName] = useState('');
   const [category, setCategory] = useState('GK');
+  const [examCategory, setExamCategory] = useState('');
   const [duration, setDuration] = useState('30');
   const [testType, setTestType] = useState('topic');
   const [isPaid, setIsPaid] = useState(false);
@@ -502,6 +504,7 @@ function AdminHome() {
   const [mockSearch, setMockSearch] = useState('');
   const [mockFilterCategory, setMockFilterCategory] = useState('All');
   const [mockFilterType, setMockFilterType] = useState('All');
+  const [mockFilterExamCategory, setMockFilterExamCategory] = useState('All');
   const [categoryOrder, setCategoryOrder] = useState<string[]>([]);
   const [isUpdatingOrder, setIsUpdatingOrder] = useState(false);
 
@@ -882,6 +885,7 @@ function AdminHome() {
           subjectName,
           category,
           testType,
+          examCategory: examCategory || '',
           description,
           duration: parseInt(duration) || 30,
           marksPerCorrect: parseFloat(marksPerCorrect) || 1,
@@ -904,6 +908,7 @@ function AdminHome() {
           subjectName: subjectName || '',
           category: category || 'GK',
           testType: testType || 'topic',
+          examCategory: examCategory || '',
           description: description || '',
           duration: parseInt(duration) || 30,
           marksPerCorrect: parseFloat(marksPerCorrect) || 1,
@@ -928,6 +933,7 @@ function AdminHome() {
         setTopic('');
         setSubjectName('');
         setCategory('GK');
+        setExamCategory('');
         setDuration('30');
         setIsPaid(false);
         setIsLive(false);
@@ -979,7 +985,8 @@ function AdminHome() {
                           test.topic?.toLowerCase().includes(mockSearch.toLowerCase());
     const matchesCategory = mockFilterCategory === 'All' || test.category === mockFilterCategory;
     const matchesType = mockFilterType === 'All' || test.testType === mockFilterType;
-    return matchesSearch && matchesCategory && matchesType;
+    const matchesExamCategory = mockFilterExamCategory === 'All' || (test.examCategory || '').toLowerCase().includes(mockFilterExamCategory.toLowerCase());
+    return matchesSearch && matchesCategory && matchesType && matchesExamCategory;
   });
 
   const handleEditTest = (test: any) => {
@@ -989,6 +996,7 @@ function AdminHome() {
     setSubjectName(test.subjectName || '');
     setCategory(test.category || 'GK');
     setTestType(test.testType || 'topic');
+    setExamCategory(test.examCategory || '');
     setDuration(test.duration?.toString() || '30');
     setMarksPerCorrect(test.marksPerCorrect?.toString() || '1');
     setNegativeMarks(test.negativeMarks?.toString() || '0.25');
@@ -2227,64 +2235,31 @@ function AdminHome() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Category</label>
-                <select
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Category <span className="text-slate-300 normal-case font-normal">(optional)</span></label>
+                <input
+                  type="text"
+                  list="category-suggestions-list"
                   className="w-full rounded-xl border-slate-200 border-2 p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden font-medium"
-                  value={category} onChange={e => {
-                    if (e.target.value === '__add_new__') { setAddingCategory(true); }
-                    else setCategory(e.target.value);
-                  }}
-                >
-                  <option value="GK">GK</option>
-                  <option value="English">English</option>
-                  <option value="Math">Math</option>
-                  <option value="Reasoning">Reasoning</option>
-                  <option value="Computer">Computer</option>
-                  <option value="Science">Science</option>
-                  <option value="History">History</option>
-                  <option value="Geography">Geography</option>
-                  <option value="Polity">Polity</option>
-                  <option value="Economics">Economics</option>
-                  <option value="Current Affairs">Current Affairs</option>
+                  value={category}
+                  onChange={e => setCategory(e.target.value)}
+                  placeholder="e.g. GK, Math, General..."
+                />
+                <datalist id="category-suggestions-list">
+                  <option value="GK" />
+                  <option value="English" />
+                  <option value="Math" />
+                  <option value="Reasoning" />
+                  <option value="Computer" />
+                  <option value="Science" />
+                  <option value="History" />
+                  <option value="Geography" />
+                  <option value="Polity" />
+                  <option value="Economics" />
+                  <option value="Current Affairs" />
                   {customMockCategories.map(c => (
-                    <option key={c.id} value={c.categoryName}>{c.categoryName}</option>
+                    <option key={c.id} value={c.categoryName} />
                   ))}
-                  <option value="__add_new__">+ Add New Category</option>
-                </select>
-                {addingCategory && (
-                  <div className="flex gap-2 mt-2">
-                    <input
-                      type="text"
-                      className="flex-1 rounded-xl border-slate-200 border-2 p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden"
-                      placeholder="New category name"
-                      value={newCategoryInput}
-                      onChange={e => setNewCategoryInput(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && e.preventDefault()}
-                    />
-                    <button
-                      type="button"
-                      className="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700"
-                      onClick={async () => {
-                        const name = newCategoryInput.trim();
-                        if (!name) return;
-                        const token = await user?.getIdToken();
-                        const r = await fetch('/api/admin/custom-categories', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                          body: JSON.stringify({ categoryName: name, categoryType: 'mock' })
-                        });
-                        if (r.ok) {
-                          const data = await r.json();
-                          setCustomMockCategories(prev => [...prev, { id: data.id, categoryName: name, categoryType: 'mock' }]);
-                          setCategory(name);
-                          setNewCategoryInput('');
-                          setAddingCategory(false);
-                        } else alert('Failed to add category');
-                      }}
-                    >Save</button>
-                    <button type="button" className="px-3 py-2 text-slate-400 text-sm font-bold rounded-xl border-2 border-slate-200 hover:bg-slate-50" onClick={() => { setAddingCategory(false); setNewCategoryInput(''); }}>✕</button>
-                  </div>
-                )}
+                </datalist>
               </div>
               <div>
                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Test Type</label>
@@ -2334,10 +2309,37 @@ function AdminHome() {
                         } else alert('Failed to add test type');
                       }}
                     >Save</button>
-                    <button type="button" className="px-3 py-2 text-slate-400 text-sm font-bold rounded-xl border-2 border-slate-200 hover:bg-slate-50" onClick={() => { setAddingTestType(false); setNewTestTypeInput(''); }}>✕</button>
                   </div>
                 )}
               </div>
+
+              {testType === 'full' && (
+                <div className="md:col-span-2 bg-indigo-50/70 p-4 rounded-2xl border border-indigo-100 space-y-1.5 animate-in fade-in duration-200">
+                  <label className="block text-xs font-black text-indigo-900 uppercase tracking-widest">
+                    🎯 Which Exam For? (Exam Category for Full Mock)
+                  </label>
+                  <input
+                    type="text"
+                    list="exam-category-suggestions-list"
+                    className="w-full bg-white rounded-xl border-slate-200 border-2 p-2.5 text-sm font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden"
+                    placeholder="e.g. WBP / KP, RRB NTPC, WBPSC Clerkship, SSC..."
+                    value={examCategory}
+                    onChange={e => setExamCategory(e.target.value)}
+                  />
+                  <datalist id="exam-category-suggestions-list">
+                    <option value="WBP / KP" />
+                    <option value="WBP Constable" />
+                    <option value="KP Police" />
+                    <option value="RRB NTPC" />
+                    <option value="WBPSC Clerkship" />
+                    <option value="SSC CGL" />
+                    <option value="WBCS" />
+                  </datalist>
+                  <p className="text-[10px] font-bold text-indigo-600">
+                    💡 This Full Mock Test will be grouped under "{examCategory || 'WBP / KP'}" category in the student panel!
+                  </p>
+                </div>
+              )}
               <div className="md:col-span-2">
                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Short Description <span className="text-slate-300 normal-case font-normal">(optional)</span></label>
                 <textarea
@@ -2486,6 +2488,20 @@ function AdminHome() {
               <option value="sectional">Sectional</option>
               <option value="full">Full Mock</option>
             </select>
+            <select 
+              className="bg-slate-50 border-none rounded-xl p-3 text-sm font-bold text-slate-600 focus:ring-2 focus:ring-indigo-500"
+              value={mockFilterExamCategory}
+              onChange={e => setMockFilterExamCategory(e.target.value)}
+            >
+              <option value="All">All Exam Targets</option>
+              <option value="WBP">WBP</option>
+              <option value="KP">KP</option>
+              <option value="RRB NTPC">RRB NTPC</option>
+              <option value="PSC Clerkship">PSC Clerkship</option>
+              <option value="SSC">SSC</option>
+              <option value="WBCS">WBCS</option>
+              <option value="General">General / Other</option>
+            </select>
           </div>
 
           {loading && (
@@ -2540,6 +2556,11 @@ function AdminHome() {
                                 <div className="flex-1 min-w-[160px]">
                                   <div className="flex items-center gap-2 flex-wrap">
                                     <p className="text-sm font-bold text-slate-800">{test.title || 'Untitled'}</p>
+                                    {test.examCategory && (
+                                      <span className="text-[8px] font-black uppercase tracking-widest bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200">
+                                        🎯 {test.examCategory}
+                                      </span>
+                                    )}
                                     {test.isPaid
                                       ? <span className="text-[8px] font-black uppercase tracking-widest bg-rose-100 text-rose-600 px-2 py-0.5 rounded-full border border-rose-200">Paid</span>
                                       : <span className="text-[8px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full border border-emerald-200">Free</span>
@@ -5608,8 +5629,12 @@ function QuestionManager() {
   // Form states
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
   const [qText, setQText] = useState('');
+  const [qTextEn, setQTextEn] = useState('');
+  const [qTextBn, setQTextBn] = useState('');
   const [qTopic, setQTopic] = useState('');
   const [qOptions, setQOptions] = useState(['', '', '', '']);
+  const [qOptionsEn, setQOptionsEn] = useState<string[]>(['', '', '', '']);
+  const [qOptionsBn, setQOptionsBn] = useState<string[]>(['', '', '', '']);
   const [qCorrect, setQCorrect] = useState('');
   const [qSolution, setQSolution] = useState('');
   const [qImageFile, setQImageFile] = useState<File | null>(null);
@@ -5824,9 +5849,23 @@ function QuestionManager() {
 
   const handleAddQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!qText || !user) return;
-    if (!qOptions.every(opt => opt.trim() !== '')) return alert('All 4 options must be filled');
-    const uniqueOptions = new Set(qOptions.map(o => o.trim()));
+    const combinedQText = [
+      qTextEn ? `<p>${qTextEn}</p>` : '',
+      qTextBn ? `<p>${qTextBn}</p>` : ''
+    ].filter(Boolean).join('') || qText;
+
+    if (!combinedQText || !user) return alert('Please enter question text in English or Bengali.');
+
+    // Combine separate English & Bengali options
+    const finalOptions = [0, 1, 2, 3].map(idx => {
+      const en = (qOptionsEn[idx] || '').trim();
+      const bn = (qOptionsBn[idx] || '').trim();
+      if (en && bn) return `${en} / ${bn}`;
+      return en || bn || (qOptions[idx] || '').trim();
+    });
+
+    if (!finalOptions.every(opt => opt.trim() !== '')) return alert('All 4 options must be filled in English or Bengali');
+    const uniqueOptions = new Set(finalOptions.map(o => o.trim()));
     if (uniqueOptions.size < 4) return alert('All 4 options must be unique. Duplicate options are not allowed.');
     if (!qCorrect) return alert('Select a correct answer');
 
@@ -5861,8 +5900,8 @@ function QuestionManager() {
           testId,
           topic: qTopic,
           qNo: editingQuestionId ? undefined : questions.length + 1,
-          questionText: qText,
-          options: qOptions,
+          questionText: combinedQText,
+          options: finalOptions,
           correctAnswer: qCorrect,
           solution: qSolution,
           imageUrl: finalImageUrl,
@@ -5879,8 +5918,8 @@ function QuestionManager() {
           testId,
           topic: qTopic,
           qNo: editingQuestionId ? (questions.find(q => q.id === editingQuestionId)?.qNo || 1) : questions.length + 1,
-          questionText: qText,
-          options: [...qOptions],
+          questionText: combinedQText,
+          options: [...finalOptions],
           correctAnswer: qCorrect,
           solution: qSolution,
           imageUrl: finalImageUrl,
@@ -5896,7 +5935,9 @@ function QuestionManager() {
           return [...prev, newQObj];
         });
 
-        setQText(''); setQTopic(''); setQOptions(['', '', '', '']); setQCorrect(''); setQSolution('');
+        setQText(''); setQTextEn(''); setQTextBn(''); setQTopic('');
+        setQOptions(['', '', '', '']); setQOptionsEn(['', '', '', '']); setQOptionsBn(['', '', '', '']);
+        setQCorrect(''); setQSolution('');
         setQImageFile(null); setQImagePreview(''); setQImageUrl('');
         setQEquation(''); setQSourceExam('');
         setEditingQuestionId(null);
@@ -5911,8 +5952,22 @@ function QuestionManager() {
 
   const handleEditQuestion = (q: any) => {
     setEditingQuestionId(q.id);
-    setQText(q.questionText);
+    const { english, bengali } = parseEnglishAndBengali(q.questionText || '');
+    setQText(q.questionText || '');
+    setQTextEn(english || q.questionText || '');
+    setQTextBn(bengali || '');
     setQTopic(q.topic || '');
+
+    const parsedEn: string[] = [];
+    const parsedBn: string[] = [];
+    (q.options || []).forEach((opt: string) => {
+      const parsed = parseEnglishAndBengali(opt || '');
+      parsedEn.push(parsed.english || opt || '');
+      parsedBn.push(parsed.bengali || '');
+    });
+
+    setQOptionsEn(parsedEn);
+    setQOptionsBn(parsedBn);
     setQOptions([...q.options]);
     setQCorrect(q.correctAnswer);
     setQSolution(q.solution || '');
@@ -6080,147 +6135,218 @@ function QuestionManager() {
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
          <h3 className="text-lg font-bold text-slate-800 mb-6">{editingQuestionId ? 'Edit Question' : 'Add New Question'}</h3>
          <form onSubmit={handleAddQuestion} className="space-y-6">
-           <div>
-             <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Question Description</label>
-             <RichTextEditor
-               value={qText}
-               onChange={setQText}
-               placeholder="Write the question here... (select text to format)"
-               minHeight={100}
-             />
-           </div>
+           {/* Separate Question Portions: English and Bengali */}
+            <div className="space-y-4">
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">
+                Question Text (Separate English & Bengali Portions)
+              </label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50/70 border border-slate-200/80 rounded-2xl p-5">
+                {/* 🇬🇧 English Question Portion */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-black text-indigo-700 uppercase tracking-widest flex items-center justify-between">
+                    <span>🇬🇧 Question in English</span>
+                    <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">Cambria Font</span>
+                  </label>
+                  <RichTextEditor
+                    value={qTextEn}
+                    onChange={setQTextEn}
+                    placeholder="Type question in English here... (e.g. Who was the first Governor-General of India?)"
+                    minHeight={120}
+                  />
+                </div>
+
+                {/* 🇧🇩 Bengali Question Portion */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-black text-rose-700 uppercase tracking-widest flex items-center justify-between">
+                    <span>🇧🇩 Question in Bengali (বাংলা প্রশ্ন)</span>
+                    <span className="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">Stylish Red Font</span>
+                  </label>
+                  <RichTextEditor
+                    value={qTextBn}
+                    onChange={setQTextBn}
+                    placeholder="বাংলায় প্রশ্ন লিখুন... (যেমন: ভারতের প্রথম গভর্নর-জেনারেল কে ছিলেন?)"
+                    minHeight={120}
+                  />
+                </div>
+              </div>
+            </div>
 
            {/* Source Exam */}
-           <div>
-             <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
-               Asked In / Source Exam <span className="text-slate-300 normal-case font-normal">(optional)</span>
-             </label>
-             <input
-               type="text"
-               value={qSourceExam}
-               onChange={e => setQSourceExam(e.target.value)}
-               placeholder="e.g. SSC CGL 2023, WBP Constable 2022, RRB NTPC Previous Year"
-               list="source-exam-suggestions"
-               className="w-full rounded-xl border-2 border-slate-200 px-4 py-2.5 text-sm font-medium outline-none focus:border-emerald-500 transition-colors"
-               style={{ background: '#f0fdf4' }}
-             />
-             <datalist id="source-exam-suggestions">
-               {['SSC CGL', 'SSC CHSL', 'SSC MTS', 'SSC GD', 'WBP Constable', 'WBP SI', 'WBPSC Clerkship', 'RRB NTPC', 'RRB Group D', 'RRB ALP', 'WBPSC Food SI', 'KP Constable'].map(s => (
-                 <option key={s} value={s} />
-               ))}
-             </datalist>
-           </div>
+            <div>
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
+                Asked In / Source Exam <span className="text-slate-300 normal-case font-normal">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={qSourceExam}
+                onChange={e => setQSourceExam(e.target.value)}
+                placeholder="e.g. SSC CGL 2023, WBP Constable 2022, RRB NTPC Previous Year"
+                list="source-exam-suggestions"
+                className="w-full rounded-xl border-2 border-slate-200 px-4 py-2.5 text-sm font-medium outline-none focus:border-emerald-500 transition-colors"
+                style={{ background: '#f0fdf4' }}
+              />
+              <datalist id="source-exam-suggestions">
+                {['SSC CGL', 'SSC CHSL', 'SSC MTS', 'SSC GD', 'WBP Constable', 'WBP SI', 'WBPSC Clerkship', 'RRB NTPC', 'RRB Group D', 'RRB ALP', 'WBPSC Food SI', 'KP Constable'].map(s => (
+                  <option key={s} value={s} />
+                ))}
+              </datalist>
+            </div>
 
-           <div>
-             <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Question Image <span className="text-slate-300 normal-case font-normal">(optional — for equations, diagrams, figures)</span></label>
-             <div
-               className={`relative border-2 border-dashed rounded-2xl transition-all ${qImagePreview ? 'border-indigo-200 bg-indigo-50/30' : 'border-slate-200 bg-slate-50 hover:border-indigo-300 hover:bg-indigo-50/20'}`}
-               onDragOver={e => e.preventDefault()}
-               onDrop={e => {
-                 e.preventDefault();
-                 const file = e.dataTransfer.files[0];
-                 if (file && file.type.startsWith('image/')) {
-                   setQImageFile(file);
-                   setQImagePreview(URL.createObjectURL(file));
-                   setQImageUrl('');
-                 }
-               }}
-             >
-               {qImagePreview ? (
-                 <div className="p-4 flex items-start gap-4">
-                   {/* Fixed-size preview box — never grows beyond 280px wide */}
-                   <div className="shrink-0 w-[200px] sm:w-[280px] rounded-2xl overflow-hidden border border-indigo-100 bg-slate-50 flex items-center justify-center" style={{ minHeight: 80, maxHeight: 220 }}>
-                     <img
-                       src={qImagePreview}
-                       alt="Question image"
-                       style={{ maxHeight: 220, maxWidth: '100%', objectFit: 'contain', display: 'block' }}
-                       className="rounded-xl"
-                     />
-                   </div>
-                   <div className="flex flex-col gap-2 pt-2">
-                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Image ready</p>
-                     <p className="text-xs text-slate-400">Will be compressed &amp; uploaded on save.</p>
-                     {/* Replace button */}
-                     <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-indigo-600 hover:text-indigo-800 px-3 py-1.5 rounded-lg hover:bg-indigo-50 border border-indigo-100 transition-all w-fit">
-                       <FileText className="w-3 h-3" /> Replace
-                       <input type="file" accept="image/*" className="hidden" onChange={e => {
-                         const file = e.target.files?.[0];
-                         if (file) { setQImageFile(file); setQImagePreview(URL.createObjectURL(file)); setQImageUrl(''); }
-                       }} />
-                     </label>
-                     <button
-                       type="button"
-                       onClick={() => { setQImageFile(null); setQImagePreview(''); setQImageUrl(''); }}
-                       className="flex items-center gap-1.5 text-xs font-bold text-rose-500 hover:text-rose-700 px-3 py-1.5 rounded-lg hover:bg-rose-50 border border-rose-100 transition-all w-fit"
-                     >
-                       <X className="w-3 h-3" /> Remove
-                     </button>
-                   </div>
-                 </div>
-               ) : (
-                 <label className="flex flex-col items-center justify-center gap-2 p-8 cursor-pointer">
-                   <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center">
-                     <FileText className="w-6 h-6 text-slate-400" />
-                   </div>
-                   <span className="text-sm font-bold text-slate-500">Click to upload or drag &amp; drop</span>
-                   <span className="text-xs text-slate-400">PNG, JPG, GIF, SVG · Auto-compressed to max 1200px</span>
-                   <input type="file" accept="image/*" className="hidden" onChange={e => {
-                     const file = e.target.files?.[0];
-                     if (file) { setQImageFile(file); setQImagePreview(URL.createObjectURL(file)); setQImageUrl(''); }
-                   }} />
-                 </label>
-               )}
-             </div>
-           </div>
+            <div>
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Question Image <span className="text-slate-300 normal-case font-normal">(optional — for equations, diagrams, figures)</span></label>
+              <div
+                className={`relative border-2 border-dashed rounded-2xl transition-all ${qImagePreview ? 'border-indigo-200 bg-indigo-50/30' : 'border-slate-200 bg-slate-50 hover:border-indigo-300 hover:bg-indigo-50/20'}`}
+                onDragOver={e => e.preventDefault()}
+                onDrop={e => {
+                  e.preventDefault();
+                  const file = e.dataTransfer.files[0];
+                  if (file && file.type.startsWith('image/')) {
+                    setQImageFile(file);
+                    setQImagePreview(URL.createObjectURL(file));
+                    setQImageUrl('');
+                  }
+                }}
+              >
+                {qImagePreview ? (
+                  <div className="p-4 flex items-start gap-4">
+                    <div className="shrink-0 w-[200px] sm:w-[280px] rounded-2xl overflow-hidden border border-indigo-100 bg-slate-50 flex items-center justify-center" style={{ minHeight: 80, maxHeight: 220 }}>
+                      <img
+                        src={qImagePreview}
+                        alt="Question image"
+                        style={{ maxHeight: 220, maxWidth: '100%', objectFit: 'contain', display: 'block' }}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2 pt-2">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Image ready</p>
+                      <p className="text-xs text-slate-400">Will be compressed &amp; uploaded on save.</p>
+                      <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-indigo-600 hover:text-indigo-800 px-3 py-1.5 rounded-lg hover:bg-indigo-50 border border-indigo-100 transition-all w-fit">
+                        <FileText className="w-3 h-3" /> Replace
+                        <input type="file" accept="image/*" className="hidden" onChange={e => {
+                          const file = e.target.files?.[0];
+                          if (file) { setQImageFile(file); setQImagePreview(URL.createObjectURL(file)); setQImageUrl(''); }
+                        }} />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => { setQImageFile(null); setQImagePreview(''); setQImageUrl(''); }}
+                        className="flex items-center gap-1.5 text-xs font-bold text-rose-500 hover:text-rose-700 px-3 py-1.5 rounded-lg hover:bg-rose-50 border border-rose-100 transition-all w-fit"
+                      >
+                        <X className="w-3 h-3" /> Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center gap-2 p-8 cursor-pointer">
+                    <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center">
+                      <FileText className="w-6 h-6 text-slate-400" />
+                    </div>
+                    <span className="text-sm font-bold text-slate-500">Click to upload or drag &amp; drop</span>
+                    <span className="text-xs text-slate-400">PNG, JPG, GIF, SVG · Auto-compressed to max 1200px</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (file) { setQImageFile(file); setQImagePreview(URL.createObjectURL(file)); setQImageUrl(''); }
+                    }} />
+                  </label>
+                )}
+              </div>
+            </div>
 
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             {qOptions.map((opt, i) => (
-               <div key={i}>
-                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Option {i+1}</label>
-                 <input 
-                   type="text" className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
-                   value={opt} onChange={e => {
-                     const newOpts = [...qOptions];
-                     newOpts[i] = e.target.value;
-                     setQOptions(newOpts);
-                   }} required 
-                   placeholder={`Possibility ${i+1}`}
-                 />
-               </div>
-             ))}
-           </div>
-           
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             <div>
-               <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Correct Answer</label>
-               <select 
-                 className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-bold text-indigo-600"
-                 value={qCorrect} onChange={e => setQCorrect(e.target.value)} required
-               >
-                 <option value="">Select correct option...</option>
-                 {qOptions.filter(o => o.trim() !== '').map((opt, i) => (
-                   <option key={i} value={opt}>{opt}</option>
-                 ))}
-               </select>
-             </div>
-             <div>
-               <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Topic</label>
-               <input 
-                 type="text" className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
-                 value={qTopic} onChange={e => setQTopic(e.target.value)}
-                 placeholder="e.g. Quantum Physics" 
-               />
-             </div>
-           </div>
+            {/* Options — Separate English & Bengali Fields */}
+            <div className="space-y-4">
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">
+                Multiple Choice Options (Separate English & Bengali)
+              </label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[0, 1, 2, 3].map(i => {
+                  const letter = String.fromCharCode(65 + i);
+                  return (
+                    <div key={i} className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black text-indigo-600 uppercase tracking-widest flex items-center gap-1.5">
+                          <span className="w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-[10px]">{letter}</span>
+                          Option {letter} ({i + 1})
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        <div>
+                          <label className="block text-[10px] font-bold text-indigo-600 uppercase mb-1">
+                            🇬🇧 English Option
+                          </label>
+                          <input
+                            type="text"
+                            className="w-full rounded-xl border-2 border-slate-200 p-2.5 text-xs font-medium outline-none focus:border-indigo-500 bg-white"
+                            value={qOptionsEn[i] || ''}
+                            onChange={e => {
+                              const newEn = [...qOptionsEn];
+                              newEn[i] = e.target.value;
+                              setQOptionsEn(newEn);
+                            }}
+                            placeholder={`English Option ${letter}`}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-rose-600 uppercase mb-1">
+                            🇧🇩 Bengali Option
+                          </label>
+                          <input
+                            type="text"
+                            className="w-full rounded-xl border-2 border-slate-200 p-2.5 text-xs font-medium outline-none focus:border-rose-500 bg-white"
+                            value={qOptionsBn[i] || ''}
+                            onChange={e => {
+                              const newBn = [...qOptionsBn];
+                              newBn[i] = e.target.value;
+                              setQOptionsBn(newBn);
+                            }}
+                            placeholder={`বাংলা অপশন ${letter}`}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Correct Answer</label>
+                <select 
+                  className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-bold text-indigo-600"
+                  value={qCorrect} onChange={e => setQCorrect(e.target.value)} required
+                >
+                  <option value="">Select correct option...</option>
+                  {[0, 1, 2, 3].map(i => {
+                    const en = (qOptionsEn[i] || '').trim();
+                    const bn = (qOptionsBn[i] || '').trim();
+                    let val = en && bn ? `${en} / ${bn}` : (en || bn || qOptions[i] || '');
+                    if (!val.trim()) return null;
+                    const letter = String.fromCharCode(65 + i);
+                    return (
+                      <option key={i} value={val}>
+                        Option {letter}: {val}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Topic</label>
+                <input 
+                  type="text" className="w-full rounded-xl border-slate-200 border-2 p-3 outline-hidden font-medium"
+                  value={qTopic} onChange={e => setQTopic(e.target.value)}
+                  placeholder="e.g. Quantum Physics" 
+                />
+              </div>
 
-
-           <div>
-             <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Solution / More Details</label>
-             <textarea
-               className="w-full rounded-2xl border-slate-200 border-2 p-4 outline-hidden font-medium"
-               rows={3} value={qSolution} onChange={e => setQSolution(e.target.value)}
-               placeholder="Explain the logic or provide the step-by-step solution..."
-             />
+            <div>
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Solution / More Details</label>
+              <textarea
+                className="w-full rounded-2xl border-slate-200 border-2 p-4 outline-hidden font-medium"
+                rows={3} value={qSolution} onChange={e => setQSolution(e.target.value)}
+                placeholder="Explain the logic or provide the step-by-step solution..."
+              />
+            </div>
            </div>
 
            <div className="flex justify-end gap-4 pt-4">
