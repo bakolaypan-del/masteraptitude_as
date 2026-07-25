@@ -3,6 +3,8 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { collection, query, where, getDocs, orderBy, doc, getDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { signOut, updatePassword } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { useAuth } from '../components/AuthContext';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { getCachedCollection, getCacheState } from '../lib/cache';
@@ -5028,41 +5030,15 @@ export default function Dashboard() {
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200">
           <div className="bg-slate-100 rounded-3xl shadow-2xl border border-slate-300 w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
             
-            {/* Document Action Bar Header */}
-            <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between shrink-0 shadow-md">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-black text-sm shadow-md">
-                  📄
-                </div>
-                <div>
-                  <h3 className="text-sm sm:text-base font-black tracking-tight text-white flex items-center gap-2">
-                    {scheduleDoc?.title || '150 Days Challenge Official Document Schedule'}
-                    <span className="text-[8px] font-black uppercase tracking-widest bg-emerald-500 text-white px-2 py-0.5 rounded-full">PDF Document</span>
-                  </h3>
-                  <p className="text-[10px] sm:text-xs text-slate-300 font-medium">
-                    {scheduleDoc?.description || 'Official Day-by-day structured topic schedule'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {scheduleDoc?.pdfUrl && (
-                  <a
-                    href={scheduleDoc.pdfUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-[10px] uppercase tracking-wider rounded-xl transition-all flex items-center gap-1 shadow-xs cursor-pointer"
-                  >
-                    <Download className="w-3.5 h-3.5" /> Download PDF File
-                  </a>
-                )}
-                <button
-                  onClick={() => setShowScheduleModal(false)}
-                  className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center font-bold text-sm transition-all cursor-pointer"
-                >
-                  ✕
-                </button>
-              </div>
+            {/* Modal Top Close Bar (Clean, no title banner) */}
+            <div className="px-4 py-2 bg-slate-900 text-white flex items-center justify-end shrink-0 border-b border-slate-800">
+              <button
+                onClick={() => setShowScheduleModal(false)}
+                className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center font-bold text-xs transition-all cursor-pointer"
+                title="Close"
+              >
+                ✕
+              </button>
             </div>
 
             {scheduleDoc?.pdfUrl ? (
@@ -5115,41 +5091,22 @@ export default function Dashboard() {
             </div>
 
             {/* PDF Paper Sheet Document Container */}
-            <div className="p-4 sm:p-6 overflow-y-auto flex-1 bg-slate-200/60">
-              <div className="bg-white rounded-2xl shadow-xl border border-slate-300 p-6 sm:p-8 max-w-4xl mx-auto min-h-full">
+            <div className="p-3 sm:p-5 overflow-y-auto flex-1 bg-slate-200/60">
+              <div className="bg-white rounded-2xl shadow-xl border border-slate-300 p-3 sm:p-6 max-w-4xl mx-auto min-h-full">
                 
-                {/* Official Letterhead Header */}
-                <div className="border-b-2 border-slate-900 pb-5 mb-5 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-black text-xl shadow-md">
-                      MA
-                    </div>
-                    <div>
-                      <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight uppercase">MASTER APTITUDE BY SUMAN SIR</h1>
-                      <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">150 Days Free Practice Challenge • Master Syllabus Schedule</p>
-                    </div>
-                  </div>
-
-                  <div className="text-right text-[10px] font-bold text-slate-500 space-y-0.5">
-                    <p className="text-slate-900 font-black uppercase tracking-wider">Document Ref: MA-150D-2026</p>
-                    <p>Published Days: <span className="font-black text-emerald-600">{Object.keys(challengeDaysMap).length} / 150</span></p>
-                    <p>Status: <span className="font-black text-indigo-600">Auto-Synchronized</span></p>
-                  </div>
-                </div>
-
-                {/* Structured PDF Document Table */}
-                <div className="overflow-x-auto border border-slate-300 rounded-xl shadow-xs">
-                  <table className="w-full text-left border-collapse min-w-[760px]">
+                {/* Unified Micro-Compact PDF Document Table (Fits 100% Mobile Width in 1 Row) */}
+                <div className="w-full overflow-hidden border border-slate-300 rounded-xl shadow-xs">
+                  <table className="w-full text-left border-collapse table-fixed">
                     <thead>
-                      <tr className="bg-slate-900 text-white text-[10px] font-black uppercase tracking-wider divide-x divide-slate-800">
-                        <th className="py-3 px-3 w-16 text-center">Day</th>
-                        <th className="py-3 px-3">Math Topic</th>
-                        <th className="py-3 px-3">Reasoning / GI Topic</th>
-                        <th className="py-3 px-3">English Topic</th>
-                        <th className="py-3 px-3">GK / GS / CA / Computer Topic</th>
+                      <tr className="bg-slate-900 text-white text-[8px] sm:text-[10px] font-black uppercase tracking-wider divide-x divide-slate-800">
+                        <th className="py-2 px-1 sm:px-2 w-[12%] text-center">Day</th>
+                        <th className="py-2 px-1 sm:px-2 w-[22%]">Math</th>
+                        <th className="py-2 px-1 sm:px-2 w-[22%]">Reasoning / GI</th>
+                        <th className="py-2 px-1 sm:px-2 w-[22%]">English</th>
+                        <th className="py-2 px-1 sm:px-2 w-[22%]">GK / GS / CA</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200 text-xs font-medium text-slate-800">
+                    <tbody className="divide-y divide-slate-200 text-[8px] sm:text-xs font-medium text-slate-800">
                       {(() => {
                         const daysList = Array.from({ length: 150 }, (_, i) => i + 1);
 
@@ -5178,7 +5135,7 @@ export default function Dashboard() {
                         if (filteredDays.length === 0) {
                           return (
                             <tr>
-                              <td colSpan={5} className="py-12 text-center text-slate-400 font-bold">
+                              <td colSpan={5} className="py-8 text-center text-slate-400 font-bold text-xs">
                                 No schedule rows match your search/filter.
                               </td>
                             </tr>
@@ -5194,7 +5151,6 @@ export default function Dashboard() {
                           let englishTopic = '—';
                           let gkTopic = '—';
 
-                          // Read admin scheduleTable entries if set by admin
                           const adminRow = Array.isArray(scheduleDoc?.scheduleTable)
                             ? scheduleDoc.scheduleTable.find((r: any) => Number(r.day) === dayNum)
                             : null;
@@ -5239,27 +5195,27 @@ export default function Dashboard() {
                               className="divide-x divide-slate-200 hover:bg-slate-50/80 transition-colors"
                             >
                               {/* Day Column */}
-                              <td className="py-2.5 px-3 text-center font-black text-slate-900 bg-slate-100/60">
-                                Day {dayNum < 10 ? `0${dayNum}` : dayNum}
+                              <td className="py-1.5 px-1 sm:px-2 text-center font-black text-slate-900 bg-slate-100/60 text-[8px] sm:text-xs">
+                                D{dayNum < 10 ? `0${dayNum}` : dayNum}
                               </td>
 
                               {/* Math Topic */}
-                              <td className="py-2.5 px-3 font-bold text-indigo-900">
+                              <td className="py-1.5 px-1 sm:px-2 font-bold text-indigo-900 leading-tight break-words text-[8px] sm:text-xs">
                                 {mathTopic}
                               </td>
 
                               {/* Reasoning Topic */}
-                              <td className="py-2.5 px-3 font-bold text-emerald-900">
+                              <td className="py-1.5 px-1 sm:px-2 font-bold text-emerald-900 leading-tight break-words text-[8px] sm:text-xs">
                                 {reasoningTopic}
                               </td>
 
                               {/* English Topic */}
-                              <td className="py-2.5 px-3 font-bold text-sky-900">
+                              <td className="py-1.5 px-1 sm:px-2 font-bold text-sky-900 leading-tight break-words text-[8px] sm:text-xs">
                                 {englishTopic}
                               </td>
 
                               {/* GK / GS / CA / Computer Topic */}
-                              <td className="py-2.5 px-3 font-bold text-amber-900">
+                              <td className="py-1.5 px-1 sm:px-2 font-bold text-amber-900 leading-tight break-words text-[8px] sm:text-xs">
                                 {gkTopic}
                               </td>
                             </tr>
@@ -5279,17 +5235,119 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Modal Footer */}
-            <div className="px-6 py-3 bg-white border-t border-slate-200 flex items-center justify-between text-xs font-bold text-slate-500 shrink-0">
-              <span className="text-[10px] uppercase font-black tracking-wider text-slate-400">
-                150 Days Practice Roadmap Table View
-              </span>
-              <button
-                onClick={() => setShowScheduleModal(false)}
-                className="px-4 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs transition-all cursor-pointer"
-              >
-                Close Document
-              </button>
+            {/* Modal Footer (ONLY 2 Options: Download Schedule & Close with icons) */}
+            <div className="px-4 py-3 bg-white border-t border-slate-200 flex items-center justify-end text-xs font-bold text-slate-500 shrink-0 gap-3">
+              <div className="flex items-center gap-2.5 w-full justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    try {
+                      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+                      doc.setFontSize(14);
+                      doc.setTextColor(15, 23, 42);
+                      doc.text("MASTER APTITUDE BY SUMAN SIR", 105, 12, { align: "center" });
+
+                      doc.setFontSize(9);
+                      doc.setTextColor(79, 70, 229);
+                      doc.text("OFFICIAL 150 DAYS MASTER STUDY SCHEDULE & SYLLABUS", 105, 17, { align: "center" });
+
+                      doc.setFontSize(7.5);
+                      doc.setTextColor(100, 116, 139);
+                      doc.text("Document Ref: MA-150D-2026  |  Day-by-Day Mock Test & Subject Roadmap", 105, 22, { align: "center" });
+
+                      const tableBody: string[][] = [];
+                      for (let dayNum = 1; dayNum <= 150; dayNum++) {
+                        let mathTopic = '—';
+                        let reasoningTopic = '—';
+                        let englishTopic = '—';
+                        let gkTopic = '—';
+
+                        const adminRow = Array.isArray(scheduleDoc?.scheduleTable)
+                          ? scheduleDoc.scheduleTable.find((r: any) => Number(r.day) === dayNum)
+                          : null;
+
+                        if (adminRow) {
+                          if (adminRow.math) mathTopic = adminRow.math;
+                          if (adminRow.reasoning) reasoningTopic = adminRow.reasoning;
+                          if (adminRow.english) englishTopic = adminRow.english;
+                          if (adminRow.gk) gkTopic = adminRow.gk;
+                          if (!adminRow.english && !adminRow.gk && adminRow.englishGk) {
+                            englishTopic = adminRow.englishGk;
+                            gkTopic = adminRow.englishGk;
+                          }
+                        } else {
+                          const tests = challengeDaysMap[dayNum] || [];
+                          if (tests.length > 0) {
+                            tests.forEach((t: any) => {
+                              const sub = (t.subjectName || '').toLowerCase();
+                              const cat = (t.category || '').toLowerCase();
+                              const top = t.topic || t.title || `Day ${dayNum} Topic`;
+
+                              if (sub.includes('math') || sub.includes('quant') || cat.includes('math')) {
+                                if (mathTopic === '—') mathTopic = top;
+                              } else if (sub.includes('reason') || sub.includes('gi') || cat.includes('reason')) {
+                                if (reasoningTopic === '—') reasoningTopic = top;
+                              } else if (sub.includes('english')) {
+                                if (englishTopic === '—') englishTopic = top;
+                              } else {
+                                if (gkTopic === '—') gkTopic = top;
+                              }
+                            });
+                          } else {
+                            mathTopic = `Day ${dayNum} Mathematics`;
+                            reasoningTopic = `Day ${dayNum} General Intelligence`;
+                            englishTopic = `Day ${dayNum} English Language`;
+                            gkTopic = `Day ${dayNum} General Knowledge & CA`;
+                          }
+                        }
+
+                        const dayTag = dayNum < 10 ? `Day 0${dayNum}` : `Day ${dayNum}`;
+                        tableBody.push([dayTag, mathTopic, reasoningTopic, englishTopic, gkTopic]);
+                      }
+
+                      autoTable(doc, {
+                        startY: 25,
+                        head: [['Day', 'Math Topic', 'Reasoning / GI Topic', 'English Topic', 'GK / GS / CA Topic']],
+                        body: tableBody,
+                        headStyles: {
+                          fillColor: [15, 23, 42],
+                          textColor: [255, 255, 255],
+                          fontSize: 8,
+                          fontStyle: 'bold',
+                          halign: 'center'
+                        },
+                        bodyStyles: {
+                          fontSize: 7,
+                          cellPadding: 2
+                        },
+                        columnStyles: {
+                          0: { cellWidth: 16, halign: 'center', fontStyle: 'bold' },
+                          1: { cellWidth: 43 },
+                          2: { cellWidth: 43 },
+                          3: { cellWidth: 43 },
+                          4: { cellWidth: 45 }
+                        },
+                        theme: 'grid'
+                      });
+
+                      doc.save("Master_Aptitude_150_Days_Schedule.pdf");
+                    } catch (err: any) {
+                      console.error("Error generating PDF:", err);
+                      alert("Failed to download PDF: " + err.message);
+                    }
+                  }}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                >
+                  <Download className="w-4 h-4" /> Download Schedule
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowScheduleModal(false)}
+                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <X className="w-4 h-4" /> Close
+                </button>
+              </div>
             </div>
           </>
         )}
