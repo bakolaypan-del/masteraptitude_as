@@ -26,8 +26,9 @@ import { Keyboard, Bookmark } from 'lucide-react';
 import { RenderMathText } from '../components/MathRenderer';
 import RichTextEditor, { RenderQuestionHTML } from '../components/RichTextEditor';
 import { exportMockTestToPDF, exportMockTestToWord } from '../lib/exportMockTest';
+import AdminQuestionPaperMaker from '../components/AdminQuestionPaperMaker';
 
-type AdminTab = 'students' | 'mock' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'blog' | 'reviews' | 'paid_mock' | 'dashboard_grid' | 'one_liner';
+type AdminTab = 'students' | 'mock' | 'question_maker' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'blog' | 'reviews' | 'paid_mock' | 'dashboard_grid' | 'one_liner';
 
 // ─── Image Cropper Modal ─────────────────────────────────────────────────────
 function ImageCropper({
@@ -278,6 +279,88 @@ function AdminHome() {
       alert('Failed to fetch test questions for export.');
     } finally {
       setExportingTestId(null);
+    }
+  };
+
+  // Duplicate / Copy Mock Test state & handlers
+  const [copyingTest, setCopyingTest] = useState<any>(null);
+  const [showCopyModal, setShowCopyModal] = useState(false);
+  const [copyForm, setCopyForm] = useState({
+    title: '',
+    category: '',
+    testType: 'topic' as 'topic' | 'sectional' | 'full',
+    subjectName: '',
+    topic: '',
+    isPaid: false,
+    price: 0,
+    copyQuestions: true
+  });
+  const [isDuplicating, setIsDuplicating] = useState(false);
+
+  const openCopyModal = (testItem: any) => {
+    setCopyingTest(testItem);
+    setCopyForm({
+      title: `${testItem.title} (Copy)`,
+      category: testItem.category || '',
+      testType: testItem.testType || 'topic',
+      subjectName: testItem.subjectName || '',
+      topic: testItem.topic || '',
+      isPaid: !!testItem.isPaid,
+      price: testItem.price || 0,
+      copyQuestions: true
+    });
+    setShowCopyModal(true);
+  };
+
+  const handleDuplicateTest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!copyingTest || !copyForm.title.trim()) return;
+
+    setIsDuplicating(true);
+    try {
+      const newTestData = {
+        title: copyForm.title.trim(),
+        category: copyForm.category.trim() || 'General',
+        testType: copyForm.testType,
+        subjectName: copyForm.subjectName.trim(),
+        topic: copyForm.topic.trim(),
+        duration: copyingTest.duration || 30,
+        marksPerCorrect: copyingTest.marksPerCorrect || 1,
+        negativeMarks: copyingTest.negativeMarks || 0.25,
+        isPaid: copyForm.isPaid,
+        price: copyForm.isPaid ? Number(copyForm.price) || 0 : 0,
+        isActive: true,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        copiedFromTestId: copyingTest.id
+      };
+
+      const newTestRef = await addDoc(collection(db, 'tests'), newTestData);
+
+      if (copyForm.copyQuestions) {
+        const qSnap = await getDocs(query(collection(db, 'questions'), where('testId', '==', copyingTest.id)));
+        const sourceQuestions = qSnap.docs.map(d => ({ ...d.data() }));
+
+        for (const qData of sourceQuestions) {
+          const { id, ...qCleanData } = qData as any;
+          await addDoc(collection(db, 'questions'), {
+            ...qCleanData,
+            testId: newTestRef.id,
+            createdAt: serverTimestamp()
+          });
+        }
+      }
+
+      invalidateCacheField('mock_tests');
+      setTests(prev => [{ id: newTestRef.id, ...newTestData }, ...prev]);
+      alert(`Successfully duplicated mock test "${copyForm.title}" to category "${copyForm.category || 'General'}"!`);
+      setShowCopyModal(false);
+      setCopyingTest(null);
+    } catch (err: any) {
+      console.error('Failed to duplicate mock test:', err);
+      alert(`Failed to duplicate mock test: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsDuplicating(false);
     }
   };
   const [notes, setNotes] = useState<any[]>([]);
@@ -2057,7 +2140,21 @@ function AdminHome() {
           <Bookmark className="w-4 h-4" />
           One Liner
         </button>
+        <button
+          onClick={() => setActiveTab('question_maker')}
+          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all
+            ${activeTab === 'question_maker' ? 'bg-purple-600 text-white shadow-md shadow-purple-100' : 'text-slate-500 hover:text-purple-600 hover:bg-purple-50'}`}
+        >
+          <FileText className="w-4 h-4" />
+          Question Paper Maker
+        </button>
       </div>
+
+      {activeTab === 'question_maker' && (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <AdminQuestionPaperMaker />
+        </div>
+      )}
 
       {activeTab === 'one_liner' && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -2471,6 +2568,13 @@ function AdminHome() {
                                   {test.isActive ? 'Active' : 'Draft'}
                                 </button>
                                 <div className="flex gap-2 items-center shrink-0 flex-wrap">
+                                  <button
+                                     onClick={() => openCopyModal(test)}
+                                     className="text-purple-600 hover:bg-purple-100 bg-purple-50/90 px-3 py-1.5 rounded-lg transition-all border border-purple-200 font-bold text-xs flex items-center gap-1 cursor-pointer"
+                                     title="Duplicate this test to another category or position (e.g. 150 Days Challenge Day 01)"
+                                   >
+                                     <Copy className="w-3 h-3 text-purple-600" /> Duplicate
+                                   </button>
                                   <button
                                     onClick={() => handleEditTest(test)}
                                     className="text-amber-600 hover:bg-amber-100 px-3 py-1.5 rounded-lg transition-all border border-amber-100 font-bold text-xs"
@@ -5247,6 +5351,146 @@ function AdminHome() {
               </div>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* ── Duplicate Mock Test to New Position / Category Modal ───────────────── */}
+      {showCopyModal && copyingTest && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl p-6 sm:p-8 border border-slate-100 relative">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                  <Copy className="w-5 h-5 text-purple-600" />
+                  <span>Duplicate Mock Test to New Position</span>
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  Show this test in another category, test type, or 150 Days Challenge day without re-creating questions.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCopyModal(false)}
+                className="p-1 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleDuplicateTest} className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                  New Test Title
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={copyForm.title}
+                  onChange={e => setCopyForm({ ...copyForm, title: e.target.value })}
+                  placeholder="e.g. Day 01 - Indus Valley Civilization"
+                  className="w-full rounded-xl border-2 border-slate-200 p-3 text-xs font-bold focus:border-purple-600 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                  Target Category / Position
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={copyForm.category}
+                  onChange={e => setCopyForm({ ...copyForm, category: e.target.value })}
+                  placeholder="e.g. 150 Days Challenge, Topic Wise Mock, WBP Constable 2026"
+                  className="w-full rounded-xl border-2 border-slate-200 p-3 text-xs font-bold focus:border-purple-600 outline-none"
+                />
+                <div className="flex gap-2 mt-2 flex-wrap">
+                  {['150 Days Challenge', 'Topic Wise Mock', 'Sectional Mock', 'Subject Wise Mock', 'Free Mock'].map(preset => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setCopyForm({ ...copyForm, category: preset })}
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-purple-100 hover:text-purple-700 text-slate-600 rounded-lg text-[10px] font-extrabold transition-all"
+                    >
+                      + {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                    Test Format Type
+                  </label>
+                  <select
+                    value={copyForm.testType}
+                    onChange={e => setCopyForm({ ...copyForm, testType: e.target.value as any })}
+                    className="w-full rounded-xl border-2 border-slate-200 p-3 text-xs font-bold focus:border-purple-600 outline-none bg-white"
+                  >
+                    <option value="topic">Topic Wise Mock</option>
+                    <option value="sectional">Sectional Mock</option>
+                    <option value="full">Full Length Mock</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                    Subject Name
+                  </label>
+                  <input
+                    type="text"
+                    value={copyForm.subjectName}
+                    onChange={e => setCopyForm({ ...copyForm, subjectName: e.target.value })}
+                    placeholder="e.g. History, Mathematics, GK"
+                    className="w-full rounded-xl border-2 border-slate-200 p-3 text-xs font-bold focus:border-purple-600 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                  Topic / Challenge Day
+                </label>
+                <input
+                  type="text"
+                  value={copyForm.topic}
+                  onChange={e => setCopyForm({ ...copyForm, topic: e.target.value })}
+                  placeholder="e.g. Day 01, Ancient History, Algebra"
+                  className="w-full rounded-xl border-2 border-slate-200 p-3 text-xs font-bold focus:border-purple-600 outline-none"
+                />
+              </div>
+
+              <div className="p-3 bg-purple-50/70 rounded-2xl border border-purple-100 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-extrabold text-purple-900 block">Copy All Questions Automatically</span>
+                  <span className="text-[10px] text-purple-700">Duplicates all questions from original test into this new position</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={copyForm.copyQuestions}
+                  onChange={e => setCopyForm({ ...copyForm, copyQuestions: e.target.checked })}
+                  className="w-5 h-5 accent-purple-600 cursor-pointer"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCopyModal(false)}
+                  className="px-4 py-2.5 rounded-xl text-slate-500 hover:bg-slate-100 text-xs font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isDuplicating || !copyForm.title.trim()}
+                  className="px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-black uppercase tracking-wider flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-lg shadow-purple-200"
+                >
+                  {isDuplicating ? 'Duplicating Mock Test...' : '✨ Duplicate Mock Test'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

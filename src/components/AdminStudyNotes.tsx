@@ -4,6 +4,7 @@ import { storage, auth } from '../lib/firebase';
 import { useAuth } from './AuthContext';
 import { uploadFileViaBackend } from '../lib/upload';
 import RichTextEditor from './RichTextEditor';
+import { exportGenericContentToPDF, exportGenericContentToWord } from '../lib/exportMockTest';
 import {
   Plus, Trash2, Edit2, GripVertical, Save, X, ArrowLeft,
   Settings, ChevronDown, Layers, Upload,
@@ -457,7 +458,21 @@ export default function AdminStudyNotes() {
               <span className="text-xs text-slate-500 shrink-0 hidden sm:inline-flex items-center gap-1">
                 <Layers className="w-3 h-3" />{(post.sections || []).length}
               </span>
-              <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                <button
+                  onClick={() => exportGenericContentToPDF(post.title, [{ title: post.title, subject: post.subject, content: post.description || (post.sections || []).map(s => s.content || '').join('\n') }])}
+                  className="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 transition-all flex items-center gap-1 cursor-pointer"
+                  title="Export clean A4 printable PDF"
+                >
+                  PDF
+                </button>
+                <button
+                  onClick={() => exportGenericContentToWord(post.title, [{ title: post.title, subject: post.subject, content: post.description || (post.sections || []).map(s => s.content || '').join('\n') }])}
+                  className="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-all flex items-center gap-1 cursor-pointer"
+                  title="Export clean Word (.doc)"
+                >
+                  Word
+                </button>
                 <button onClick={() => openEditor(post)} title="Edit"
                   className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all">
                   <Edit2 className="w-3.5 h-3.5" />

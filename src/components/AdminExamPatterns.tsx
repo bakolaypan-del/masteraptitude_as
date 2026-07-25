@@ -3,6 +3,7 @@ import { db, auth } from '../lib/firebase';
 import { collection, query, orderBy, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { uploadFileViaBackend } from '../lib/upload';
 import { invalidateCacheField } from '../lib/cache';
+import { exportGenericContentToPDF, exportGenericContentToWord } from '../lib/exportMockTest';
 import {
   Plus, Trash2, Edit2, Save, X, Search, Filter,
   FileText, Image as ImgIcon, FileUp, Sparkles, Check,
@@ -679,11 +680,25 @@ export default function AdminExamPatterns() {
                       </a>
                     )}
 
-                    {/* Actions: EDIT & DELETE */}
-                    <div className="flex items-center justify-end gap-2 pt-1">
+                    {/* Actions: EDIT & DELETE & EXPORT */}
+                    <div className="flex items-center justify-end gap-2 pt-1 flex-wrap">
+                      <button
+                        onClick={() => exportGenericContentToPDF(item.title, [item])}
+                        className="px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 font-extrabold text-xs rounded-xl border border-rose-200 transition-all flex items-center gap-1 cursor-pointer"
+                        title="Export clean A4 printable PDF"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-rose-600" /> PDF
+                      </button>
+                      <button
+                        onClick={() => exportGenericContentToWord(item.title, [item])}
+                        className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 font-extrabold text-xs rounded-xl border border-blue-200 transition-all flex items-center gap-1 cursor-pointer"
+                        title="Export clean Word (.doc)"
+                      >
+                        <Download className="w-3.5 h-3.5 text-blue-600" /> Word
+                      </button>
                       <button
                         onClick={() => handleOpenEdit(item)}
-                        className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 font-extrabold text-xs rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+                        className="px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 font-extrabold text-xs rounded-xl transition-all flex items-center gap-1 cursor-pointer"
                         title="Edit Exam Pattern"
                       >
                         <Edit2 className="w-3.5 h-3.5" /> Edit

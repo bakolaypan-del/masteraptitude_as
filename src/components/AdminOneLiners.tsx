@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { auth } from '../lib/firebase';
 import { uploadFileViaBackend } from '../lib/upload';
 import RichTextEditor, { RenderQuestionHTML } from './RichTextEditor';
+import { exportGenericContentToPDF, exportGenericContentToWord } from '../lib/exportMockTest';
 import {
   Plus, Trash2, Edit2, Save, X, Search, Filter,
   FileText, Image as ImgIcon, FileUp, Sparkles, Check,
@@ -657,7 +658,21 @@ export default function AdminOneLiners() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto flex-wrap">
+                    <button
+                      onClick={() => exportGenericContentToPDF(item.title, [item])}
+                      className="px-3 py-1.5 rounded-xl font-bold text-xs bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 transition-all flex items-center gap-1 cursor-pointer"
+                      title="Export clean A4 printable PDF"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-rose-600" /> PDF
+                    </button>
+                    <button
+                      onClick={() => exportGenericContentToWord(item.title, [item])}
+                      className="px-3 py-1.5 rounded-xl font-bold text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-all flex items-center gap-1 cursor-pointer"
+                      title="Export clean Word (.doc)"
+                    >
+                      <Download className="w-3.5 h-3.5 text-blue-600" /> Word
+                    </button>
                     <button
                       onClick={() => handleCopyShareLink(item)}
                       className={`px-3 py-2 rounded-xl font-black text-xs transition-all flex items-center gap-1.5 cursor-pointer border ${

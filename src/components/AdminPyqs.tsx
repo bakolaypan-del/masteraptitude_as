@@ -3,6 +3,7 @@ import { db, auth } from '../lib/firebase';
 import { collection, query, orderBy, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { uploadFileViaBackend } from '../lib/upload';
 import { invalidateCacheField } from '../lib/cache';
+import { exportGenericContentToPDF, exportGenericContentToWord } from '../lib/exportMockTest';
 import {
   Plus, Trash2, Edit2, Save, X, Search, Filter,
   FileText, Image as ImgIcon, FileUp, Sparkles, Check,
@@ -685,7 +686,21 @@ export default function AdminPyqs() {
                         {copiedId === `pyq-${item.id}` ? 'Copied!' : 'Link'}
                       </button>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          onClick={() => exportGenericContentToPDF(item.title, [item])}
+                          className="px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 font-extrabold text-xs rounded-xl border border-rose-200 transition-all flex items-center gap-1 cursor-pointer"
+                          title="Export clean A4 printable PDF"
+                        >
+                          <FileText className="w-3.5 h-3.5 text-rose-600" /> PDF
+                        </button>
+                        <button
+                          onClick={() => exportGenericContentToWord(item.title, [item])}
+                          className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 font-extrabold text-xs rounded-xl border border-blue-200 transition-all flex items-center gap-1 cursor-pointer"
+                          title="Export clean Word (.doc)"
+                        >
+                          <Download className="w-3.5 h-3.5 text-blue-600" /> Word
+                        </button>
                         <button
                           onClick={() => handleOpenEdit(item)}
                           className="px-3 py-1.5 bg-amber-50 text-amber-700 hover:bg-amber-100 font-extrabold text-xs rounded-xl transition-all flex items-center gap-1 cursor-pointer"
