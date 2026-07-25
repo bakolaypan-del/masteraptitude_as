@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Routes, Route, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
-import { collection, query, getDocs, orderBy, doc, deleteDoc, where, addDoc, serverTimestamp, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, getDocs, orderBy, doc, getDoc, deleteDoc, where, addDoc, serverTimestamp, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
@@ -25,6 +25,7 @@ import { uploadFileViaBackend } from '../lib/upload';
 import { Keyboard, Bookmark } from 'lucide-react';
 import { RenderMathText } from '../components/MathRenderer';
 import RichTextEditor, { RenderQuestionHTML } from '../components/RichTextEditor';
+import { exportMockTestToPDF, exportMockTestToWord } from '../lib/exportMockTest';
 
 type AdminTab = 'students' | 'mock' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'blog' | 'reviews' | 'paid_mock' | 'dashboard_grid' | 'one_liner';
 
@@ -255,6 +256,30 @@ function AdminHome() {
   const [editingStudent, setEditingStudent] = useState<any>(null);
   const [savingStudent, setSavingStudent] = useState(false);
   const [tests, setTests] = useState<any[]>([]);
+  const [exportingTestId, setExportingTestId] = useState<string | null>(null);
+
+  const handleExportTest = async (testItem: any, format: 'pdf' | 'word') => {
+    setExportingTestId(testItem.id);
+    try {
+      const qSnap = await getDocs(query(collection(db, 'questions'), where('testId', '==', testItem.id)));
+      let qs = qSnap.docs.map(d => ({ id: d.id, ...d.data() as any }));
+      qs.sort((a, b) => (a.qNo || 0) - (b.qNo || 0));
+      if (qs.length === 0) {
+        alert('This mock test has no questions added yet.');
+        return;
+      }
+      if (format === 'pdf') {
+        exportMockTestToPDF(testItem.title || 'Mock Test', qs, testItem);
+      } else {
+        exportMockTestToWord(testItem.title || 'Mock Test', qs, testItem);
+      }
+    } catch (err: any) {
+      console.error('Export error:', err);
+      alert('Failed to fetch test questions for export.');
+    } finally {
+      setExportingTestId(null);
+    }
+  };
   const [notes, setNotes] = useState<any[]>([]);
   const [videos, setVideos] = useState<any[]>([]);
   const [pyqs, setPyqs] = useState<any[]>([]);
@@ -2452,6 +2477,29 @@ function AdminHome() {
                                     title="Edit Test Settings"
                                   >
                                     Settings
+                                  </button>
+                                  <button
+                                    onClick={() => openAnalysisModal(test)}
+                                    className="text-emerald-600 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition-all border border-emerald-100 font-bold text-xs flex items-center gap-1"
+                                    title="View Analytics"
+                                  >
+                                    <TrendingUp className="w-3 h-3" /> Analysis
+                                  </button>
+                                  <button
+                                    disabled={exportingTestId === test.id}
+                                    onClick={() => handleExportTest(test, 'pdf')}
+                                    className="text-rose-600 hover:bg-rose-100 bg-rose-50/70 px-3 py-1.5 rounded-lg transition-all border border-rose-200 font-bold text-xs flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                    title="Export clean A4 printable PDF question paper"
+                                  >
+                                    <FileText className="w-3 h-3 text-rose-600" /> PDF
+                                  </button>
+                                  <button
+                                    disabled={exportingTestId === test.id}
+                                    onClick={() => handleExportTest(test, 'word')}
+                                    className="text-blue-600 hover:bg-blue-100 bg-blue-50/70 px-3 py-1.5 rounded-lg transition-all border border-blue-200 font-bold text-xs flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                    title="Export clean Word (.doc) document"
+                                  >
+                                    <Download className="w-3 h-3 text-blue-600" /> Word
                                   </button>
                                   <Link
                                     to={`/admin/test/${test.id}`}
@@ -5282,6 +5330,7 @@ async function compressImage(file: File, maxDimension = 1200, quality = 0.82): P
 function QuestionManager() {
   const { testId } = useParams();
   const [questions, setQuestions] = useState<any[]>([]);
+  const [testDoc, setTestDoc] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const { user, profile } = useAuth();
   
@@ -5307,12 +5356,16 @@ function QuestionManager() {
 
   // Parser states
   const [parsingHtml, setParsingHtml] = useState(false);
+  const [parsingUrl, setParsingUrl] = useState(false);
+  const [urlInput, setUrlInput] = useState('');
+  const [showUrlModal, setShowUrlModal] = useState(false);
   const [parsedQuestions, setParsedQuestions] = useState<any[]>([]);
   const [showParseModal, setShowParseModal] = useState(false);
   const [isSavingParsed, setIsSavingParsed] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
 
-  const handleHtmlUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // File Upload Handler (PDF, Word .docx, HTML, TXT)
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -5320,48 +5373,112 @@ function QuestionManager() {
     setParseError(null);
     setParsedQuestions([]);
 
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const text = event.target?.result as string;
-      try {
-        const token = await user.getIdToken();
-        const res = await fetch('/api/admin/parse-questions-html', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ htmlContent: text })
-        });
+    try {
+      const token = await user.getIdToken();
+      const reader = new FileReader();
+      
+      reader.onload = async () => {
+        try {
+          const result = reader.result as string;
+          const base64Data = result.includes(',') ? result.split(',')[1] : result;
 
-        if (!res.ok) {
-          throw new Error(await res.text() || 'Failed to parse file');
-        }
+          const res = await fetch('/api/admin/parse-questions-file', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              fileBase64: base64Data,
+              mimeType: file.type,
+              fileName: file.name
+            })
+          });
 
-        const data = await res.json();
-        if (data.success && Array.isArray(data.questions)) {
-          setParsedQuestions(data.questions);
-          setShowParseModal(true);
-        } else {
-          throw new Error('Invalid parser response from server');
+          if (!res.ok) {
+            const errJson = await res.json().catch(() => ({}));
+            throw new Error(errJson.message || errJson.error || 'Failed to parse file');
+          }
+
+          const data = await res.json();
+          if (data.success && Array.isArray(data.questions)) {
+            if (data.questions.length === 0) {
+              alert('No multiple choice questions could be parsed from this file. Please check file formatting.');
+            } else {
+              setParsedQuestions(data.questions);
+              setShowParseModal(true);
+            }
+          } else {
+            throw new Error('Invalid response structure from question parser');
+          }
+        } catch (err: any) {
+          console.error('[FileUpload Error]', err);
+          setParseError(err.message || 'Error processing file');
+          alert(`File parsing error: ${err.message || 'Error processing file'}`);
+        } finally {
+          setParsingHtml(false);
+          if (e.target) e.target.value = '';
         }
-      } catch (err: any) {
-        console.error(err);
-        setParseError(err.message || 'Error communicating with parser server');
-        alert(err.message || 'Error communicating with parser server');
-      } finally {
+      };
+
+      reader.onerror = () => {
+        setParseError('Failed to read file');
         setParsingHtml(false);
-        e.target.value = '';
-      }
-    };
+        if (e.target) e.target.value = '';
+      };
 
-    reader.onerror = () => {
-      setParseError('Failed to read file');
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      console.error(err);
+      setParseError(err.message || 'Failed to process file upload');
       setParsingHtml(false);
-      e.target.value = '';
-    };
+      if (e.target) e.target.value = '';
+    }
+  };
 
-    reader.readAsText(file);
+  // Website URL Fetch & Extract Handler
+  const handleUrlFetch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!urlInput.trim() || !user) return;
+
+    setParsingUrl(true);
+    setParseError(null);
+
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/admin/parse-questions-url', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ url: urlInput.trim() })
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || errJson.error || 'Failed to fetch webpage content');
+      }
+
+      const data = await res.json();
+      if (data.success && Array.isArray(data.questions)) {
+        if (data.questions.length === 0) {
+          alert('No questions were found on the website. Please check the website link.');
+        } else {
+          setParsedQuestions(data.questions);
+          setShowUrlModal(false);
+          setUrlInput('');
+          setShowParseModal(true);
+        }
+      } else {
+        throw new Error('Invalid web scraper parser response from server');
+      }
+    } catch (err: any) {
+      console.error('[UrlFetch Error]', err);
+      alert(`URL Parsing error: ${err.message || 'Failed to fetch questions from URL'}`);
+    } finally {
+      setParsingUrl(false);
+    }
   };
 
   const handleSaveParsedQuestions = async () => {
@@ -5424,6 +5541,10 @@ function QuestionManager() {
   useEffect(() => {
     if (!testId) return;
     setLoading(true);
+    getDoc(doc(db, 'tests', testId)).then(snap => {
+      if (snap.exists()) setTestDoc({ id: snap.id, ...snap.data() });
+    }).catch(() => {});
+
     const q = query(collection(db, 'questions'), where('testId', '==', testId));
     const unsub = onSnapshot(q, (snap) => {
       let qs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
@@ -5584,18 +5705,107 @@ function QuestionManager() {
         >
           <Play className="w-3.5 h-3.5" /> Live Preview
         </button>
-        <label className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all border-2 cursor-pointer ${parsingHtml ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50/50 hover:border-indigo-300'}`}>
-          <Download className="w-3.5 h-3.5 rotate-180" />
-          {parsingHtml ? 'Parsing HTML...' : 'Import HTML'}
+
+        {/* AI File Import Button (PDF, Word .docx, HTML, TXT) */}
+        <label className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all border-2 cursor-pointer shadow-xs ${parsingHtml ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-50 to-violet-50 text-indigo-700 border-indigo-200 hover:border-indigo-400 hover:shadow-sm'}`}>
+          <Download className="w-3.5 h-3.5 rotate-180 text-indigo-600" />
+          {parsingHtml ? 'Extracting File...' : '📁 Upload Document (PDF/Word/HTML)'}
           <input
             type="file"
-            accept=".html,.htm,.txt"
-            onChange={handleHtmlUpload}
-            disabled={parsingHtml}
+            accept=".pdf,.docx,.doc,.html,.htm,.txt"
+            onChange={handleFileUpload}
+            disabled={parsingHtml || parsingUrl}
             className="hidden"
           />
         </label>
+
+        {/* AI Website Link Import Button */}
+        <button
+          type="button"
+          onClick={() => setShowUrlModal(true)}
+          disabled={parsingHtml || parsingUrl}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all border-2 bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-700 border-emerald-200 hover:border-emerald-400 hover:shadow-sm shadow-xs cursor-pointer disabled:opacity-50"
+        >
+          <Globe className="w-3.5 h-3.5 text-emerald-600" />
+          {parsingUrl ? 'Fetching Web Link...' : '🌐 Extract from Website Link'}
+        </button>
+
+        {/* Export PDF Question Paper */}
+        <button
+          type="button"
+          onClick={() => exportMockTestToPDF(testDoc?.title || 'Mock Test Question Paper', questions, testDoc)}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all border-2 bg-gradient-to-r from-rose-50 to-pink-50 text-rose-700 border-rose-200 hover:border-rose-400 hover:shadow-sm shadow-xs cursor-pointer"
+          title="Download clean A4 printable PDF question paper"
+        >
+          <FileText className="w-3.5 h-3.5 text-rose-600" />
+          Download PDF
+        </button>
+
+        {/* Export Word (.doc) Document */}
+        <button
+          type="button"
+          onClick={() => exportMockTestToWord(testDoc?.title || 'Mock Test Question Paper', questions, testDoc)}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all border-2 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border-blue-200 hover:border-blue-400 hover:shadow-sm shadow-xs cursor-pointer"
+          title="Download clean Word document (.doc)"
+        >
+          <Download className="w-3.5 h-3.5 text-blue-600" />
+          Download Word
+        </button>
       </div>
+
+      {/* Website URL Extractor Modal */}
+      {showUrlModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl p-6 border border-slate-100">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
+                <span>🌐 Extract Questions from Web URL</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowUrlModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+              Enter any webpage URL (e.g. an online quiz, blog post, or exam portal page). Gemini AI will fetch and automatically convert all questions into mock test format.
+            </p>
+            <form onSubmit={handleUrlFetch} className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                  Website URL
+                </label>
+                <input
+                  type="url"
+                  required
+                  placeholder="https://example.com/gk-quiz-questions"
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  className="w-full rounded-xl border-2 border-slate-200 p-3 text-sm font-medium focus:border-emerald-500 outline-none"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowUrlModal(false)}
+                  className="px-4 py-2 rounded-xl text-slate-500 hover:bg-slate-100 text-xs font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={parsingUrl || !urlInput.trim()}
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-wider flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-lg shadow-emerald-100"
+                >
+                  {parsingUrl ? 'Fetching Content...' : 'Fetch & Extract Questions'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <div className={`flex gap-6 items-start ${showPreview ? 'flex-col lg:flex-row' : ''}`}>
         {/* ─── Form Column ─────────────────────────────────────── */}

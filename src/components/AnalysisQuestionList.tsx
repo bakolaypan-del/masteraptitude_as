@@ -84,7 +84,7 @@ function QuestionCard({
     : null;
 
   return (
-    <div className={`bg-white rounded-2xl border ${statusColor.border} shadow-sm overflow-hidden`}>
+    <div className={`bg-white rounded-2xl border ${statusColor.border} shadow-sm overflow-hidden select-none`}>
 
       {/* ── Compact header ─────────────────────────────────────────── */}
       <div className={`flex items-center justify-between px-3 py-2 ${statusColor.headerBg}`}>

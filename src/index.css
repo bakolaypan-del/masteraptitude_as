@@ -63,6 +63,13 @@ img {
   user-drag: none;
 }
 
+/* Disable printing completely for test security */
+@media print {
+  body {
+    display: none !important;
+  }
+}
+
 @keyframes blink-red {
   0%, 100% { background-color: #dc2626; opacity: 1; }
   50% { background-color: #991b1b; opacity: 0.8; }

@@ -509,7 +509,7 @@ export default function TestRunner() {
           </div>
 
           {/* Question card */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 md:p-8 flex-1 flex flex-col" style={{ borderLeft: '4px solid #4f46e5' }}>
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 md:p-8 flex-1 flex flex-col select-none" style={{ borderLeft: '4px solid #4f46e5' }}>
             <div className="mb-4 md:mb-5">
               <h2 className="text-base md:text-xl font-semibold leading-relaxed text-slate-800">
                 <RenderQuestionHTML html={currentQuestion.questionText} />

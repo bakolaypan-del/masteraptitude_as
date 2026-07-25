@@ -49,6 +49,11 @@ function SecurityWrapper({ children }: { children: React.ReactNode }) {
         e.preventDefault();
         return false;
       }
+      // Disable Ctrl+P / Cmd+P (Print / Save PDF)
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+        return false;
+      }
     };
 
     // 3. Prevent Print Screen (Limited effectiveness but adds friction)

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { collection, query, where, getDocs, orderBy, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, doc, getDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { signOut, updatePassword } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
@@ -16,8 +16,6 @@ import ReviewSlider from '../components/ReviewSlider';
 import ComingSoonBox from '../components/ComingSoonBox';
 import { RenderQuestionHTML } from '../components/RichTextEditor';
 import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ChevronLeft, ArrowLeft, ExternalLink, Menu, X, Youtube, MessageCircle, Send, LayoutDashboard, History, ChevronDown, ArrowRight, User, Info, Phone, Download, Printer, AlertCircle, BarChart3, Keyboard, Globe, Layers, CheckSquare, Volume2, VolumeX, Maximize, NotebookPen, Award, Calendar, ClipboardList, Crown, Brain, Book, Newspaper, Megaphone, Bookmark, Eye, Sparkles, FileUp, Search, Filter, Image as ImgIcon, Check, Share2, Pencil, Mail, Lock, ShieldCheck } from 'lucide-react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 type DashboardTab = 'home' | 'profile' | 'mock_topic' | 'mock_sectional' | 'mock_full' | 'notes' | 'video' | 'pyq' | 'pattern' | 'affairs' | 'practice' | 'about' | 'contact' | 'learn_landing' | 'mock_landing' | 'live_test' | 'mock_challenge' | 'one_liner';
 
@@ -574,7 +572,6 @@ export default function Dashboard() {
       });
     } catch { return 'Unknown date'; }
   };
-  const [downloadingPDF, setDownloadingPDF] = useState<string | null>(null);
   const [openAttemptDropdown, setOpenAttemptDropdown] = useState<string | null>(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isCarouselAnimating, setIsCarouselAnimating] = useState(false);
@@ -1123,7 +1120,7 @@ export default function Dashboard() {
             const scoreData = userScoresMap[uid] || { score: 0, testsCount: 0 };
             return {
               userId: uid,
-              name: prof.name || scoreData.name || 'Student',
+              name: prof.name || (scoreData as any).name || 'Student',
               email: prof.email || '',
               role: prof.role || 'user',
               score: scoreData.score,
@@ -1205,194 +1202,6 @@ export default function Dashboard() {
     await signOut(auth);
   };
 
-  const handleDownloadPDF = async (testId: string, testTitle: string, category: string, testType: string) => {
-    if (!user) return;
-    setDownloadingPDF(testId);
-    try {
-      const token = await user.getIdToken();
-      const res = await fetch(`/api/test-questions/${testId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error('Failed to fetch questions');
-      const { questions } = await res.json();
-
-      const doc = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4'
-      });
-
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 10;
-      const contentWidth = pageWidth - (2 * margin);
-
-      // Helper for Page Border
-      const addPageBorder = (pdfDoc: jsPDF) => {
-        pdfDoc.setDrawColor(0, 77, 0); // Dark Green
-        pdfDoc.setLineWidth(1);
-        pdfDoc.rect(margin - 2, margin - 2, pageWidth - 2 * (margin - 2), pageHeight - 2 * (margin - 2));
-      };
-
-      // Helper for Multiple Watermarks
-      const addWatermarks = (pdfDoc: jsPDF) => {
-        pdfDoc.saveGraphicsState();
-        pdfDoc.setGState(new (pdfDoc as any).GState({ opacity: 0.05 }));
-        pdfDoc.setFontSize(30);
-        pdfDoc.setTextColor(150, 150, 150);
-        pdfDoc.setFont('helvetica', 'bold');
-        
-        // Grid of watermarks
-        for (let x = 30; x < pageWidth; x += 80) {
-          for (let y = 50; y < pageHeight; y += 80) {
-            pdfDoc.text('Master Aptitude by Suman Sir', x, y, {
-              align: 'center',
-              angle: 45
-            });
-          }
-        }
-        pdfDoc.restoreGraphicsState();
-      };
-
-      // Header Design - Stylish Box
-      const drawHeader = (pdfDoc: jsPDF) => {
-        const headerY = margin + 5;
-        const headerHeight = 35;
-        
-        pdfDoc.setFillColor(0, 77, 0);
-        pdfDoc.roundedRect(margin, headerY, contentWidth, headerHeight, 3, 3, 'F');
-        
-        pdfDoc.setTextColor(255, 255, 255);
-        pdfDoc.setFontSize(18);
-        pdfDoc.setFont('helvetica', 'bold');
-        pdfDoc.text('Master Aptitude by Suman Sir', pageWidth / 2, headerY + 12, { align: 'center' });
-        
-        pdfDoc.setFontSize(12);
-        pdfDoc.text(`${testTitle}`, pageWidth / 2, headerY + 20, { align: 'center' });
-        
-        pdfDoc.setFontSize(9);
-        pdfDoc.setFont('helvetica', 'normal');
-        pdfDoc.text(`Category: ${category} | Type: ${testType} | Date: ${new Date().toLocaleDateString()}`, pageWidth / 2, headerY + 28, { align: 'center' });
-      };
-
-      // Footer Design - Stylish Box
-      const drawFooter = (pdfDoc: jsPDF, pageNum: number) => {
-        const footerHeight = 15;
-        const footerY = pageHeight - margin - footerHeight;
-        
-        // Footer Box
-        pdfDoc.setFillColor(245, 245, 245);
-        pdfDoc.setDrawColor(200, 200, 200);
-        pdfDoc.roundedRect(margin, footerY, contentWidth, footerHeight, 2, 2, 'FD');
-        
-        pdfDoc.setFontSize(8);
-        pdfDoc.setTextColor(80, 80, 80);
-        pdfDoc.setFont('helvetica', 'bold');
-        
-        // Contact Number
-        pdfDoc.text('Contact: 8900011708 (Shibnath)', margin + 5, footerY + 9);
-        
-        // Social Link Placeholder text (since we can't easily embed clickable icons complexly without plugins, we use text)
-        pdfDoc.setTextColor(0, 100, 255);
-        const tgX = pageWidth / 2 - 15;
-        const waX = pageWidth / 2 + 15;
-        pdfDoc.text('Telegram: @MasterAptitudeGroup', tgX, footerY + 9, { align: 'center' });
-        pdfDoc.text('WhatsApp: +91 8900011708', waX, footerY + 9, { align: 'center' });
-        
-        // Page Number
-        pdfDoc.setTextColor(150, 150, 150);
-        pdfDoc.text(`Page ${pageNum}`, pageWidth - margin - 15, footerY + 9);
-      };
-
-      addPageBorder(doc);
-      addWatermarks(doc);
-      drawHeader(doc);
-      drawFooter(doc, 1);
-
-      let currentY = margin + 50;
-      let currentPageNum = 1;
-
-      questions.forEach((q: any, index: number) => {
-        // Optimized spacing - check if enough space for Q + 1 line of options
-        if (currentY > pageHeight - 55) {
-          doc.addPage();
-          addPageBorder(doc);
-          addWatermarks(doc);
-          currentPageNum++;
-          drawFooter(doc, currentPageNum);
-          currentY = margin + 15;
-        }
-
-        // Question text
-        doc.setTextColor(0, 0, 0);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        const qText = `${index + 1}. ${q.questionText}`;
-        const splitQ = doc.splitTextToSize(qText, contentWidth - 10);
-        doc.text(splitQ, margin + 5, currentY);
-        currentY += (splitQ.length * 6);
-
-        // Options - Horizontal arrangement
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        const optWidth = (contentWidth - 10) / 2; // 2 columns for better spatial management if long, or 4 if short
-        
-        // Simple heuristic: if all options are short, put on one line
-        const totalOptLength = q.options.reduce((acc: number, o: string) => acc + o.length, 0);
-        
-        if (totalOptLength < 50) {
-          // One line
-          let optX = margin + 8;
-          q.options.forEach((opt: string, optIndex: number) => {
-            const label = String.fromCharCode(65 + optIndex);
-            const text = `${label}. ${opt}`;
-            doc.text(text, optX, currentY);
-            optX += (contentWidth / 4);
-          });
-          currentY += 8;
-        } else {
-          // Two per line
-          let optX = margin + 8;
-          q.options.forEach((opt: string, optIndex: number) => {
-            const label = String.fromCharCode(65 + optIndex);
-            const text = `${label}. ${opt}`;
-            doc.text(text, optX, currentY);
-            if (optIndex % 2 === 1) {
-              currentY += 7;
-              optX = margin + 8;
-            } else {
-              optX += (contentWidth / 2);
-            }
-          });
-          if (q.options.length % 2 !== 0) currentY += 7;
-        }
-
-        // Correct Answer
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(0, 100, 0);
-        doc.text(`Correct Answer: ${q.correctAnswer}`, margin + 8, currentY);
-        currentY += 8;
-
-        if (q.explanation) {
-          doc.setFont('helvetica', 'italic');
-          doc.setTextColor(80, 80, 80);
-          const expText = `Explanation: ${q.explanation}`;
-          const splitExp = doc.splitTextToSize(expText, contentWidth - 15);
-          doc.text(splitExp, margin + 12, currentY);
-          currentY += (splitExp.length * 5) + 6;
-        } else {
-          currentY += 4;
-        }
-      });
-
-      doc.save(`${testTitle.replace(/\s+/g, '_')}_Master_Aptitude.pdf`);
-    } catch (err: any) {
-      console.error(err);
-      alert('Error generating PDF: ' + err.message);
-    } finally {
-      setDownloadingPDF(null);
-    }
-  };
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -3452,17 +3261,6 @@ export default function Dashboard() {
 
                                                 {/* RIGHT: Actions */}
                                                 <div className="flex items-center gap-2 shrink-0 self-end md:self-auto flex-wrap justify-end">
-                                                  {!test.isPaid && isTaken && (
-                                                    <button
-                                                      onClick={() => handleDownloadPDF(test.id, test.title, test.category || 'N/A', test.testType || 'N/A')}
-                                                      disabled={downloadingPDF === test.id}
-                                                      className="flex items-center justify-center p-2 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-500 rounded-lg transition-all disabled:opacity-50"
-                                                      title="Download PDF"
-                                                    >
-                                                      <Download className="w-3.5 h-3.5" />
-                                                    </button>
-                                                  )}
-
                                                   {/* Previous attempts */}
                                                   {!test.isPaid && isTaken && (
                                                     <div className="relative">
@@ -3853,16 +3651,6 @@ export default function Dashboard() {
                                   <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto flex-wrap justify-end">
                                     {attempted && (
                                       <>
-                                        {/* Download PDF button */}
-                                        <button
-                                          onClick={() => handleDownloadPDF(test.id, test.title, test.category || 'N/A', test.testType || 'N/A')}
-                                          disabled={downloadingPDF === test.id}
-                                          className="p-1.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-500 rounded-lg transition-all disabled:opacity-50"
-                                          title="Download PDF"
-                                        >
-                                          <Download className="w-3 h-3" />
-                                        </button>
-
                                         {/* Attempts list */}
                                         <div className="relative">
                                           <button
@@ -5258,7 +5046,7 @@ export default function Dashboard() {
               </div>
 
               <div className="flex items-center gap-2">
-                {scheduleDoc?.pdfUrl ? (
+                {scheduleDoc?.pdfUrl && (
                   <a
                     href={scheduleDoc.pdfUrl}
                     target="_blank"
@@ -5267,15 +5055,6 @@ export default function Dashboard() {
                   >
                     <Download className="w-3.5 h-3.5" /> Download PDF File
                   </a>
-                ) : (
-                  <button
-                    onClick={() => {
-                      window.print();
-                    }}
-                    className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-[10px] uppercase tracking-wider rounded-xl transition-all flex items-center gap-1 shadow-xs cursor-pointer"
-                  >
-                    <Download className="w-3.5 h-3.5" /> Print / Save PDF
-                  </button>
                 )}
                 <button
                   onClick={() => setShowScheduleModal(false)}
