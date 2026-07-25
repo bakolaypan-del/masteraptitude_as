@@ -2,6 +2,7 @@
  * Utility for exporting Mock Test Question Papers, One Liners, Syllabus, PYQs, Notes,
  * Practice Sets, Current Affairs, and Custom Question Papers to PDF (A4 Print) and Word (.doc/.docx).
  * Formatted for clean, concise, 2-column justified A4 printing with Bengali text (UTF-8) support.
+ * Guaranteed no right-column cutoff with strict box-sizing, page bounds, and responsive word wrapping.
  */
 
 export interface ExportTestMeta {
@@ -31,6 +32,7 @@ export interface GenericExportItem {
 export interface PaperQuestion {
   id?: string;
   qNo: number;
+  questionType?: string; // e.g. TYPE 01 - BASIC PROBLEMS
   questionEn: string;
   questionBn?: string;
   options: string[];
@@ -128,50 +130,67 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
   <meta charset="utf-8">
   <title>${testTitle} - Mock Test Paper</title>
   <style>
+    *, *::before, *::after {
+      box-sizing: border-box !important;
+    }
     @page {
       size: A4 portrait;
-      margin: 12mm 12mm 15mm 12mm;
+      margin: 10mm 10mm 12mm 10mm;
     }
     @media print {
-      body { margin: 0; padding: 0; background: #fff !important; color: #000 !important; width: 100% !important; }
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        background: #fff !important;
+        color: #000 !important;
+        overflow: visible !important;
+      }
       .no-print { display: none !important; }
       .question-block { page-break-inside: avoid; break-inside: avoid; -webkit-column-break-inside: avoid; }
     }
-    body {
+    html, body {
       font-family: 'SolaimanLipi', 'Noto Serif Bengali', 'Kalpurush', 'Hind Siliguri', 'Vrinda', Arial, sans-serif;
-      font-size: 9.5pt;
-      line-height: 1.4;
+      font-size: 9pt;
+      line-height: 1.35;
       color: #0f172a;
       background-color: #ffffff;
-      margin: 0 auto;
-      padding: 10px;
+      margin: 0;
+      padding: 0;
       width: 100%;
+      max-width: 100%;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
     }
     .paper-header {
       text-align: center;
       border-bottom: 2px solid #0f172a;
-      padding-bottom: 8px;
-      margin-bottom: 12px;
+      padding-bottom: 6px;
+      margin-bottom: 10px;
+      width: 100%;
+      max-width: 100%;
       column-span: all;
       -webkit-column-span: all;
     }
     .paper-title {
-      font-size: 15pt;
+      font-size: 14pt;
       font-weight: 900;
-      margin: 0 0 4px 0;
+      margin: 0 0 3px 0;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       color: #0f172a;
+      word-break: break-word;
     }
     .paper-subtitle {
-      font-size: 10pt;
+      font-size: 9.5pt;
       font-weight: 700;
       color: #475569;
       margin: 0 0 4px 0;
     }
     .paper-meta-table {
       width: 100%;
-      margin-top: 6px;
+      margin-top: 4px;
       border-top: 1px solid #cbd5e1;
       padding-top: 4px;
       font-size: 8.5pt;
@@ -181,117 +200,136 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
     .paper-meta-table td { padding: 1px 4px; }
     
     .questions-container {
+      width: 100%;
+      max-width: 100%;
       column-count: 2;
       -webkit-column-count: 2;
       -moz-column-count: 2;
-      column-gap: 16px;
-      -webkit-column-gap: 16px;
-      -moz-column-gap: 16px;
+      column-gap: 12px;
+      -webkit-column-gap: 12px;
+      -moz-column-gap: 12px;
       column-rule: 1px solid #e2e8f0;
       -webkit-column-rule: 1px solid #e2e8f0;
       -moz-column-rule: 1px solid #e2e8f0;
     }
 
     .question-block {
-      margin-bottom: 12px;
-      padding-bottom: 10px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
       border-bottom: 1px solid #e2e8f0;
       page-break-inside: avoid;
       break-inside: avoid;
       -webkit-column-break-inside: avoid;
+      width: 100%;
+      max-width: 100%;
+      word-break: break-word;
+      overflow-wrap: break-word;
       text-align: justify;
       text-justify: inter-word;
-      hyphens: auto;
     }
     .question-header {
       display: flex;
       align-items: flex-start;
       gap: 4px;
       margin-bottom: 4px;
+      width: 100%;
     }
     .q-num {
       font-weight: 900;
-      font-size: 9.5pt;
+      font-size: 9pt;
       color: #0f172a;
-      min-width: 24px;
+      min-width: 22px;
+      shrink: 0;
     }
     .q-text {
       font-weight: 700;
-      font-size: 9.5pt;
+      font-size: 9pt;
       color: #1e293b;
       white-space: pre-line;
       flex: 1;
+      min-width: 0;
+      word-break: break-word;
+      overflow-wrap: break-word;
       text-align: justify;
       text-justify: inter-word;
     }
     .equation-box {
-      margin: 4px 0 6px 24px;
-      padding: 4px 8px;
+      margin: 4px 0 6px 22px;
+      padding: 3px 6px;
       background: #f8fafc;
       border: 1px solid #e2e8f0;
       border-radius: 4px;
       font-family: monospace;
-      font-size: 8.5pt;
+      font-size: 8pt;
+      word-break: break-word;
     }
-    .q-img { margin: 6px 0 6px 24px; }
+    .q-img { margin: 4px 0 4px 22px; max-width: 100%; }
     .q-img img {
-      max-width: 100%;
-      max-height: 140px;
+      max-width: 100% !important;
+      max-height: 130px;
+      height: auto;
       object-fit: contain;
       border: 1px solid #cbd5e1;
       border-radius: 4px;
+      display: block;
     }
     .options-grid {
       display: flex;
       flex-direction: column;
       gap: 2px;
-      margin-left: 24px;
+      margin-left: 22px;
       margin-bottom: 4px;
+      width: calc(100% - 22px);
     }
     .option-item {
       display: flex;
       align-items: flex-start;
       gap: 4px;
       padding: 2px 4px;
-      font-size: 9pt;
+      font-size: 8.5pt;
       border-radius: 3px;
+      word-break: break-word;
+      overflow-wrap: break-word;
       text-align: justify;
-      text-justify: inter-word;
     }
     .correct-option { background-color: #f0fdf4; font-weight: bold; }
-    .option-letter { font-weight: 800; color: #475569; min-width: 18px; }
-    .option-text { color: #334155; text-align: justify; }
+    .option-letter { font-weight: 800; color: #475569; min-width: 16px; shrink: 0; }
+    .option-text { color: #334155; text-align: justify; word-break: break-word; flex: 1; min-width: 0; }
     .ans-box {
-      margin-left: 24px;
+      margin-left: 22px;
       margin-top: 4px;
-      padding: 2px 6px;
+      padding: 2px 5px;
       background: #f1f5f9;
       border-left: 3px solid #10b981;
-      font-size: 8.5pt;
+      font-size: 8pt;
       color: #065f46;
       text-align: justify;
+      word-break: break-word;
     }
     .solution-box {
-      margin-left: 24px;
+      margin-left: 22px;
       margin-top: 4px;
-      padding: 3px 6px;
+      padding: 3px 5px;
       background: #fefce8;
       border-left: 3px solid #f59e0b;
-      font-size: 8.5pt;
+      font-size: 8pt;
       color: #78350f;
       text-align: justify;
       white-space: pre-wrap;
+      word-break: break-word;
+      overflow-wrap: break-word;
     }
     .footer-note {
       column-span: all;
       -webkit-column-span: all;
       text-align: center;
-      margin-top: 18px;
-      padding-top: 8px;
+      margin-top: 14px;
+      padding-top: 6px;
       border-top: 2px solid #0f172a;
-      font-size: 8.5pt;
+      font-size: 8pt;
       font-weight: bold;
       color: #64748b;
+      width: 100%;
     }
   </style>
 </head>
@@ -397,139 +435,170 @@ export function generateGenericContentHTML(sectionTitle: string, items: GenericE
   <meta charset="utf-8">
   <title>${sectionTitle} - Master Aptitude</title>
   <style>
+    *, *::before, *::after {
+      box-sizing: border-box !important;
+    }
     @page {
       size: A4 portrait;
-      margin: 12mm 12mm 15mm 12mm;
+      margin: 10mm 10mm 12mm 10mm;
     }
     @media print {
-      body { margin: 0; padding: 0; background: #fff !important; color: #000 !important; width: 100% !important; }
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        background: #fff !important;
+        color: #000 !important;
+        overflow: visible !important;
+      }
       .no-print { display: none !important; }
       .content-block { page-break-inside: avoid; break-inside: avoid; -webkit-column-break-inside: avoid; }
     }
-    body {
+    html, body {
       font-family: 'SolaimanLipi', 'Noto Serif Bengali', 'Kalpurush', 'Hind Siliguri', 'Vrinda', Arial, sans-serif;
-      font-size: 9.5pt;
-      line-height: 1.4;
+      font-size: 9pt;
+      line-height: 1.35;
       color: #0f172a;
       background-color: #ffffff;
-      margin: 0 auto;
-      padding: 10px;
+      margin: 0;
+      padding: 0;
       width: 100%;
+      max-width: 100%;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
     }
     .section-header {
       text-align: center;
       border-bottom: 2px solid #0f172a;
-      padding-bottom: 8px;
-      margin-bottom: 12px;
+      padding-bottom: 6px;
+      margin-bottom: 10px;
+      width: 100%;
       column-span: all;
       -webkit-column-span: all;
     }
     .section-title {
-      font-size: 15pt;
+      font-size: 14pt;
       font-weight: 900;
-      margin: 0 0 4px 0;
+      margin: 0 0 3px 0;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       color: #0f172a;
+      word-break: break-word;
     }
     .section-subtitle {
-      font-size: 9.5pt;
+      font-size: 9pt;
       font-weight: 700;
       color: #475569;
     }
 
     .contents-container {
+      width: 100%;
+      max-width: 100%;
       column-count: 2;
       -webkit-column-count: 2;
       -moz-column-count: 2;
-      column-gap: 16px;
-      -webkit-column-gap: 16px;
-      -moz-column-gap: 16px;
+      column-gap: 12px;
+      -webkit-column-gap: 12px;
+      -moz-column-gap: 12px;
       column-rule: 1px solid #e2e8f0;
       -webkit-column-rule: 1px solid #e2e8f0;
       -moz-column-rule: 1px solid #e2e8f0;
     }
 
     .content-block {
-      margin-bottom: 12px;
-      padding-bottom: 10px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
       border-bottom: 1px solid #e2e8f0;
       page-break-inside: avoid;
       break-inside: avoid;
       -webkit-column-break-inside: avoid;
+      width: 100%;
+      max-width: 100%;
+      word-break: break-word;
+      overflow-wrap: break-word;
       text-align: justify;
       text-justify: inter-word;
-      hyphens: auto;
     }
     .content-header {
       display: flex;
       align-items: flex-start;
       gap: 4px;
       margin-bottom: 4px;
+      width: 100%;
     }
     .c-num {
       font-weight: 900;
-      font-size: 9.5pt;
+      font-size: 9pt;
       color: #4338ca;
-      min-width: 24px;
+      min-width: 22px;
+      shrink: 0;
     }
     .c-title {
       font-weight: 800;
-      font-size: 10pt;
+      font-size: 9.5pt;
       color: #0f172a;
       flex: 1;
+      min-width: 0;
+      word-break: break-word;
+      overflow-wrap: break-word;
       text-align: justify;
       text-justify: inter-word;
     }
     .c-badge {
       display: inline-block;
-      margin-left: 24px;
+      margin-left: 22px;
       margin-bottom: 4px;
-      padding: 1px 6px;
+      padding: 1px 5px;
       background: #f1f5f9;
       border: 1px solid #cbd5e1;
       border-radius: 3px;
-      font-size: 8pt;
+      font-size: 7.5pt;
       font-weight: bold;
       color: #475569;
     }
     .c-body {
-      margin-left: 24px;
-      margin-bottom: 6px;
-      font-size: 9pt;
+      margin-left: 22px;
+      margin-bottom: 4px;
+      font-size: 8.5pt;
       white-space: pre-line;
       color: #334155;
+      word-break: break-word;
+      overflow-wrap: break-word;
       text-align: justify;
       text-justify: inter-word;
     }
-    .c-img { margin: 6px 0 6px 24px; }
+    .c-img { margin: 4px 0 4px 22px; max-width: 100%; }
     .c-img img {
-      max-width: 100%;
-      max-height: 160px;
+      max-width: 100% !important;
+      max-height: 140px;
+      height: auto;
       object-fit: contain;
       border: 1px solid #cbd5e1;
       border-radius: 4px;
+      display: block;
     }
     .c-pdf {
-      margin-left: 24px;
-      padding: 4px 8px;
+      margin-left: 22px;
+      padding: 3px 6px;
       background: #eff6ff;
       border-left: 3px solid #3b82f6;
-      font-size: 8.5pt;
+      font-size: 8pt;
       font-weight: bold;
       color: #1e40af;
-      text-align: justify;
+      word-break: break-word;
     }
     .footer-note {
       column-span: all;
       -webkit-column-span: all;
       text-align: center;
-      margin-top: 18px;
-      padding-top: 8px;
+      margin-top: 14px;
+      padding-top: 6px;
       border-top: 2px solid #0f172a;
-      font-size: 8.5pt;
+      font-size: 8pt;
       font-weight: bold;
       color: #64748b;
+      width: 100%;
     }
   </style>
 </head>
@@ -599,6 +668,7 @@ export function generateCustomQuestionPaperHTML(settings: QuestionPaperSettings,
   const headerTitle = settings.headerTitle || 'MASTER APTITUDE BY SUMAN SIR';
   const subHeader = settings.subHeader || 'OFFICIAL EXAM PRACTICE QUESTION PAPER';
   const footerText = settings.footerText || 'MASTER APTITUDE • ALL RIGHTS RESERVED';
+  const paperCategory = settings.category || 'All Competitive Exams';
 
   // Option letters mapping
   const optionLetters = ['A', 'B', 'C', 'D', 'E', 'F'];
@@ -620,6 +690,10 @@ export function generateCustomQuestionPaperHTML(settings: QuestionPaperSettings,
     const examBadge = q.sourceExam?.trim() || '';
     const badgeColor = q.sourceExamColor || 'purple';
 
+    const qTypeHeader = q.questionType?.trim() || '';
+    const prevType = idx > 0 ? questions[idx - 1]?.questionType?.trim() : '';
+    const showTypeBanner = qTypeHeader !== '' && (idx === 0 || qTypeHeader.toLowerCase() !== prevType.toLowerCase());
+
     const optionsHTML = options.map((opt, i) => {
       const letter = optionLetters[i] || String(i + 1);
       return `
@@ -631,6 +705,12 @@ export function generateCustomQuestionPaperHTML(settings: QuestionPaperSettings,
     }).join('');
 
     return `
+      ${showTypeBanner ? `
+        <div class="question-type-banner">
+          <span class="type-badge">${qTypeHeader.toUpperCase()}</span>
+        </div>
+      ` : ''}
+
       <div class="paper-q-block">
         <div class="paper-q-header">
           <span class="paper-q-num">Q${qNo}.</span>
@@ -686,50 +766,72 @@ export function generateCustomQuestionPaperHTML(settings: QuestionPaperSettings,
   <meta charset="utf-8">
   <title>${headerTitle} - Question Paper</title>
   <style>
+    *, *::before, *::after {
+      box-sizing: border-box !important;
+    }
     @page {
       size: A4 portrait;
-      margin: 12mm 12mm 15mm 12mm;
+      margin: 10mm 10mm 12mm 10mm;
     }
     @media print {
-      body { margin: 0; padding: 0; background: #fff !important; color: #000 !important; width: 100% !important; }
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        background: #fff !important;
+        color: #000 !important;
+        overflow: visible !important;
+      }
       .no-print { display: none !important; }
-      .paper-q-block, .answer-key-wrapper { page-break-inside: avoid; break-inside: avoid; -webkit-column-break-inside: avoid; }
+      .paper-q-block, .answer-key-wrapper, .question-type-banner { page-break-inside: avoid; break-inside: avoid; -webkit-column-break-inside: avoid; }
     }
-    body {
+    html, body {
       font-family: 'SolaimanLipi', 'Noto Serif Bengali', 'Kalpurush', 'Hind Siliguri', 'Vrinda', Arial, sans-serif;
-      font-size: 9.5pt;
-      line-height: 1.4;
+      font-size: 9pt;
+      line-height: 1.35;
       color: #0f172a;
       background-color: #ffffff;
-      margin: 0 auto;
-      padding: 10px;
+      margin: 0;
+      padding: 0;
       width: 100%;
+      max-width: 100%;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
     }
     .custom-paper-header {
       text-align: center;
       border-bottom: 2px solid #0f172a;
-      padding-bottom: 8px;
-      margin-bottom: 12px;
+      padding-bottom: 6px;
+      margin-bottom: 10px;
+      width: 100%;
       column-span: all;
       -webkit-column-span: all;
     }
     .main-h-title {
-      font-size: 16pt;
+      font-size: 14pt;
       font-weight: 900;
-      margin: 0 0 3px 0;
+      margin: 0 auto 4px auto;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       color: #0f172a;
+      background: #fef08a;
+      display: inline-block;
+      padding: 3px 14px;
+      border-radius: 6px;
+      border: 1.5px solid #eab308;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+      word-break: break-word;
     }
     .sub-h-title {
-      font-size: 10.5pt;
+      font-size: 10pt;
       font-weight: 800;
       color: #334155;
       margin: 0 0 4px 0;
     }
     .paper-meta-bar {
       width: 100%;
-      margin-top: 6px;
+      margin-top: 4px;
       border-top: 1px solid #cbd5e1;
       padding-top: 4px;
       font-size: 8.5pt;
@@ -738,71 +840,112 @@ export function generateCustomQuestionPaperHTML(settings: QuestionPaperSettings,
     }
     .paper-meta-bar td { padding: 1px 4px; }
 
+    /* Centered Yellow Highlighted Type / Section Banner */
+    .question-type-banner {
+      width: 100%;
+      text-align: center;
+      margin: 10px auto 8px auto;
+      column-span: all;
+      -webkit-column-span: all;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .type-badge {
+      display: inline-block;
+      background: #fef08a;
+      color: #854d0e;
+      font-size: 9.5pt;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 4px 16px;
+      border: 1.5px solid #eab308;
+      border-radius: 6px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+      word-break: break-word;
+      margin: 0 auto;
+    }
+
     /* 2-Column Mode for Questions */
     .paper-questions-grid {
+      width: 100%;
+      max-width: 100%;
       column-count: 2;
       -webkit-column-count: 2;
       -moz-column-count: 2;
-      column-gap: 16px;
-      -webkit-column-gap: 16px;
-      -moz-column-gap: 16px;
+      column-gap: 12px;
+      -webkit-column-gap: 12px;
+      -moz-column-gap: 12px;
       column-rule: 1px solid #e2e8f0;
       -webkit-column-rule: 1px solid #e2e8f0;
       -moz-column-rule: 1px solid #e2e8f0;
     }
 
     .paper-q-block {
-      margin-bottom: 12px;
-      padding-bottom: 10px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
       border-bottom: 1px solid #e2e8f0;
       page-break-inside: avoid;
       break-inside: avoid;
       -webkit-column-break-inside: avoid;
+      width: 100%;
+      max-width: 100%;
+      word-break: break-word;
+      overflow-wrap: break-word;
       text-align: justify;
       text-justify: inter-word;
-      hyphens: auto;
     }
     .paper-q-header {
       display: flex;
       align-items: flex-start;
       gap: 4px;
       margin-bottom: 4px;
+      width: 100%;
     }
     .paper-q-num {
       font-weight: 900;
-      font-size: 9.5pt;
+      font-size: 9pt;
       color: #0f172a;
-      min-width: 24px;
+      min-width: 22px;
+      shrink: 0;
     }
     .paper-q-body {
       flex: 1;
+      min-width: 0;
+      word-break: break-word;
     }
     .q-lang-en {
       font-weight: 800;
-      font-size: 9.5pt;
-      color: #0f172a;
+      font-size: 9.2pt;
+      color: #000000;
       margin-bottom: 2px;
       text-align: justify;
+      word-break: break-word;
+      overflow-wrap: break-word;
     }
     .q-lang-bn {
-      font-weight: 700;
-      font-size: 9.5pt;
-      color: #334155;
+      font-weight: 800;
+      font-size: 9.2pt;
+      color: #dc2626;
+      margin-bottom: 2px;
       text-align: justify;
+      word-break: break-word;
+      overflow-wrap: break-word;
     }
     
     /* Exam Source Badges with Vibrant Colors */
     .exam-tag {
       display: inline-block;
-      margin-left: 24px;
+      margin-left: 22px;
       margin-top: 2px;
       margin-bottom: 4px;
-      padding: 1px 6px;
+      padding: 1px 5px;
       font-size: 7.5pt;
       font-weight: 800;
       border-radius: 4px;
       text-transform: uppercase;
       letter-spacing: 0.3px;
+      word-break: break-word;
     }
     .badge-purple { background: #f3e8ff; color: #6b21a8; border: 1px solid #d8b4fe; }
     .badge-blue { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
@@ -810,59 +953,67 @@ export function generateCustomQuestionPaperHTML(settings: QuestionPaperSettings,
     .badge-amber { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
     .badge-rose { background: #ffe4e6; color: #9f1239; border: 1px solid #fecdd3; }
 
-    .paper-q-img { margin: 6px 0 6px 24px; }
+    .paper-q-img { margin: 4px 0 4px 22px; max-width: 100%; }
     .paper-q-img img {
-      max-width: 100%;
-      max-height: 140px;
+      max-width: 100% !important;
+      max-height: 130px;
+      height: auto;
       object-fit: contain;
       border: 1px solid #cbd5e1;
       border-radius: 4px;
+      display: block;
     }
     .paper-options-list {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      margin-left: 24px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 2px 6px;
+      margin-left: 22px;
       margin-top: 4px;
+      width: calc(100% - 22px);
     }
     .paper-option-item {
       display: flex;
       align-items: flex-start;
-      gap: 4px;
-      font-size: 9pt;
+      gap: 3px;
+      font-size: 8.5pt;
       text-align: justify;
+      word-break: break-word;
+      overflow-wrap: break-word;
+      color: #047857;
+      font-weight: 700;
     }
-    .paper-option-letter { font-weight: 800; color: #475569; min-width: 18px; }
-    .paper-option-text { color: #334155; }
+    .paper-option-letter { font-weight: 900; color: #047857; min-width: 16px; shrink: 0; }
+    .paper-option-text { color: #047857; font-weight: 700; flex: 1; min-width: 0; word-break: break-word; }
 
     /* Answer Key Table Section */
     .answer-key-wrapper {
       column-span: all;
       -webkit-column-span: all;
-      margin-top: 24px;
-      padding-top: 14px;
+      margin-top: 18px;
+      padding-top: 10px;
       border-top: 2px solid #0f172a;
       page-break-inside: avoid;
+      width: 100%;
     }
     .ak-header-title {
       text-align: center;
-      font-size: 11pt;
+      font-size: 10.5pt;
       font-weight: 900;
       letter-spacing: 0.5px;
       color: #0f172a;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       text-transform: uppercase;
     }
     .answer-key-table {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
     .ak-cell {
       border: 1px solid #cbd5e1;
-      padding: 4px 6px;
+      padding: 3px 5px;
       text-align: center;
-      font-size: 9pt;
+      font-size: 8.5pt;
       background: #f8fafc;
     }
     .ak-cell-empty {
@@ -873,14 +1024,14 @@ export function generateCustomQuestionPaperHTML(settings: QuestionPaperSettings,
     .ak-ans { font-weight: 800; color: #059669; }
 
     .solutions-container {
-      margin-top: 10px;
-      padding: 8px;
+      margin-top: 8px;
+      padding: 6px;
       background: #fefce8;
       border: 1px solid #fef08a;
       border-radius: 6px;
     }
     .sol-title {
-      font-size: 9pt;
+      font-size: 8.5pt;
       font-weight: 900;
       color: #854d0e;
       margin-bottom: 4px;
@@ -892,18 +1043,21 @@ export function generateCustomQuestionPaperHTML(settings: QuestionPaperSettings,
       margin-bottom: 3px;
       text-align: justify;
       white-space: pre-wrap;
+      word-break: break-word;
+      overflow-wrap: break-word;
     }
 
     .custom-paper-footer {
       column-span: all;
       -webkit-column-span: all;
       text-align: center;
-      margin-top: 20px;
-      padding-top: 8px;
+      margin-top: 16px;
+      padding-top: 6px;
       border-top: 2px solid #0f172a;
-      font-size: 8.5pt;
+      font-size: 8pt;
       font-weight: bold;
       color: #64748b;
+      width: 100%;
     }
   </style>
 </head>
@@ -913,7 +1067,7 @@ export function generateCustomQuestionPaperHTML(settings: QuestionPaperSettings,
     <div class="sub-h-title">${subHeader}</div>
     <table class="paper-meta-bar">
       <tr>
-        <td style="text-align: left;">Category: ${settings.category || 'General'}</td>
+        <td style="text-align: left;">Category: ${paperCategory}</td>
         <td style="text-align: center;">Total Questions: ${totalQuestions}</td>
         <td style="text-align: right;">Full Marks: ${settings.totalMarks || totalQuestions}</td>
       </tr>

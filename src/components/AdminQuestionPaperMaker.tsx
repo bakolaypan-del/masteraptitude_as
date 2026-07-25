@@ -40,7 +40,7 @@ export default function AdminQuestionPaperMaker() {
     headerTitle: 'MASTER APTITUDE BY SUMAN SIR',
     subHeader: 'WBP CONSTABLE & SSC SPECIAL PRACTICE QUESTION PAPER',
     footerText: 'MASTER APTITUDE BY SUMAN SIR • OFFICIAL PRINTED QUESTION PAPER',
-    category: 'Police & State Exams',
+    category: 'All Competitive Exams',
     subject: 'General Knowledge & Mathematics',
     duration: 60,
     totalMarks: 50,
@@ -58,6 +58,7 @@ export default function AdminQuestionPaperMaker() {
   const [options, setOptions] = useState(['', '', '', '']);
   const [correctAnswer, setCorrectAnswer] = useState('');
   const [solution, setSolution] = useState('');
+  const [questionType, setQuestionType] = useState('');
   const [sourceExam, setSourceExam] = useState('');
   const [sourceExamColor, setSourceExamColor] = useState('purple');
   const [imageUrl, setImageUrl] = useState('');
@@ -102,6 +103,7 @@ export default function AdminQuestionPaperMaker() {
 
     const newQ: PaperQuestion = {
       qNo: editingQIdx !== null ? questions[editingQIdx].qNo : questions.length + 1,
+      questionType: questionType.trim(),
       questionEn: questionEn.trim(),
       questionBn: questionBn.trim(),
       options: options.map(o => o.trim()),
@@ -122,6 +124,7 @@ export default function AdminQuestionPaperMaker() {
     }
 
     // Reset Form
+    setQuestionType('');
     setQuestionEn('');
     setQuestionBn('');
     setOptions(['', '', '', '']);
@@ -134,6 +137,7 @@ export default function AdminQuestionPaperMaker() {
   const handleEditQuestion = (idx: number) => {
     const q = questions[idx];
     setEditingQIdx(idx);
+    setQuestionType(q.questionType || '');
     setQuestionEn(q.questionEn || '');
     setQuestionBn(q.questionBn || '');
     setOptions(q.options || ['', '', '', '']);
@@ -380,6 +384,32 @@ export default function AdminQuestionPaperMaker() {
               </h3>
 
               <form onSubmit={handleAddOrUpdateQuestion} className="space-y-4">
+                {/* Question Type / Section Header */}
+                <div>
+                  <label className="block text-[10px] font-black text-amber-700 uppercase tracking-widest mb-1 flex items-center justify-between">
+                    <span>Question Type / Section Header <span className="normal-case font-normal text-slate-400">(optional - e.g. Type 01 - Basic Problems)</span></span>
+                  </label>
+                  <input
+                    type="text"
+                    value={questionType}
+                    onChange={e => setQuestionType(e.target.value)}
+                    placeholder="e.g. TYPE 01 - BASIC PROBLEMS, TYPE 02 - FORMULA BASED"
+                    className="w-full rounded-xl border-2 border-amber-200 bg-amber-50/40 p-2.5 text-xs font-bold text-amber-950 focus:border-amber-500 outline-none"
+                  />
+                  <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                    {['TYPE 01 - BASIC PROBLEMS', 'TYPE 02 - FORMULA BASED', 'TYPE 03 - ADVANCED LEVEL'].map(preset => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setQuestionType(preset)}
+                        className="px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg text-[9px] font-black transition-all cursor-pointer border border-amber-300"
+                      >
+                        + {preset}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Question English */}
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
@@ -568,8 +598,22 @@ export default function AdminQuestionPaperMaker() {
                 </div>
               ) : (
                 <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
-                  {questions.map((q, idx) => (
-                    <div key={idx} className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-2 relative group hover:border-purple-300">
+                  {questions.map((q, idx) => {
+                    const qTypeHeader = q.questionType?.trim() || '';
+                    const prevType = idx > 0 ? questions[idx - 1]?.questionType?.trim() : '';
+                    const showTypeBanner = qTypeHeader !== '' && (idx === 0 || qTypeHeader.toLowerCase() !== prevType.toLowerCase());
+
+                    return (
+                      <React.Fragment key={idx}>
+                        {showTypeBanner && (
+                          <div className="text-center my-3">
+                            <span className="inline-block bg-amber-200 text-amber-950 font-black text-xs uppercase tracking-wider px-4 py-1 rounded-lg border border-amber-400 shadow-sm">
+                              ✨ {qTypeHeader}
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-2 relative group hover:border-purple-300">
                       <div className="flex items-start justify-between gap-2">
                         <span className="text-xs font-black text-purple-700 bg-purple-100 px-2 py-0.5 rounded-md shrink-0">
                           Q{q.qNo || idx + 1}
@@ -605,11 +649,20 @@ export default function AdminQuestionPaperMaker() {
                         </div>
                       </div>
 
-                      {q.questionEn && <p className="text-xs font-bold text-slate-800">{q.questionEn}</p>}
-                      {q.questionBn && <p className="text-xs font-bold text-slate-700">{q.questionBn}</p>}
+                      {q.questionEn && <p className="text-xs font-black text-slate-950">{q.questionEn}</p>}
+                      {q.questionBn && <p className="text-xs font-extrabold text-rose-600">{q.questionBn}</p>}
 
-                      <div className="text-[10px] text-slate-500 font-bold bg-white p-2 rounded-xl border border-slate-100">
-                        Ans: <span className="text-emerald-700 font-extrabold">{q.correctAnswer}</span>
+                      <div className="grid grid-cols-2 gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50/60 p-2.5 rounded-xl border border-emerald-100">
+                        {q.options.map((opt, oi) => (
+                          <div key={oi} className="flex items-start gap-1">
+                            <span className="font-black text-emerald-800 shrink-0">({String.fromCharCode(65 + oi)})</span>
+                            <span className="flex-1 break-words">{opt}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="text-[10px] text-slate-500 font-bold bg-white p-2 rounded-xl border border-slate-100 flex items-center justify-between">
+                        <span>Ans: <strong className="text-emerald-700 font-extrabold">{q.correctAnswer}</strong></span>
                       </div>
                       {q.solution && (
                         <div className="text-xs text-slate-700 font-medium whitespace-pre-wrap break-words bg-amber-50/70 p-2.5 rounded-xl border border-amber-200 mt-2">
@@ -618,7 +671,9 @@ export default function AdminQuestionPaperMaker() {
                         </div>
                       )}
                     </div>
-                  ))}
+                      </React.Fragment>
+                    );
+                  })}
                 </div>
               )}
             </div>
