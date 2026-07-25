@@ -577,7 +577,7 @@ function AdminHome() {
   const [showAdminScheduleModal, setShowAdminScheduleModal] = useState(false);
   const [scheduleDocTitle, setScheduleDocTitle] = useState('150 Days Challenge Master Schedule');
   const [scheduleDocDesc, setScheduleDocDesc] = useState('Official Day-by-Day Mock Test & Subject Syllabus');
-  const [scheduleTable, setScheduleTable] = useState<Array<{ day: number; math: string; reasoning: string; englishGk: string }>>([]);
+  const [scheduleTable, setScheduleTable] = useState<Array<{ day: number; math: string; reasoning: string; english: string; gk: string }>>([]);
   const [adminScheduleSearch, setAdminScheduleSearch] = useState('');
   const [savingScheduleDoc, setSavingScheduleDoc] = useState(false);
 
@@ -587,7 +587,8 @@ function AdminHome() {
         day: i + 1,
         math: '',
         reasoning: '',
-        englishGk: ''
+        english: '',
+        gk: ''
       }));
 
       tests.forEach((t: any) => {
@@ -604,7 +605,8 @@ function AdminHome() {
               const topName = t.topic || t.title || `Day ${dayNum} Practice`;
               if (sub.includes('math') || sub.includes('quant')) initial[idx].math = topName;
               else if (sub.includes('reason') || sub.includes('gi')) initial[idx].reasoning = topName;
-              else initial[idx].englishGk = topName;
+              else if (sub.includes('english')) initial[idx].english = topName;
+              else initial[idx].gk = topName;
             }
           }
         }
@@ -619,7 +621,7 @@ function AdminHome() {
     const updated = [...scheduleTable];
     if (updated.length < 150) {
       for (let i = updated.length + 1; i <= 150; i++) {
-        updated.push({ day: i, math: '', reasoning: '', englishGk: '' });
+        updated.push({ day: i, math: '', reasoning: '', english: '', gk: '' });
       }
     }
     tests.forEach((t: any) => {
@@ -638,8 +640,10 @@ function AdminHome() {
               if (!updated[idx].math) updated[idx].math = topName;
             } else if (sub.includes('reason') || sub.includes('gi')) {
               if (!updated[idx].reasoning) updated[idx].reasoning = topName;
+            } else if (sub.includes('english')) {
+              if (!updated[idx].english) updated[idx].english = topName;
             } else {
-              if (!updated[idx].englishGk) updated[idx].englishGk = topName;
+              if (!updated[idx].gk) updated[idx].gk = topName;
             }
           }
         }
@@ -5175,14 +5179,15 @@ function AdminHome() {
             <div className="p-4 sm:p-6 overflow-y-auto flex-1 bg-slate-100">
               <div className="bg-white rounded-2xl border border-slate-300 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse min-w-[700px]">
+                  <table className="w-full text-left border-collapse min-w-[900px]">
                     <thead>
                       <tr className="bg-slate-900 text-white text-[10px] font-black uppercase tracking-wider divide-x divide-slate-800">
-                        <th className="py-3 px-3 w-20 text-center">Day #</th>
-                        <th className="py-3 px-4">Mathematics Topic</th>
-                        <th className="py-3 px-4">Reasoning / GI Topic</th>
-                        <th className="py-3 px-4">English / GK Topic</th>
-                        <th className="py-3 px-3 w-16 text-center">Action</th>
+                        <th className="py-3 px-3 w-16 text-center">Day</th>
+                        <th className="py-3 px-3">Math Topic</th>
+                        <th className="py-3 px-3">Reasoning / GI Topic</th>
+                        <th className="py-3 px-3">English Topic</th>
+                        <th className="py-3 px-3">GK / GS / CA / Computer Topic</th>
+                        <th className="py-3 px-2 w-14 text-center">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200 text-xs font-medium">
@@ -5196,14 +5201,15 @@ function AdminHome() {
                             row.day.toString() === q ||
                             (row.math || '').toLowerCase().includes(q) ||
                             (row.reasoning || '').toLowerCase().includes(q) ||
-                            (row.englishGk || '').toLowerCase().includes(q)
+                            (row.english || '').toLowerCase().includes(q) ||
+                            (row.gk || '').toLowerCase().includes(q)
                           );
                         });
 
                         if (filtered.length === 0) {
                           return (
                             <tr>
-                              <td colSpan={5} className="py-10 text-center text-slate-400 font-bold">
+                              <td colSpan={6} className="py-10 text-center text-slate-400 font-bold">
                                 No schedule rows found for your search.
                               </td>
                             </tr>
@@ -5223,8 +5229,8 @@ function AdminHome() {
                               <td className="p-1.5">
                                 <input
                                   type="text"
-                                  placeholder="e.g. Number System &amp; HCF"
-                                  value={row.math}
+                                  placeholder="e.g. Percentage & Profit Loss"
+                                  value={row.math || ''}
                                   onChange={e => {
                                     const val = e.target.value;
                                     setScheduleTable(prev => {
@@ -5237,12 +5243,12 @@ function AdminHome() {
                                 />
                               </td>
 
-                              {/* Reasoning Topic Input */}
+                              {/* Reasoning / GI Topic Input */}
                               <td className="p-1.5">
                                 <input
                                   type="text"
-                                  placeholder="e.g. Alphabet Test &amp; Coding"
-                                  value={row.reasoning}
+                                  placeholder="e.g. Coding Decoding & Series"
+                                  value={row.reasoning || ''}
                                   onChange={e => {
                                     const val = e.target.value;
                                     setScheduleTable(prev => {
@@ -5255,21 +5261,39 @@ function AdminHome() {
                                 />
                               </td>
 
-                              {/* English/GK Topic Input */}
+                              {/* English Topic Input */}
                               <td className="p-1.5">
                                 <input
                                   type="text"
-                                  placeholder="e.g. Polity &amp; Current Affairs"
-                                  value={row.englishGk}
+                                  placeholder="e.g. Synonyms, Antonyms & Grammar"
+                                  value={row.english || ''}
                                   onChange={e => {
                                     const val = e.target.value;
                                     setScheduleTable(prev => {
                                       const next = [...prev];
-                                      if (next[realIdx]) next[realIdx].englishGk = val;
+                                      if (next[realIdx]) next[realIdx].english = val;
                                       return next;
                                     });
                                   }}
-                                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-violet-900 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:bg-violet-50/20"
+                                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-sky-900 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-sky-50/20"
+                                />
+                              </td>
+
+                              {/* GK / GS / CA / Computer Topic Input */}
+                              <td className="p-1.5">
+                                <input
+                                  type="text"
+                                  placeholder="e.g. Indian History & Current Affairs"
+                                  value={row.gk || ''}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    setScheduleTable(prev => {
+                                      const next = [...prev];
+                                      if (next[realIdx]) next[realIdx].gk = val;
+                                      return next;
+                                    });
+                                  }}
+                                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-amber-50/20"
                                 />
                               </td>
 
@@ -5283,7 +5307,8 @@ function AdminHome() {
                                       if (next[realIdx]) {
                                         next[realIdx].math = '';
                                         next[realIdx].reasoning = '';
-                                        next[realIdx].englishGk = '';
+                                        next[realIdx].english = '';
+                                        next[realIdx].gk = '';
                                       }
                                       return next;
                                     });

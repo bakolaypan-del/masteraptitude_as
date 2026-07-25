@@ -5137,16 +5137,16 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* Structured Document Table */}
+                {/* Structured PDF Document Table */}
                 <div className="overflow-x-auto border border-slate-300 rounded-xl shadow-xs">
-                  <table className="w-full text-left border-collapse min-w-[640px]">
+                  <table className="w-full text-left border-collapse min-w-[760px]">
                     <thead>
                       <tr className="bg-slate-900 text-white text-[10px] font-black uppercase tracking-wider divide-x divide-slate-800">
                         <th className="py-3 px-3 w-16 text-center">Day</th>
-                        <th className="py-3 px-3">Mathematics Topic</th>
+                        <th className="py-3 px-3">Math Topic</th>
                         <th className="py-3 px-3">Reasoning / GI Topic</th>
-                        <th className="py-3 px-3">English / GK Topic</th>
-                        <th className="py-3 px-3 w-28 text-center">Status / Action</th>
+                        <th className="py-3 px-3">English Topic</th>
+                        <th className="py-3 px-3">GK / GS / CA / Computer Topic</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200 text-xs font-medium text-slate-800">
@@ -5188,11 +5188,11 @@ export default function Dashboard() {
                         return filteredDays.map(dayNum => {
                           const tests = challengeDaysMap[dayNum] || [];
                           const isAvailable = tests.length > 0;
-                          const firstTest = tests[0];
 
                           let mathTopic = '—';
                           let reasoningTopic = '—';
-                          let englishGkTopic = '—';
+                          let englishTopic = '—';
+                          let gkTopic = '—';
 
                           // Read admin scheduleTable entries if set by admin
                           const adminRow = Array.isArray(scheduleDoc?.scheduleTable)
@@ -5202,7 +5202,12 @@ export default function Dashboard() {
                           if (adminRow) {
                             if (adminRow.math) mathTopic = adminRow.math;
                             if (adminRow.reasoning) reasoningTopic = adminRow.reasoning;
-                            if (adminRow.englishGk) englishGkTopic = adminRow.englishGk;
+                            if (adminRow.english) englishTopic = adminRow.english;
+                            if (adminRow.gk) gkTopic = adminRow.gk;
+                            if (!adminRow.english && !adminRow.gk && adminRow.englishGk) {
+                              englishTopic = adminRow.englishGk;
+                              gkTopic = adminRow.englishGk;
+                            }
                           }
 
                           if (isAvailable) {
@@ -5215,81 +5220,47 @@ export default function Dashboard() {
                                 if (mathTopic === '—') mathTopic = top;
                               } else if (sub.includes('reason') || sub.includes('gi') || cat.includes('reason')) {
                                 if (reasoningTopic === '—') reasoningTopic = top;
-                              } else if (sub.includes('english') || sub.includes('gk') || sub.includes('awareness') || sub.includes('general')) {
-                                if (englishGkTopic === '—') englishGkTopic = top;
+                              } else if (sub.includes('english')) {
+                                if (englishTopic === '—') englishTopic = top;
                               } else {
-                                if (mathTopic === '—') mathTopic = top;
-                                else if (reasoningTopic === '—') reasoningTopic = top;
-                                else if (englishGkTopic === '—') englishGkTopic = top;
+                                if (gkTopic === '—') gkTopic = top;
                               }
                             });
                           } else if (!adminRow) {
                             mathTopic = `Day ${dayNum} Mathematics`;
                             reasoningTopic = `Day ${dayNum} General Intelligence`;
-                            englishGkTopic = `Day ${dayNum} General Knowledge`;
+                            englishTopic = `Day ${dayNum} English Language`;
+                            gkTopic = `Day ${dayNum} General Knowledge & CA`;
                           }
-
-                          const attemptsForDay = tests.flatMap((t: any) => pastResults.filter((r: any) => r.testId === t.id));
-                          const isAttempted = attemptsForDay.length > 0;
-                          const topScore = isAttempted ? Math.max(...attemptsForDay.map((r: any) => r.score || 0)) : null;
 
                           return (
                             <tr
                               key={dayNum}
-                              className={`divide-x divide-slate-200 transition-colors ${
-                                isAvailable
-                                  ? isAttempted
-                                    ? 'bg-emerald-50/50 hover:bg-emerald-50'
-                                    : 'bg-white hover:bg-indigo-50/40'
-                                  : 'bg-slate-50/60 hover:bg-slate-100/60'
-                              }`}
+                              className="divide-x divide-slate-200 hover:bg-slate-50/80 transition-colors"
                             >
                               {/* Day Column */}
-                              <td className="py-2.5 px-3 text-center font-black text-slate-900 bg-slate-100/50">
+                              <td className="py-2.5 px-3 text-center font-black text-slate-900 bg-slate-100/60">
                                 Day {dayNum < 10 ? `0${dayNum}` : dayNum}
                               </td>
 
                               {/* Math Topic */}
-                              <td className="py-2.5 px-3 font-bold text-slate-800">
-                                <span className={isAvailable ? 'text-indigo-700 font-extrabold' : 'text-slate-400'}>
-                                  {mathTopic}
-                                </span>
+                              <td className="py-2.5 px-3 font-bold text-indigo-900">
+                                {mathTopic}
                               </td>
 
                               {/* Reasoning Topic */}
-                              <td className="py-2.5 px-3 font-bold text-slate-800">
-                                <span className={isAvailable ? 'text-emerald-700 font-extrabold' : 'text-slate-400'}>
-                                  {reasoningTopic}
-                                </span>
+                              <td className="py-2.5 px-3 font-bold text-emerald-900">
+                                {reasoningTopic}
                               </td>
 
-                              {/* English/GK Topic */}
-                              <td className="py-2.5 px-3 font-bold text-slate-800">
-                                <span className={isAvailable ? 'text-violet-700 font-extrabold' : 'text-slate-400'}>
-                                  {englishGkTopic}
-                                </span>
+                              {/* English Topic */}
+                              <td className="py-2.5 px-3 font-bold text-sky-900">
+                                {englishTopic}
                               </td>
 
-                              {/* Status / Action */}
-                              <td className="py-2.5 px-3 text-center">
-                                {isAvailable ? (
-                                  <div className="flex flex-col items-center gap-1">
-                                    <Link
-                                      to={`/test/${firstTest.id}`}
-                                      onClick={() => setShowScheduleModal(false)}
-                                      className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[9px] font-black uppercase tracking-wider rounded-lg transition-all shadow-2xs block w-full text-center"
-                                    >
-                                      {isAttempted ? 'Reattempt' : 'Attempt'}
-                                    </Link>
-                                    {isAttempted && (
-                                      <span className="text-[8px] font-black text-emerald-600">✓ {topScore} pts</span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="px-2 py-0.5 bg-slate-100 text-slate-400 text-[8px] font-black uppercase tracking-widest rounded-md border border-slate-200 block text-center">
-                                    Upcoming
-                                  </span>
-                                )}
+                              {/* GK / GS / CA / Computer Topic */}
+                              <td className="py-2.5 px-3 font-bold text-amber-900">
+                                {gkTopic}
                               </td>
                             </tr>
                           );

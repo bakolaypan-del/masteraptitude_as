@@ -55,14 +55,26 @@ export interface QuestionPaperSettings {
   showSolutions?: boolean;
 }
 
-// Clean HTML tags while preserving line breaks and Bengali text
+// Clean HTML tags while preserving line breaks, Bengali text, and converting caret exponents (113^2 -> 113²)
 function cleanText(input?: string): string {
   if (!input) return '';
-  return input
+  let str = input
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/p>/gi, '\n')
     .replace(/<[^>]+>/g, '')
     .trim();
+
+  // Convert caret exponents e.g. 113^2 -> 113², (113)^2 -> (113)²
+  str = str
+    .replace(/([\w\d]+|\([^)]+\))\^2\b/g, '$1²')
+    .replace(/([\w\d]+|\([^)]+\))\^3\b/g, '$1³')
+    .replace(/([\w\d]+|\([^)]+\))\^([0-9a-zA-Z]+)/g, '$1<sup>$2</sup>')
+    .replace(/\^2\b/g, '²')
+    .replace(/\^3\b/g, '³')
+    .replace(/\^1\b/g, '¹')
+    .replace(/\^0\b/g, '⁰');
+
+  return str;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -915,8 +927,9 @@ export function generateCustomQuestionPaperHTML(settings: QuestionPaperSettings,
       word-break: break-word;
     }
     .q-lang-en {
+      font-family: 'Cambria', 'Georgia', serif;
       font-weight: 800;
-      font-size: 9.2pt;
+      font-size: 14pt;
       color: #000000;
       margin-bottom: 2px;
       text-align: justify;
@@ -925,7 +938,7 @@ export function generateCustomQuestionPaperHTML(settings: QuestionPaperSettings,
     }
     .q-lang-bn {
       font-weight: 800;
-      font-size: 9.2pt;
+      font-size: 14pt;
       color: #dc2626;
       margin-bottom: 2px;
       text-align: justify;
@@ -966,7 +979,7 @@ export function generateCustomQuestionPaperHTML(settings: QuestionPaperSettings,
     .paper-options-list {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 2px 6px;
+      gap: 3px 8px;
       margin-left: 22px;
       margin-top: 4px;
       width: calc(100% - 22px);
@@ -975,15 +988,16 @@ export function generateCustomQuestionPaperHTML(settings: QuestionPaperSettings,
       display: flex;
       align-items: flex-start;
       gap: 3px;
-      font-size: 8.5pt;
+      font-family: 'Cambria', 'Georgia', serif;
+      font-size: 14pt;
       text-align: justify;
       word-break: break-word;
       overflow-wrap: break-word;
       color: #047857;
       font-weight: 700;
     }
-    .paper-option-letter { font-weight: 900; color: #047857; min-width: 16px; shrink: 0; }
-    .paper-option-text { color: #047857; font-weight: 700; flex: 1; min-width: 0; word-break: break-word; }
+    .paper-option-letter { font-family: 'Cambria', 'Georgia', serif; font-weight: 900; font-size: 14pt; color: #047857; min-width: 20px; shrink: 0; }
+    .paper-option-text { font-family: 'Cambria', 'Georgia', serif; font-size: 14pt; color: #047857; font-weight: 700; flex: 1; min-width: 0; word-break: break-word; }
 
     /* Answer Key Table Section */
     .answer-key-wrapper {
