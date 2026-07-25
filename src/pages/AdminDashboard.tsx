@@ -3660,7 +3660,7 @@ function AdminHome() {
                               {(q.solution || q.explanation) && (
                                 <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl">
                                   <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1.5">💡 Solution</p>
-                                  <p className="text-sm text-slate-700 leading-relaxed">{q.solution || q.explanation}</p>
+                                  <div className="text-sm text-slate-700 leading-relaxed font-medium whitespace-pre-wrap break-words mt-1"><RenderQuestionHTML html={q.solution || q.explanation} /></div>
                                 </div>
                               )}
                             </div>
@@ -3825,9 +3825,7 @@ function AdminHome() {
                                       <div className="flex items-center gap-2">
                                         <span className="text-[9px] font-black text-amber-500 uppercase tracking-widest">💡 Solution &amp; Explanation</span>
                                       </div>
-                                      <p className="text-sm text-slate-300 leading-relaxed">
-                                        {q.solution || q.explanation}
-                                      </p>
+                                      <div className="text-sm text-slate-300 leading-relaxed font-medium whitespace-pre-wrap break-words mt-1"><RenderQuestionHTML html={q.solution || q.explanation} /></div>
                                     </div>
                                   )}
                                 </div>
@@ -6300,7 +6298,7 @@ function QuestionManager() {
              {q.solution && (
                 <div className="mt-4 p-4 bg-amber-50/50 border border-amber-100 rounded-2xl">
                   <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Solution / Explanation</p>
-                  <p className="text-sm text-slate-600">{q.solution}</p>
+                  <div className="text-sm text-slate-700 leading-relaxed font-medium whitespace-pre-wrap break-words mt-1"><RenderQuestionHTML html={q.solution} /></div>
                 </div>
               )}
            </div>

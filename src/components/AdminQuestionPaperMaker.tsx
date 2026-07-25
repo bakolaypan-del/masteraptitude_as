@@ -8,6 +8,7 @@ import {
   PaperQuestion,
   QuestionPaperSettings
 } from '../lib/exportMockTest';
+import { RenderQuestionHTML } from './RichTextEditor';
 import {
   FileText, Plus, Trash2, Edit2, Save, X, Search, Filter,
   Download, Image as ImgIcon, Sparkles, Check, RefreshCw, Eye, Tag, Layers
@@ -610,6 +611,12 @@ export default function AdminQuestionPaperMaker() {
                       <div className="text-[10px] text-slate-500 font-bold bg-white p-2 rounded-xl border border-slate-100">
                         Ans: <span className="text-emerald-700 font-extrabold">{q.correctAnswer}</span>
                       </div>
+                      {q.solution && (
+                        <div className="text-xs text-slate-700 font-medium whitespace-pre-wrap break-words bg-amber-50/70 p-2.5 rounded-xl border border-amber-200 mt-2">
+                          <span className="text-[10px] font-black text-amber-800 uppercase tracking-wider block mb-1">Solution / Explanation:</span>
+                          <RenderQuestionHTML html={q.solution} />
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

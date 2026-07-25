@@ -280,6 +280,7 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
       font-size: 8.5pt;
       color: #78350f;
       text-align: justify;
+      white-space: pre-wrap;
     }
     .footer-note {
       column-span: all;
@@ -890,6 +891,7 @@ export function generateCustomQuestionPaperHTML(settings: QuestionPaperSettings,
       color: #713f12;
       margin-bottom: 3px;
       text-align: justify;
+      white-space: pre-wrap;
     }
 
     .custom-paper-footer {
