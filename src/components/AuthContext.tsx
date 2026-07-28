@@ -68,8 +68,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       console.log("DEBUG [AuthContext] onAuthStateChanged fired. currentUser ID:", currentUser?.uid);
       setUser(currentUser);
-      
       if (currentUser) {
+        setLoading(true);
         // Try reading from cache first
         const cachedProfile = localStorage.getItem('ma_profile');
         const cachedTs = localStorage.getItem('ma_profile_ts');

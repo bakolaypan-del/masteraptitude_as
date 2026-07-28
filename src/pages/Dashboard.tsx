@@ -532,9 +532,51 @@ export default function Dashboard() {
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [expandedTopic, setExpandedTopic] = useState<string | null>(null);
 
-  const setSelectedCategory = (cat: string) => {
+  const setSelectedCategory = (cat: string, replace = false) => {
     setSelectedTopic(null);
-    setSearchParams({ tab: activeTab, cat });
+    setSearchParams({ tab: activeTab, cat }, { replace });
+  };
+
+  const getTabDisplayName = (tab: string) => {
+    switch (tab) {
+      case 'mock_topic': return 'Topic Wise Mock';
+      case 'mock_sectional': return 'Sectional Mock';
+      case 'mock_full': return 'Full Mock';
+      case 'mock_challenge': return '150 Days Challenge';
+      case 'live_test': return 'Live Mock';
+      case 'pyq': return 'Previous Year Papers';
+      case 'pattern': return 'Exam Pattern & Syllabus';
+      case 'notes': return 'Ebooks & Study Notes';
+      case 'affairs': return 'Current Affairs';
+      case 'practice': return 'Practice Sets';
+      case 'one_liner': return 'One Liner Notes';
+      case 'about': return 'About Us';
+      case 'contact': return 'Contact Us';
+      default: return 'Dashboard Section';
+    }
+  };
+
+  const handleSmartBack = () => {
+    if (selectedTopic) {
+      setSelectedTopic(null);
+      return;
+    }
+    if (selectedCategory && ['mock_topic', 'mock_sectional', 'mock_full'].includes(activeTab)) {
+      setSelectedCategory('', true);
+      return;
+    }
+    if (activeTab !== 'home') {
+      setActiveTab('home');
+      return;
+    }
+    navigate(-1);
+  };
+
+  const getBackLabel = () => {
+    if (selectedTopic) return 'Back to Topics';
+    if (selectedCategory && ['mock_topic', 'mock_sectional', 'mock_full'].includes(activeTab)) return 'Back to Categories';
+    if (activeTab !== 'home') return 'Back to Home';
+    return 'Back';
   };
 
   const lastStateRef = useRef<any>({});
@@ -669,10 +711,10 @@ export default function Dashboard() {
   })();
 
   useEffect(() => {
-    if (categories.length > 0 && !selectedCategory) {
-      setSelectedCategory(categories[0]);
+    if (categories.length > 0 && !selectedCategory && ['mock_topic', 'mock_sectional', 'mock_full'].includes(activeTab)) {
+      setSelectedCategory(categories[0], true);
     }
-  }, [activeTab, categories.length]);
+  }, [activeTab, categories.length, selectedCategory]);
 
   // Track if we are in "Full Analysis" mode
   const [selectedVideo, setSelectedVideo] = useState<any | null>(null);
@@ -692,81 +734,20 @@ export default function Dashboard() {
         }
       };
       
-      // 1. Instantly load cache from localStorage if available to make dashboard load instant
+      // 1. Clear any legacy or un-scoped cache keys to prevent stale cross-user data
       try {
-        const cachedTests = safeParse(localStorage.getItem('ma_cache_tests'));
-        const cachedNotes = safeParse(localStorage.getItem('ma_cache_notes'));
-        const cachedVideos = safeParse(localStorage.getItem('ma_cache_videos'));
-        const cachedPyqs = safeParse(localStorage.getItem('ma_cache_pyqs'));
-        const cachedPatterns = safeParse(localStorage.getItem('ma_cache_patterns'));
-        const cachedAffairs = safeParse(localStorage.getItem('ma_cache_affairs'));
-        const cachedPractice = safeParse(localStorage.getItem('ma_cache_practice_sets'));
-        const cachedCarousel = safeParse(localStorage.getItem('ma_cache_carousel'));
-        
-        const cachedSiteInfo = safeParse(localStorage.getItem('ma_cache_site_info'));
-        const cachedSocialLinks = safeParse(localStorage.getItem('ma_cache_social_links'));
-        const cachedCategoryOrder = safeParse(localStorage.getItem('ma_cache_category_order'));
-        const cachedPaidBatches = safeParse(localStorage.getItem('ma_cache_paid_batches'));
-        
-        // Remove legacy un-scoped cache keys to prevent cross-student leakage
         localStorage.removeItem('ma_cache_results');
         localStorage.removeItem('ma_cache_results_ts');
         localStorage.removeItem('ma_cache_my_purchases');
         localStorage.removeItem('ma_cache_my_purchases_ts');
 
-        const cachedResults = user?.uid ? safeParse(localStorage.getItem(`ma_cache_results_${user.uid}`)) : null;
-        const cachedMyPurchases = user?.uid ? safeParse(localStorage.getItem(`ma_cache_my_purchases_${user.uid}`)) : null;
-
-        let hasCachedData = false;
-
-        const checkIsLiveTest = (t: any) => {
-          if (t.isLive) return true;
-          const cat = String(t.category || '').toUpperCase();
-          if (cat.includes('LIVE')) return true;
-          const type = String(t.testType || '').toUpperCase();
-          if (type.includes('LIVE')) return true;
-          const title = String(t.title || '').toUpperCase();
-          if (title.includes('LIVE MOCK') || title.includes('MINI MOCK') || title.includes('LIVE TEST')) return true;
-          return false;
-        };
-
-        if (cachedTests && Array.isArray(cachedTests)) {
-          setActiveTests(cachedTests.filter((t: any) => t.isActive !== false));
-          setLiveTests(cachedTests.filter(checkIsLiveTest));
-          hasCachedData = true;
-        }
-        if (cachedNotes && Array.isArray(cachedNotes)) { setNotes(cachedNotes); hasCachedData = true; }
-        if (cachedVideos && Array.isArray(cachedVideos)) { setVideos(cachedVideos); hasCachedData = true; }
-        if (cachedPyqs && Array.isArray(cachedPyqs)) { setPyqs(cachedPyqs); hasCachedData = true; }
-        if (cachedPatterns && Array.isArray(cachedPatterns)) { setPatterns(cachedPatterns); hasCachedData = true; }
-        if (cachedAffairs && Array.isArray(cachedAffairs)) { setAffairs(cachedAffairs); hasCachedData = true; }
-        if (cachedPractice && Array.isArray(cachedPractice)) { setPracticeSets(cachedPractice); hasCachedData = true; }
-        if (cachedCarousel && Array.isArray(cachedCarousel)) {
-          const sorted = [...cachedCarousel].sort((a: any, b: any) => (a.priority || 99) - (b.priority || 99));
-          setCarousels(sorted);
-          hasCachedData = true;
-        }
+        const cachedSiteInfo = safeParse(localStorage.getItem('ma_cache_site_info'));
+        const cachedSocialLinks = safeParse(localStorage.getItem('ma_cache_social_links'));
         
         if (cachedSiteInfo) setAboutInfo(cachedSiteInfo);
         if (cachedSocialLinks) setSocialLinks(cachedSocialLinks);
-        if (cachedCategoryOrder && Array.isArray(cachedCategoryOrder)) setCategoryOrder(cachedCategoryOrder);
-        if (cachedResults && Array.isArray(cachedResults)) setPastResults(cachedResults);
-        if (cachedPaidBatches && Array.isArray(cachedPaidBatches)) setPaidBatches(cachedPaidBatches);
-        if (cachedMyPurchases && Array.isArray(cachedMyPurchases)) setMyPurchases(cachedMyPurchases);
-        
-        const cachedDashboardCats = safeParse(localStorage.getItem('ma_cache_dashboard_categories'));
-        if (cachedDashboardCats && Array.isArray(cachedDashboardCats)) {
-          setDashboardCategories(cachedDashboardCats);
-          hasCachedData = true;
-        }
-
-        // If we found any primary cached data, hide the loading screen instantly
-        if (hasCachedData) {
-          console.log("[Cache] Instant load from localStorage successful!");
-          setLoading(false);
-        }
-      } catch (err) {
-        console.warn("[Cache] Error reading initial cache:", err);
+      } catch (e) {
+        console.warn("[RealTime] Cache cleanup notice:", e);
       }
 
       // 2. Fetch fresh data in the background
@@ -1769,7 +1750,37 @@ export default function Dashboard() {
         {/* Scrollable Main Content — extra bottom padding on mobile for bottom nav */}
         <main className="p-5 md:p-8 pb-24 md:pb-8 w-full">
           
-          {/* Home Tab – Design D */}
+          {/* Universal Section Back Navigation Bar */}
+          {activeTab !== 'home' && (
+            <div className="mb-5 flex items-center justify-between bg-white border border-slate-200/90 rounded-2xl px-4 py-3 shadow-xs">
+              <button
+                type="button"
+                onClick={handleSmartBack}
+                className="flex items-center gap-2 px-3.5 py-1.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-700 rounded-xl font-bold text-xs transition-all cursor-pointer border border-slate-200 hover:border-indigo-200 active:scale-95 shrink-0"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span>{getBackLabel()}</span>
+              </button>
+
+              <div className="flex items-center gap-1.5 overflow-hidden text-xs font-black text-slate-700">
+                <span className="text-slate-400 font-bold cursor-pointer hover:text-indigo-600 truncate" onClick={handleSmartBack}>
+                  {getTabDisplayName(activeTab)}
+                </span>
+                {selectedCategory && (
+                  <>
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+                    <span className="truncate text-indigo-600 font-bold">{selectedCategory}</span>
+                  </>
+                )}
+                {selectedTopic && (
+                  <>
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+                    <span className="truncate text-emerald-600 font-bold">{selectedTopic}</span>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
           {activeTab === 'home' && (
             <div className="animate-in fade-in duration-150 space-y-5">
               {/* ── Welcome Hero ── */}

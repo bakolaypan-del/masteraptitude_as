@@ -421,10 +421,19 @@ export default function AnalysisPage() {
             </button>
 
             <button
-              onClick={() => navigate('/dashboard')}
-              className="w-full py-3 text-slate-400 font-black rounded-2xl border border-white/10 hover:bg-white/5 transition-all uppercase tracking-widest text-xs"
+              onClick={() => {
+                if (result?.category === "150 Days Free Practice") {
+                  navigate('/dashboard?tab=mock_challenge');
+                } else if (result?.category) {
+                  const type = `mock_${result.testType || 'topic'}`;
+                  navigate(`/dashboard?tab=${type}&cat=${encodeURIComponent(result.category)}`);
+                } else {
+                  navigate('/dashboard');
+                }
+              }}
+              className="w-full py-3 text-slate-400 font-black rounded-2xl border border-white/10 hover:bg-white/5 transition-all uppercase tracking-widest text-xs cursor-pointer"
               style={{ background: 'rgba(255,255,255,0.03)' }}>
-              Back to Dashboard
+              Back to Category / Dashboard
             </button>
           </div>
         </div>

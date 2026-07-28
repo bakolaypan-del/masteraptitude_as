@@ -95,7 +95,15 @@ function ProtectedRoute({ children, adminOnly = false }: { children: React.React
   const { user, profile, loading } = useAuth();
   console.log("DEBUG [ProtectedRoute] Rendering. User ID:", user?.uid, "Profile Role:", profile?.role, "Loading:", loading);
 
-  if (loading) return <div className="flex items-center justify-center min-h-screen text-gray-500">Loading...</div>;
+  if (loading || (user && !profile)) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 text-slate-600 gap-3">
+        <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Authenticating User Profile...</span>
+      </div>
+    );
+  }
+
   if (!user) return <Navigate to="/login" replace />;
   if (adminOnly && profile?.role !== 'admin') return <Navigate to="/dashboard" replace />;
   return <>{children}</>;

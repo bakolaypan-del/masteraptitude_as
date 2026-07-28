@@ -55,34 +55,25 @@ export async function invalidateCacheField(field: string): Promise<void> {
   }
 }
 
-// Fetch cached collection data or fall back to Firestore query
+// Fetch fresh real-time data directly from database on every load
 export async function getCachedCollection<T>(
   key: string,
   fetchFn: () => Promise<T[]>,
-  cacheField: string
+  _cacheField?: string
 ): Promise<T[]> {
   try {
-    const cacheState = await getCacheState();
-    const currentVersion = cacheState[cacheField];
-    
-    if (!currentVersion) {
-      return await fetchFn();
-    }
-    
-    const cachedData = localStorage.getItem(`ma_cache_${key}`);
-    const cachedVer = localStorage.getItem(`ma_cache_ver_${key}`);
-    
-    if (cachedData && cachedVer === String(currentVersion)) {
-      return JSON.parse(cachedData) as T[];
-    }
-    
-    // Fetch fresh and update cache
     const fresh = await fetchFn();
-    localStorage.setItem(`ma_cache_${key}`, JSON.stringify(fresh));
-    localStorage.setItem(`ma_cache_ver_${key}`, String(currentVersion));
+    try {
+      localStorage.setItem(`ma_cache_${key}`, JSON.stringify(fresh));
+      localStorage.setItem(`ma_cache_ts_${key}`, String(Date.now()));
+    } catch {}
     return fresh;
   } catch (error) {
-    console.warn(`[Cache] Error loading cached collection ${key}:`, error);
+    console.warn(`[RealTime] Fetch error for ${key}, checking offline cache fallback:`, error);
+    const offlineCache = localStorage.getItem(`ma_cache_${key}`);
+    if (offlineCache) {
+      try { return JSON.parse(offlineCache) as T[]; } catch {}
+    }
     return await fetchFn();
   }
 }

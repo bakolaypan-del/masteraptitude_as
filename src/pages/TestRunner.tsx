@@ -265,9 +265,13 @@ export default function TestRunner() {
 
   const handleExit = () => {
     if (test) {
+      if (test.category === "150 Days Free Practice" || test.isChallenge) {
+        navigate('/dashboard?tab=mock_challenge');
+        return;
+      }
       const type = `mock_${test.testType || 'topic'}`;
       const cat = test.category || '';
-      navigate(`/dashboard?tab=${type}&cat=${cat}`);
+      navigate(`/dashboard?tab=${type}&cat=${encodeURIComponent(cat)}`);
     } else {
       navigate('/dashboard');
     }
