@@ -308,7 +308,8 @@ const DEFAULT_DASHBOARD_CATEGORIES = [
   { title: 'Ebook', textColor: 'default', iconType: '📖', actionType: 'tab', actionValue: 'notes', priority: 8, isActive: true },
   { title: 'Current Affairs', textColor: 'default', iconType: '📰', actionType: 'route', actionValue: '/current-affairs', priority: 9, isActive: true },
   { title: 'Practice Set', textColor: 'default', iconType: '✅', actionType: 'tab', actionValue: 'practice', priority: 10, isActive: true },
-  { title: 'Latest Job Notification', textColor: 'default', iconType: '📢', actionType: 'route', actionValue: '/news', priority: 11, isActive: true }
+  { title: 'Latest Job Notification', textColor: 'default', iconType: '📢', actionType: 'route', actionValue: '/news', priority: 11, isActive: true },
+  { title: 'Kids Corner', textColor: 'pink', iconType: '🎈', actionType: 'route', actionValue: '/kids-corner', priority: 12, isActive: true }
 ];
 
 export default function Dashboard() {
@@ -483,6 +484,15 @@ export default function Dashboard() {
     };
   }, [challengeDaysMap, pastResults]);
   const [dashboardCategories, setDashboardCategories] = useState<any[]>([]);
+
+  const isCategoryActive = (actionValue: string, titleName: string) => {
+    if (dashboardCategories.length === 0) return true;
+    const found = dashboardCategories.find((c: any) => 
+      (c.actionValue === actionValue || (c.title && c.title.toLowerCase() === titleName.toLowerCase()))
+    );
+    if (found) return found.isActive !== false;
+    return true;
+  };
   
   const activeTab = (searchParams.get('tab') as DashboardTab) || 'home';
   const selectedCategory = searchParams.get('cat') || '';
@@ -897,7 +907,7 @@ export default function Dashboard() {
           const allDashboardCats = await getCachedCollection(
             'dashboard_categories',
             async () => {
-              const snap = await getDocs(query(collection(db, 'student_dashboard_categories'), where('isActive', '==', true)));
+              const snap = await getDocs(collection(db, 'student_dashboard_categories'));
               const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
               items.sort((a: any, b: any) => (a.priority || 0) - (b.priority || 0));
               return items;
@@ -1592,43 +1602,63 @@ export default function Dashboard() {
           </div>
 
           {/* TYPING TEST LINK */}
-          <button
-            onClick={() => { navigate('/typing-test'); setIsSidebarOpen(false); }}
-            className="w-full sidebar-btn sidebar-typing"
-          >
-            <Keyboard className="w-4 h-4 shrink-0" />
-            <span>Typing Test</span>
-          </button>
+          {isCategoryActive('/typing-test', 'Typing Test') && (
+            <button
+              onClick={() => { navigate('/typing-test'); setIsSidebarOpen(false); }}
+              className="w-full sidebar-btn sidebar-typing"
+            >
+              <Keyboard className="w-4 h-4 shrink-0" />
+              <span>Typing Test</span>
+            </button>
+          )}
 
           {/* NEWS & UPDATES LINK */}
-          <button
-            onClick={() => { navigate('/news'); setIsSidebarOpen(false); }}
-            className="w-full sidebar-btn"
-            style={{color: 'rgba(167,139,250,0.85)'}}
-          >
-            <BookOpen className="w-4 h-4 shrink-0" />
-            <span>News &amp; Updates</span>
-          </button>
+          {isCategoryActive('/news', 'Latest Job Notification') && (
+            <button
+              onClick={() => { navigate('/news'); setIsSidebarOpen(false); }}
+              className="w-full sidebar-btn"
+              style={{color: 'rgba(167,139,250,0.85)'}}
+            >
+              <BookOpen className="w-4 h-4 shrink-0" />
+              <span>News &amp; Updates</span>
+            </button>
+          )}
+
+          {/* KIDS CORNER LINK */}
+          {isCategoryActive('/kids-corner', 'Kids Corner') && (
+            <button
+              onClick={() => { navigate('/kids-corner'); setIsSidebarOpen(false); }}
+              className="w-full sidebar-btn"
+              style={{color: '#ec4899'}}
+            >
+              <span className="text-sm">🎈</span>
+              <span>Kids Corner</span>
+            </button>
+          )}
 
           <div className="px-3 pb-1 pt-3" style={{fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#94a3b8'}}>Resources</div>
 
           {/* PREVIOUS YEAR PAPERS */}
-          <button
-            onClick={() => { setActiveTab('pyq'); setIsSidebarOpen(false); }}
-            className={`w-full sidebar-btn sidebar-pyq ${activeTab === 'pyq' ? 'active' : ''}`}
-          >
-            <FileText className="w-4 h-4 shrink-0" />
-            <span>Previous Year Q.</span>
-          </button>
+          {isCategoryActive('pyq', 'Previous Year Paper') && (
+            <button
+              onClick={() => { setActiveTab('pyq'); setIsSidebarOpen(false); }}
+              className={`w-full sidebar-btn sidebar-pyq ${activeTab === 'pyq' ? 'active' : ''}`}
+            >
+              <FileText className="w-4 h-4 shrink-0" />
+              <span>Previous Year Q.</span>
+            </button>
+          )}
 
           {/* EXAM PATTERN & SYLLABUS */}
-          <button
-            onClick={() => { setActiveTab('pattern'); setIsSidebarOpen(false); }}
-            className={`w-full sidebar-btn sidebar-pattern ${activeTab === 'pattern' ? 'active' : ''}`}
-          >
-            <Clock className="w-4 h-4 shrink-0" />
-            <span>Exam Pattern</span>
-          </button>
+          {isCategoryActive('pattern', 'Syllabus') && (
+            <button
+              onClick={() => { setActiveTab('pattern'); setIsSidebarOpen(false); }}
+              className={`w-full sidebar-btn sidebar-pattern ${activeTab === 'pattern' ? 'active' : ''}`}
+            >
+              <Clock className="w-4 h-4 shrink-0" />
+              <span>Exam Pattern</span>
+            </button>
+          )}
 
           {/* ABOUT US */}
           <button
@@ -1820,7 +1850,11 @@ export default function Dashboard() {
 
               {/* ── Category Grid — 4 Columns light cards ── */}
               {(() => {
-                const cats = dashboardCategories.length > 0 ? dashboardCategories : DEFAULT_DASHBOARD_CATEGORIES;
+                const existingKeys = new Set(dashboardCategories.map((c: any) => c.actionValue || c.title));
+                const missingDefaults = DEFAULT_DASHBOARD_CATEGORIES.filter((d: any) => !existingKeys.has(d.actionValue) && !existingKeys.has(d.title));
+                const combinedCats = dashboardCategories.length > 0 ? [...dashboardCategories, ...missingDefaults] : DEFAULT_DASHBOARD_CATEGORIES;
+                const cats = combinedCats.filter((c: any) => c.isActive !== false);
+                cats.sort((a: any, b: any) => (a.priority || 0) - (b.priority || 0));
 
                 const handleCategoryClick = (cat: any) => {
                   const val = cat.actionValue;

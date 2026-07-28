@@ -1936,6 +1936,60 @@ function AdminHome() {
     }
   };
 
+  const DEFAULT_ALL_GRID_CATEGORIES = [
+    { id: 'def_live_test', title: 'Live Mock', textColor: 'red', iconType: '🔴', actionType: 'tab', actionValue: 'live_test', priority: 1, isActive: true },
+    { id: 'def_mock_landing', title: 'Free Mock', textColor: 'green', iconType: '🏆', actionType: 'tab', actionValue: 'mock_landing', priority: 2, isActive: true },
+    { id: 'def_mock_challenge', title: '150 Days Free Practice', textColor: 'red', iconType: '📅', actionType: 'tab', actionValue: 'mock_challenge', priority: 3, isActive: true },
+    { id: 'def_typing_test', title: 'Typing Test', textColor: 'black', iconType: '⌨️', actionType: 'route', actionValue: '/typing-test', priority: 4, isActive: true },
+    { id: 'def_pattern', title: 'Syllabus', textColor: 'default', iconType: '📋', actionType: 'tab', actionValue: 'pattern', priority: 5, isActive: true },
+    { id: 'def_pyq', title: 'Previous Year Paper', textColor: 'default', iconType: '📁', actionType: 'tab', actionValue: 'pyq', priority: 6, isActive: true },
+    { id: 'def_paid_mock', title: 'Paid Test', textColor: 'default', iconType: '👑', actionType: 'route', actionValue: '/paid-mock', priority: 7, isActive: true },
+    { id: 'def_quiz', title: 'Quiz', textColor: 'default', iconType: '🧠', actionType: 'tab', actionValue: 'mock_topic:Quiz', priority: 8, isActive: true },
+    { id: 'def_notes', title: 'Ebook', textColor: 'default', iconType: '📖', actionType: 'tab', actionValue: 'notes', priority: 9, isActive: true },
+    { id: 'def_current_affairs', title: 'Current Affairs', textColor: 'default', iconType: '📰', actionType: 'route', actionValue: '/current-affairs', priority: 10, isActive: true },
+    { id: 'def_practice', title: 'Practice Set', textColor: 'default', iconType: '✅', actionType: 'tab', actionValue: 'practice', priority: 11, isActive: true },
+    { id: 'def_one_liner', title: 'One Liner Notes', textColor: 'purple', iconType: '📌', actionType: 'tab', actionValue: 'one_liner', priority: 12, isActive: true },
+    { id: 'def_news', title: 'Latest Job Notification', textColor: 'default', iconType: '📢', actionType: 'route', actionValue: '/news', priority: 13, isActive: true },
+    { id: 'def_kids', title: 'Kids Corner', textColor: 'pink', iconType: '🎈', actionType: 'route', actionValue: '/kids-corner', priority: 14, isActive: true }
+  ];
+
+  const handleToggleCategoryVisibility = async (cat: any) => {
+    const isCurrentlyActive = cat.isActive !== false;
+    const newActiveState = !isCurrentlyActive;
+
+    // Optimistic UI update for instant feedback
+    setCustomGridCats(prev => {
+      const exists = prev.some(c => c.id === cat.id || (c.actionValue && c.actionValue === cat.actionValue) || c.title === cat.title);
+      if (exists) {
+        return prev.map(c => (c.id === cat.id || (c.actionValue && c.actionValue === cat.actionValue) || c.title === cat.title) ? { ...c, isActive: newActiveState } : c);
+      }
+      return [...prev, { ...cat, isActive: newActiveState }];
+    });
+
+    try {
+      if (cat.id && !cat.id.startsWith('def_')) {
+        await updateDoc(doc(db, 'student_dashboard_categories', cat.id), {
+          isActive: newActiveState
+        });
+      } else {
+        const { id, ...dataToSave } = cat;
+        const newRef = await addDoc(collection(db, 'student_dashboard_categories'), {
+          ...dataToSave,
+          isActive: newActiveState
+        });
+        setCustomGridCats(prev => prev.map(c => (c.title === cat.title || (c.actionValue && c.actionValue === cat.actionValue)) ? { ...c, id: newRef.id } : c));
+      }
+
+      localStorage.removeItem('ma_cache_dashboard_categories');
+      await invalidateCacheField('dashboard_categories');
+    } catch (err) {
+      console.error(err);
+      // Revert optimistic update on failure
+      setCustomGridCats(prev => prev.map(c => (c.id === cat.id || c.title === cat.title) ? { ...c, isActive: isCurrentlyActive } : c));
+      alert('Failed to update category visibility status');
+    }
+  };
+
   const handleSeedGridCategories = async () => {
     if (customGridCats.length > 0) {
       if (!confirm('Categories already exist. Seed default ones anyway?')) return;
@@ -1954,7 +2008,8 @@ function AdminHome() {
         { title: 'Current Affairs', textColor: 'default', iconType: '📰', actionType: 'route', actionValue: '/current-affairs', priority: 9, isActive: true },
         { title: 'Practice Set', textColor: 'default', iconType: '✅', actionType: 'tab', actionValue: 'practice', priority: 10, isActive: true },
         { title: 'One Liner Notes', textColor: 'purple', iconType: '📌', actionType: 'tab', actionValue: 'one_liner', priority: 11, isActive: true },
-        { title: 'Latest Job Notification', textColor: 'default', iconType: '📢', actionType: 'route', actionValue: '/news', priority: 12, isActive: true }
+        { title: 'Latest Job Notification', textColor: 'default', iconType: '📢', actionType: 'route', actionValue: '/news', priority: 12, isActive: true },
+        { title: 'Kids Corner', textColor: 'pink', iconType: '🎈', actionType: 'route', actionValue: '/kids-corner', priority: 13, isActive: true }
       ];
 
       for (const cat of defaults) {
@@ -5027,49 +5082,74 @@ function AdminHome() {
           </div>
 
           {/* List Table */}
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-            <div className="px-8 py-6 border-b border-slate-100">
-              <h3 className="text-lg font-black text-slate-800">Active Grid Categories ({customGridCats.length})</h3>
-              <p className="text-xs text-slate-400 mt-1">Manage the exact boxes shown on the student dashboard. Click arrows to adjust row position.</p>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-left">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 uppercase tracking-widest text-[9px] font-black">
-                    <th className="px-8 py-4">Priority</th>
-                    <th className="px-6 py-4">Title</th>
-                    <th className="px-6 py-4">Text Styling</th>
-                    <th className="px-6 py-4">Icon / Emoji</th>
-                    <th className="px-6 py-4">Action Target</th>
-                    <th className="px-8 py-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50 text-slate-700">
-                  {customGridCats.map((cat, idx) => (
-                    <tr key={cat.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-8 py-4 font-bold text-slate-400">
-                        <div className="flex items-center gap-2">
-                          <span>{cat.priority}</span>
-                          <div className="flex flex-col gap-0.5">
+          {(() => {
+            const existingValues = new Set(customGridCats.map((c: any) => c.actionValue || c.title));
+            const missingDefaults = DEFAULT_ALL_GRID_CATEGORIES.filter((d: any) => !existingValues.has(d.actionValue) && !existingValues.has(d.title));
+            const allDisplayGridCats = [...customGridCats, ...missingDefaults].sort((a: any, b: any) => (a.priority || 99) - (b.priority || 99));
+
+            return (
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                <div className="px-8 py-6 border-b border-slate-100">
+                  <h3 className="text-lg font-black text-slate-800">Student Dashboard Categories ({allDisplayGridCats.length})</h3>
+                  <p className="text-xs text-slate-400 mt-1">Manage the exact boxes shown on the student dashboard. Click "Shown" or "Hidden" to control student profile visibility.</p>
+                </div>
+                
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-left">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 uppercase tracking-widest text-[9px] font-black">
+                        <th className="px-8 py-4">Priority</th>
+                        <th className="px-6 py-4">Title</th>
+                        <th className="px-6 py-4">Visibility / Status</th>
+                        <th className="px-6 py-4">Text Styling</th>
+                        <th className="px-6 py-4">Icon / Emoji</th>
+                        <th className="px-6 py-4">Action Target</th>
+                        <th className="px-8 py-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50 text-slate-700">
+                      {allDisplayGridCats.map((cat, idx) => (
+                        <tr key={cat.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="px-8 py-4 font-bold text-slate-400">
+                            <div className="flex items-center gap-2">
+                              <span>{cat.priority || idx + 1}</span>
+                              <div className="flex flex-col gap-0.5">
+                                <button
+                                  disabled={idx === 0}
+                                  onClick={() => handleMovePriority(idx, 'up')}
+                                  className="text-slate-300 hover:text-indigo-600 disabled:opacity-30 leading-none text-xs"
+                                >
+                                  ▲
+                                </button>
+                                <button
+                                  disabled={idx === allDisplayGridCats.length - 1}
+                                  onClick={() => handleMovePriority(idx, 'down')}
+                                  className="text-slate-300 hover:text-indigo-600 disabled:opacity-30 leading-none text-xs"
+                                >
+                                  ▼
+                                </button>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 font-black text-slate-800">{cat.title}</td>
+                          <td className="px-6 py-4">
                             <button
-                              disabled={idx === 0}
-                              onClick={() => handleMovePriority(idx, 'up')}
-                              className="text-slate-300 hover:text-indigo-600 disabled:opacity-30 leading-none text-xs"
+                              type="button"
+                              onClick={() => handleToggleCategoryVisibility(cat)}
+                              className={`px-3.5 py-1.5 rounded-lg border font-extrabold text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+                                cat.isActive !== false
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 shadow-xs'
+                                  : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100 shadow-xs'
+                              }`}
+                              title="Click to toggle Show or Hide on student profile"
                             >
-                              ▲
+                              {cat.isActive !== false ? (
+                                <>👁️ Shown to Students</>
+                              ) : (
+                                <>🙈 Hidden from Students</>
+                              )}
                             </button>
-                            <button
-                              disabled={idx === customGridCats.length - 1}
-                              onClick={() => handleMovePriority(idx, 'down')}
-                              className="text-slate-300 hover:text-indigo-600 disabled:opacity-30 leading-none text-xs"
-                            >
-                              ▼
-                            </button>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 font-black text-slate-800">{cat.title}</td>
+                          </td>
                       <td className="px-6 py-4">
                         <span className={`px-2.5 py-1 rounded-lg text-xs font-black capitalize ${
                           cat.textColor === 'green' ? 'bg-emerald-50 text-emerald-700' :
@@ -5115,18 +5195,13 @@ function AdminHome() {
                         </div>
                       </td>
                     </tr>
-                  ))}
-                  {customGridCats.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="px-8 py-10 text-center font-bold text-slate-400">
-                        No custom category grid items configured. Click the button above to seed the 11 default options.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
