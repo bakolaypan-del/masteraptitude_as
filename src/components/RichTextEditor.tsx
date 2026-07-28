@@ -500,6 +500,7 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
             minHeight,
             fontFamily: bengaliMode ? `'${selectedBengaliFont}', sans-serif` : 'inherit',
             fontSize: 14,
+            whiteSpace: 'pre-wrap'
           }}
         />
         {isEmpty && (

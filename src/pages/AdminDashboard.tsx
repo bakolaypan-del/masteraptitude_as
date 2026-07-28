@@ -5789,13 +5789,29 @@ function QuestionManager() {
     try {
       const token = await user.getIdToken();
 
+      const buildHTMLBlock = (rawText: string) => {
+        const clean = stripRawHTMLTags(rawText);
+        if (!clean.trim()) return '';
+        return clean
+          .split('\n')
+          .map(line => line.trim() ? `<p>${line.trim()}</p>` : '<br/>')
+          .join('');
+      };
+
       const formattedBatch = batchQuestions.map((q, idx) => {
-        const qEn = stripRawHTMLTags(q.questionEn || '');
-        const qBn = stripRawHTMLTags(q.questionBn || '');
-        const combinedQText = [
-          qEn ? `<p>${qEn}</p>` : '',
-          qBn ? `<p>${qBn}</p>` : ''
-        ].filter(Boolean).join('') || stripRawHTMLTags(q.questionText || '');
+        const enFormatted = buildHTMLBlock(q.questionEn || '');
+        const bnFormatted = buildHTMLBlock(q.questionBn || '');
+
+        let combinedQText = '';
+        if (enFormatted && bnFormatted) {
+          combinedQText = `<div class="en-content">${enFormatted}</div><div class="bn-content">${bnFormatted}</div>`;
+        } else if (bnFormatted) {
+          combinedQText = `<div class="bn-content">${bnFormatted}</div>`;
+        } else if (enFormatted) {
+          combinedQText = `<div class="en-content">${enFormatted}</div>`;
+        } else {
+          combinedQText = stripRawHTMLTags(q.questionText || '');
+        }
 
         const finalOptions = [0, 1, 2, 3].map(i => {
           const en = stripRawHTMLTags(q.optionsEn?.[i] || q.options?.[i] || '');
@@ -5819,17 +5835,31 @@ function QuestionManager() {
         };
       });
 
-      const res = await fetch('/api/admin/questions-bulk', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ testId, questions: formattedBatch })
-      });
+      let savedOk = false;
+      try {
+        const res = await fetch('/api/admin/questions-bulk', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ testId, questions: formattedBatch })
+        });
+        if (res.ok) savedOk = true;
+      } catch (e) {
+        console.warn('Batch endpoint fetch failed, falling back to direct Firestore update...', e);
+      }
 
-      if (!res.ok) {
-        throw new Error(await res.text() || 'Failed to save batch questions');
+      if (!savedOk) {
+        await Promise.all(
+          formattedBatch.map(q => {
+            if (q.id && !String(q.id).startsWith('q_')) {
+              return updateDoc(doc(db, 'questions', q.id), q).catch(err => console.warn(`Failed doc update for ${q.id}`, err));
+            } else {
+              return addDoc(collection(db, 'questions'), q).catch(err => console.warn('Failed addDoc fallback', err));
+            }
+          })
+        );
       }
 
       setQuestions(formattedBatch);
@@ -6114,12 +6144,27 @@ function QuestionManager() {
 
   const handleAddQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
-    const qEnClean = stripRawHTMLTags(qTextEn);
-    const qBnClean = stripRawHTMLTags(qTextBn);
-    const combinedQText = [
-      qEnClean ? `<p>${qEnClean}</p>` : '',
-      qBnClean ? `<p>${qBnClean}</p>` : ''
-    ].filter(Boolean).join('') || stripRawHTMLTags(qText);
+    
+    const buildHTMLBlock = (rawText: string) => {
+      const clean = stripRawHTMLTags(rawText);
+      if (!clean.trim()) return '';
+      return clean
+        .split('\n')
+        .map(line => line.trim() ? `<p>${line.trim()}</p>` : '<br/>')
+        .join('');
+    };
+
+    const enFormatted = buildHTMLBlock(qTextEn || qText);
+    const bnFormatted = buildHTMLBlock(qTextBn);
+
+    let combinedQText = '';
+    if (enFormatted && bnFormatted) {
+      combinedQText = `<div class="en-content">${enFormatted}</div><div class="bn-content">${bnFormatted}</div>`;
+    } else if (bnFormatted) {
+      combinedQText = `<div class="bn-content">${bnFormatted}</div>`;
+    } else {
+      combinedQText = `<div class="en-content">${enFormatted}</div>`;
+    }
 
     if (!combinedQText || !user) return alert('Please enter question text in English or Bengali.');
 
@@ -6544,7 +6589,7 @@ function QuestionManager() {
                         }}
                         placeholder="English question text..."
                         className="w-full rounded-xl border border-slate-200 p-3 text-xs outline-none focus:border-indigo-500 font-medium"
-                        style={{ fontFamily: 'Cambria, Georgia, serif' }}
+                        style={{ fontFamily: 'Cambria, Georgia, serif', whiteSpace: 'pre-wrap' }}
                       />
                     </div>
                     <div>
@@ -6561,7 +6606,7 @@ function QuestionManager() {
                         }}
                         placeholder="বাংলা প্রশ্ন..."
                         className="w-full rounded-xl border border-slate-200 p-3 text-xs outline-none focus:border-rose-500 font-medium"
-                        style={{ fontFamily: "'Baloo Da 2', 'Hind Siliguri', sans-serif" }}
+                        style={{ fontFamily: "'Baloo Da 2', 'Hind Siliguri', sans-serif", whiteSpace: 'pre-wrap' }}
                       />
                     </div>
                   </div>

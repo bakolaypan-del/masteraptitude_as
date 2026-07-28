@@ -3448,7 +3448,7 @@ Rules:
 
       console.log(`[Admin] Bulk creating ${questions.length} questions for test: ${testId}`);
 
-      if (req.body.append !== true) {
+      if (req.body.append !== true && (!questions.length || !questions[0].id || String(questions[0].id).startsWith('q_'))) {
         const existingSnap = await currentDb.collection("questions").where("testId", "==", testId).get();
         if (!existingSnap.empty) {
           const delBatch = currentDb.batch();
@@ -3460,7 +3460,8 @@ Rules:
       const batch = currentDb.batch();
 
       questions.forEach((q: any) => {
-        const ref = currentDb.collection("questions").doc();
+        const docId = q.id && !String(q.id).startsWith('q_') ? String(q.id) : null;
+        const ref = docId ? currentDb.collection("questions").doc(docId) : currentDb.collection("questions").doc();
         batch.set(ref, {
           testId,
           topic: q.topic || "",
@@ -3472,7 +3473,7 @@ Rules:
           imageUrl: q.imageUrl || "",
           equationLatex: q.equationLatex || "",
           sourceExam: q.sourceExam || ""
-        });
+        }, { merge: true });
       });
 
       await batch.commit();
