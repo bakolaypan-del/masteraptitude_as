@@ -11,7 +11,7 @@ import {
 import { RenderQuestionHTML } from './RichTextEditor';
 import {
   FileText, Plus, Trash2, Edit2, Save, X, Search, Filter,
-  Download, Image as ImgIcon, Sparkles, Check, RefreshCw, Eye, Tag, Layers, ClipboardCheck, CheckSquare, Square
+  Download, Image as ImgIcon, Sparkles, Check, RefreshCw, Eye, Tag, Layers, ClipboardCheck, CheckSquare, Square, Shuffle
 } from 'lucide-react';
 
 export interface SavedQuestionPaper {
@@ -458,6 +458,22 @@ export default function AdminQuestionPaperMaker() {
     setParseStage('input');
     setReviewList([]);
     alert(`Successfully imported ${selected.length} questions into paper!`);
+  };
+
+  // Shuffle Question Paper Handler
+  const handleShufflePaperQuestions = () => {
+    if (questions.length <= 1) {
+      alert('Need at least 2 questions to shuffle.');
+      return;
+    }
+    const arr = [...questions];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    const reordered = arr.map((q, idx) => ({ ...q, qNo: idx + 1 }));
+    setQuestions(reordered);
+    alert(`Shuffled ${reordered.length} questions! Serial numbers updated (1 to ${reordered.length}).`);
   };
 
   // AI Question Generator Handler
@@ -1046,12 +1062,24 @@ export default function AdminQuestionPaperMaker() {
                   Question List ({questions.length})
                 </h3>
                 {questions.length > 0 && (
-                  <button
-                    onClick={() => setQuestions([])}
-                    className="text-xs text-rose-600 hover:underline font-bold"
-                  >
-                    Clear All
-                  </button>
+                  <div className="flex items-center gap-3">
+                    {questions.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={handleShufflePaperQuestions}
+                        className="text-xs text-amber-700 hover:text-amber-800 font-black flex items-center gap-1 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200/80 hover:bg-amber-100 transition-all active:scale-95 cursor-pointer"
+                        title="Randomly shuffle questions & re-assign serial numbers (1, 2, 3...)"
+                      >
+                        <Shuffle className="w-3.5 h-3.5" /> 🔀 Shuffle
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setQuestions([])}
+                      className="text-xs text-rose-600 hover:underline font-bold"
+                    >
+                      Clear All
+                    </button>
+                  </div>
                 )}
               </div>
 

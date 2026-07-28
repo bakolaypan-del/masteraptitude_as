@@ -146,6 +146,36 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
     }
   };
 
+  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const clipboardData = e.clipboardData;
+    const pastedHTML = clipboardData.getData('text/html');
+    const pastedText = clipboardData.getData('text/plain');
+
+    if (pastedHTML) {
+      try {
+        const doc = new DOMParser().parseFromString(pastedHTML, 'text/html');
+        // Strip style, class, font, color, bgcolor, face, size attributes from all elements
+        const elements = doc.body.querySelectorAll('*');
+        elements.forEach(el => {
+          el.removeAttribute('style');
+          el.removeAttribute('class');
+          el.removeAttribute('color');
+          el.removeAttribute('face');
+          el.removeAttribute('size');
+          el.removeAttribute('bgcolor');
+        });
+        const cleanHTML = doc.body.innerHTML;
+        document.execCommand('insertHTML', false, cleanHTML);
+      } catch {
+        document.execCommand('insertText', false, pastedText);
+      }
+    } else if (pastedText) {
+      document.execCommand('insertText', false, pastedText);
+    }
+    emit();
+  };
+
   const isEmpty = !value || value === '<br>' || value === '<div><br></div>' || value.replace(/<[^>]*>/g, '').trim() === '';
 
   return (
@@ -454,7 +484,6 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
           </div>
         </div>
       )}
-
       {/* ── Editable area ── */}
       <div className="relative" onClick={() => { setShowFontMenu(false); setShowIconMenu(false); }}>
         <div
@@ -462,6 +491,7 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
           contentEditable
           suppressContentEditableWarning
           onInput={emit}
+          onPaste={handlePaste}
           onKeyDown={e => {
             if (e.key === 'Tab') { e.preventDefault(); exec('insertText', '    '); }
           }}
@@ -502,24 +532,76 @@ function Sep() {
   return <div className="w-px h-5 bg-slate-300 mx-0.5 shrink-0" />;
 }
 
-// Safe HTML renderer for formatted content — supports both plain text and HTML
+// Converts inline LaTeX delimiters like $...$ or \(...\) or $$...$$ into KaTeX SVG/HTML
+export function processLatexInHTML(content: string): string {
+  if (!content) return '';
+  let result = content;
+
+  // 1. Display math $$...$$ or \[...\]
+  result = result
+    .replace(/\$\$(.*?)\$\$/gs, (_, latex) => {
+      try {
+        return katex.renderToString(latex.trim(), { displayMode: true, throwOnError: false });
+      } catch {
+        return `$$${latex}$$`;
+      }
+    })
+    .replace(/\\\[(.*?)\\\]/gs, (_, latex) => {
+      try {
+        return katex.renderToString(latex.trim(), { displayMode: true, throwOnError: false });
+      } catch {
+        return `\\[${latex}\\]`;
+      }
+    });
+
+  // 2. Inline math $...$ or \(...\)
+  result = result
+    .replace(/\\\((.*?)\\\)/gs, (_, latex) => {
+      try {
+        return katex.renderToString(latex.trim(), { displayMode: false, throwOnError: false });
+      } catch {
+        return `\\(${latex}\\)`;
+      }
+    })
+    .replace(/(^|[^\\$])\$([^\$\n]+?)\$/g, (match, prefix, latex) => {
+      // Exclude simple currency amounts like $10 or $100
+      if (/^\d+(\.\d+)?$/.test(latex.trim())) return match;
+      try {
+        const rendered = katex.renderToString(latex.trim(), { displayMode: false, throwOnError: false });
+        return `${prefix}<span class="inline-math-eq" style="display:inline-block; vertical-align:middle; margin:0 2px;">${rendered}</span>`;
+      } catch {
+        return match;
+      }
+    });
+
+  // 3. Standalone LaTeX commands without explicit $ $ wrapping (e.g., \frac{a}{b}, \sqrt{x}, \pi r^2)
+  if (result.includes('\\') && !result.includes('$') && !result.includes('\\(')) {
+    if (/\\(frac|sqrt|sum|int|pi|theta|alpha|beta|gamma|delta|pm|infty|times|div|neq|le|ge|rightarrow|binom|vec|bar|hat)/i.test(result)) {
+      try {
+        const rendered = katex.renderToString(result.trim(), { displayMode: false, throwOnError: false });
+        return `<span class="inline-math-eq" style="display:inline-block; vertical-align:middle; margin:0 2px;">${rendered}</span>`;
+      } catch {}
+    }
+  }
+
+  return result;
+}
+
+// Safe HTML renderer for formatted content — supports plain text, HTML, and inline LaTeX equations
 export function RenderQuestionHTML({ html, className = '' }: { html: string; className?: string }) {
   if (!html) return null;
-  // If it looks like plain text (no HTML tags), render as-is preserving line breaks
-  const hasHTML = /<[a-z][\s\S]*>/i.test(html);
-  if (!hasHTML) {
-    return (
-      <span className={className} style={{ whiteSpace: 'pre-wrap' }}>{html}</span>
-    );
-  }
+
+  const processed = processLatexInHTML(html);
+
   return (
     <>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&family=Baloo+Da+2:wght@400;600;700&family=Noto+Sans+Bengali:wght@400;600;700&family=Tiro+Bengali&family=Caveat:wght@600;700&display=swap');`}</style>
       <span
         className={className}
         style={{ whiteSpace: 'pre-wrap' }}
-        dangerouslySetInnerHTML={{ __html: html }}
+        dangerouslySetInnerHTML={{ __html: processed }}
       />
     </>
   );
 }
+

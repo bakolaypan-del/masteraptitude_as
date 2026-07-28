@@ -25,7 +25,7 @@ export default function MathRenderer({ latex, displayMode = false, className = '
     }
   }, [latex, displayMode]);
 
-  return <span ref={ref} className={className} />;
+  return <span ref={ref} className={className} style={{ display: displayMode ? 'block' : 'inline-block', verticalAlign: 'middle' }} />;
 }
 
 // Renders a question string that may contain LaTeX blocks wrapped in $...$ or $$...$$

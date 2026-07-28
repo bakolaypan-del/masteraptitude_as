@@ -100,9 +100,20 @@ export default function TestRunner() {
         }
 
         if (active) {
+          const rawQs = data.questions || [];
+          const seenKeys = new Set<string>();
+          const dedupQs: any[] = [];
+          for (const q of rawQs) {
+            const key = q.qNo && Number(q.qNo) > 0 ? `qno_${q.qNo}` : (q.id || (q.questionText || '').slice(0, 50));
+            if (!seenKeys.has(key)) {
+              seenKeys.add(key);
+              dedupQs.push(q);
+            }
+          }
+
           setTest(data.test);
-          setQuestions(data.questions);
-          setVisited(new Set([data.questions[0].id]));
+          setQuestions(dedupQs);
+          setVisited(new Set([dedupQs[0]?.id]));
           const durationMins = data.test?.duration || 30;
           setTimeLeft(Math.floor(durationMins * 60));
           setIsRetrying(false);

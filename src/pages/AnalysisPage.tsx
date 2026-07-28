@@ -125,7 +125,18 @@ export default function AnalysisPage() {
         });
         if (res.ok) {
           const data = await res.json();
-          if (data.questions?.length) setQuestions(data.questions);
+          if (data.questions?.length) {
+            const seenKeys = new Set<string>();
+            const dedup: any[] = [];
+            for (const q of data.questions) {
+              const key = q.qNo && Number(q.qNo) > 0 ? `qno_${q.qNo}` : (q.id || (q.questionText || '').slice(0, 50));
+              if (!seenKeys.has(key)) {
+                seenKeys.add(key);
+                dedup.push(q);
+              }
+            }
+            setQuestions(dedup);
+          }
         }
       } catch (e) {
         console.error('[AnalysisPage] questions fetch failed', e);

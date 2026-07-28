@@ -334,15 +334,15 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
     }
     .opt-text-en {
       font-family: 'Cambria', 'Georgia', serif !important;
-      font-weight: bold !important;
+      font-weight: 600 !important;
       font-size: 14pt !important;
-      color: #16a34a !important;
+      color: #1b5e20 !important;
     }
     .opt-text-bn {
-      font-family: 'Tiro Bangla', 'Noto Serif Bengali', 'SolaimanLipi', sans-serif !important;
-      font-weight: bold !important;
+      font-family: 'Baloo Da 2', 'Hind Siliguri', 'Tiro Bangla', 'Noto Serif Bengali', sans-serif !important;
+      font-weight: 600 !important;
       font-size: 14pt !important;
-      color: #16a34a !important;
+      color: #1b5e20 !important;
     }
     .ans-box {
       margin-left: 24px;

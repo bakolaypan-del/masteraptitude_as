@@ -6,7 +6,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { LogOut, ArrowLeft, Plus, Pencil, Trash2, FileText, BookOpen, Play, CheckCircle, Clock, X, User as UserIcon, Download, ShieldAlert, ShieldCheck, Key, Edit2, Search, LayoutDashboard, Layers, TrendingUp, Link2, Check, Star, MessageSquare, Globe, Copy, ExternalLink, RefreshCw, BarChart3, Calendar } from 'lucide-react';
+import { LogOut, ArrowLeft, Plus, Pencil, Trash2, FileText, BookOpen, Play, CheckCircle, Clock, X, User as UserIcon, Download, ShieldAlert, ShieldCheck, Key, Edit2, Search, LayoutDashboard, Layers, TrendingUp, Link2, Check, Star, MessageSquare, Globe, Copy, ExternalLink, RefreshCw, BarChart3, Calendar, Eye, Shuffle } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -25,7 +25,7 @@ import { uploadFileViaBackend } from '../lib/upload';
 import { Keyboard, Bookmark } from 'lucide-react';
 import { RenderMathText } from '../components/MathRenderer';
 import RichTextEditor, { RenderQuestionHTML } from '../components/RichTextEditor';
-import { parseEnglishAndBengali } from '../components/MultilingualQuestion';
+import { parseEnglishAndBengali, stripRawHTMLTags, RenderMultilingualQuestion, RenderMultilingualOption } from '../components/MultilingualQuestion';
 import { exportMockTestToPDF, exportMockTestToWord } from '../lib/exportMockTest';
 import AdminQuestionPaperMaker from '../components/AdminQuestionPaperMaker';
 
@@ -5645,6 +5645,128 @@ function QuestionManager() {
   const [qSourceExam, setQSourceExam] = useState('');
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
   const [showPreview, setShowPreview] = useState(true);
+  const [previewLangMode, setPreviewLangMode] = useState<'both' | 'en' | 'bn'>('both');
+
+  // Quick Preview & Global Real Preview states
+  const [previewQuestionId, setPreviewQuestionId] = useState<string | null>(null);
+  const [showAllRealPreviews, setShowAllRealPreviews] = useState(false);
+  const [listLangMode, setListLangMode] = useState<'both' | 'en' | 'bn'>('both');
+  const [batchRealPreview, setBatchRealPreview] = useState(true);
+
+  // Batch Editor states
+  const [showBatchEditor, setShowBatchEditor] = useState(false);
+  const [batchQuestions, setBatchQuestions] = useState<any[]>([]);
+  const [isSavingBatch, setIsSavingBatch] = useState(false);
+
+  const handleQuickPreview = (q: any) => {
+    setPreviewQuestionId(prev => prev === q.id ? null : q.id);
+    const { english, bengali } = parseEnglishAndBengali(q.questionText || '');
+    setQText(stripRawHTMLTags(q.questionText || ''));
+    setQTextEn(stripRawHTMLTags(english || q.questionText || ''));
+    setQTextBn(stripRawHTMLTags(bengali || ''));
+    setQTopic(q.topic || '');
+
+    const parsedEn: string[] = [];
+    const parsedBn: string[] = [];
+    (q.options || []).forEach((opt: string) => {
+      const parsed = parseEnglishAndBengali(opt || '');
+      parsedEn.push(stripRawHTMLTags(parsed.english || opt || ''));
+      parsedBn.push(stripRawHTMLTags(parsed.bengali || ''));
+    });
+
+    setQOptionsEn(parsedEn);
+    setQOptionsBn(parsedBn);
+    setQOptions([...q.options]);
+    setQCorrect(q.correctAnswer);
+    setQSolution(stripRawHTMLTags(q.solution || ''));
+    setQImageUrl(q.imageUrl || '');
+    setQImagePreview(q.imageUrl || '');
+    setQEquation(q.equationLatex || '');
+    setQSourceExam(q.sourceExam || '');
+    setShowPreview(true);
+  };
+
+  const handleOpenBatchEditor = () => {
+    const prepared = questions.map(q => {
+      const { english, bengali } = parseEnglishAndBengali(q.questionText || '');
+      const optionsEn: string[] = [];
+      const optionsBn: string[] = [];
+      (q.options || []).forEach((opt: string) => {
+        const parsed = parseEnglishAndBengali(opt || '');
+        optionsEn.push(stripRawHTMLTags(parsed.english || opt || ''));
+        optionsBn.push(stripRawHTMLTags(parsed.bengali || ''));
+      });
+      return {
+        ...q,
+        questionEn: stripRawHTMLTags(english || q.questionText || ''),
+        questionBn: stripRawHTMLTags(bengali || ''),
+        optionsEn,
+        optionsBn
+      };
+    });
+    setBatchQuestions(prepared);
+    setShowBatchEditor(true);
+  };
+
+  const handleSaveBatchQuestions = async () => {
+    if (!user || !testId) return;
+    setIsSavingBatch(true);
+    try {
+      const token = await user.getIdToken();
+
+      const formattedBatch = batchQuestions.map((q, idx) => {
+        const qEn = stripRawHTMLTags(q.questionEn || '');
+        const qBn = stripRawHTMLTags(q.questionBn || '');
+        const combinedQText = [
+          qEn ? `<p>${qEn}</p>` : '',
+          qBn ? `<p>${qBn}</p>` : ''
+        ].filter(Boolean).join('') || stripRawHTMLTags(q.questionText || '');
+
+        const finalOptions = [0, 1, 2, 3].map(i => {
+          const en = stripRawHTMLTags(q.optionsEn?.[i] || q.options?.[i] || '');
+          const bn = stripRawHTMLTags(q.optionsBn?.[i] || '');
+          if (en && bn) return `${en} / ${bn}`;
+          return en || bn || '';
+        });
+
+        return {
+          id: q.id,
+          testId,
+          qNo: idx + 1,
+          topic: q.topic || '',
+          questionText: combinedQText,
+          options: finalOptions,
+          correctAnswer: q.correctAnswer || finalOptions[0] || '',
+          solution: stripRawHTMLTags(q.solution || ''),
+          imageUrl: q.imageUrl || '',
+          equationLatex: q.equationLatex || '',
+          sourceExam: (q.sourceExam || '').trim() || undefined
+        };
+      });
+
+      const res = await fetch('/api/admin/questions-bulk', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ testId, questions: formattedBatch })
+      });
+
+      if (!res.ok) {
+        throw new Error(await res.text() || 'Failed to save batch questions');
+      }
+
+      setQuestions(formattedBatch);
+      alert('All questions saved successfully!');
+      setShowBatchEditor(false);
+    } catch (err: any) {
+      console.error('Batch save error:', err);
+      alert(`Failed to save batch questions: ${err.message}`);
+    } finally {
+      setIsSavingBatch(false);
+    }
+  };
 
   // Parser states
   const [parsingHtml, setParsingHtml] = useState(false);
@@ -5847,21 +5969,91 @@ function QuestionManager() {
     return () => unsub();
   }, [testId]);
 
+  const [isShuffling, setIsShuffling] = useState(false);
+
+  const handleShuffleQuestions = async () => {
+    if (!testId || questions.length <= 1) {
+      alert('Need at least 2 questions to shuffle.');
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to shuffle all ${questions.length} questions? Question order will be randomized and serial numbers will be updated sequentially (1, 2, 3...).`)) {
+      return;
+    }
+
+    setIsShuffling(true);
+    try {
+      const arr = [...questions];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+
+      const reordered = arr.map((q, idx) => ({
+        ...q,
+        qNo: idx + 1
+      }));
+
+      setQuestions(reordered);
+
+      const token = await user.getIdToken();
+      let savedSuccessfully = false;
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch('/api/admin/reorder-questions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            testId,
+            orderedQuestions: reordered
+          })
+        });
+
+        if (res.ok) {
+          savedSuccessfully = true;
+        }
+      } catch (e) {
+        console.warn('Reorder API endpoint warning, attempting fallback update...', e);
+      }
+
+      if (!savedSuccessfully) {
+        // Direct document update fallback (works even if node server wasn't restarted)
+        await Promise.all(
+          reordered.map((q, idx) => 
+            updateDoc(doc(db, 'questions', q.id), { qNo: idx + 1 }).catch(err => console.warn(`Failed to update qNo for ${q.id}`, err))
+          )
+        );
+      }
+
+      alert(`Successfully shuffled ${reordered.length} questions! Serial numbers updated from 1 to ${reordered.length}.`);
+    } catch (err: any) {
+      console.error(err);
+      alert(`Failed to shuffle: ${err.message}`);
+    } finally {
+      setIsShuffling(false);
+    }
+  };
+
   const handleAddQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
+    const qEnClean = stripRawHTMLTags(qTextEn);
+    const qBnClean = stripRawHTMLTags(qTextBn);
     const combinedQText = [
-      qTextEn ? `<p>${qTextEn}</p>` : '',
-      qTextBn ? `<p>${qTextBn}</p>` : ''
-    ].filter(Boolean).join('') || qText;
+      qEnClean ? `<p>${qEnClean}</p>` : '',
+      qBnClean ? `<p>${qBnClean}</p>` : ''
+    ].filter(Boolean).join('') || stripRawHTMLTags(qText);
 
     if (!combinedQText || !user) return alert('Please enter question text in English or Bengali.');
 
     // Combine separate English & Bengali options
     const finalOptions = [0, 1, 2, 3].map(idx => {
-      const en = (qOptionsEn[idx] || '').trim();
-      const bn = (qOptionsBn[idx] || '').trim();
+      const en = stripRawHTMLTags(qOptionsEn[idx] || '');
+      const bn = stripRawHTMLTags(qOptionsBn[idx] || '');
       if (en && bn) return `${en} / ${bn}`;
-      return en || bn || (qOptions[idx] || '').trim();
+      return en || bn || stripRawHTMLTags(qOptions[idx] || '');
     });
 
     if (!finalOptions.every(opt => opt.trim() !== '')) return alert('All 4 options must be filled in English or Bengali');
@@ -5953,24 +6145,24 @@ function QuestionManager() {
   const handleEditQuestion = (q: any) => {
     setEditingQuestionId(q.id);
     const { english, bengali } = parseEnglishAndBengali(q.questionText || '');
-    setQText(q.questionText || '');
-    setQTextEn(english || q.questionText || '');
-    setQTextBn(bengali || '');
+    setQText(stripRawHTMLTags(q.questionText || ''));
+    setQTextEn(stripRawHTMLTags(english || q.questionText || ''));
+    setQTextBn(stripRawHTMLTags(bengali || ''));
     setQTopic(q.topic || '');
 
     const parsedEn: string[] = [];
     const parsedBn: string[] = [];
     (q.options || []).forEach((opt: string) => {
       const parsed = parseEnglishAndBengali(opt || '');
-      parsedEn.push(parsed.english || opt || '');
-      parsedBn.push(parsed.bengali || '');
+      parsedEn.push(stripRawHTMLTags(parsed.english || opt || ''));
+      parsedBn.push(stripRawHTMLTags(parsed.bengali || ''));
     });
 
     setQOptionsEn(parsedEn);
     setQOptionsBn(parsedBn);
     setQOptions([...q.options]);
     setQCorrect(q.correctAnswer);
-    setQSolution(q.solution || '');
+    setQSolution(stripRawHTMLTags(q.solution || ''));
     setQImageUrl(q.imageUrl || '');
     setQImageFile(null);
     setQImagePreview(q.imageUrl || '');
@@ -6026,6 +6218,49 @@ function QuestionManager() {
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all border-2 ${showPreview ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300'}`}
         >
           <Play className="w-3.5 h-3.5" /> Live Preview
+        </button>
+
+        {/* Real Preview Mode (All Questions Toggle) */}
+        <button
+          type="button"
+          onClick={() => setShowAllRealPreviews(v => !v)}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all border-2 cursor-pointer shadow-xs ${
+            showAllRealPreviews
+              ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-600 shadow-md'
+              : 'bg-white text-emerald-700 border-emerald-300 hover:border-emerald-500'
+          }`}
+          title="Toggle Real Student View preview for all questions in the list"
+        >
+          <Eye className="w-3.5 h-3.5" />
+          {showAllRealPreviews ? '👁️ Student View (ON)' : '👁️ Preview All Questions'}
+        </button>
+
+        {showAllRealPreviews && (
+          <div className="flex items-center gap-1 bg-white p-1 rounded-xl border-2 border-emerald-300 shadow-xs">
+            <span className="text-[10px] font-black text-emerald-800 uppercase px-2">Lang:</span>
+            {(['both', 'en', 'bn'] as const).map(m => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setListLangMode(m)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-black uppercase transition-all ${
+                  listLangMode === m ? 'bg-emerald-700 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                {m === 'both' ? 'Both' : m === 'en' ? '🇬🇧 EN' : '🇧🇩 BN'}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Edit All Questions Together (Batch Editor Button) */}
+        <button
+          type="button"
+          onClick={handleOpenBatchEditor}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all border-2 bg-gradient-to-r from-amber-50 to-orange-50 text-amber-900 border-amber-300 hover:border-amber-500 hover:shadow-md shadow-xs cursor-pointer"
+        >
+          <Edit2 className="w-3.5 h-3.5 text-amber-700" />
+          ⚡ Edit All Questions Together
         </button>
 
         {/* AI File Import Button (PDF, Word .docx, HTML, TXT) */}
@@ -6125,6 +6360,302 @@ function QuestionManager() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Batch Questions Editor Modal ─────────────────────────────── */}
+      {showBatchEditor && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 p-4 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-white rounded-[32px] w-full max-w-6xl shadow-2xl flex flex-col h-[92vh] overflow-hidden">
+            {/* Header */}
+            <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-amber-50 to-indigo-50 shrink-0">
+              <div>
+                <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                  <span>⚡ Edit All Questions Together (Batch Editor)</span>
+                  <span className="px-3 py-1 bg-amber-500 text-white rounded-full text-xs font-black">
+                    {batchQuestions.length} Questions
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">Modify questions, options, correct answers, and solutions for all questions on a single screen.</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setBatchRealPreview(v => !v)}
+                  className={`px-3 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all border flex items-center gap-1.5 cursor-pointer ${
+                    batchRealPreview
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                      : 'bg-white text-emerald-700 border-emerald-300 hover:border-emerald-500'
+                  }`}
+                  title="Toggle real-time student view preview cards inside the batch editor"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  {batchRealPreview ? '👁️ Live Preview (ON)' : '👁️ Show Live Preview'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowBatchEditor(false)}
+                  className="px-4 py-2 rounded-xl text-slate-500 hover:bg-slate-200 text-xs font-bold transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isSavingBatch}
+                  onClick={handleSaveBatchQuestions}
+                  className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-indigo-100 flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                >
+                  {isSavingBatch ? 'Saving All...' : `💾 Save All (${batchQuestions.length}) Questions`}
+                </button>
+              </div>
+            </div>
+
+            {/* Body: Scrollable Question List */}
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-100 space-y-6">
+              {batchQuestions.map((bq, bIdx) => (
+                <div key={bq.id || bIdx} className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm relative space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <span className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-sm">
+                      Q{bIdx + 1}
+                    </span>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <input
+                        type="text"
+                        placeholder="Topic (e.g. Algebra)"
+                        value={bq.topic || ''}
+                        onChange={e => {
+                          const updated = [...batchQuestions];
+                          updated[bIdx].topic = e.target.value;
+                          setBatchQuestions(updated);
+                        }}
+                        className="text-xs font-bold text-slate-700 px-3 py-1.5 rounded-lg border border-slate-200 outline-none focus:border-indigo-500 w-44"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Source Exam (e.g. SSC CGL)"
+                        value={bq.sourceExam || ''}
+                        onChange={e => {
+                          const updated = [...batchQuestions];
+                          updated[bIdx].sourceExam = e.target.value;
+                          setBatchQuestions(updated);
+                        }}
+                        className="text-xs font-bold text-slate-700 px-3 py-1.5 rounded-lg border border-slate-200 outline-none focus:border-indigo-500 w-44"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setBatchQuestions(prev => prev.filter((_, i) => i !== bIdx))}
+                        className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                        title="Remove question"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* English & Bengali Question Fields */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-indigo-700 uppercase tracking-widest mb-1">
+                        🇬🇧 Question in English (Cambria Font)
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={bq.questionEn || ''}
+                        onChange={e => {
+                          const updated = [...batchQuestions];
+                          updated[bIdx].questionEn = e.target.value;
+                          setBatchQuestions(updated);
+                        }}
+                        placeholder="English question text..."
+                        className="w-full rounded-xl border border-slate-200 p-3 text-xs outline-none focus:border-indigo-500 font-medium"
+                        style={{ fontFamily: 'Cambria, Georgia, serif' }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-rose-700 uppercase tracking-widest mb-1">
+                        🇧🇩 Question in Bengali (Stylish Red Font)
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={bq.questionBn || ''}
+                        onChange={e => {
+                          const updated = [...batchQuestions];
+                          updated[bIdx].questionBn = e.target.value;
+                          setBatchQuestions(updated);
+                        }}
+                        placeholder="বাংলা প্রশ্ন..."
+                        className="w-full rounded-xl border border-slate-200 p-3 text-xs outline-none focus:border-rose-500 font-medium"
+                        style={{ fontFamily: "'Baloo Da 2', 'Hind Siliguri', sans-serif" }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Options A, B, C, D */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {[0, 1, 2, 3].map(optIdx => {
+                      const letter = String.fromCharCode(65 + optIdx);
+                      return (
+                        <div key={optIdx} className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-2">
+                          <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider block">
+                            Option {letter}
+                          </span>
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="text"
+                              placeholder={`EN Option ${letter}`}
+                              value={bq.optionsEn?.[optIdx] || ''}
+                              onChange={e => {
+                                const updated = [...batchQuestions];
+                                const newEn = [...(updated[bIdx].optionsEn || ['', '', '', ''])];
+                                newEn[optIdx] = e.target.value;
+                                updated[bIdx].optionsEn = newEn;
+                                setBatchQuestions(updated);
+                              }}
+                              className="w-full rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-indigo-500 bg-white font-semibold"
+                              style={{ fontFamily: 'Cambria, Georgia, serif', color: '#1b5e20' }}
+                            />
+                            <input
+                              type="text"
+                              placeholder={`BN Option ${letter}`}
+                              value={bq.optionsBn?.[optIdx] || ''}
+                              onChange={e => {
+                                const updated = [...batchQuestions];
+                                const newBn = [...(updated[bIdx].optionsBn || ['', '', '', ''])];
+                                newBn[optIdx] = e.target.value;
+                                updated[bIdx].optionsBn = newBn;
+                                setBatchQuestions(updated);
+                              }}
+                              className="w-full rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-rose-500 bg-white font-semibold"
+                              style={{ fontFamily: "'Baloo Da 2', 'Hind Siliguri', sans-serif", color: '#1b5e20' }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Correct Answer & Solution */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                        Correct Answer
+                      </label>
+                      <select
+                        value={bq.correctAnswer || ''}
+                        onChange={e => {
+                          const updated = [...batchQuestions];
+                          updated[bIdx].correctAnswer = e.target.value;
+                          setBatchQuestions(updated);
+                        }}
+                        className="w-full rounded-xl border border-slate-200 p-2.5 text-xs font-bold text-indigo-700 outline-none"
+                      >
+                        <option value="">Select correct option...</option>
+                        {[0, 1, 2, 3].map(i => {
+                          const en = (bq.optionsEn?.[i] || bq.options?.[i] || '').trim();
+                          const bn = (bq.optionsBn?.[i] || '').trim();
+                          const val = en && bn ? `${en} / ${bn}` : (en || bn);
+                          const letter = String.fromCharCode(65 + i);
+                          return (
+                            <option key={i} value={val}>
+                              Option {letter}: {val}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                        Solution / Explanation
+                      </label>
+                      <input
+                        type="text"
+                        value={bq.solution || ''}
+                        onChange={e => {
+                          const updated = [...batchQuestions];
+                          updated[bIdx].solution = e.target.value;
+                          setBatchQuestions(updated);
+                        }}
+                        placeholder="Step-by-step solution..."
+                        className="w-full rounded-xl border border-slate-200 p-2.5 text-xs outline-none focus:border-indigo-500 font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Live Student Preview card in Batch Editor */}
+                  {batchRealPreview && (
+                    <div className="mt-4 p-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 shadow-xs space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-800 flex items-center gap-1">
+                          <Eye className="w-3.5 h-3.5 text-emerald-600" /> Real Student View Preview
+                        </span>
+                      </div>
+                      <div className="p-3 bg-white rounded-xl border border-emerald-100 text-xs leading-relaxed font-medium">
+                        {bq.questionEn || bq.questionBn ? (
+                          <RenderMultilingualQuestion
+                            questionText={
+                              bq.questionEn && bq.questionBn
+                                ? `<p>${bq.questionEn}</p><p>${bq.questionBn}</p>`
+                                : (bq.questionEn || bq.questionBn || '')
+                            }
+                            langMode={listLangMode}
+                          />
+                        ) : (
+                          <span className="text-slate-400 italic">Live preview will appear as you type...</span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                        {[0, 1, 2, 3].map(optIdx => {
+                          const letter = String.fromCharCode(65 + optIdx);
+                          const en = (bq.optionsEn?.[optIdx] || bq.options?.[optIdx] || '').trim();
+                          const bn = (bq.optionsBn?.[optIdx] || '').trim();
+                          const val = en && bn ? `${en} / ${bn}` : (en || bn);
+                          const isCorrect = val && val === bq.correctAnswer;
+                          return (
+                            <div key={optIdx} className={`p-2.5 rounded-xl border flex items-center justify-between text-xs font-semibold ${
+                              isCorrect ? 'bg-emerald-100 border-emerald-400 text-emerald-950 font-bold' : 'bg-white border-slate-200 text-slate-700'
+                            }`}>
+                              <div className="flex items-center gap-2">
+                                <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black shrink-0 ${
+                                  isCorrect ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500'
+                                }`}>{letter}</span>
+                                {val ? <RenderMultilingualOption optionText={val} langMode={listLangMode} /> : <span className="text-slate-300 italic text-[11px]">Option {letter}...</span>}
+                              </div>
+                              {isCorrect && <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setBatchQuestions(prev => [
+                    ...prev,
+                    {
+                      id: `q_new_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+                      qNo: prev.length + 1,
+                      questionEn: '',
+                      questionBn: '',
+                      optionsEn: ['', '', '', ''],
+                      optionsBn: ['', '', '', ''],
+                      options: ['', '', '', ''],
+                      correctAnswer: '',
+                      solution: '',
+                      topic: '',
+                      sourceExam: ''
+                    }
+                  ]);
+                }}
+                className="w-full py-4 border-2 border-dashed border-indigo-300 rounded-3xl text-indigo-600 hover:bg-indigo-50 font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" /> Add Another Question to Batch
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -6268,11 +6799,39 @@ function QuestionManager() {
                           Option {letter} ({i + 1})
                         </span>
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-2.5">
                         <div>
-                          <label className="block text-[10px] font-bold text-indigo-600 uppercase mb-1">
-                            🇬🇧 English Option
-                          </label>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-[10px] font-bold text-indigo-600 uppercase">
+                              🇬🇧 English Option
+                            </label>
+                            {/* Math Helper Shortcuts */}
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {[
+                                { label: 'a/b', sym: '\\frac{a}{b}' },
+                                { label: '√x', sym: '\\sqrt{x}' },
+                                { label: 'x²', sym: '^2' },
+                                { label: 'x³', sym: '^3' },
+                                { label: 'π', sym: '\\pi' },
+                                { label: 'θ', sym: '\\theta' },
+                                { label: '±', sym: '\\pm' },
+                              ].map((m, mIdx) => (
+                                <button
+                                  type="button"
+                                  key={mIdx}
+                                  onClick={() => {
+                                    const newEn = [...qOptionsEn];
+                                    newEn[i] = (newEn[i] || '') + m.sym;
+                                    setQOptionsEn(newEn);
+                                  }}
+                                  className="px-1.5 py-0.5 text-[9px] font-mono font-bold bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 text-slate-600 rounded transition-all cursor-pointer"
+                                  title={`Insert ${m.sym}`}
+                                >
+                                  {m.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
                           <input
                             type="text"
                             className="w-full rounded-xl border-2 border-slate-200 p-2.5 text-xs font-medium outline-none focus:border-indigo-500 bg-white"
@@ -6282,13 +6841,47 @@ function QuestionManager() {
                               newEn[i] = e.target.value;
                               setQOptionsEn(newEn);
                             }}
-                            placeholder={`English Option ${letter}`}
+                            placeholder={`English Option ${letter} (e.g. \\frac{1}{2} or $x^2$)`}
                           />
+                          {qOptionsEn[i] && (qOptionsEn[i].includes('\\') || qOptionsEn[i].includes('$') || qOptionsEn[i].includes('^') || qOptionsEn[i].includes('_')) && (
+                            <div className="mt-1 p-2 bg-indigo-50/80 border border-indigo-100 rounded-lg text-xs font-bold text-indigo-900 flex items-center gap-2">
+                              <span className="text-[9px] font-black uppercase text-indigo-500 shrink-0">Math Preview:</span>
+                              <RenderQuestionHTML html={qOptionsEn[i]} />
+                            </div>
+                          )}
                         </div>
+
                         <div>
-                          <label className="block text-[10px] font-bold text-rose-600 uppercase mb-1">
-                            🇧🇩 Bengali Option
-                          </label>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-[10px] font-bold text-rose-600 uppercase">
+                              🇧🇩 Bengali Option
+                            </label>
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {[
+                                { label: 'a/b', sym: '\\frac{a}{b}' },
+                                { label: '√x', sym: '\\sqrt{x}' },
+                                { label: 'x²', sym: '^2' },
+                                { label: 'x³', sym: '^3' },
+                                { label: 'π', sym: '\\pi' },
+                                { label: 'θ', sym: '\\theta' },
+                                { label: '±', sym: '\\pm' },
+                              ].map((m, mIdx) => (
+                                <button
+                                  type="button"
+                                  key={mIdx}
+                                  onClick={() => {
+                                    const newBn = [...qOptionsBn];
+                                    newBn[i] = (newBn[i] || '') + m.sym;
+                                    setQOptionsBn(newBn);
+                                  }}
+                                  className="px-1.5 py-0.5 text-[9px] font-mono font-bold bg-white border border-slate-200 hover:border-rose-300 hover:bg-rose-50 text-slate-600 rounded transition-all cursor-pointer"
+                                  title={`Insert ${m.sym}`}
+                                >
+                                  {m.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
                           <input
                             type="text"
                             className="w-full rounded-xl border-2 border-slate-200 p-2.5 text-xs font-medium outline-none focus:border-rose-500 bg-white"
@@ -6300,6 +6893,12 @@ function QuestionManager() {
                             }}
                             placeholder={`বাংলা অপশন ${letter}`}
                           />
+                          {qOptionsBn[i] && (qOptionsBn[i].includes('\\') || qOptionsBn[i].includes('$') || qOptionsBn[i].includes('^') || qOptionsBn[i].includes('_')) && (
+                            <div className="mt-1 p-2 bg-rose-50/80 border border-rose-100 rounded-lg text-xs font-bold text-rose-900 flex items-center gap-2">
+                              <span className="text-[9px] font-black uppercase text-rose-500 shrink-0">Math Preview:</span>
+                              <RenderQuestionHTML html={qOptionsBn[i]} />
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -6369,9 +6968,44 @@ function QuestionManager() {
              </button>
            </div>
          </form>
-      </div>
+       </div>
 
-       <div className="space-y-4">
+        {/* Question List Header + Shuffle Button */}
+        {questions.length > 0 && (
+          <div className="flex items-center justify-between gap-4 flex-wrap bg-white p-4.5 rounded-3xl border border-slate-200/80 shadow-xs mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black text-sm border border-indigo-100">
+                📝
+              </div>
+              <div>
+                <h3 className="font-extrabold text-slate-900 text-sm md:text-base">Test Questions ({questions.length})</h3>
+                <p className="text-slate-500 text-xs font-medium">Questions ordered sequentially (Sl No. 1, 2, 3...)</p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleShuffleQuestions}
+              disabled={isShuffling || questions.length <= 1}
+              className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center gap-2 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              title="Randomly shuffle question order and re-assign serial numbers sequentially (1, 2, 3...)"
+            >
+              {isShuffling ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Shuffling Order...
+                </>
+              ) : (
+                <>
+                  <Shuffle className="w-4 h-4" />
+                  🔀 Shuffle Questions
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        <div className="space-y-4">
         {loading ? <p className="text-slate-400 font-bold text-center py-10">Fetching questions...</p> : 
          questions.map((q, i) => (
            <div key={q.id} className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 relative group transition-all hover:shadow-md">
@@ -6392,19 +7026,19 @@ function QuestionManager() {
                </button>
              </div>
              <div className="flex items-start mb-4">
-                <span className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 font-black mr-4 shrink-0">
-                  {i+1}
-                </span>
-                <div className="flex-1 pr-20">
-                  <h4 className="font-bold text-slate-800 text-base leading-snug">
-                    <RenderQuestionHTML html={q.questionText} />
-                  </h4>
-                  {q.sourceExam && (
-                    <span className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-emerald-700 text-white">
-                      📌 {q.sourceExam}
-                    </span>
-                  )}
-                </div>
+               <span className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 font-black mr-4 shrink-0">
+                 {i+1}
+               </span>
+               <div className="flex-1 pr-20">
+                 <div className="text-base leading-snug">
+                   <RenderMultilingualQuestion questionText={q.questionText} />
+                 </div>
+                 {q.sourceExam && (
+                   <span className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-emerald-700 text-white">
+                     📌 {q.sourceExam}
+                   </span>
+                 )}
+               </div>
              </div>
              {q.equationLatex && (
                <div className="mb-4 ml-14 p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-center text-lg overflow-x-auto">
@@ -6435,11 +7069,11 @@ function QuestionManager() {
                {q.options.map((opt: string, j: number) => (
                  <div key={j} className={`p-4 rounded-2xl border-2 transition-all flex items-center justify-between
                    ${opt === q.correctAnswer 
-                     ? 'bg-emerald-50 border-emerald-200 text-emerald-800 shadow-sm' 
-                     : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
-                   <span className="font-bold">{opt}</span>
+                     ? 'bg-emerald-50 border-emerald-200 shadow-sm' 
+                     : 'bg-slate-50 border-slate-100'}`}>
+                   <RenderMultilingualOption optionText={opt} />
                    {opt === q.correctAnswer && (
-                     <div className="bg-emerald-500 text-white p-1 rounded-full">
+                     <div className="bg-emerald-500 text-white p-1 rounded-full shrink-0 ml-2">
                        <Plus className="w-3 h-3 rotate-45" /> 
                      </div>
                    )}
@@ -6463,11 +7097,18 @@ function QuestionManager() {
         {showPreview && (
           <div className="lg:w-[380px] lg:sticky lg:top-24 shrink-0">
             {/* View toggle */}
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Live Preview</span>
-              <div className="flex bg-slate-100 rounded-xl p-0.5 gap-0.5">
-                <button type="button" onClick={() => setPreviewMode('desktop')} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${previewMode === 'desktop' ? 'bg-white shadow text-indigo-600' : 'text-slate-400'}`}>Desktop</button>
-                <button type="button" onClick={() => setPreviewMode('mobile')} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${previewMode === 'mobile' ? 'bg-white shadow text-indigo-600' : 'text-slate-400'}`}>Mobile</button>
+              <div className="flex items-center gap-1.5">
+                <div className="flex bg-slate-100 rounded-xl p-0.5 gap-0.5">
+                  <button type="button" onClick={() => setPreviewMode('desktop')} className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${previewMode === 'desktop' ? 'bg-white shadow text-indigo-600' : 'text-slate-400'}`}>Desktop</button>
+                  <button type="button" onClick={() => setPreviewMode('mobile')} className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${previewMode === 'mobile' ? 'bg-white shadow text-indigo-600' : 'text-slate-400'}`}>Mobile</button>
+                </div>
+                <div className="flex bg-slate-100 rounded-xl p-0.5 gap-0.5">
+                  <button type="button" onClick={() => setPreviewLangMode('both')} className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${previewLangMode === 'both' ? 'bg-white shadow text-indigo-600' : 'text-slate-400'}`}>Both</button>
+                  <button type="button" onClick={() => setPreviewLangMode('en')} className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${previewLangMode === 'en' ? 'bg-white shadow text-indigo-600' : 'text-slate-400'}`}>🇬🇧 EN</button>
+                  <button type="button" onClick={() => setPreviewLangMode('bn')} className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${previewLangMode === 'bn' ? 'bg-white shadow text-indigo-600' : 'text-slate-400'}`}>🇧🇩 BN</button>
+                </div>
               </div>
             </div>
 
@@ -6488,10 +7129,18 @@ function QuestionManager() {
 
                   {/* Question text */}
                   <div className="font-semibold text-slate-800 leading-relaxed min-h-[40px]">
-                    {qText
-                      ? <RenderQuestionHTML html={qText} />
-                      : <span className="text-slate-300 italic">Question will appear here...</span>
-                    }
+                    {qTextEn || qTextBn || qText ? (
+                      <RenderMultilingualQuestion
+                        questionText={
+                          qTextEn && qTextBn
+                            ? `<p>${qTextEn}</p><p>${qTextBn}</p>`
+                            : (qTextEn || qTextBn || qText)
+                        }
+                        langMode={previewLangMode}
+                      />
+                    ) : (
+                      <span className="text-slate-300 italic">Question will appear here...</span>
+                    )}
                   </div>
 
                   {/* Source exam badge */}
@@ -6519,20 +7168,25 @@ function QuestionManager() {
 
                   {/* Options */}
                   <div className="space-y-2">
-                    {qOptions.map((opt, i) => {
+                    {[0, 1, 2, 3].map(i => {
                       const letter = String.fromCharCode(65 + i);
-                      const isCorrect = opt.trim() !== '' && opt === qCorrect;
+                      const en = (qOptionsEn[i] || '').trim();
+                      const bn = (qOptionsBn[i] || '').trim();
+                      const optVal = en && bn ? `${en} / ${bn}` : (en || bn || qOptions[i] || '');
+                      const isCorrect = optVal.trim() !== '' && optVal === qCorrect;
                       return (
                         <div key={i} className={`flex items-center gap-3 p-3 rounded-2xl border-2 transition-all ${
                           isCorrect ? 'bg-emerald-50 border-emerald-200' :
-                          opt.trim() ? 'bg-slate-50 border-slate-200' : 'bg-slate-50/50 border-dashed border-slate-200'
+                          optVal.trim() ? 'bg-slate-50 border-slate-200' : 'bg-slate-50/50 border-dashed border-slate-200'
                         }`}>
                           <span className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-black shrink-0 ${
                             isCorrect ? 'bg-emerald-500 text-white' : 'bg-white text-slate-400 border border-slate-200'
                           }`}>{letter}</span>
-                          <span className={`font-medium ${opt.trim() ? (isCorrect ? 'text-emerald-800' : 'text-slate-700') : 'text-slate-300 italic text-xs'}`}>
-                            {opt.trim() || `Option ${letter}...`}
-                          </span>
+                          {optVal.trim() ? (
+                            <RenderMultilingualOption optionText={optVal} langMode={previewLangMode} className="text-sm" />
+                          ) : (
+                            <span className="text-slate-300 italic text-xs">Option {letter}...</span>
+                          )}
                           {isCorrect && (
                             <CheckCircle className="w-4 h-4 text-emerald-500 ml-auto shrink-0" />
                           )}

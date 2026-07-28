@@ -1980,22 +1980,36 @@ ${allUrls.map(u => `  <url>
 
       const questionsSnap = await currentDb.collection("questions")
         .where("testId", "==", testId)
-        .limit(200)
+        .limit(500)
         .get();
 
-      const questions = questionsSnap.docs.map(doc => {
+      const questionsMap = new Map<string, any>();
+      questionsSnap.docs.forEach(doc => {
         const data = doc.data();
         const { correctAnswer, ...safeData } = data;
-        return { id: doc.id, ...safeData };
+        const qObj: any = { id: doc.id, ...safeData };
+        const key = qObj.qNo && Number(qObj.qNo) > 0 
+          ? `qno_${qObj.qNo}` 
+          : (qObj.questionText || '').replace(/<[^>]*>/g, '').trim().toLowerCase();
+        
+        if (!questionsMap.has(key)) {
+          questionsMap.set(key, qObj);
+        } else {
+          const existing = questionsMap.get(key);
+          if ((qObj.questionText || '').length > (existing.questionText || '').length) {
+            questionsMap.set(key, qObj);
+          }
+        }
       });
 
+      const questions = Array.from(questionsMap.values());
       questions.sort((a: any, b: any) => (a.qNo || 0) - (b.qNo || 0));
 
       if (questions.length === 0) {
         return res.status(404).json({ success: false, error: "No questions have been added to this test yet." });
       }
 
-      console.log(`[API] Loaded ${questions.length} questions for test ${testId}`);
+      console.log(`[API] Loaded ${questions.length} unique questions for test ${testId}`);
       return res.status(200).json({ success: true, test: testObj, questions });
     } catch (error: any) {
       console.error("[API] Error fetching test:", error);
@@ -3433,6 +3447,16 @@ Rules:
       }
 
       console.log(`[Admin] Bulk creating ${questions.length} questions for test: ${testId}`);
+
+      if (req.body.append !== true) {
+        const existingSnap = await currentDb.collection("questions").where("testId", "==", testId).get();
+        if (!existingSnap.empty) {
+          const delBatch = currentDb.batch();
+          existingSnap.docs.forEach((doc: any) => delBatch.delete(doc.ref));
+          await delBatch.commit();
+        }
+      }
+
       const batch = currentDb.batch();
 
       questions.forEach((q: any) => {
@@ -3458,6 +3482,34 @@ Rules:
     } catch (error: any) {
       console.error("[Admin] Bulk questions creation failed:", error);
       res.status(500).json({ error: "Failed to create questions in bulk", message: error.message });
+    }
+  });
+
+  app.post("/api/admin/reorder-questions", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    try {
+      const { testId, orderedQuestions } = req.body;
+      if (!testId || !Array.isArray(orderedQuestions)) {
+        return res.status(400).json({ error: "Missing testId or orderedQuestions array" });
+      }
+
+      console.log(`[Admin] Reordering/Shuffling ${orderedQuestions.length} questions for test ${testId}`);
+      const batch = currentDb.batch();
+
+      orderedQuestions.forEach((q: any, idx: number) => {
+        if (q.id) {
+          const ref = currentDb.collection("questions").doc(q.id);
+          batch.update(ref, { qNo: idx + 1 });
+        }
+      });
+
+      await batch.commit();
+      await invalidateCacheField("tests");
+      res.json({ success: true, count: orderedQuestions.length });
+    } catch (error: any) {
+      console.error("[Admin] Reorder questions failed:", error);
+      res.status(500).json({ error: "Failed to reorder questions", message: error.message });
     }
   });
 
@@ -4006,7 +4058,8 @@ Rules:
         }
       }
 
-      const questions = questionsSnap.docs.map(doc => {
+      const questionsMap = new Map<string, any>();
+      questionsSnap.docs.forEach(doc => {
         const qData = doc.data();
         const qId = doc.id;
         const stats = questionStats[qId];
@@ -4016,13 +4069,29 @@ Rules:
         if (percent < 40) difficulty = "Hard";
         else if (percent < 75) difficulty = "Moderate";
 
-        return {
+        const qObj: any = {
           id: qId,
           ...qData,
           successPercentage: percent,
           difficulty
         };
+
+        const key = qObj.qNo && Number(qObj.qNo) > 0 
+          ? `qno_${qObj.qNo}` 
+          : (qObj.questionText || '').replace(/<[^>]*>/g, '').trim().toLowerCase();
+
+        if (!questionsMap.has(key)) {
+          questionsMap.set(key, qObj);
+        } else {
+          const existing = questionsMap.get(key);
+          if ((qObj.questionText || '').length > (existing.questionText || '').length) {
+            questionsMap.set(key, qObj);
+          }
+        }
       });
+
+      const questions = Array.from(questionsMap.values());
+      questions.sort((a: any, b: any) => (a.qNo || 0) - (b.qNo || 0));
 
       res.json({ questions });
     } catch (err: any) {
