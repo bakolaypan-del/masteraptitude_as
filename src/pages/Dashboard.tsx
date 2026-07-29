@@ -296,6 +296,19 @@ const getCategoryStyle = (title: string, dbColor?: string, dbIcon?: string) => {
   return { textColorClass, textColorStyle, icon, LucideIcon, iconBgClass };
 };
 
+const getCategoryAccentStripe = (title: string, textColor: string) => {
+  const t = (title || '').toLowerCase();
+  if (t.includes('live') || textColor === 'red') return 'bg-gradient-to-r from-rose-500 via-red-500 to-rose-600';
+  if (t.includes('free') || textColor === 'green') return 'bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600';
+  if (t.includes('typing') || textColor === 'black') return 'bg-gradient-to-r from-slate-700 via-slate-800 to-slate-950';
+  if (t.includes('one liner') || textColor === 'purple') return 'bg-gradient-to-r from-purple-500 via-indigo-500 to-violet-600';
+  if (t.includes('paid') || textColor === 'amber') return 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600';
+  if (t.includes('pyq') || t.includes('previous')) return 'bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-600';
+  if (t.includes('ebook') || t.includes('notes')) return 'bg-gradient-to-r from-blue-500 via-indigo-500 to-blue-600';
+  if (t.includes('news') || t.includes('job')) return 'bg-gradient-to-r from-cyan-500 via-sky-500 to-blue-600';
+  return 'bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-600';
+};
+
 const DEFAULT_DASHBOARD_CATEGORIES = [
   { id: 'def_live_test', title: 'Live Mock', textColor: 'red', iconType: '🔴', actionType: 'tab', actionValue: 'live_test', priority: 1, isActive: true },
   { id: 'def_mock_landing', title: 'Free Mock', textColor: 'green', iconType: '🏆', actionType: 'tab', actionValue: 'mock_landing', priority: 2, isActive: true },
@@ -1914,21 +1927,24 @@ export default function Dashboard() {
                           <button
                             key={cat.id || idx}
                             onClick={() => handleCategoryClick(cat)}
-                            className="group bg-white rounded-2xl p-2.5 sm:p-4 border border-slate-200 shadow-xs flex flex-col items-center justify-center gap-2 sm:gap-3 relative transition-all duration-300 hover:shadow-md hover:border-indigo-300 hover:-translate-y-0.5 active:scale-[0.97]"
+                            className="group bg-white rounded-2xl p-2.5 sm:p-4 border border-slate-200/90 shadow-sm flex flex-col items-center justify-between gap-2 sm:gap-3 relative transition-all duration-300 hover:shadow-xl hover:border-indigo-300 hover:-translate-y-1 active:scale-[0.97] overflow-hidden min-h-[110px] sm:min-h-[125px]"
                           >
+                            {/* Option 1: Top Color-Accent Stripe Bar */}
+                            <div className={`absolute top-0 left-0 right-0 h-1.5 ${getCategoryAccentStripe(cat.title, cat.textColor)}`} />
+
                             {/* Icon Container */}
-                            <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center text-3xl transition-all duration-300 group-hover:scale-110 border border-slate-100 ${iconBgClass}`}>
+                            <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center text-2xl sm:text-3xl transition-all duration-300 group-hover:scale-110 border border-slate-100 mt-1 ${iconBgClass}`}>
                               {LucideIcon ? (
-                                <LucideIcon className="w-6 h-6 sm:w-7 h-7" />
+                                <LucideIcon className="w-5 h-5 sm:w-6 h-6" />
                               ) : (
                                 <span className="select-none text-2xl sm:text-3xl">{icon}</span>
                               )}
                             </div>
 
                             {/* Label */}
-                            <div className="text-center min-h-[32px] flex items-center justify-center">
+                            <div className="text-center min-h-[28px] flex items-center justify-center">
                               <span 
-                                className={`text-[11px] sm:text-xs md:text-sm leading-tight text-center font-extrabold tracking-tight ${textColorClass}`}
+                                className={`text-[11px] sm:text-xs leading-tight text-center font-black tracking-tight ${textColorClass}`}
                                 style={textColorStyle}
                               >
                                 {cat.title}

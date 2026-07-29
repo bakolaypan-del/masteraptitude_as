@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Master Aptitude - Ultra-Stylish Student Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      background: #f8fafc;
+      background-image: 
+        radial-gradient(at 10% 10%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
+        radial-gradient(at 90% 10%, rgba(236, 72, 153, 0.1) 0px, transparent 50%),
+        radial-gradient(at 50% 50%, rgba(16, 185, 129, 0.08) 0px, transparent 50%),
+        radial-gradient(at 80% 90%, rgba(139, 92, 246, 0.12) 0px, transparent 50%);
+      background-attachment: fixed;
+      color: #0f172a;
+      padding-bottom: 110px;
+    }
+
+    .container {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 24px 20px;
+    }
+
+    /* ── Header Banner ── */
+    .hero-banner {
+      position: relative;
+      background: rgba(255, 255, 255, 0.75);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      border-radius: 28px;
+      padding: 28px 32px;
+      box-shadow: 0 20px 40px -15px rgba(99, 102, 241, 0.07), 0 0 0 1px rgba(226, 232, 240, 0.6);
+      margin-bottom: 24px;
+      overflow: hidden;
+    }
+
+    .hero-banner::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #10b981);
+    }
+
+    .brand-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 14px;
+      border-radius: 9999px;
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.1));
+      border: 1px solid rgba(99, 102, 241, 0.2);
+      color: #4f46e5;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+      margin-bottom: 12px;
+    }
+
+    .greeting-title {
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      color: #0f172a;
+      margin-bottom: 8px;
+    }
+
+    .greeting-title span {
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #ec4899 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .quote-text {
+      font-size: 13.5px;
+      font-style: italic;
+      color: #475569;
+      font-weight: 600;
+      line-height: 1.6;
+    }
+
+    /* ── Quick Stats Grid ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      border-radius: 22px;
+      padding: 20px;
+      box-shadow: 0 10px 25px -10px rgba(0, 0, 0, 0.04);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: all 0.3s ease;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 35px -10px rgba(99, 102, 241, 0.12);
+    }
+
+    .stat-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.08);
+    }
+
+    .stat-info p.label {
+      font-size: 10.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      margin-bottom: 2px;
+    }
+
+    .stat-info p.value {
+      font-size: 22px;
+      font-weight: 900;
+      color: #0f172a;
+    }
+
+    /* ── Section Title ── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .section-header h3 {
+      font-size: 13px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #475569;
+    }
+
+    .section-header .line {
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, #cbd5e1, transparent);
+    }
+
+    /* ── Modules Grid ── */
+    .module-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 18px;
+    }
+
+    .module-card {
+      position: relative;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      border-radius: 24px;
+      padding: 22px 20px;
+      box-shadow: 0 12px 30px -12px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(226, 232, 240, 0.7);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 140px;
+      transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .module-card:hover {
+      transform: translateY(-8px) scale(1.02);
+      box-shadow: 0 25px 45px -12px rgba(99, 102, 241, 0.25), 0 0 0 1.5px rgba(99, 102, 241, 0.4);
+      background: rgba(255, 255, 255, 0.95);
+    }
+
+    .module-top {
+      display: flex;
+      items-center: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .icon-badge {
+      width: 46px;
+      height: 46px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 10px 20px -6px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s ease;
+    }
+
+    .module-card:hover .icon-badge {
+      transform: scale(1.12) rotate(4deg);
+    }
+
+    .status-pill {
+      font-size: 9.5px;
+      font-weight: 900;
+      padding: 3px 10px;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .pill-live { background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25); }
+    .pill-free { background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.25); }
+    .pill-pro  { background: rgba(99, 102, 241, 0.12); color: #6366f1; border: 1px solid rgba(99, 102, 241, 0.25); }
+
+    .module-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: #1e293b;
+      line-height: 1.35;
+    }
+
+    .arrow-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 12px;
+      font-size: 11px;
+      font-weight: 800;
+      color: #6366f1;
+      opacity: 0.85;
+      transition: opacity 0.2s ease;
+    }
+
+    .module-card:hover .arrow-indicator {
+      opacity: 1;
+    }
+
+    /* ── Floating iOS Dock Navigation ── */
+    .dock-container {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      width: calc(100% - 40px);
+      max-width: 480px;
+    }
+
+    .dock-bar {
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border: 1px solid rgba(255, 255, 255, 0.95);
+      border-radius: 9999px;
+      padding: 8px 12px;
+      box-shadow: 0 20px 50px -10px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(226, 232, 240, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+    }
+
+    .dock-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 800;
+      text-decoration: none;
+      transition: all 0.25s ease;
+      cursor: pointer;
+    }
+
+    .dock-item.active {
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      color: #ffffff;
+      box-shadow: 0 8px 20px -4px rgba(79, 70, 229, 0.4);
+    }
+
+    .dock-item:hover:not(.active) {
+      color: #4f46e5;
+      background: rgba(99, 102, 241, 0.08);
+    }
+
+    .dock-icon {
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    @media (max-width: 640px) {
+      .hero-banner { padding: 20px; border-radius: 22px; }
+      .greeting-title { font-size: 20px; }
+      .module-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+      .module-card { padding: 16px; min-height: 120px; border-radius: 20px; }
+      .icon-badge { width: 40px; height: 40px; font-size: 18px; }
+      .module-title { font-size: 13.5px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+
+    <!-- ── Top Greeting Hero Banner ── -->
+    <div class="hero-banner">
+      <div class="brand-pill">🎓 MASTER APTITUDE</div>
+      <h1 class="greeting-title">Welcome, <span>Student</span>!</h1>
+      <p class="quote-text">"Success isn't always about greatness. It's about consistency. Consistent hard work leads to success."</p>
+    </div>
+
+    <!-- ── Quick Stats Grid ── -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(99, 102, 241, 0.12); color: #6366f1;">📝</div>
+        <div class="stat-info">
+          <p class="label">Tests Attempted</p>
+          <p class="value">18</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(16, 185, 129, 0.12); color: #10b981;">🏆</div>
+        <div class="stat-info">
+          <p class="label">Total Score</p>
+          <p class="value">342 pts</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(236, 72, 153, 0.12); color: #ec4899;">👑</div>
+        <div class="stat-info">
+          <p class="label">Global Rank</p>
+          <p class="value">#14</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Section Header ── -->
+    <div class="section-header">
+      <h3>Explore Study Resources</h3>
+      <div class="line"></div>
+    </div>
+
+    <!-- ── Modules Grid (13 Exact Data Modules) ── -->
+    <div class="module-grid">
+      <div class="module-card">
+        <div class="module-top">
+          <div class="icon-badge" style="background: linear-gradient(135deg, #fee2e2, #fecaca);">🔴</div>
+          <span class="status-pill pill-live">LIVE</span>
+        </div>
+        <div class="module-title">Live Mock</div>
+        <div class="arrow-indicator"><span>Explore Tests</span> <span>→</span></div>
+      </div>
+
+      <div class="module-card">
+        <div class="module-top">
+          <div class="icon-badge" style="background: linear-gradient(135deg, #d1fae5, #a7f3d0);">🏆</div>
+          <span class="status-pill pill-free">FREE</span>
+        </div>
+        <div class="module-title">Free Mock</div>
+        <div class="arrow-indicator"><span>Explore Tests</span> <span>→</span></div>
+      </div>
+
+      <div class="module-card">
+        <div class="module-top">
+          <div class="icon-badge" style="background: linear-gradient(135deg, #fef3c7, #fde68a);">📅</div>
+          <span class="status-pill pill-free">CHALLENGE</span>
+        </div>
+        <div class="module-title">150 Days Free Practice</div>
+        <div class="arrow-indicator"><span>Start Practice</span> <span>→</span></div>
+      </div>
+
+      <div class="module-card">
+        <div class="module-top">
+          <div class="icon-badge" style="background: linear-gradient(135deg, #e0e7ff, #c7d2fe);">⌨️</div>
+          <span class="status-pill pill-pro">SKILL</span>
+        </div>
+        <div class="module-title">Typing Test</div>
+        <div class="arrow-indicator"><span>Take Speed Test</span> <span>→</span></div>
+      </div>
+
+      <div class="module-card">
+        <div class="module-top">
+          <div class="icon-badge" style="background: linear-gradient(135deg, #e0f2fe, #bae6fd);">📋</div>
+          <span class="status-pill pill-pro">SYLLABUS</span>
+        </div>
+        <div class="module-title">Syllabus</div>
+        <div class="arrow-indicator"><span>View Topics</span> <span>→</span></div>
+      </div>
+
+      <div class="module-card">
+        <div class="module-top">
+          <div class="icon-badge" style="background: linear-gradient(135deg, #f3e8ff, #e9d5ff);">📁</div>
+          <span class="status-pill pill-pro">ARCHIVE</span>
+        </div>
+        <div class="module-title">Previous Year Paper</div>
+        <div class="arrow-indicator"><span>Download PYQ</span> <span>→</span></div>
+      </div>
+
+      <div class="module-card">
+        <div class="module-top">
+          <div class="icon-badge" style="background: linear-gradient(135deg, #fef3c7, #fde68a);">👑</div>
+          <span class="status-pill pill-pro">PREMIUM</span>
+        </div>
+        <div class="module-title">Paid Test</div>
+        <div class="arrow-indicator"><span>Unlock Series</span> <span>→</span></div>
+      </div>
+
+      <div class="module-card">
+        <div class="module-top">
+          <div class="icon-badge" style="background: linear-gradient(135deg, #ffe4e6, #fecdd3);">🧠</div>
+          <span class="status-pill pill-free">DAILY</span>
+        </div>
+        <div class="module-title">Quiz</div>
+        <div class="arrow-indicator"><span>Start Quiz</span> <span>→</span></div>
+      </div>
+
+      <div class="module-card">
+        <div class="module-top">
+          <div class="icon-badge" style="background: linear-gradient(135deg, #dbeafe, #bfdbfe);">📖</div>
+          <span class="status-pill pill-pro">READ</span>
+        </div>
+        <div class="module-title">Ebook</div>
+        <div class="arrow-indicator"><span>Read PDF</span> <span>→</span></div>
+      </div>
+
+      <div class="module-card">
+        <div class="module-top">
+          <div class="icon-badge" style="background: linear-gradient(135deg, #ccfbf1, #99f6e4);">📰</div>
+          <span class="status-pill pill-free">UPDATES</span>
+        </div>
+        <div class="module-title">Current Affairs</div>
+        <div class="arrow-indicator"><span>Read News</span> <span>→</span></div>
+      </div>
+
+      <div class="module-card">
+        <div class="module-top">
+          <div class="icon-badge" style="background: linear-gradient(135deg, #d1fae5, #a7f3d0);">✅</div>
+          <span class="status-pill pill-free">SETS</span>
+        </div>
+        <div class="module-title">Practice Set</div>
+        <div class="arrow-indicator"><span>Solve Sets</span> <span>→</span></div>
+      </div>
+
+      <div class="module-card">
+        <div class="module-top">
+          <div class="icon-badge" style="background: linear-gradient(135deg, #f3e8ff, #ddd6fe);">📌</div>
+          <span class="status-pill pill-pro">QUICK</span>
+        </div>
+        <div class="module-title">One Liner Notes</div>
+        <div class="arrow-indicator"><span>Quick Revision</span> <span>→</span></div>
+      </div>
+
+      <div class="module-card">
+        <div class="module-top">
+          <div class="icon-badge" style="background: linear-gradient(135deg, #ffedd5, #fed7aa);">📢</div>
+          <span class="status-pill pill-free">JOBS</span>
+        </div>
+        <div class="module-title">Latest Job Notification</div>
+        <div class="arrow-indicator"><span>View Alerts</span> <span>→</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Floating iOS Dock Navigation Bar ── -->
+  <div class="dock-container">
+    <div class="dock-bar">
+      <div class="dock-item">
+        <span class="dock-icon">🛒</span>
+        <span>Purchase</span>
+      </div>
+      <div class="dock-item active">
+        <span class="dock-icon">📝</span>
+        <span>Mock</span>
+      </div>
+      <div class="dock-item">
+        <span class="dock-icon">🔴</span>
+        <span>Live</span>
+      </div>
+      <div class="dock-item">
+        <span class="dock-icon">👤</span>
+        <span>Profile</span>
+      </div>
+      <div class="dock-item">
+        <span class="dock-icon">❓</span>
+        <span>Help</span>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
