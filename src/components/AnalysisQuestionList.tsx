@@ -47,6 +47,42 @@ interface Props {
 // ── Ordinal labels ──────────────────────────────────────────────────────────
 const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E', 'F'];
 
+function normalizeText(str: string): string {
+  if (!str) return '';
+  return str.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+function checkAnswerMatch(actual: string, selected: string, options?: string[]): boolean {
+  if (!selected || !actual) return false;
+  const cleanActual = normalizeText(actual);
+  const cleanSelected = normalizeText(selected);
+  if (cleanActual === cleanSelected) return true;
+
+  const actualParts = cleanActual.split(' / ').map(s => s.trim()).filter(Boolean);
+  const selectedParts = cleanSelected.split(' / ').map(s => s.trim()).filter(Boolean);
+  for (const actP of actualParts) {
+    for (const selP of selectedParts) {
+      if (actP === selP) return true;
+    }
+  }
+
+  if (options && Array.isArray(options)) {
+    const letters = ['a', 'b', 'c', 'd', 'e', 'f'];
+    let letterIdx = -1;
+    if (/^[a-f]$/i.test(cleanActual)) {
+      letterIdx = letters.indexOf(cleanActual);
+    } else if (cleanActual.startsWith('option ')) {
+      const char = cleanActual.replace('option ', '').trim();
+      if (/^[a-f]$/i.test(char)) letterIdx = letters.indexOf(char);
+    }
+    if (letterIdx >= 0 && options[letterIdx]) {
+      const optClean = normalizeText(options[letterIdx]);
+      if (optClean === cleanSelected || selectedParts.includes(optClean)) return true;
+    }
+  }
+  return false;
+}
+
 // ── Single question card ────────────────────────────────────────────────────
 function QuestionCard({
   q, idx, marksPerCorrect, negativeMarks,
@@ -60,9 +96,9 @@ function QuestionCard({
   const [solutionOpen, setSolutionOpen] = useState(true);
   const [extraOpen, setExtraOpen] = useState(true);
 
-  const isCorrect    = !!q.userAnswer && q.userAnswer === q.correctAnswer;
+  const isCorrect     = !!q.userAnswer && checkAnswerMatch(q.correctAnswer, q.userAnswer, q.options);
   const isUnattempted = !q.userAnswer;
-  const isWrong      = !isCorrect && !isUnattempted;
+  const isWrong       = !isCorrect && !isUnattempted;
 
   const solutionText = q.explanation || q.solution || '';
   const extraInfoText = q.extraInfo || q.note || q.hint || '';
@@ -167,8 +203,8 @@ function QuestionCard({
         <div className="grid grid-cols-2 gap-1.5">
           {q.options.map((opt, i) => {
             const label       = OPTION_LABELS[i] ?? String(i + 1);
-            const isOptCorrect   = opt === q.correctAnswer;
-            const isOptSelected  = opt === q.userAnswer;
+            const isOptCorrect   = checkAnswerMatch(q.correctAnswer, opt, q.options);
+            const isOptSelected  = checkAnswerMatch(q.userAnswer, opt, q.options) || normalizeText(opt) === normalizeText(q.userAnswer);
             const isOptWrong     = isOptSelected && !isOptCorrect;
 
             return (

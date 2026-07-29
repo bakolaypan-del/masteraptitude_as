@@ -128,8 +128,9 @@ export default function AnalysisPage() {
           if (data.questions?.length) {
             const seenKeys = new Set<string>();
             const dedup: any[] = [];
-            for (const q of data.questions) {
-              const key = q.qNo && Number(q.qNo) > 0 ? `qno_${q.qNo}` : (q.id || (q.questionText || '').slice(0, 50));
+            for (let i = 0; i < data.questions.length; i++) {
+              const q = data.questions[i];
+              const key = q.id ? `id_${q.id}` : `idx_${i}`;
               if (!seenKeys.has(key)) {
                 seenKeys.add(key);
                 dedup.push(q);

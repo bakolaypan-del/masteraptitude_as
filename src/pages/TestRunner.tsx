@@ -103,8 +103,9 @@ export default function TestRunner() {
           const rawQs = data.questions || [];
           const seenKeys = new Set<string>();
           const dedupQs: any[] = [];
-          for (const q of rawQs) {
-            const key = q.qNo && Number(q.qNo) > 0 ? `qno_${q.qNo}` : (q.id || (q.questionText || '').slice(0, 50));
+          for (let i = 0; i < rawQs.length; i++) {
+            const q = rawQs[i];
+            const key = q.id ? `id_${q.id}` : `idx_${i}`;
             if (!seenKeys.has(key)) {
               seenKeys.add(key);
               dedupQs.push(q);

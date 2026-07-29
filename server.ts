@@ -2065,15 +2065,51 @@ ${allUrls.map(u => `  <url>
         return res.status(404).json({ error: "No questions found for this test." });
       }
 
-      const actualAnswers = new Map();
+      const questionDataMap = new Map<string, { correctAnswer: string; options?: string[] }>();
       const correctAnswersMap: Record<string, string> = {};
 
       questionsSnap.docs.forEach(doc => {
         const data = doc.data();
-        actualAnswers.set(doc.id, data.correctAnswer);
-        correctAnswersMap[doc.id] = data.correctAnswer;
+        questionDataMap.set(doc.id, { correctAnswer: data.correctAnswer || '', options: data.options || [] });
+        correctAnswersMap[doc.id] = data.correctAnswer || '';
       });
-      
+
+      function normalizeAns(str: string): string {
+        if (!str) return '';
+        return str.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+      }
+
+      function checkAnswerMatch(actual: string, selected: string, options?: string[]): boolean {
+        if (!selected || !actual) return false;
+        const cleanActual = normalizeAns(actual);
+        const cleanSelected = normalizeAns(selected);
+        if (cleanActual === cleanSelected) return true;
+
+        const actualParts = cleanActual.split(' / ').map(s => s.trim()).filter(Boolean);
+        const selectedParts = cleanSelected.split(' / ').map(s => s.trim()).filter(Boolean);
+        for (const actP of actualParts) {
+          for (const selP of selectedParts) {
+            if (actP === selP) return true;
+          }
+        }
+
+        if (options && Array.isArray(options)) {
+          const letters = ['a', 'b', 'c', 'd', 'e', 'f'];
+          let letterIdx = -1;
+          if (/^[a-f]$/i.test(cleanActual)) {
+            letterIdx = letters.indexOf(cleanActual);
+          } else if (cleanActual.startsWith('option ')) {
+            const char = cleanActual.replace('option ', '').trim();
+            if (/^[a-f]$/i.test(char)) letterIdx = letters.indexOf(char);
+          }
+          if (letterIdx >= 0 && options[letterIdx]) {
+            const optClean = normalizeAns(options[letterIdx]);
+            if (optClean === cleanSelected || selectedParts.includes(optClean)) return true;
+          }
+        }
+        return false;
+      }
+
       let correct = 0;
       let wrong = 0;
       let unattempted = 0;
@@ -2081,11 +2117,12 @@ ${allUrls.map(u => `  <url>
       const userAnswers: Record<string, string> = {};
       
       answers.forEach((ans: { id: string, selected: string }) => {
-        const actual = actualAnswers.get(ans.id);
+        const qInfo = questionDataMap.get(ans.id);
+        const actual = qInfo?.correctAnswer || "";
         userAnswers[ans.id] = ans.selected || "";
         if (!ans.selected) {
           unattempted++;
-        } else if (actual === ans.selected) {
+        } else if (checkAnswerMatch(actual, ans.selected, qInfo?.options)) {
           correct++;
           score += posMarks;
         } else {
@@ -2247,10 +2284,7 @@ ${allUrls.map(u => `  <url>
         profileRef.update({ globalRank: rank }).catch(() => {});
       } catch (err) {}
 
-      const analysis: Record<string, string> = {};
-      actualAnswers.forEach((val, key) => {
-        analysis[key] = val;
-      });
+      const analysis: Record<string, string> = { ...correctAnswersMap };
 
       // Run background updates to pre-aggregate leaderboard and question stats for O(1) read operations
       rebuildAndSaveLeaderboard(testId, testData).catch(err => console.error("Background leaderboard update failed:", err));
