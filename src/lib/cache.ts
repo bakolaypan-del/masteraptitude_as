@@ -55,25 +55,44 @@ export async function invalidateCacheField(field: string): Promise<void> {
   }
 }
 
-// Fetch fresh real-time data directly from database on every load
+// Stale-While-Revalidate: Instant UI render from cache + silent background refresh
 export async function getCachedCollection<T>(
   key: string,
   fetchFn: () => Promise<T[]>,
   _cacheField?: string
 ): Promise<T[]> {
-  try {
-    const fresh = await fetchFn();
+  const cachedStr = localStorage.getItem(`ma_cache_${key}`);
+  const cachedTs = localStorage.getItem(`ma_cache_ts_${key}`);
+  const cacheAgeLimit = 24 * 60 * 60 * 1000; // 24 hours
+
+  let cachedData: T[] | null = null;
+  if (cachedStr) {
     try {
-      localStorage.setItem(`ma_cache_${key}`, JSON.stringify(fresh));
-      localStorage.setItem(`ma_cache_ts_${key}`, String(Date.now()));
-    } catch {}
-    return fresh;
-  } catch (error) {
-    console.warn(`[RealTime] Fetch error for ${key}, checking offline cache fallback:`, error);
-    const offlineCache = localStorage.getItem(`ma_cache_${key}`);
-    if (offlineCache) {
-      try { return JSON.parse(offlineCache) as T[]; } catch {}
+      cachedData = JSON.parse(cachedStr) as T[];
+    } catch {
+      localStorage.removeItem(`ma_cache_${key}`);
     }
-    return await fetchFn();
   }
+
+  const revalidate = async (): Promise<T[]> => {
+    try {
+      const fresh = await fetchFn();
+      if (fresh && Array.isArray(fresh)) {
+        localStorage.setItem(`ma_cache_${key}`, JSON.stringify(fresh));
+        localStorage.setItem(`ma_cache_ts_${key}`, String(Date.now()));
+      }
+      return fresh;
+    } catch (err) {
+      console.warn(`[SWR Cache] Background revalidation failed for ${key}:`, err);
+      return cachedData || [];
+    }
+  };
+
+  // Return cached data immediately if available for 0ms render, and revalidate in background
+  if (cachedData && Array.isArray(cachedData) && cachedData.length > 0 && cachedTs && (Date.now() - Number(cachedTs) < cacheAgeLimit)) {
+    revalidate().catch(() => {});
+    return cachedData;
+  }
+
+  return await revalidate();
 }

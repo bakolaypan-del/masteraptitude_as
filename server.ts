@@ -1957,11 +1957,19 @@ ${allUrls.map(u => `  <url>
   });
 
   // Get test and questions (without correct answer)
+  const testQuestionsCache = new Map<string, { data: any; ts: number }>();
+
   // Get test and questions (without correct answer)
   app.get("/api/test/:testId", verifyToken, async (req, res) => {
     const { testId } = req.params;
-    console.log(`[API] Loading test: ${testId}`);
+    
+    // Serve from fast in-memory cache if available (< 60s)
+    const cachedTest = testQuestionsCache.get(testId);
+    if (cachedTest && (Date.now() - cachedTest.ts < 60000)) {
+      return res.json(cachedTest.data);
+    }
 
+    console.log(`[API] Loading test from DB: ${testId}`);
     const currentDb = getDb();
     if (!currentDb) {
       return res.status(503).json({ success: false, error: "Database is currently offline. Please try again shortly." });
@@ -1988,17 +1996,9 @@ ${allUrls.map(u => `  <url>
         const data = doc.data();
         const { correctAnswer, ...safeData } = data;
         const qObj: any = { id: doc.id, ...safeData };
-        const key = qObj.qNo && Number(qObj.qNo) > 0 
-          ? `qno_${qObj.qNo}` 
-          : (qObj.questionText || '').replace(/<[^>]*>/g, '').trim().toLowerCase();
-        
+        const key = doc.id;
         if (!questionsMap.has(key)) {
           questionsMap.set(key, qObj);
-        } else {
-          const existing = questionsMap.get(key);
-          if ((qObj.questionText || '').length > (existing.questionText || '').length) {
-            questionsMap.set(key, qObj);
-          }
         }
       });
 
@@ -2009,8 +2009,10 @@ ${allUrls.map(u => `  <url>
         return res.status(404).json({ success: false, error: "No questions have been added to this test yet." });
       }
 
+      const responsePayload = { success: true, test: testObj, questions };
+      testQuestionsCache.set(testId, { data: responsePayload, ts: Date.now() });
       console.log(`[API] Loaded ${questions.length} unique questions for test ${testId}`);
-      return res.status(200).json({ success: true, test: testObj, questions });
+      return res.json(responsePayload);
     } catch (error: any) {
       console.error("[API] Error fetching test:", error);
       return res.status(500).json({ success: false, error: "Failed to load test. Please try again." });

@@ -1949,8 +1949,7 @@ function AdminHome() {
     { id: 'def_current_affairs', title: 'Current Affairs', textColor: 'default', iconType: '📰', actionType: 'route', actionValue: '/current-affairs', priority: 10, isActive: true },
     { id: 'def_practice', title: 'Practice Set', textColor: 'default', iconType: '✅', actionType: 'tab', actionValue: 'practice', priority: 11, isActive: true },
     { id: 'def_one_liner', title: 'One Liner Notes', textColor: 'purple', iconType: '📌', actionType: 'tab', actionValue: 'one_liner', priority: 12, isActive: true },
-    { id: 'def_news', title: 'Latest Job Notification', textColor: 'default', iconType: '📢', actionType: 'route', actionValue: '/news', priority: 13, isActive: true },
-    { id: 'def_kids', title: 'Kids Corner', textColor: 'pink', iconType: '🎈', actionType: 'route', actionValue: '/kids-corner', priority: 14, isActive: true }
+    { id: 'def_news', title: 'Latest Job Notification', textColor: 'default', iconType: '📢', actionType: 'route', actionValue: '/news', priority: 13, isActive: true }
   ];
 
   const handleToggleCategoryVisibility = async (cat: any) => {

@@ -82,6 +82,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setProfile(parsed);
             loadedFromCache = true;
             setLoading(false);
+            // Silent background refresh
+            refreshProfile(currentUser).catch(() => {});
           } catch (e) {
             localStorage.removeItem('ma_profile');
             localStorage.removeItem('ma_profile_ts');

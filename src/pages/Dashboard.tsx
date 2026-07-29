@@ -297,19 +297,19 @@ const getCategoryStyle = (title: string, dbColor?: string, dbIcon?: string) => {
 };
 
 const DEFAULT_DASHBOARD_CATEGORIES = [
-  { title: 'Live Mock', textColor: 'red', iconType: '🔴', actionType: 'tab', actionValue: 'live_test', priority: 0, isActive: true },
-  { title: 'Free Mock', textColor: 'green', iconType: '🏆', actionType: 'tab', actionValue: 'mock_landing', priority: 1, isActive: true },
-  { title: '150 Days Free Practice', textColor: 'red', iconType: '📅', actionType: 'tab', actionValue: 'mock_challenge', priority: 2, isActive: true },
-  { title: 'Typing Test', textColor: 'black', iconType: '⌨️', actionType: 'route', actionValue: '/typing-test', priority: 3, isActive: true },
-  { title: 'Syllabus', textColor: 'default', iconType: '📋', actionType: 'tab', actionValue: 'pattern', priority: 4, isActive: true },
-  { title: 'Previous Year Paper', textColor: 'default', iconType: '📁', actionType: 'tab', actionValue: 'pyq', priority: 5, isActive: true },
-  { title: 'Paid Test', textColor: 'default', iconType: '👑', actionType: 'route', actionValue: '/paid-mock', priority: 6, isActive: true },
-  { title: 'One Liner', textColor: 'default', iconType: '📌', actionType: 'tab', actionValue: 'one_liner', priority: 7, isActive: true },
-  { title: 'Ebook', textColor: 'default', iconType: '📖', actionType: 'tab', actionValue: 'notes', priority: 8, isActive: true },
-  { title: 'Current Affairs', textColor: 'default', iconType: '📰', actionType: 'route', actionValue: '/current-affairs', priority: 9, isActive: true },
-  { title: 'Practice Set', textColor: 'default', iconType: '✅', actionType: 'tab', actionValue: 'practice', priority: 10, isActive: true },
-  { title: 'Latest Job Notification', textColor: 'default', iconType: '📢', actionType: 'route', actionValue: '/news', priority: 11, isActive: true },
-  { title: 'Kids Corner', textColor: 'pink', iconType: '🎈', actionType: 'route', actionValue: '/kids-corner', priority: 12, isActive: true }
+  { id: 'def_live_test', title: 'Live Mock', textColor: 'red', iconType: '🔴', actionType: 'tab', actionValue: 'live_test', priority: 1, isActive: true },
+  { id: 'def_mock_landing', title: 'Free Mock', textColor: 'green', iconType: '🏆', actionType: 'tab', actionValue: 'mock_landing', priority: 2, isActive: true },
+  { id: 'def_mock_challenge', title: '150 Days Free Practice', textColor: 'red', iconType: '📅', actionType: 'tab', actionValue: 'mock_challenge', priority: 3, isActive: true },
+  { id: 'def_typing_test', title: 'Typing Test', textColor: 'black', iconType: '⌨️', actionType: 'route', actionValue: '/typing-test', priority: 4, isActive: true },
+  { id: 'def_pattern', title: 'Syllabus', textColor: 'default', iconType: '📋', actionType: 'tab', actionValue: 'pattern', priority: 5, isActive: true },
+  { id: 'def_pyq', title: 'Previous Year Paper', textColor: 'default', iconType: '📁', actionType: 'tab', actionValue: 'pyq', priority: 6, isActive: true },
+  { id: 'def_paid_mock', title: 'Paid Test', textColor: 'default', iconType: '👑', actionType: 'route', actionValue: '/paid-mock', priority: 7, isActive: true },
+  { id: 'def_quiz', title: 'Quiz', textColor: 'default', iconType: '🧠', actionType: 'tab', actionValue: 'mock_topic:Quiz', priority: 8, isActive: true },
+  { id: 'def_notes', title: 'Ebook', textColor: 'default', iconType: '📖', actionType: 'tab', actionValue: 'notes', priority: 9, isActive: true },
+  { id: 'def_current_affairs', title: 'Current Affairs', textColor: 'default', iconType: '📰', actionType: 'route', actionValue: '/current-affairs', priority: 10, isActive: true },
+  { id: 'def_practice', title: 'Practice Set', textColor: 'default', iconType: '✅', actionType: 'tab', actionValue: 'practice', priority: 11, isActive: true },
+  { id: 'def_one_liner', title: 'One Liner Notes', textColor: 'purple', iconType: '📌', actionType: 'tab', actionValue: 'one_liner', priority: 12, isActive: true },
+  { id: 'def_news', title: 'Latest Job Notification', textColor: 'default', iconType: '📢', actionType: 'route', actionValue: '/news', priority: 13, isActive: true }
 ];
 
 export default function Dashboard() {
@@ -485,11 +485,19 @@ export default function Dashboard() {
   }, [challengeDaysMap, pastResults]);
   const [dashboardCategories, setDashboardCategories] = useState<any[]>([]);
 
-  const isCategoryActive = (actionValue: string, titleName: string) => {
+  const isCategoryActive = (actionValue: string, titleName?: string) => {
     if (dashboardCategories.length === 0) return true;
-    const found = dashboardCategories.find((c: any) => 
-      (c.actionValue === actionValue || (c.title && c.title.toLowerCase() === titleName.toLowerCase()))
-    );
+    const cleanAction = (actionValue || '').toLowerCase().trim();
+    const cleanTitle = (titleName || '').toLowerCase().trim();
+
+    const found = dashboardCategories.find((c: any) => {
+      const cAction = (c.actionValue || '').toLowerCase().trim();
+      const cTitle = (c.title || '').toLowerCase().trim();
+      if (cleanAction && cAction && cAction === cleanAction) return true;
+      if (cleanTitle && cTitle && (cTitle === cleanTitle || cTitle.includes(cleanTitle) || cleanTitle.includes(cTitle))) return true;
+      return false;
+    });
+
     if (found) return found.isActive !== false;
     return true;
   };
@@ -754,17 +762,68 @@ export default function Dashboard() {
       try {
         console.log("Fetching student data in background...");
         
-        // Fetch Tests (both active & live tests)
-        const allTests = await getCachedCollection(
-          'tests',
-          async () => {
-            const snap = await getDocs(collection(db, 'tests'));
-            const tests = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            tests.sort((a: any, b: any) => (a.createdAt || 0) - (b.createdAt || 0));
-            return tests;
-          },
-          'tests'
-        );
+        // Fetch all collections in parallel via Promise.all for fast instant loading
+        const [allTests, allNotes, allVideos, allPyqs, allPatterns, allAffairs, allPractice] = await Promise.all([
+          getCachedCollection(
+            'tests',
+            async () => {
+              const snap = await getDocs(collection(db, 'tests'));
+              const tests = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+              tests.sort((a: any, b: any) => (a.createdAt || 0) - (b.createdAt || 0));
+              return tests;
+            },
+            'tests'
+          ),
+          getCachedCollection(
+            'notes',
+            async () => {
+              const snap = await getDocs(query(collection(db, 'notes'), orderBy('createdAt', 'desc')));
+              return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            },
+            'notes'
+          ),
+          getCachedCollection(
+            'videos',
+            async () => {
+              const snap = await getDocs(query(collection(db, 'videos'), orderBy('createdAt', 'desc')));
+              return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            },
+            'videos'
+          ),
+          getCachedCollection(
+            'pyqs',
+            async () => {
+              const snap = await getDocs(query(collection(db, 'pyqs'), orderBy('createdAt', 'desc')));
+              return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            },
+            'pyqs'
+          ),
+          getCachedCollection(
+            'patterns',
+            async () => {
+              const snap = await getDocs(query(collection(db, 'patterns'), orderBy('createdAt', 'desc')));
+              return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            },
+            'patterns'
+          ),
+          getCachedCollection(
+            'affairs',
+            async () => {
+              const snap = await getDocs(query(collection(db, 'affairs'), orderBy('createdAt', 'desc')));
+              return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            },
+            'affairs'
+          ),
+          getCachedCollection(
+            'practice_sets',
+            async () => {
+              const snap = await getDocs(query(collection(db, 'practice_sets'), orderBy('createdAt', 'desc')));
+              return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            },
+            'practice_sets'
+          )
+        ]);
+
         const checkIsLiveTest = (t: any) => {
           if (t.isLive) return true;
           const cat = String(t.category || '').toUpperCase();
@@ -778,79 +837,12 @@ export default function Dashboard() {
 
         setActiveTests(allTests.filter((t: any) => t.isActive !== false));
         setLiveTests(allTests.filter(checkIsLiveTest));
-        localStorage.setItem('ma_cache_tests', JSON.stringify(allTests));
-        
-        // Fetch Notes
-        const allNotes = await getCachedCollection(
-          'notes',
-          async () => {
-            const snap = await getDocs(query(collection(db, 'notes'), orderBy('createdAt', 'desc')));
-            return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          },
-          'notes'
-        );
         setNotes(allNotes);
-        localStorage.setItem('ma_cache_notes', JSON.stringify(allNotes));
-
-        // Fetch Videos
-        const allVideos = await getCachedCollection(
-          'videos',
-          async () => {
-            const snap = await getDocs(query(collection(db, 'videos'), orderBy('createdAt', 'desc')));
-            return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          },
-          'videos'
-        );
         setVideos(allVideos);
-        localStorage.setItem('ma_cache_videos', JSON.stringify(allVideos));
-
-        // Fetch Pyqs
-        const allPyqs = await getCachedCollection(
-          'pyqs',
-          async () => {
-            const snap = await getDocs(query(collection(db, 'pyqs'), orderBy('createdAt', 'desc')));
-            return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          },
-          'pyqs'
-        );
         setPyqs(allPyqs);
-        localStorage.setItem('ma_cache_pyqs', JSON.stringify(allPyqs));
-
-        // Fetch Patterns
-        const allPatterns = await getCachedCollection(
-          'patterns',
-          async () => {
-            const snap = await getDocs(query(collection(db, 'patterns'), orderBy('createdAt', 'desc')));
-            return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          },
-          'patterns'
-        );
         setPatterns(allPatterns);
-        localStorage.setItem('ma_cache_patterns', JSON.stringify(allPatterns));
-
-        // Fetch Affairs
-        const allAffairs = await getCachedCollection(
-          'affairs',
-          async () => {
-            const snap = await getDocs(query(collection(db, 'affairs'), orderBy('createdAt', 'desc')));
-            return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          },
-          'affairs'
-        );
         setAffairs(allAffairs);
-        localStorage.setItem('ma_cache_affairs', JSON.stringify(allAffairs));
-
-        // Fetch Practice Sets
-        const allPractice = await getCachedCollection(
-          'practice_sets',
-          async () => {
-            const snap = await getDocs(query(collection(db, 'practice_sets'), orderBy('createdAt', 'desc')));
-            return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          },
-          'practice_sets'
-        );
         setPracticeSets(allPractice);
-        localStorage.setItem('ma_cache_practice_sets', JSON.stringify(allPractice));
 
         // Get global cacheState for version checking
         const cacheState = await getCacheState();
@@ -1489,42 +1481,54 @@ export default function Dashboard() {
                 >
                   Recorded Video
                 </button>
-                <button 
-                  onClick={() => { setActiveTab('notes'); setIsSidebarOpen(false); }} 
-                  className={`w-full sub-category sub-learn-notes ${activeTab === 'notes' ? 'active' : ''}`}
-                >
-                  Ebooks & Study Notes
-                </button>
-                <button 
-                  onClick={() => { setActiveTab('one_liner'); setIsSidebarOpen(false); }} 
-                  className={`w-full sub-category sub-learn-one-liner ${activeTab === 'one_liner' ? 'active' : ''}`}
-                >
-                  📌 One Liner Notes
-                </button>
-                <button 
-                  onClick={() => { setActiveTab('pyq'); setIsSidebarOpen(false); }} 
-                  className={`w-full sub-category sub-learn-pyq ${activeTab === 'pyq' ? 'active' : ''}`}
-                >
-                  📄 Previous Year Q. (PYQ)
-                </button>
-                <button 
-                  onClick={() => { setActiveTab('pattern'); setIsSidebarOpen(false); }} 
-                  className={`w-full sub-category sub-learn-pattern ${activeTab === 'pattern' ? 'active' : ''}`}
-                >
-                  📋 Exam Pattern & Syllabus
-                </button>
-                <button
-                  onClick={() => { navigate('/current-affairs'); setIsSidebarOpen(false); }}
-                  className="w-full sub-category sub-learn-affairs"
-                >
-                  Current Affairs
-                </button>
-                <button 
-                  onClick={() => { setActiveTab('practice'); setIsSidebarOpen(false); }} 
-                  className={`w-full sub-category sub-learn-practice ${activeTab === 'practice' ? 'active' : ''}`}
-                >
-                  Practice Set
-                </button>
+                {isCategoryActive('notes', 'Ebook') && (
+                  <button 
+                    onClick={() => { setActiveTab('notes'); setIsSidebarOpen(false); }} 
+                    className={`w-full sub-category sub-learn-notes ${activeTab === 'notes' ? 'active' : ''}`}
+                  >
+                    Ebooks &amp; Study Notes
+                  </button>
+                )}
+                {isCategoryActive('one_liner', 'One Liner Notes') && (
+                  <button 
+                    onClick={() => { setActiveTab('one_liner'); setIsSidebarOpen(false); }} 
+                    className={`w-full sub-category sub-learn-one-liner ${activeTab === 'one_liner' ? 'active' : ''}`}
+                  >
+                    📌 One Liner Notes
+                  </button>
+                )}
+                {isCategoryActive('pyq', 'Previous Year Paper') && (
+                  <button 
+                    onClick={() => { setActiveTab('pyq'); setIsSidebarOpen(false); }} 
+                    className={`w-full sub-category sub-learn-pyq ${activeTab === 'pyq' ? 'active' : ''}`}
+                  >
+                    📄 Previous Year Q. (PYQ)
+                  </button>
+                )}
+                {isCategoryActive('pattern', 'Syllabus') && (
+                  <button 
+                    onClick={() => { setActiveTab('pattern'); setIsSidebarOpen(false); }} 
+                    className={`w-full sub-category sub-learn-pattern ${activeTab === 'pattern' ? 'active' : ''}`}
+                  >
+                    📋 Exam Pattern &amp; Syllabus
+                  </button>
+                )}
+                {isCategoryActive('/current-affairs', 'Current Affairs') && (
+                  <button
+                    onClick={() => { navigate('/current-affairs'); setIsSidebarOpen(false); }}
+                    className="w-full sub-category sub-learn-affairs"
+                  >
+                    Current Affairs
+                  </button>
+                )}
+                {isCategoryActive('practice', 'Practice Set') && (
+                  <button 
+                    onClick={() => { setActiveTab('practice'); setIsSidebarOpen(false); }} 
+                    className={`w-full sub-category sub-learn-practice ${activeTab === 'practice' ? 'active' : ''}`}
+                  >
+                    Practice Set
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -1548,36 +1552,46 @@ export default function Dashboard() {
             
             {mockOpen && (
               <div className="pl-2 pr-1 py-2 space-y-1.5 bg-slate-950/20 rounded-xl border border-white/5 animate-in fade-in duration-100">
-                <button 
-                  onClick={() => { setActiveTab('live_test'); setIsSidebarOpen(false); }} 
-                  className={`w-full sub-category sub-mock-live ${activeTab === 'live_test' ? 'active' : ''}`}
-                >
-                  🔴 Live Mock Tests (Past & Running)
-                </button>
-                <button 
-                  onClick={() => { setActiveTab('mock_topic'); setIsSidebarOpen(false); }} 
-                  className={`w-full sub-category sub-mock-topic ${activeTab === 'mock_topic' ? 'active' : ''}`}
-                >
-                  Topic Wise Mock Test
-                </button>
-                <button 
-                  onClick={() => { setActiveTab('mock_sectional'); setIsSidebarOpen(false); }} 
-                  className={`w-full sub-category sub-mock-sectional ${activeTab === 'mock_sectional' ? 'active' : ''}`}
-                >
-                  Sectional Mock Test
-                </button>
-                <button 
-                  onClick={() => { setActiveTab('mock_full'); setIsSidebarOpen(false); }} 
-                  className={`w-full sub-category sub-mock-full ${activeTab === 'mock_full' ? 'active' : ''}`}
-                >
-                  Full Mock Test
-                </button>
-                <button 
-                  onClick={() => { setActiveTab('mock_challenge'); setIsSidebarOpen(false); }} 
-                  className={`w-full sub-category sub-mock-challenge ${activeTab === 'mock_challenge' ? 'active' : ''}`}
-                >
-                  150 Days Challenge
-                </button>
+                {isCategoryActive('live_test', 'Live Mock') && (
+                  <button 
+                    onClick={() => { setActiveTab('live_test'); setIsSidebarOpen(false); }} 
+                    className={`w-full sub-category sub-mock-live ${activeTab === 'live_test' ? 'active' : ''}`}
+                  >
+                    🔴 Live Mock Tests (Past &amp; Running)
+                  </button>
+                )}
+                {isCategoryActive('mock_landing', 'Free Mock') && (
+                  <button 
+                    onClick={() => { setActiveTab('mock_topic'); setIsSidebarOpen(false); }} 
+                    className={`w-full sub-category sub-mock-topic ${activeTab === 'mock_topic' ? 'active' : ''}`}
+                  >
+                    Topic Wise Mock Test
+                  </button>
+                )}
+                {isCategoryActive('mock_landing', 'Free Mock') && (
+                  <button 
+                    onClick={() => { setActiveTab('mock_sectional'); setIsSidebarOpen(false); }} 
+                    className={`w-full sub-category sub-mock-sectional ${activeTab === 'mock_sectional' ? 'active' : ''}`}
+                  >
+                    Sectional Mock Test
+                  </button>
+                )}
+                {isCategoryActive('mock_landing', 'Free Mock') && (
+                  <button 
+                    onClick={() => { setActiveTab('mock_full'); setIsSidebarOpen(false); }} 
+                    className={`w-full sub-category sub-mock-full ${activeTab === 'mock_full' ? 'active' : ''}`}
+                  >
+                    Full Mock Test
+                  </button>
+                )}
+                {isCategoryActive('mock_challenge', '150 Days Free Practice') && (
+                  <button 
+                    onClick={() => { setActiveTab('mock_challenge'); setIsSidebarOpen(false); }} 
+                    className={`w-full sub-category sub-mock-challenge ${activeTab === 'mock_challenge' ? 'active' : ''}`}
+                  >
+                    150 Days Challenge
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -1602,18 +1616,6 @@ export default function Dashboard() {
             >
               <BookOpen className="w-4 h-4 shrink-0" />
               <span>News &amp; Updates</span>
-            </button>
-          )}
-
-          {/* KIDS CORNER LINK */}
-          {isCategoryActive('/kids-corner', 'Kids Corner') && (
-            <button
-              onClick={() => { navigate('/kids-corner'); setIsSidebarOpen(false); }}
-              className="w-full sidebar-btn"
-              style={{color: '#ec4899'}}
-            >
-              <span className="text-sm">🎈</span>
-              <span>Kids Corner</span>
             </button>
           )}
 
@@ -1861,10 +1863,17 @@ export default function Dashboard() {
 
               {/* ── Category Grid — 4 Columns light cards ── */}
               {(() => {
-                const existingKeys = new Set(dashboardCategories.map((c: any) => c.actionValue || c.title));
-                const missingDefaults = DEFAULT_DASHBOARD_CATEGORIES.filter((d: any) => !existingKeys.has(d.actionValue) && !existingKeys.has(d.title));
-                const combinedCats = dashboardCategories.length > 0 ? [...dashboardCategories, ...missingDefaults] : DEFAULT_DASHBOARD_CATEGORIES;
-                const cats = combinedCats.filter((c: any) => c.isActive !== false);
+                const categoryMap = new Map<string, any>();
+                DEFAULT_DASHBOARD_CATEGORIES.forEach(d => {
+                  const key = d.actionValue || d.title;
+                  categoryMap.set(key, d);
+                });
+                dashboardCategories.forEach(c => {
+                  const key = c.actionValue || c.title;
+                  const existing = categoryMap.get(key) || {};
+                  categoryMap.set(key, { ...existing, ...c });
+                });
+                const cats = Array.from(categoryMap.values()).filter((c: any) => c.isActive !== false);
                 cats.sort((a: any, b: any) => (a.priority || 0) - (b.priority || 0));
 
                 const handleCategoryClick = (cat: any) => {
