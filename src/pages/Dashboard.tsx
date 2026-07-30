@@ -17,6 +17,7 @@ import ReviewPopup from '../components/ReviewPopup';
 import ReviewSlider from '../components/ReviewSlider';
 import ComingSoonBox from '../components/ComingSoonBox';
 import { RenderQuestionHTML } from '../components/RichTextEditor';
+import { exportMockTestToPDF } from '../lib/exportMockTest';
 import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ChevronLeft, ArrowLeft, ExternalLink, Menu, X, Youtube, MessageCircle, Send, LayoutDashboard, History, ChevronDown, ArrowRight, User, Info, Phone, Download, Printer, AlertCircle, BarChart3, Keyboard, Globe, Layers, CheckSquare, Volume2, VolumeX, Maximize, NotebookPen, Award, Calendar, ClipboardList, Crown, Brain, Book, Newspaper, Megaphone, Bookmark, Eye, Sparkles, FileUp, Search, Filter, Image as ImgIcon, Check, Share2, Pencil, Mail, Lock, ShieldCheck } from 'lucide-react';
 
 type DashboardTab = 'home' | 'profile' | 'mock_topic' | 'mock_sectional' | 'mock_full' | 'notes' | 'video' | 'pyq' | 'pattern' | 'affairs' | 'practice' | 'about' | 'contact' | 'learn_landing' | 'mock_landing' | 'live_test' | 'mock_challenge' | 'one_liner';
@@ -388,6 +389,35 @@ export default function Dashboard() {
   const [activeOneLinerModal, setActiveOneLinerModal] = useState<any | null>(null);
   const [copiedShareId, setCopiedShareId] = useState<string | null>(null);
   const [liveSubTab, setLiveSubTab] = useState<'running' | 'past'>('running');
+  const [downloadingPdfId, setDownloadingPdfId] = useState<string | null>(null);
+
+  const handleDownloadQuestionsPDF = async (targetTestId: string, paperTitle: string) => {
+    try {
+      setDownloadingPdfId(targetTestId);
+      const token = await user?.getIdToken();
+      const res = await fetch(`/api/test/${targetTestId}`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      const data = await res.json();
+      const questions = data.questions || [];
+      if (!questions || questions.length === 0) {
+        alert("No questions found for this paper.");
+        return;
+      }
+      exportMockTestToPDF(data.test?.title || paperTitle, questions, {
+        category: data.test?.category || 'WBCS',
+        topic: data.test?.topic || 'General Studies',
+        duration: data.test?.duration || 150,
+        marksPerCorrect: data.test?.marksPerCorrect || 1,
+        negativeMarks: data.test?.negativeMarks || 0.33
+      });
+    } catch (err) {
+      console.error('Error exporting PDF:', err);
+      alert('Failed to generate Question Paper PDF. Please try again.');
+    } finally {
+      setDownloadingPdfId(null);
+    }
+  };
   const [myGlobalRank, setMyGlobalRank] = useState<number | null>(null);
   const [totalStudentsCount, setTotalStudentsCount] = useState<number | null>(null);
   const [challengeTotalStudents, setChallengeTotalStudents] = useState<number | null>(null);
@@ -2463,39 +2493,7 @@ export default function Dashboard() {
           {/* Practice Set Tab Content */}
           {activeTab === 'practice' && (
             <div className="space-y-6 animate-in fade-in duration-150">
-              {/* Unified Learn Sub-Section Toggle Bar */}
-              <div className="flex items-center gap-1.5 p-1.5 bg-slate-100/90 rounded-2xl border border-slate-200/80 overflow-x-auto no-scrollbar">
-                <button
-                  onClick={() => setActiveTab('notes')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all flex items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-900"
-                >
-                  <BookOpen className="w-3.5 h-3.5 text-emerald-600" /> Ebooks & Notes
-                </button>
-                <button
-                  onClick={() => setActiveTab('one_liner')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all flex items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-900"
-                >
-                  <Bookmark className="w-3.5 h-3.5 text-indigo-600" /> 📌 One Liner Notes
-                </button>
-                <button
-                  onClick={() => setActiveTab('pyq')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all flex items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-900"
-                >
-                  <FileText className="w-3.5 h-3.5 text-rose-600" /> 📄 Previous Year Q. (PYQ)
-                </button>
-                <button
-                  onClick={() => setActiveTab('pattern')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all flex items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-900"
-                >
-                  <Trophy className="w-3.5 h-3.5 text-blue-600" /> 📋 Exam Pattern & Syllabus
-                </button>
-                <button
-                  onClick={() => setActiveTab('practice')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all flex items-center gap-1.5 cursor-pointer bg-white text-teal-700 shadow-xs border border-slate-200"
-                >
-                  <Target className="w-3.5 h-3.5 text-teal-600" /> 🎯 Practice Sets
-                </button>
-              </div>
+
               {/* Banner Header */}
               <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-teal-600 via-emerald-600 to-teal-700 p-6 rounded-3xl text-white shadow-lg relative overflow-hidden">
                 <div className="space-y-1 relative z-10">
@@ -3180,7 +3178,12 @@ export default function Dashboard() {
               </div>
 
               {activeTab === 'mock_full' ? (() => {
-                const fullTests = activeTests.filter(t => (t.testType || 'topic') === 'full');
+                const fullTests = activeTests.filter(t => 
+                  (t.testType || t.test_type || 'topic') === 'full' || 
+                  (t.testType || t.test_type || '').toLowerCase().includes('full') || 
+                  (t.testType || t.test_type || '').toLowerCase().includes('pyq') || 
+                  t.category === 'WBCS'
+                );
 
                 if (fullTests.length === 0) {
                   return (
@@ -3535,13 +3538,25 @@ export default function Dashboard() {
                                                       🛒 Buy Now
                                                     </button>
                                                   ) : (
-                                                    <Link
-                                                      to={`/test/${test.id}`}
-                                                      className="px-3.5 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-black text-[9px] uppercase tracking-widest rounded-xl hover:from-slate-900 hover:to-slate-900 transition-all shadow-xs flex items-center gap-1 active:scale-95"
-                                                    >
-                                                      {isTaken ? 'Reattempt' : 'Attempt'}
-                                                      <ChevronRight className="w-3 h-3" />
-                                                    </Link>
+                                                    <div className="flex items-center gap-2">
+                                                      <button
+                                                        onClick={() => handleDownloadQuestionsPDF(test.id, test.title)}
+                                                        disabled={downloadingPdfId === test.id}
+                                                        className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-extrabold text-[9px] uppercase tracking-wider rounded-xl transition-all flex items-center gap-1 cursor-pointer border border-emerald-200 shadow-xs"
+                                                        title="Download Question Paper & Answer Key PDF"
+                                                      >
+                                                        <Download className="w-3 h-3 text-emerald-600" />
+                                                        {downloadingPdfId === test.id ? 'PDF...' : '📄 PDF'}
+                                                      </button>
+
+                                                      <Link
+                                                        to={`/test/${test.id}`}
+                                                        className="px-3.5 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-black text-[9px] uppercase tracking-widest rounded-xl hover:from-slate-900 hover:to-slate-900 transition-all shadow-xs flex items-center gap-1 active:scale-95"
+                                                      >
+                                                        {isTaken ? 'Reattempt' : 'Attempt'}
+                                                        <ChevronRight className="w-3 h-3" />
+                                                      </Link>
+                                                    </div>
                                                   )}
                                                 </div>
 
@@ -3935,39 +3950,7 @@ export default function Dashboard() {
 
           {activeTab === 'one_liner' && (
             <div className="space-y-6 animate-in fade-in duration-150">
-              {/* Unified Learn Sub-Section Toggle Bar */}
-              <div className="flex items-center gap-1.5 p-1.5 bg-slate-100/90 rounded-2xl border border-slate-200/80 overflow-x-auto no-scrollbar">
-                <button
-                  onClick={() => setActiveTab('notes')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all flex items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-900"
-                >
-                  <BookOpen className="w-3.5 h-3.5 text-emerald-600" /> Ebooks & Notes
-                </button>
-                <button
-                  onClick={() => setActiveTab('one_liner')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all flex items-center gap-1.5 cursor-pointer bg-white text-indigo-700 shadow-xs border border-slate-200"
-                >
-                  <Bookmark className="w-3.5 h-3.5 text-indigo-600" /> 📌 One Liner Notes
-                </button>
-                <button
-                  onClick={() => setActiveTab('pyq')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all flex items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-900"
-                >
-                  <FileText className="w-3.5 h-3.5 text-rose-600" /> 📄 Previous Year Q. (PYQ)
-                </button>
-                <button
-                  onClick={() => setActiveTab('pattern')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all flex items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-900"
-                >
-                  <Trophy className="w-3.5 h-3.5 text-blue-600" /> 📋 Exam Pattern & Syllabus
-                </button>
-                <button
-                  onClick={() => setActiveTab('practice')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all flex items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-900"
-                >
-                  <Target className="w-3.5 h-3.5 text-teal-600" /> 🎯 Practice Sets
-                </button>
-              </div>
+
 
               {/* Banner Header */}
               <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-violet-600 via-indigo-600 to-indigo-700 p-6 rounded-3xl text-white shadow-lg relative overflow-hidden">
@@ -4273,39 +4256,7 @@ export default function Dashboard() {
 
           {activeTab === 'notes' && (
             <div className="space-y-6 animate-in fade-in duration-150">
-              {/* Unified Learn Sub-Section Toggle Bar */}
-              <div className="flex items-center gap-1.5 p-1.5 bg-slate-100/90 rounded-2xl border border-slate-200/80 overflow-x-auto no-scrollbar">
-                <button
-                  onClick={() => setActiveTab('notes')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all flex items-center gap-1.5 cursor-pointer bg-white text-emerald-700 shadow-xs border border-slate-200"
-                >
-                  <BookOpen className="w-3.5 h-3.5 text-emerald-600" /> Ebooks & Notes
-                </button>
-                <button
-                  onClick={() => setActiveTab('one_liner')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all flex items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-900"
-                >
-                  <Bookmark className="w-3.5 h-3.5 text-indigo-600" /> 📌 One Liner Notes
-                </button>
-                <button
-                  onClick={() => setActiveTab('pyq')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all flex items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-900"
-                >
-                  <FileText className="w-3.5 h-3.5 text-rose-600" /> 📄 Previous Year Q. (PYQ)
-                </button>
-                <button
-                  onClick={() => setActiveTab('pattern')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all flex items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-900"
-                >
-                  <Trophy className="w-3.5 h-3.5 text-blue-600" /> 📋 Exam Pattern & Syllabus
-                </button>
-                <button
-                  onClick={() => setActiveTab('practice')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all flex items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-900"
-                >
-                  <Target className="w-3.5 h-3.5 text-teal-600" /> 🎯 Practice Sets
-                </button>
-              </div>
+
 
               {/* Banner Header */}
               <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 p-6 rounded-3xl text-white shadow-lg relative overflow-hidden">
@@ -4469,197 +4420,228 @@ export default function Dashboard() {
             </div>
           )}
 
-          {activeTab === 'pyq' && (
-            <div className="space-y-6 animate-in fade-in duration-150">
-              {/* Unified Learn Sub-Section Toggle Bar */}
-              <div className="flex items-center gap-1.5 p-1.5 bg-slate-100/90 rounded-2xl border border-slate-200/80 overflow-x-auto no-scrollbar">
-                <button
-                  onClick={() => setActiveTab('notes')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all flex items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-900"
-                >
-                  <BookOpen className="w-3.5 h-3.5 text-emerald-600" /> Ebooks & Notes
-                </button>
-                <button
-                  onClick={() => setActiveTab('one_liner')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all flex items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-900"
-                >
-                  <Bookmark className="w-3.5 h-3.5 text-indigo-600" /> 📌 One Liner Notes
-                </button>
-                <button
-                  onClick={() => setActiveTab('pyq')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all flex items-center gap-1.5 cursor-pointer bg-white text-rose-700 shadow-xs border border-slate-200"
-                >
-                  <FileText className="w-3.5 h-3.5 text-rose-600" /> 📄 Previous Year Q. (PYQ)
-                </button>
-                <button
-                  onClick={() => setActiveTab('pattern')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all flex items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-900"
-                >
-                  <Trophy className="w-3.5 h-3.5 text-blue-600" /> 📋 Exam Pattern & Syllabus
-                </button>
-                <button
-                  onClick={() => setActiveTab('practice')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all flex items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-900"
-                >
-                  <Target className="w-3.5 h-3.5 text-teal-600" /> 🎯 Practice Sets
-                </button>
-              </div>
-              {/* Banner Header */}
-              <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 p-6 rounded-3xl text-white shadow-lg relative overflow-hidden">
-                <div className="space-y-1 relative z-10">
-                  <span className="bg-white/20 text-white font-black uppercase text-[10px] px-3 py-1 rounded-full tracking-widest border border-white/20 inline-block">
-                    Archive & Practice
-                  </span>
-                  <h2 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
-                    <History className="w-6 h-6 text-amber-200 shrink-0" /> Previous Year Question Papers (PYQs)
-                  </h2>
-                  <p className="text-xs sm:text-sm text-amber-100 font-medium leading-relaxed max-w-xl">
-                    Download authentic Previous Year Question Papers, memory-based questions, and key solutions.
-                  </p>
-                </div>
-              </div>
+          {activeTab === 'pyq' && (() => {
+            const publishedPyqs = pyqs.filter(p => p.status !== 'draft');
 
-              {/* Search & Subject Filter Bar */}
-              <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-                <div className="relative flex-1 min-w-[220px]">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    placeholder="Search Previous Year Papers..."
-                    value={pyqSearch}
-                    onChange={e => setPyqSearch(e.target.value)}
-                    className="w-full bg-slate-50 rounded-xl border border-slate-200 pl-9 pr-3 py-2 text-xs font-bold text-slate-800 focus:border-amber-600 outline-none"
-                  />
+            // Dynamically extract active exam categories from available PYQs in database
+            const dynamicCategoriesSet = new Set<string>();
+            publishedPyqs.forEach(p => {
+              const rawCat = p.subject || p.pyqSubject || p.category || p.examCategory || '';
+              let norm = 'General';
+              if (rawCat.toLowerCase().includes('wbcs')) norm = 'WBCS';
+              else if (rawCat.toLowerCase().includes('clerkship') || rawCat.toLowerCase().includes('psc')) norm = 'WBPSC Clerkship';
+              else if (rawCat.trim()) norm = rawCat.trim();
+              dynamicCategoriesSet.add(norm);
+            });
+            const dynamicCategories = Array.from(dynamicCategoriesSet);
+
+            const selectedCategory = pyqSubjectFilter !== 'ALL' && dynamicCategories.includes(pyqSubjectFilter) ? pyqSubjectFilter : null;
+
+            return (
+              <div className="space-y-6 animate-in fade-in duration-150">
+
+                {/* Banner Header */}
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 p-6 rounded-3xl text-white shadow-lg relative overflow-hidden">
+                  <div className="space-y-1 relative z-10">
+                    <span className="bg-white/20 text-white font-black uppercase text-[10px] px-3 py-1 rounded-full tracking-widest border border-white/20 inline-block">
+                      Archive & Practice
+                    </span>
+                    <h2 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
+                      <History className="w-6 h-6 text-amber-200 shrink-0" /> Previous Year Question Papers (PYQs)
+                    </h2>
+                    <p className="text-xs sm:text-sm text-amber-100 font-medium leading-relaxed max-w-xl">
+                      Select an exam category to explore authentic Previous Year Question Papers with solution keys and CBT test modes.
+                    </p>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
-                  {['ALL', 'Full Question Paper', 'Mathematics', 'Reasoning', 'General Knowledge', 'English Language', 'Computer Knowledge', 'SSC Exams', 'Railway Exams', 'Banking Exams'].map(cat => (
+                {/* BACK BUTTON AND SELECTED CATEGORY HEADER */}
+                {selectedCategory ? (
+                  <div className="flex items-center justify-between gap-3 flex-wrap bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
                     <button
-                      key={cat}
-                      onClick={() => setPyqSubjectFilter(cat)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-black shrink-0 transition-all cursor-pointer ${
-                        pyqSubjectFilter === cat
-                          ? 'bg-amber-600 text-white shadow-xs'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
+                      onClick={() => setPyqSubjectFilter('ALL')}
+                      className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-xs rounded-xl transition-all cursor-pointer border border-slate-200 shadow-xs"
                     >
-                      {cat}
+                      <ArrowLeft className="w-4 h-4 text-amber-600" /> Back to Exam Categories
                     </button>
-                  ))}
-                </div>
-              </div>
 
-              {/* PYQs Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {pyqs
-                  .filter(p => p.status !== 'draft')
-                  .filter(p => {
-                    const matchesSearch = 
-                      (p.title || p.pyqTitle || '').toLowerCase().includes(pyqSearch.toLowerCase()) ||
-                      (p.content || '').toLowerCase().includes(pyqSearch.toLowerCase()) ||
-                      (p.subject || p.pyqSubject || '').toLowerCase().includes(pyqSearch.toLowerCase());
-                    const matchesSub = pyqSubjectFilter === 'ALL' || (p.subject || p.pyqSubject || '').includes(pyqSubjectFilter);
-                    return matchesSearch && matchesSub;
-                  })
-                  .map(pyq => {
-                    const titleText = pyq.title || pyq.pyqTitle || 'Previous Year Paper';
-                    const subjectText = pyq.subject || pyq.pyqSubject || 'General';
-                    const pdfLink = pyq.pdfUrl || pyq.fileUrl || pyq.link;
+                    <span className="px-3.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 text-xs font-black uppercase rounded-full">
+                      Category: {selectedCategory}
+                    </span>
+                  </div>
+                ) : null}
 
-                    return (
-                      <div key={pyq.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs relative group hover:shadow-lg transition-all flex flex-col justify-between space-y-4">
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between gap-2 flex-wrap">
-                            <span className="px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-100 text-[10px] font-black uppercase rounded-lg">
-                              {subjectText}
-                            </span>
-                            {pyq.pinned && (
-                              <span className="px-2 py-0.5 bg-amber-500 text-slate-950 text-[9px] font-black uppercase rounded-md flex items-center gap-1">
-                                📌 Pinned
+                {/* 1. INITIAL CATEGORY VIEW: SQUARE DASHBOARD TILES (Like Free Mock, Live Mock, 150 Days Challenge) */}
+                {!selectedCategory ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-black text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
+                        <span>📂</span> Exam Categories ({dynamicCategories.length})
+                      </h3>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {dynamicCategories.map(cat => {
+                        const catPyqs = publishedPyqs.filter(p => {
+                          const rawCat = p.subject || p.pyqSubject || p.category || p.examCategory || '';
+                          let norm = 'General';
+                          if (rawCat.toLowerCase().includes('wbcs')) norm = 'WBCS';
+                          else if (rawCat.toLowerCase().includes('clerkship') || rawCat.toLowerCase().includes('psc')) norm = 'WBPSC Clerkship';
+                          else if (rawCat.trim()) norm = rawCat.trim();
+                          return norm === cat;
+                        });
+
+                        const paperCount = catPyqs.length;
+                        const isWbcs = cat === 'WBCS';
+
+                        return (
+                          <button
+                            key={cat}
+                            onClick={() => setPyqSubjectFilter(cat)}
+                            className="group relative overflow-hidden rounded-3xl p-6 text-left backdrop-blur-md bg-white border border-slate-200/80 hover:border-amber-400 hover:bg-white shadow-xs hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between min-h-[190px] cursor-pointer"
+                          >
+                            <div className={`absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r ${
+                              isWbcs ? 'from-amber-400 via-orange-500 to-amber-600' : 'from-indigo-400 via-purple-500 to-indigo-600'
+                            }`} />
+                            
+                            <div className="absolute top-5 right-5">
+                              <span className={`font-black uppercase text-[9px] px-3 py-1 rounded-full tracking-widest border ${
+                                isWbcs 
+                                  ? 'bg-amber-50 text-amber-700 border-amber-200' 
+                                  : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                              }`}>
+                                {paperCount} {paperCount === 1 ? 'Paper Available' : 'Papers Available'}
                               </span>
-                            )}
-                          </div>
+                            </div>
 
-                          <h4 className="font-black text-slate-900 text-base leading-snug tracking-tight">{titleText}</h4>
+                            <div>
+                              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-md ${
+                                isWbcs 
+                                  ? 'bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-amber-200' 
+                                  : 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-indigo-200'
+                              }`}>
+                                <FileText className="w-6 h-6" />
+                              </div>
+                              <h3 className="font-black text-slate-900 text-lg leading-tight tracking-tight">{cat}</h3>
+                              <p className="text-xs text-slate-500 font-semibold mt-1.5 leading-relaxed">
+                                {isWbcs 
+                                  ? 'West Bengal Civil Service Executive Examination Previous Year Papers with official key.' 
+                                  : 'West Bengal PSC Clerkship Examination Preliminary Previous Year Question Papers with key.'}
+                              </p>
+                            </div>
 
-                          {pyq.content && (
-                            <p className="text-xs text-slate-600 font-medium leading-relaxed whitespace-pre-line bg-slate-50 p-3 rounded-xl border border-slate-100">
-                              {pyq.content}
-                            </p>
-                          )}
-
-                          {pyq.imageUrl && (
-                            <div 
-                              onClick={() => setSelectedPreviewImage(pyq.imageUrl)}
-                              className="relative rounded-xl border border-slate-200 overflow-hidden cursor-pointer group max-h-48 bg-slate-100"
-                            >
-                              <img src={pyq.imageUrl} alt={titleText} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                              <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1">
-                                <Eye className="w-4 h-4" /> View full image
+                            <div className={`mt-5 flex items-center justify-between text-xs font-black uppercase tracking-wider w-full ${
+                              isWbcs ? 'text-amber-600' : 'text-indigo-600'
+                            }`}>
+                              <span>Explore {cat} Papers</span>
+                              <div className={`w-7 h-7 rounded-full flex items-center justify-center border transition-colors duration-300 ${
+                                isWbcs 
+                                  ? 'bg-amber-50 border-amber-200 group-hover:bg-amber-500 group-hover:text-white' 
+                                  : 'bg-indigo-50 border-indigo-200 group-hover:bg-indigo-500 group-hover:text-white'
+                              }`}>
+                                <ChevronRight className="w-4 h-4" />
                               </div>
                             </div>
-                          )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  /* 2. PAPERS DRILL-DOWN VIEW FOR SELECTED EXAM CATEGORY */
+                  (() => {
+                    const catPyqs = publishedPyqs.filter(p => {
+                      const rawCat = p.subject || p.pyqSubject || p.category || p.examCategory || '';
+                      let norm = 'General';
+                      if (rawCat.toLowerCase().includes('wbcs')) norm = 'WBCS';
+                      else if (rawCat.toLowerCase().includes('clerkship') || rawCat.toLowerCase().includes('psc')) norm = 'WBPSC Clerkship';
+                      else if (rawCat.trim()) norm = rawCat.trim();
+                      
+                      const matchesSearch = 
+                        (p.title || p.pyqTitle || '').toLowerCase().includes(pyqSearch.toLowerCase()) ||
+                        (p.content || '').toLowerCase().includes(pyqSearch.toLowerCase());
+
+                      return norm === selectedCategory && matchesSearch;
+                    });
+
+                    return (
+                      <div className="space-y-5 animate-in fade-in duration-200">
+                        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                          <h3 className="font-black text-slate-900 text-lg tracking-tight flex items-center gap-2">
+                            <span className="w-3 h-3 rounded-full bg-amber-500" />
+                            {selectedCategory} Previous Year Question Papers ({catPyqs.length})
+                          </h3>
                         </div>
 
-                        <div className="space-y-2 pt-3 border-t border-slate-100">
-                          {pdfLink ? (
-                            <a 
-                              href={pdfLink} target="_blank" rel="noopener noreferrer"
-                              className="flex items-center justify-between w-full text-rose-700 font-bold text-xs uppercase tracking-wider bg-rose-50 border border-rose-200 px-4 py-2.5 rounded-xl hover:bg-rose-100 transition-all"
-                            >
-                              <span className="truncate flex items-center gap-2">
-                                📄 {pyq.pdfTitle || 'Download Question Paper PDF'}
-                              </span>
-                              <Download className="w-4 h-4 shrink-0" />
-                            </a>
-                          ) : null}
-                        </div>
+                        {catPyqs.length === 0 ? (
+                          <ComingSoonBox categoryName={selectedCategory} />
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {catPyqs.map(pyq => {
+                              const titleText = pyq.title || pyq.pyqTitle || 'Previous Year Paper';
+                              const targetTestId = pyq.test_id || (pyq.id.includes('wbcs_pre_2024') ? 'wbcs_pre_2024_official' : pyq.id.includes('wbcs_pre_2022') ? 'wbcs_pre_2022_official' : pyq.id.includes('s1') ? 'wbpsc_clerkship_2023_s1' : pyq.id.includes('s2') ? 'wbpsc_clerkship_2023_s2' : pyq.id.includes('s3') ? 'wbpsc_clerkship_2023_s3' : pyq.id.includes('s4') ? 'wbpsc_clerkship_2023_s4' : 'wbcs_pre_2022_official');
+
+                              return (
+                                <div key={pyq.id} className="bg-white p-6 rounded-3xl border border-slate-200/90 shadow-sm hover:shadow-xl hover:border-amber-300 transition-all duration-300 flex flex-col justify-between space-y-4 group">
+                                  <div className="space-y-3">
+                                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                                      <span className="px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-100 text-[10px] font-black uppercase rounded-lg">
+                                        {selectedCategory}
+                                      </span>
+                                      {pyq.pinned && (
+                                        <span className="px-2 py-0.5 bg-amber-500 text-slate-950 text-[9px] font-black uppercase rounded-md flex items-center gap-1">
+                                          📌 Official Paper
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    <h4 className="font-black text-slate-900 text-base leading-snug tracking-tight group-hover:text-amber-700 transition-colors">{titleText}</h4>
+
+                                    {pyq.content && (
+                                      <p className="text-xs text-slate-600 font-medium leading-relaxed whitespace-pre-line bg-slate-50 p-3.5 rounded-2xl border border-slate-100 line-clamp-3">
+                                        {pyq.content}
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  <div className="space-y-2.5 pt-3 border-t border-slate-100">
+                                    <button
+                                      onClick={() => handleDownloadQuestionsPDF(targetTestId, titleText)}
+                                      disabled={downloadingPdfId === targetTestId}
+                                      className="flex items-center justify-between w-full text-emerald-700 font-extrabold text-xs uppercase tracking-wider bg-emerald-50 border border-emerald-200 px-4 py-2.5 rounded-xl hover:bg-emerald-100 transition-all cursor-pointer shadow-xs"
+                                    >
+                                      <span className="truncate flex items-center gap-2">
+                                        📄 {downloadingPdfId === targetTestId ? 'Generating PDF...' : 'Download Question Paper PDF'}
+                                      </span>
+                                      <Download className="w-4 h-4 shrink-0 text-emerald-600" />
+                                    </button>
+
+                                    <button
+                                      onClick={() => navigate(`/test/${targetTestId}`)}
+                                      className="flex items-center justify-between w-full text-indigo-700 font-black text-xs uppercase tracking-wider bg-indigo-50 border border-indigo-200 px-4 py-2.5 rounded-xl hover:bg-indigo-100 transition-all cursor-pointer shadow-xs"
+                                    >
+                                      <span className="truncate flex items-center gap-2">
+                                        🎯 Start CBT Mock Test
+                                      </span>
+                                      <Play className="w-4 h-4 shrink-0 text-indigo-600 fill-indigo-600" />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     );
-                  })}
-
-                {pyqs.filter(p => p.status !== 'draft').filter(p => pyqSubjectFilter === 'ALL' || (p.subject || p.pyqSubject || '').includes(pyqSubjectFilter)).length === 0 && (
-                  <ComingSoonBox categoryName={pyqSubjectFilter !== 'ALL' ? pyqSubjectFilter : 'Previous Year Question Papers'} />
+                  })()
                 )}
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {activeTab === 'pattern' && (
             <div className="space-y-6 animate-in fade-in duration-150">
-              {/* Unified Learn Sub-Section Toggle Bar */}
-              <div className="flex items-center gap-1.5 p-1.5 bg-slate-100/90 rounded-2xl border border-slate-200/80 overflow-x-auto no-scrollbar">
-                <button
-                  onClick={() => setActiveTab('notes')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all flex items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-900"
-                >
-                  <BookOpen className="w-3.5 h-3.5 text-emerald-600" /> Ebooks & Notes
-                </button>
-                <button
-                  onClick={() => setActiveTab('one_liner')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all flex items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-900"
-                >
-                  <Bookmark className="w-3.5 h-3.5 text-indigo-600" /> 📌 One Liner Notes
-                </button>
-                <button
-                  onClick={() => setActiveTab('pyq')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all flex items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-900"
-                >
-                  <FileText className="w-3.5 h-3.5 text-rose-600" /> 📄 Previous Year Q. (PYQ)
-                </button>
-                <button
-                  onClick={() => setActiveTab('pattern')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all flex items-center gap-1.5 cursor-pointer bg-white text-blue-700 shadow-xs border border-slate-200"
-                >
-                  <Trophy className="w-3.5 h-3.5 text-blue-600" /> 📋 Exam Pattern & Syllabus
-                </button>
-                <button
-                  onClick={() => setActiveTab('practice')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all flex items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-900"
-                >
-                  <Target className="w-3.5 h-3.5 text-teal-600" /> 🎯 Practice Sets
-                </button>
-              </div>
+
               {/* Banner Header */}
               <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 p-6 rounded-3xl text-white shadow-lg relative overflow-hidden">
                 <div className="space-y-1 relative z-10">
