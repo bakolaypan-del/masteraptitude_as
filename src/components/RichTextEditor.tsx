@@ -155,15 +155,20 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
     if (pastedHTML) {
       try {
         const doc = new DOMParser().parseFromString(pastedHTML, 'text/html');
-        // Strip style, class, font, color, bgcolor, face, size attributes from all elements
+        // Clean elements while preserving sup, sub, and equation classes
         const elements = doc.body.querySelectorAll('*');
         elements.forEach(el => {
-          el.removeAttribute('style');
-          el.removeAttribute('class');
-          el.removeAttribute('color');
-          el.removeAttribute('face');
-          el.removeAttribute('size');
-          el.removeAttribute('bgcolor');
+          const isEq = el.classList.contains('katex-inline-eq') || el.classList.contains('inline-math-eq') || el.classList.contains('katex');
+          if (!isEq) {
+            el.removeAttribute('style');
+            el.removeAttribute('color');
+            el.removeAttribute('face');
+            el.removeAttribute('size');
+            el.removeAttribute('bgcolor');
+            if (el.tagName !== 'SUP' && el.tagName !== 'SUB' && el.tagName !== 'B' && el.tagName !== 'I' && el.tagName !== 'U') {
+              el.removeAttribute('class');
+            }
+          }
         });
         const cleanHTML = doc.body.innerHTML;
         document.execCommand('insertHTML', false, cleanHTML);
@@ -538,6 +543,57 @@ export function processLatexInHTML(content: string): string {
   if (!content) return '';
   let result = content;
 
+  // 0. Re-render any stored <span class="katex-inline-eq" data-latex="..."> elements cleanly
+  if (result.includes('katex-inline-eq')) {
+    let cleaned = '';
+    let cursor = 0;
+    const tagRegex = /<span\b[^>]*class=["'][^"']*katex-inline-eq[^"']*["'][^>]*>/gi;
+    let match;
+
+    while ((match = tagRegex.exec(result)) !== null) {
+      const startIdx = match.index;
+      const fullTag = match[0];
+      const latexMatch = fullTag.match(/data-latex=["']([^"']+)["']/i) || result.substring(startIdx, startIdx + 250).match(/data-latex=["']([^"']+)["']/i);
+      const latex = latexMatch ? latexMatch[1] : '';
+
+      // Depth tracking to find the matching outer </span> tag
+      let depth = 1;
+      let endIdx = startIdx + fullTag.length;
+
+      while (endIdx < result.length && depth > 0) {
+        const nextOpen = result.indexOf('<span', endIdx);
+        const nextClose = result.indexOf('</span>', endIdx);
+
+        if (nextClose === -1) break;
+
+        if (nextOpen !== -1 && nextOpen < nextClose) {
+          depth++;
+          endIdx = nextOpen + 5;
+        } else {
+          depth--;
+          endIdx = nextClose + 7;
+        }
+      }
+
+      cleaned += result.substring(cursor, startIdx);
+      if (latex) {
+        try {
+          const rendered = katex.renderToString(latex.trim(), { displayMode: false, throwOnError: false });
+          cleaned += `<span class="katex-inline-eq" data-latex="${latex}" style="display:inline-block; vertical-align:middle; margin:0 2px;">${rendered}</span>`;
+        } catch {
+          cleaned += result.substring(startIdx, endIdx);
+        }
+      } else {
+        cleaned += result.substring(startIdx, endIdx);
+      }
+      cursor = endIdx;
+      tagRegex.lastIndex = cursor;
+    }
+
+    cleaned += result.substring(cursor);
+    result = cleaned;
+  }
+
   // 1. Display math $$...$$ or \[...\]
   result = result
     .replace(/\$\$(.*?)\$\$/gs, (_, latex) => {
@@ -585,6 +641,19 @@ export function processLatexInHTML(content: string): string {
     }
   }
 
+  // 4. Standalone caret power notation like 3^2, x^2, (a+b)^2, 10^-5
+  if (result.includes('^') && !result.includes('katex-inline-eq') && !result.includes('inline-math-eq') && !result.includes('<sup')) {
+    result = result.replace(/(\b[a-zA-Z0-9\(\)]+)\^(\{([^{}]+)\}|[a-zA-Z0-9\+\-]+)/g, (match, base, rawExp, bracedExp) => {
+      const exp = bracedExp || rawExp;
+      try {
+        const rendered = katex.renderToString(`${base}^{${exp}}`, { displayMode: false, throwOnError: false });
+        return `<span class="inline-math-eq" style="display:inline-block; vertical-align:middle; margin:0 1px;">${rendered}</span>`;
+      } catch {
+        return `${base}<sup>${exp}</sup>`;
+      }
+    });
+  }
+
   return result;
 }
 
@@ -599,7 +668,7 @@ export function RenderQuestionHTML({ html, className = '' }: { html: string; cla
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&family=Baloo+Da+2:wght@400;600;700&family=Noto+Sans+Bengali:wght@400;600;700&family=Tiro+Bengali&family=Caveat:wght@600;700&display=swap');`}</style>
       <span
         className={className}
-        style={{ whiteSpace: 'pre-wrap' }}
+        style={{ whiteSpace: html.includes('<p') || html.includes('<br') ? 'pre-wrap' : 'normal' }}
         dangerouslySetInnerHTML={{ __html: processed }}
       />
     </>

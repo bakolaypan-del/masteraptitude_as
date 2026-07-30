@@ -6807,9 +6807,37 @@ function QuestionManager() {
 
                 {/* 🇧🇩 Bengali Question Portion */}
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-rose-700 uppercase tracking-widest flex items-center justify-between">
+                  <label className="block text-xs font-black text-rose-700 uppercase tracking-widest flex items-center justify-between flex-wrap gap-2">
                     <span>🇧🇩 Question in Bengali (বাংলা প্রশ্ন)</span>
-                    <span className="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">Stylish Red Font</span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setQTextBn(qTextEn || qText)}
+                        className="px-2 py-0.5 text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                        title="Copy full English question into Bengali editor"
+                      >
+                        📋 Copy English Question
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const src = qTextEn || qText;
+                          if (!src) return;
+                          const mathMatches = src.match(/\$[^$]+\$|<span\b[^>]*class=["'][^"']*katex-inline-eq[^"']*["'][^>]*>[\s\S]*?<\/span>|<sup>[^<]+<\/sup>/gi);
+                          if (mathMatches && mathMatches.length > 0) {
+                            const extracted = mathMatches.join(' ');
+                            setQTextBn(prev => prev ? `${prev} ${extracted}` : extracted);
+                          } else {
+                            setQTextBn(src);
+                          }
+                        }}
+                        className="px-2 py-0.5 text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 hover:bg-purple-100 rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                        title="Extract equations/math from English and append to Bengali editor"
+                      >
+                        📐 Copy Equations Only
+                      </button>
+                      <span className="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">Stylish Red Font</span>
+                    </div>
                   </label>
                   <RichTextEditor
                     value={qTextBn}
@@ -6904,9 +6932,25 @@ function QuestionManager() {
 
             {/* Options — Separate English & Bengali Fields */}
             <div className="space-y-4">
-              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">
-                Multiple Choice Options (Separate English & Bengali)
-              </label>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">
+                  Multiple Choice Options (Separate English & Bengali)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newBn = [...qOptionsBn];
+                    [0, 1, 2, 3].forEach(idx => {
+                      if (qOptionsEn[idx]) newBn[idx] = qOptionsEn[idx];
+                    });
+                    setQOptionsBn(newBn);
+                  }}
+                  className="px-2.5 py-1 text-[11px] font-black text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+                  title="Copy all 4 English options into Bengali options"
+                >
+                  📋 Copy All 4 English Options to Bengali
+                </button>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {[0, 1, 2, 3].map(i => {
                   const letter = String.fromCharCode(65 + i);
@@ -6917,6 +6961,20 @@ function QuestionManager() {
                           <span className="w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-[10px]">{letter}</span>
                           Option {letter} ({i + 1})
                         </span>
+                        {qOptionsEn[i] && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newBn = [...qOptionsBn];
+                              newBn[i] = qOptionsEn[i];
+                              setQOptionsBn(newBn);
+                            }}
+                            className="px-2 py-0.5 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                            title="Copy English option into Bengali option"
+                          >
+                            📋 Copy to Bengali
+                          </button>
+                        )}
                       </div>
                       <div className="space-y-2.5">
                         <div>

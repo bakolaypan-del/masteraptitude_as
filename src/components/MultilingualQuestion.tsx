@@ -4,8 +4,9 @@ import { RenderQuestionHTML } from './RichTextEditor';
 export type LanguageMode = 'both' | 'en' | 'bn';
 
 /**
- * Strips all raw HTML tags (div, p, span, style attributes, &nbsp;) and decodes entities
- * to return clean, exact text for editing without any messy HTML markup.
+ * Strips raw layout HTML tags (div, p, br) to clean text for editing,
+ * while preserving essential inline math and superscript/subscript tags
+ * (sup, sub, b, i, u, span) so formulas like 3<sup>2</sup> or equations are not corrupted into "32".
  */
 export function stripRawHTMLTags(htmlOrText: string): string {
   if (!htmlOrText) return '';
@@ -13,10 +14,13 @@ export function stripRawHTMLTags(htmlOrText: string): string {
   let cleaned = htmlOrText
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/p>/gi, '\n')
-    .replace(/<\/div>/gi, '\n')
-    .replace(/<[^>]*>/g, '');
+    .replace(/<\/div>/gi, '\n');
 
-  if (typeof window !== 'undefined' && window.DOMParser) {
+  // Strip structural block tags while preserving inline math & formatting tags
+  cleaned = cleaned.replace(/<(?!\/?(?:sup|sub|b|i|u|strong|em|span|font)\b)[^>]*>/gi, '');
+
+  // Only run DOMParser textContent extraction if NO inline formatting or math tags exist
+  if (!/<(?:sup|sub|b|i|u|strong|em|span|font)\b/i.test(cleaned) && typeof window !== 'undefined' && window.DOMParser) {
     try {
       const doc = new DOMParser().parseFromString(`<div>${cleaned}</div>`, 'text/html');
       cleaned = doc.body.textContent || cleaned;
@@ -26,8 +30,6 @@ export function stripRawHTMLTags(htmlOrText: string): string {
   cleaned = cleaned
     .replace(/&nbsp;/gi, ' ')
     .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/gi, "'");
 
@@ -47,21 +49,77 @@ export function cleanOrphanedHTMLTags(html: string): string {
   let cleaned = html
     .replace(/<div[^>]*>/gi, '')
     .replace(/<\/div>/gi, '')
-    .replace(/<span[^>]*>/gi, '')
-    .replace(/<\/span>/gi, '')
+    .replace(/<span(?![^>]*class=["'](?:katex|inline-math-eq|katex-inline-eq))[^>]*>/gi, '')
     .replace(/<font[^>]*>/gi, '')
     .replace(/<\/font>/gi, '')
     .replace(/^(?:\s*<\/(?:p|b|i|u|strong|em|h[1-6])>\s*)+/gi, '')
     .replace(/(?:\s*<\/(?:p|b|i|u|strong|em|h[1-6])>\s*)+$/gi, '')
-    .replace(/&lt;\/(?:font|span|div|p)&gt;/gi, '');
+    .replace(/&lt;\/(?:font|div|p)&gt;/gi, '');
 
   return cleaned;
+}
+
+export function normalizeMathInHTML(htmlOrText: string): string {
+  if (!htmlOrText) return '';
+  let result = htmlOrText;
+
+  // Convert stored katex-inline-eq spans into clean $latex$ notation to remove any dirty inner HTML/MathML or extra leftover numbers
+  if (result.includes('katex-inline-eq') || result.includes('data-latex')) {
+    let cleaned = '';
+    let cursor = 0;
+    const tagRegex = /<span\b[^>]*class=["'][^"']*katex-inline-eq[^"']*["'][^>]*>/gi;
+    let match;
+
+    while ((match = tagRegex.exec(result)) !== null) {
+      const startIdx = match.index;
+      const fullTag = match[0];
+      const latexMatch = fullTag.match(/data-latex=["']([^"']+)["']/i) || result.substring(startIdx, startIdx + 250).match(/data-latex=["']([^"']+)["']/i);
+      const latex = latexMatch ? latexMatch[1] : '';
+
+      let depth = 1;
+      let endIdx = startIdx + fullTag.length;
+
+      while (endIdx < result.length && depth > 0) {
+        const nextOpen = result.indexOf('<span', endIdx);
+        const nextClose = result.indexOf('</span>', endIdx);
+
+        if (nextClose === -1) break;
+
+        if (nextOpen !== -1 && nextOpen < nextClose) {
+          depth++;
+          endIdx = nextOpen + 5;
+        } else {
+          depth--;
+          endIdx = nextClose + 7;
+        }
+      }
+
+      cleaned += result.substring(cursor, startIdx);
+      if (latex) {
+        cleaned += ` $${latex.trim()}$ `;
+      } else {
+        cleaned += result.substring(startIdx, endIdx);
+      }
+      cursor = endIdx;
+      tagRegex.lastIndex = cursor;
+    }
+
+    cleaned += result.substring(cursor);
+    result = cleaned;
+  }
+
+  // Strip unnecessary newlines around inline math so equations flow smoothly on a single line
+  result = result
+    .replace(/\s*[\r\n]+\s*/g, ' ')
+    .replace(/\s+/g, ' ');
+
+  return result;
 }
 
 export function parseEnglishAndBengali(htmlOrText: string): { english: string; bengali: string } {
   if (!htmlOrText) return { english: '', bengali: '' };
 
-  const raw = htmlOrText.trim();
+  const raw = normalizeMathInHTML(htmlOrText).trim();
 
   // 0. Explicit 'en-content' and 'bn-content' container wrappers (prevents any cross-language mixing)
   if (raw.includes('en-content') || raw.includes('bn-content')) {
@@ -136,7 +194,11 @@ export function parseEnglishAndBengali(htmlOrText: string): { english: string; b
   // Lines from firstBnLineIndex onwards belong to Bengali
   const benParts = parts.slice(firstBnLineIndex).map(p => cleanOrphanedHTMLTags(p));
 
-  const formatParts = (arr: string[]) => arr.map(p => (p.startsWith('<p') ? p : `<p>${p}</p>`)).join('');
+  const formatParts = (arr: string[]) => {
+    if (arr.length === 0) return '';
+    const joined = arr.join(' ').replace(/\s+/g, ' ').trim();
+    return joined.startsWith('<p') ? joined : `<p>${joined}</p>`;
+  };
 
   return {
     english: formatParts(engParts),
