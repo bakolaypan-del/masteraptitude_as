@@ -135,11 +135,14 @@ export async function getDoc(docRef: DocumentReference): Promise<DocumentSnapsho
     return new DocumentSnapshot(docRef.id, null, false);
   }
 
-  const res = await fetch('/api/mock-firestore/getDoc', {
+  const res = await fetch(`/api/mock-firestore/getDoc?t=${Date.now()}`, {
     method: 'POST',
+    cache: 'no-store',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
+      'Authorization': `Bearer ${token}`,
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache'
     },
     body: JSON.stringify({
       path: docRef.path,
@@ -160,11 +163,14 @@ export async function getDocs(queryRef: CollectionReference | Query): Promise<Qu
   const path = queryRef instanceof CollectionReference ? queryRef.path : queryRef.ref.path;
   const clauses = queryRef instanceof Query ? queryRef.clauses : [];
   
-  const res = await fetch('/api/mock-firestore/getDocs', {
+  const res = await fetch(`/api/mock-firestore/getDocs?t=${Date.now()}`, {
     method: 'POST',
+    cache: 'no-store',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
+      'Authorization': `Bearer ${token}`,
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache'
     },
     body: JSON.stringify({ path, clauses })
   });

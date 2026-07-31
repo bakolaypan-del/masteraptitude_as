@@ -50,12 +50,20 @@ export default defineConfig(({ mode }) => {
 
         // ── Workbox caching strategy ─────────────────────────────────────────
         workbox: {
+          skipWaiting: true,
+          clientsClaim: true,
+          cleanupOutdatedCaches: true,
           maximumFileSizeToCacheInBytes: 4 * 1024 * 1024, // allow up to 4 MB
           // Pre-cache the entire built app shell
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
 
           // Runtime caching
           runtimeCaching: [
+            {
+              // All /api/ endpoints (Express & mock-firestore) — network only to guarantee 100% fresh real-time data
+              urlPattern: ({ url }: { url: URL }) => url.pathname.startsWith('/api/'),
+              handler: 'NetworkOnly',
+            },
             {
               // Firebase API calls — network only, never cache
               urlPattern: /^https:\/\/firestore\.googleapis\.com\/.*/i,
@@ -64,23 +72,6 @@ export default defineConfig(({ mode }) => {
             {
               // Firebase Auth — network only
               urlPattern: /^https:\/\/identitytoolkit\.googleapis\.com\/.*/i,
-              handler: 'NetworkOnly',
-            },
-            {
-              // Our Express API — GET reads: network first, 10s timeout, fallback to cache
-              urlPattern: ({ request, url }: { request: Request; url: URL }) =>
-                request.method === 'GET' && url.pathname.startsWith('/api/'),
-              handler: 'NetworkFirst',
-              options: {
-                cacheName: 'api-cache',
-                networkTimeoutSeconds: 10,
-                expiration: { maxEntries: 50, maxAgeSeconds: 300 },
-              },
-            },
-            {
-              // Admin write operations (POST/PUT/DELETE) — always go to network, never cache
-              urlPattern: ({ request, url }: { request: Request; url: URL }) =>
-                request.method !== 'GET' && url.pathname.startsWith('/api/'),
               handler: 'NetworkOnly',
             },
             {
