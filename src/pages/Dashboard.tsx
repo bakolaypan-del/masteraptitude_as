@@ -227,9 +227,11 @@ const getCategoryStyle = (title: string, dbColor?: string, dbIcon?: string) => {
   const t = title.toLowerCase();
   const iconStr = (dbIcon || '').toLowerCase();
   
-  let textColorClass = 'text-slate-700 font-bold';
+  let textColorClass = 'text-slate-800 font-bold';
   let textColorStyle = {};
-  if (t.includes('free mock')) {
+  if (t.includes('live')) {
+    textColorClass = 'text-rose-600 font-black';
+  } else if (t.includes('free mock')) {
     textColorClass = 'text-emerald-600 font-black';
   } else if (t.includes('150 days') || t.includes('150-days')) {
     textColorClass = 'text-rose-600 font-black';
@@ -247,52 +249,60 @@ const getCategoryStyle = (title: string, dbColor?: string, dbIcon?: string) => {
 
   let icon = dbIcon || '📝';
   let LucideIcon: React.ComponentType<any> | null = null;
-  let iconBgClass = 'bg-slate-50 text-slate-600 border-slate-200/50';
+  let iconBgClass = 'bg-slate-50 text-slate-700 border-slate-200/60';
 
-  if (t.includes('free mock') || iconStr === '🏆') {
+  if (t.includes('live') || iconStr === '🔴') {
+    icon = '🔴';
+    LucideIcon = Target;
+    iconBgClass = 'bg-rose-50 text-rose-600 border-rose-200/60 group-hover:bg-rose-100 group-hover:text-rose-700';
+  } else if (t.includes('free mock') || iconStr === '🏆') {
     icon = '🏆';
     LucideIcon = Award;
-    iconBgClass = 'bg-amber-50 text-amber-600 border-amber-200/50 group-hover:bg-amber-100 group-hover:text-amber-700';
+    iconBgClass = 'bg-emerald-50 text-emerald-600 border-emerald-200/60 group-hover:bg-emerald-100 group-hover:text-emerald-700';
   } else if (t.includes('150 days') || t.includes('150-days') || iconStr === '📅') {
     icon = '📅';
     LucideIcon = Calendar;
-    iconBgClass = 'bg-rose-50 text-rose-600 border-rose-200/50 group-hover:bg-rose-100 group-hover:text-rose-700';
+    iconBgClass = 'bg-rose-50 text-rose-600 border-rose-200/60 group-hover:bg-rose-100 group-hover:text-rose-700';
   } else if (t.includes('typing test') || iconStr === '⌨️') {
     icon = '⌨️';
     LucideIcon = Keyboard;
-    iconBgClass = 'bg-slate-100 text-slate-700 border-slate-200/50 group-hover:bg-slate-200 group-hover:text-slate-900';
+    iconBgClass = 'bg-slate-100 text-slate-800 border-slate-200/60 group-hover:bg-slate-200 group-hover:text-slate-900';
   } else if (t.includes('syllabus') || iconStr === '📋') {
     icon = '📋';
     LucideIcon = ClipboardList;
-    iconBgClass = 'bg-indigo-50 text-indigo-600 border-indigo-200/50 group-hover:bg-indigo-100 group-hover:text-indigo-700';
+    iconBgClass = 'bg-indigo-50 text-indigo-600 border-indigo-200/60 group-hover:bg-indigo-100 group-hover:text-indigo-700';
   } else if (t.includes('previous year') || t.includes('pyq') || iconStr === '📁') {
     icon = '📁';
     LucideIcon = History;
-    iconBgClass = 'bg-blue-50 text-blue-600 border-blue-200/50 group-hover:bg-blue-100 group-hover:text-blue-700';
+    iconBgClass = 'bg-blue-50 text-blue-600 border-blue-200/60 group-hover:bg-blue-100 group-hover:text-blue-700';
   } else if (t.includes('paid test') || iconStr === '👑') {
     icon = '👑';
     LucideIcon = Crown;
-    iconBgClass = 'bg-violet-50 text-violet-600 border-violet-200/50 group-hover:bg-violet-100 group-hover:text-violet-700';
-  } else if (t.includes('one liner') || t.includes('one_liner') || t.includes('quiz') || iconStr === '📌' || iconStr === '🧠') {
+    iconBgClass = 'bg-amber-50 text-amber-600 border-amber-200/60 group-hover:bg-amber-100 group-hover:text-amber-700';
+  } else if (t.includes('quiz') || iconStr === '🧠') {
+    icon = '🧠';
+    LucideIcon = Brain;
+    iconBgClass = 'bg-violet-50 text-violet-600 border-violet-200/60 group-hover:bg-violet-100 group-hover:text-violet-700';
+  } else if (t.includes('one liner') || t.includes('one_liner') || iconStr === '📌') {
     icon = '📌';
     LucideIcon = Bookmark;
-    iconBgClass = 'bg-violet-50 text-violet-600 border-violet-200/50 group-hover:bg-violet-100 group-hover:text-violet-700';
+    iconBgClass = 'bg-purple-50 text-purple-600 border-purple-200/60 group-hover:bg-purple-100 group-hover:text-purple-700';
   } else if (t.includes('ebook') || iconStr === '📖') {
     icon = '📖';
     LucideIcon = Book;
-    iconBgClass = 'bg-cyan-50 text-cyan-600 border-cyan-200/50 group-hover:bg-cyan-100 group-hover:text-cyan-700';
+    iconBgClass = 'bg-cyan-50 text-cyan-600 border-cyan-200/60 group-hover:bg-cyan-100 group-hover:text-cyan-700';
   } else if (t.includes('current affairs') || iconStr === '📰') {
     icon = '📰';
     LucideIcon = Newspaper;
-    iconBgClass = 'bg-sky-50 text-sky-600 border-sky-200/50 group-hover:bg-sky-100 group-hover:text-sky-700';
+    iconBgClass = 'bg-sky-50 text-sky-600 border-sky-200/60 group-hover:bg-sky-100 group-hover:text-sky-700';
   } else if (t.includes('practice set') || iconStr === '✅') {
     icon = '✅';
     LucideIcon = CheckSquare;
-    iconBgClass = 'bg-teal-50 text-teal-600 border-teal-200/50 group-hover:bg-teal-100 group-hover:text-teal-700';
+    iconBgClass = 'bg-teal-50 text-teal-600 border-teal-200/60 group-hover:bg-teal-100 group-hover:text-teal-700';
   } else if (t.includes('job') || iconStr === '📢') {
     icon = '📢';
     LucideIcon = Megaphone;
-    iconBgClass = 'bg-orange-50 text-orange-600 border-orange-200/50 group-hover:bg-orange-100 group-hover:text-orange-700';
+    iconBgClass = 'bg-orange-50 text-orange-600 border-orange-200/60 group-hover:bg-orange-100 group-hover:text-orange-700';
   }
 
   return { textColorClass, textColorStyle, icon, LucideIcon, iconBgClass };
@@ -309,6 +319,56 @@ const getCategoryAccentStripe = (title: string, textColor: string) => {
   if (t.includes('ebook') || t.includes('notes')) return 'bg-gradient-to-r from-blue-500 via-indigo-500 to-blue-600';
   if (t.includes('news') || t.includes('job')) return 'bg-gradient-to-r from-cyan-500 via-sky-500 to-blue-600';
   return 'bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-600';
+};
+
+const getDisplayCategoryTitle = (title: string): string => {
+  const t = title.toLowerCase();
+  if (t.includes('live')) return 'LIVE MOCK TESTS';
+  if (t.includes('free mock')) return 'FREE MOCK TESTS';
+  if (t.includes('150 days') || t.includes('150-days')) return '150 DAYS FREE PRACTICE';
+  if (t.includes('typing test')) return 'TYPING TEST';
+  if (t.includes('syllabus') || t.includes('pattern')) return 'EXAM SYLLABUS';
+  if (t.includes('previous year') || t.includes('pyq')) return 'PREVIOUS YEAR PAPER';
+  if (t.includes('paid')) return 'PAID TEST SERIES';
+  if (t.includes('quiz')) return 'DAILY QUIZZES';
+  if (t.includes('ebook') || t.includes('notes')) return 'STUDY EBOOKS';
+  if (t.includes('current affairs')) return 'CURRENT AFFAIRS';
+  if (t.includes('practice set')) return 'PRACTICE SETS';
+  if (t.includes('one liner') || t.includes('one_liner')) return 'ONE LINER NOTES';
+  if (t.includes('job') || t.includes('news')) return 'LATEST JOB NOTIFICATION';
+  return title.toUpperCase();
+};
+
+const getCategoryIconUrl = (title: string): string => {
+  const t = title.toLowerCase();
+  if (t.includes('live')) return '/icons/cat_live_mock.png';
+  if (t.includes('free mock')) return '/icons/cat_free_mock.png';
+  if (t.includes('150 days') || t.includes('150-days')) return '/icons/cat_150_days.png';
+  if (t.includes('typing')) return '/icons/cat_typing_test.png';
+  if (t.includes('syllabus') || t.includes('pattern')) return '/icons/cat_syllabus.png';
+  if (t.includes('previous year') || t.includes('pyq')) return '/icons/cat_pyq.png';
+  if (t.includes('paid')) return '/icons/cat_paid_test.png';
+  if (t.includes('quiz')) return '/icons/cat_quiz.png';
+  if (t.includes('ebook') || t.includes('notes')) return '/icons/cat_ebook.png';
+  if (t.includes('current affairs')) return '/icons/cat_current_affairs.png';
+  if (t.includes('practice set')) return '/icons/cat_practice_sets.png';
+  if (t.includes('one liner') || t.includes('one_liner')) return '/icons/cat_one_liner.png';
+  if (t.includes('job') || t.includes('news')) return '/icons/cat_latest_job.png';
+  return '/icons/cat_free_mock.png';
+};
+
+const Render3DIconPod = ({ title }: { title: string }) => {
+  const iconUrl = getCategoryIconUrl(title);
+  return (
+    <div className="w-12 h-12 xs:w-14 xs:h-14 sm:w-16 sm:h-16 md:w-18 md:h-18 flex items-center justify-center select-none group-hover:scale-110 transition-transform duration-300 shrink-0">
+      <img 
+        src={iconUrl} 
+        alt={title} 
+        className="w-full h-full object-contain pointer-events-none drop-shadow-xs" 
+        draggable={false}
+      />
+    </div>
+  );
 };
 
 const DEFAULT_DASHBOARD_CATEGORIES = [
@@ -1971,41 +2031,32 @@ export default function Dashboard() {
                       <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right,#e2e8f0,transparent)' }} />
                     </div>
                     
-                    <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
-                      {cats.map((cat, idx) => {
-                        const { textColorClass, textColorStyle, icon, LucideIcon, iconBgClass } = getCategoryStyle(cat.title, cat.textColor, cat.iconType);
+                    <div className="grid grid-cols-4 gap-1.5 sm:gap-3 md:gap-4 lg:grid-cols-6">
+                      {cats.map((cat: any, idx: number) => {
+                        const isLastSingle = (idx === cats.length - 1) && (cats.length % 4 === 1);
                         
                         return (
-                          <button
+                          <div 
                             key={cat.id || idx}
-                            onClick={() => handleCategoryClick(cat)}
-                            className="group bg-white rounded-2xl p-2 sm:p-3 border border-slate-200/90 shadow-2xs flex flex-col items-center justify-between gap-1.5 sm:gap-2.5 relative transition-all duration-300 hover:shadow-xl hover:border-indigo-300 hover:-translate-y-1 active:scale-[0.96] overflow-hidden min-h-[100px] sm:min-h-[120px]"
+                            className={isLastSingle ? "col-span-4 sm:col-span-1 flex justify-center" : ""}
                           >
-                            {/* Option 1: Top Color-Accent Stripe Bar */}
-                            <div className={`absolute top-0 left-0 right-0 h-1 sm:h-1.5 ${getCategoryAccentStripe(cat.title, cat.textColor)}`} />
+                            <button
+                              onClick={() => handleCategoryClick(cat)}
+                              className={`group bg-white rounded-2xl sm:rounded-3xl p-1.5 xs:p-2 sm:p-3 md:p-4 border border-slate-100/90 shadow-[0_6px_20px_-3px_rgba(0,0,0,0.04)] flex flex-col items-center justify-center gap-1 sm:gap-1.5 relative transition-all duration-300 hover:shadow-[0_16px_32px_-6px_rgba(0,0,0,0.09)] hover:-translate-y-1 active:scale-[0.96] w-full min-h-[105px] xs:min-h-[120px] sm:min-h-[142px] md:min-h-[155px] cursor-pointer overflow-hidden ${
+                                isLastSingle ? "max-w-[calc(25%-4px)] sm:max-w-none" : ""
+                              }`}
+                            >
+                              {/* Exact 3D Logo Icon from User Photo (Larger Sizing) */}
+                              <Render3DIconPod title={cat.title} />
 
-                            {/* Icon Container */}
-                            <div className={`w-10 h-10 sm:w-13 sm:h-13 rounded-2xl flex items-center justify-center text-xl sm:text-2xl transition-all duration-300 group-hover:scale-110 border border-slate-100 mt-1 shrink-0 ${iconBgClass}`}>
-                              {LucideIcon ? (
-                                <LucideIcon className="w-4 h-4 sm:w-5 h-5" />
-                              ) : (
-                                <span className="select-none text-xl sm:text-2xl">{icon}</span>
-                              )}
-                            </div>
-
-                            {/* Label */}
-                            <div className="text-center min-h-[26px] flex items-center justify-center px-0.5">
-                              <span 
-                                className={`text-[10px] sm:text-xs leading-tight text-center font-black tracking-tight line-clamp-2 ${textColorClass}`}
-                                style={textColorStyle}
-                              >
-                                {cat.title}
-                              </span>
-                            </div>
-
-                            {/* Hover Indicator */}
-                            <div className="absolute inset-0 rounded-2xl pointer-events-none border border-transparent transition-all duration-300 group-hover:border-indigo-500/20" />
-                          </button>
+                              {/* Exact Uppercase Label - Tight Gap & Increased Font */}
+                              <div className="text-center flex items-center justify-center px-0.5 mt-0.5">
+                                <span className="text-[10px] xs:text-[11px] sm:text-[12px] md:text-[13px] font-black text-slate-900 leading-[1.15] tracking-tight text-center uppercase line-clamp-2">
+                                  {getDisplayCategoryTitle(cat.title)}
+                                </span>
+                              </div>
+                            </button>
+                          </div>
                         );
                       })}
                     </div>
