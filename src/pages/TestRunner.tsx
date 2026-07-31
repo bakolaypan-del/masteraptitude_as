@@ -373,19 +373,19 @@ export default function TestRunner() {
           {/* Key stats grid */}
           <div className="grid grid-cols-2 gap-3 px-6 pb-5">
             <div className="rounded-2xl border border-white/10 p-4 text-center" style={{ background: 'rgba(255,255,255,0.05)' }}>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">মোট প্রশ্ন</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">QUESTIONS / মোট প্রশ্ন</p>
               <p className="text-2xl font-black text-white">{questions.length}</p>
             </div>
             <div className="rounded-2xl border border-white/10 p-4 text-center" style={{ background: 'rgba(255,255,255,0.05)' }}>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">মোট সময়</p>
-              <p className="text-2xl font-black text-white">{test?.duration || 30}<span className="text-xs text-slate-400 ml-1 font-semibold">মিনিট</span></p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">TIME / মোট সময়</p>
+              <p className="text-2xl font-black text-white">{test?.duration || 30}<span className="text-xs text-slate-400 ml-1 font-semibold">min / মিনিট</span></p>
             </div>
             <div className="rounded-2xl border border-emerald-500/20 p-4 text-center" style={{ background: 'rgba(16,185,129,0.07)' }}>
-              <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">সঠিক উত্তর</p>
+              <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">CORRECT / সঠিক</p>
               <p className="text-2xl font-black text-emerald-400">+{test?.marksPerCorrect || 1.0}</p>
             </div>
             <div className="rounded-2xl border border-rose-500/20 p-4 text-center" style={{ background: 'rgba(239,68,68,0.07)' }}>
-              <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-1">ভুল উত্তর</p>
+              <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-1">NEGATIVE / ভুল</p>
               <p className="text-2xl font-black text-rose-400">-{test?.negativeMarks || 0.25}</p>
             </div>
           </div>
@@ -394,13 +394,13 @@ export default function TestRunner() {
           <div className="px-6 pb-5">
             <label className="block text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-2 flex items-center gap-1.5">
               <Globe className="w-3.5 h-3.5 text-indigo-400" />
-              পরীক্ষার ভাষা নির্বাচন করুন:
+              SELECT EXAM LANGUAGE / পরীক্ষার ভাষা নির্বাচন:
             </label>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { id: 'both', label: 'দ্বিভাষিক', sub: 'Eng + বাংলা', icon: '🌐' },
-                { id: 'en', label: 'English', sub: 'শুধুমাত্র ইংরেজি', icon: '🇬🇧' },
-                { id: 'bn', label: 'বাংলা', sub: 'শুধুমাত্র বাংলা', icon: '🇧🇩' },
+                { id: 'both', label: 'Bilingual / দ্বিভাষিক', sub: 'Eng + বাংলা', icon: '🌐' },
+                { id: 'en', label: 'English', sub: 'English Only', icon: '🇬🇧' },
+                { id: 'bn', label: 'বাংলা', sub: 'Bengali Only', icon: '🇧🇩' },
               ].map(item => (
                 <button
                   key={item.id}
@@ -413,7 +413,7 @@ export default function TestRunner() {
                   }`}
                 >
                   <span className="text-base mb-0.5">{item.icon}</span>
-                  <span className="text-xs font-black leading-none">{item.label}</span>
+                  <span className="text-[11px] font-black leading-none">{item.label}</span>
                   <span className="text-[8px] opacity-70 font-medium leading-none">{item.sub}</span>
                 </button>
               ))}
@@ -423,32 +423,40 @@ export default function TestRunner() {
           {/* Rules */}
           <div className="px-6 pb-5 space-y-2">
             {[
-              { icon: Shield, color: 'text-rose-400', text: 'ট্যাব পরিবর্তন নিষিদ্ধ — অনিয়ম করলে স্বয়ংক্রিয়ভাবে জমা হয়ে যাবে।' },
-              { icon: Flag, color: 'text-violet-400', text: 'জমা দেওয়ার আগে পুনরায় দেখার জন্য প্রশ্ন ফ্ল্যাগ করতে পারেন।' },
-              { icon: Zap, color: 'text-emerald-400', text: 'নেভিগেট করার সাথে সাথে আপনার উত্তর স্বয়ংক্রিয়ভাবে সংরক্ষিত হবে।' },
-            ].map(({ icon: Icon, color, text }, i) => (
+              { icon: Shield, color: 'text-rose-400', textEn: 'No tab switching — auto-submit on violation.', textBn: 'ট্যাব পরিবর্তন নিষিদ্ধ — অনিয়ম করলে স্বয়ংক্রিয়ভাবে জমা হয়ে যাবে।' },
+              { icon: Flag, color: 'text-violet-400', textEn: 'Flag questions to revisit before submitting.', textBn: 'জমা দেওয়ার আগে পুনরায় দেখার জন্য প্রশ্ন ফ্ল্যাগ করতে পারেন।' },
+              { icon: Zap, color: 'text-emerald-400', textEn: 'Your answers auto-save as you navigate.', textBn: 'নেভিগেট করার সাথে সাথে উত্তর স্বয়ংক্রিয়ভাবে সংরক্ষিত হবে।' },
+            ].map(({ icon: Icon, color, textEn, textBn }, i) => (
               <div key={i} className="flex items-start gap-3 p-3 rounded-xl border border-white/5" style={{ background: 'rgba(255,255,255,0.03)' }}>
                 <Icon className={`w-3.5 h-3.5 ${color} shrink-0 mt-0.5`} />
-                <p className="text-xs text-slate-300 font-medium leading-snug">{text}</p>
+                <div className="space-y-0.5">
+                  <p className="text-xs text-slate-200 font-semibold leading-snug">{textEn}</p>
+                  <p className="text-[11px] text-indigo-300 font-medium leading-snug">{textBn}</p>
+                </div>
               </div>
             ))}
             <div className="pt-1 text-center">
-              <p className="text-[10px] text-slate-500 font-semibold">জমা দেওয়ার পর সম্পূর্ণ ফলাফল ও প্রতিটি প্রশ্নের বিশ্লেষণ দেখতে পাবেন।</p>
+              <p className="text-[10px] text-slate-400 font-medium">After submission you'll see full result &amp; analysis.</p>
+              <p className="text-[10px] text-indigo-300 font-semibold">জমা দেওয়ার পর সম্পূর্ণ ফলাফল ও বিশ্লেষণ দেখতে পাবেন।</p>
             </div>
           </div>
 
           {/* CTA */}
           <div className="px-6 pb-7 flex flex-col gap-3">
             <button onClick={handleStartTest}
-              className="w-full py-4 text-white font-black rounded-2xl transition-all shadow-xl flex items-center justify-center gap-3 uppercase tracking-widest text-sm active:scale-95 cursor-pointer"
+              className="w-full py-3.5 text-white font-black rounded-2xl transition-all shadow-xl flex flex-col items-center justify-center gap-0.5 uppercase tracking-widest active:scale-95 cursor-pointer"
               style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}>
-              <Play className="w-5 h-5 fill-current" />
-              পরীক্ষা শুরু করুন
+              <div className="flex items-center gap-2 text-sm font-black">
+                <Play className="w-4 h-4 fill-current" />
+                START TEST NOW
+              </div>
+              <span className="text-[11px] font-bold tracking-normal capitalize text-indigo-200">পরীক্ষা শুরু করুন</span>
             </button>
             <button onClick={() => navigate('/dashboard')}
-              className="w-full py-3 border border-white/10 text-slate-400 font-bold rounded-2xl hover:bg-white/5 transition-colors text-xs uppercase tracking-widest cursor-pointer"
+              className="w-full py-2.5 border border-white/10 text-slate-300 font-bold rounded-2xl hover:bg-white/5 transition-colors flex flex-col items-center justify-center text-xs uppercase tracking-widest cursor-pointer"
               style={{ background: 'rgba(255,255,255,0.03)' }}>
-              ড্যাশবোর্ডে ফিরে যান
+              <span>BACK TO DASHBOARD</span>
+              <span className="text-[10px] font-medium tracking-normal text-slate-400 capitalize">ড্যাশবোর্ডে ফিরে যান</span>
             </button>
           </div>
         </div>
