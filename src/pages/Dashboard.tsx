@@ -1971,7 +1971,7 @@ export default function Dashboard() {
                       <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right,#e2e8f0,transparent)' }} />
                     </div>
                     
-                    <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
+                    <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
                       {cats.map((cat, idx) => {
                         const { textColorClass, textColorStyle, icon, LucideIcon, iconBgClass } = getCategoryStyle(cat.title, cat.textColor, cat.iconType);
                         
@@ -1979,24 +1979,24 @@ export default function Dashboard() {
                           <button
                             key={cat.id || idx}
                             onClick={() => handleCategoryClick(cat)}
-                            className="group bg-white rounded-2xl p-2.5 sm:p-4 border border-slate-200/90 shadow-sm flex flex-col items-center justify-between gap-2 sm:gap-3 relative transition-all duration-300 hover:shadow-xl hover:border-indigo-300 hover:-translate-y-1 active:scale-[0.97] overflow-hidden min-h-[110px] sm:min-h-[125px]"
+                            className="group bg-white rounded-2xl p-2 sm:p-3 border border-slate-200/90 shadow-2xs flex flex-col items-center justify-between gap-1.5 sm:gap-2.5 relative transition-all duration-300 hover:shadow-xl hover:border-indigo-300 hover:-translate-y-1 active:scale-[0.96] overflow-hidden min-h-[100px] sm:min-h-[120px]"
                           >
                             {/* Option 1: Top Color-Accent Stripe Bar */}
-                            <div className={`absolute top-0 left-0 right-0 h-1.5 ${getCategoryAccentStripe(cat.title, cat.textColor)}`} />
+                            <div className={`absolute top-0 left-0 right-0 h-1 sm:h-1.5 ${getCategoryAccentStripe(cat.title, cat.textColor)}`} />
 
                             {/* Icon Container */}
-                            <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center text-2xl sm:text-3xl transition-all duration-300 group-hover:scale-110 border border-slate-100 mt-1 ${iconBgClass}`}>
+                            <div className={`w-10 h-10 sm:w-13 sm:h-13 rounded-2xl flex items-center justify-center text-xl sm:text-2xl transition-all duration-300 group-hover:scale-110 border border-slate-100 mt-1 shrink-0 ${iconBgClass}`}>
                               {LucideIcon ? (
-                                <LucideIcon className="w-5 h-5 sm:w-6 h-6" />
+                                <LucideIcon className="w-4 h-4 sm:w-5 h-5" />
                               ) : (
-                                <span className="select-none text-2xl sm:text-3xl">{icon}</span>
+                                <span className="select-none text-xl sm:text-2xl">{icon}</span>
                               )}
                             </div>
 
                             {/* Label */}
-                            <div className="text-center min-h-[28px] flex items-center justify-center">
+                            <div className="text-center min-h-[26px] flex items-center justify-center px-0.5">
                               <span 
-                                className={`text-[11px] sm:text-xs leading-tight text-center font-black tracking-tight ${textColorClass}`}
+                                className={`text-[10px] sm:text-xs leading-tight text-center font-black tracking-tight line-clamp-2 ${textColorClass}`}
                                 style={textColorStyle}
                               >
                                 {cat.title}
