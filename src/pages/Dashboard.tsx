@@ -379,12 +379,11 @@ const DEFAULT_DASHBOARD_CATEGORIES = [
   { id: 'def_pattern', title: 'Syllabus', textColor: 'default', iconType: '📋', actionType: 'tab', actionValue: 'pattern', priority: 5, isActive: true },
   { id: 'def_pyq', title: 'Previous Year Paper', textColor: 'default', iconType: '📁', actionType: 'tab', actionValue: 'pyq', priority: 6, isActive: true },
   { id: 'def_paid_mock', title: 'Paid Test', textColor: 'default', iconType: '👑', actionType: 'route', actionValue: '/paid-mock', priority: 7, isActive: true },
-  { id: 'def_quiz', title: 'Quiz', textColor: 'default', iconType: '🧠', actionType: 'tab', actionValue: 'mock_topic:Quiz', priority: 8, isActive: true },
-  { id: 'def_notes', title: 'Ebook', textColor: 'default', iconType: '📖', actionType: 'tab', actionValue: 'notes', priority: 9, isActive: true },
-  { id: 'def_current_affairs', title: 'Current Affairs', textColor: 'default', iconType: '📰', actionType: 'route', actionValue: '/current-affairs', priority: 10, isActive: true },
-  { id: 'def_practice', title: 'Practice Set', textColor: 'default', iconType: '✅', actionType: 'tab', actionValue: 'practice', priority: 11, isActive: true },
-  { id: 'def_one_liner', title: 'One Liner Notes', textColor: 'purple', iconType: '📌', actionType: 'tab', actionValue: 'one_liner', priority: 12, isActive: true },
-  { id: 'def_news', title: 'Latest Job Notification', textColor: 'default', iconType: '📢', actionType: 'route', actionValue: '/news', priority: 13, isActive: true }
+  { id: 'def_notes', title: 'Ebook', textColor: 'default', iconType: '📖', actionType: 'tab', actionValue: 'notes', priority: 8, isActive: true },
+  { id: 'def_current_affairs', title: 'Current Affairs', textColor: 'default', iconType: '📰', actionType: 'route', actionValue: '/current-affairs', priority: 9, isActive: true },
+  { id: 'def_practice', title: 'Practice Set', textColor: 'default', iconType: '✅', actionType: 'tab', actionValue: 'practice', priority: 10, isActive: true },
+  { id: 'def_one_liner', title: 'One Liner Notes', textColor: 'purple', iconType: '📌', actionType: 'tab', actionValue: 'one_liner', priority: 11, isActive: true },
+  { id: 'def_news', title: 'Latest Job Notification', textColor: 'default', iconType: '📢', actionType: 'route', actionValue: '/news', priority: 12, isActive: true }
 ];
 
 export default function Dashboard() {
@@ -1998,7 +1997,7 @@ export default function Dashboard() {
                   const existing = categoryMap.get(key) || {};
                   categoryMap.set(key, { ...existing, ...c });
                 });
-                const cats = Array.from(categoryMap.values()).filter((c: any) => c.isActive !== false);
+                const cats = Array.from(categoryMap.values()).filter((c: any) => c.isActive !== false && c.id !== 'def_quiz' && !c.title?.toLowerCase().includes('quiz'));
                 cats.sort((a: any, b: any) => (a.priority || 0) - (b.priority || 0));
 
                 const handleCategoryClick = (cat: any) => {
@@ -2042,7 +2041,7 @@ export default function Dashboard() {
                           >
                             <button
                               onClick={() => handleCategoryClick(cat)}
-                              className={`group bg-white rounded-2xl sm:rounded-3xl p-1.5 xs:p-2 sm:p-3 md:p-4 border border-slate-100/90 shadow-[0_6px_20px_-3px_rgba(0,0,0,0.04)] flex flex-col items-center justify-center gap-1 sm:gap-1.5 relative transition-all duration-300 hover:shadow-[0_16px_32px_-6px_rgba(0,0,0,0.09)] hover:-translate-y-1 active:scale-[0.96] w-full min-h-[105px] xs:min-h-[120px] sm:min-h-[142px] md:min-h-[155px] cursor-pointer overflow-hidden ${
+                              className={`group bg-white rounded-2xl sm:rounded-3xl p-1.5 xs:p-2 sm:p-3 md:p-4 border-2 border-slate-200/90 hover:border-indigo-500/80 shadow-[0_4px_16px_-3px_rgba(0,0,0,0.05)] flex flex-col items-center justify-center gap-1 sm:gap-1.5 relative transition-all duration-300 hover:shadow-[0_14px_30px_-6px_rgba(0,0,0,0.12)] hover:-translate-y-1 active:scale-[0.96] w-full min-h-[105px] xs:min-h-[120px] sm:min-h-[142px] md:min-h-[155px] cursor-pointer overflow-hidden ${
                                 isLastSingle ? "max-w-[calc(25%-4px)] sm:max-w-none" : ""
                               }`}
                             >
