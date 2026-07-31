@@ -4430,6 +4430,7 @@ export default function Dashboard() {
               let norm = 'General';
               if (rawCat.toLowerCase().includes('wbcs')) norm = 'WBCS';
               else if (rawCat.toLowerCase().includes('clerkship') || rawCat.toLowerCase().includes('psc')) norm = 'WBPSC Clerkship';
+              else if (rawCat.toLowerCase().includes('wbp') || rawCat.toLowerCase().includes('police') || rawCat.toLowerCase().includes('constable')) norm = 'WBP';
               else if (rawCat.trim()) norm = rawCat.trim();
               dynamicCategoriesSet.add(norm);
             });
@@ -4487,12 +4488,15 @@ export default function Dashboard() {
                           let norm = 'General';
                           if (rawCat.toLowerCase().includes('wbcs')) norm = 'WBCS';
                           else if (rawCat.toLowerCase().includes('clerkship') || rawCat.toLowerCase().includes('psc')) norm = 'WBPSC Clerkship';
+                          else if (rawCat.toLowerCase().includes('wbp') || rawCat.toLowerCase().includes('police') || rawCat.toLowerCase().includes('constable')) norm = 'WBP';
                           else if (rawCat.trim()) norm = rawCat.trim();
                           return norm === cat;
                         });
 
                         const paperCount = catPyqs.length;
                         const isWbcs = cat === 'WBCS';
+                        const isClerkship = cat.includes('Clerkship');
+                        const isWbp = cat === 'WBP' || cat.includes('WBP') || cat.includes('Police');
 
                         return (
                           <button
@@ -4501,14 +4505,20 @@ export default function Dashboard() {
                             className="group relative overflow-hidden rounded-3xl p-6 text-left backdrop-blur-md bg-white border border-slate-200/80 hover:border-amber-400 hover:bg-white shadow-xs hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between min-h-[190px] cursor-pointer"
                           >
                             <div className={`absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r ${
-                              isWbcs ? 'from-amber-400 via-orange-500 to-amber-600' : 'from-indigo-400 via-purple-500 to-indigo-600'
+                              isWbcs 
+                                ? 'from-amber-400 via-orange-500 to-amber-600' 
+                                : isClerkship
+                                ? 'from-indigo-400 via-purple-500 to-indigo-600'
+                                : 'from-emerald-400 via-teal-500 to-emerald-600'
                             }`} />
                             
                             <div className="absolute top-5 right-5">
                               <span className={`font-black uppercase text-[9px] px-3 py-1 rounded-full tracking-widest border ${
                                 isWbcs 
                                   ? 'bg-amber-50 text-amber-700 border-amber-200' 
-                                  : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                  : isClerkship
+                                  ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                               }`}>
                                 {paperCount} {paperCount === 1 ? 'Paper Available' : 'Papers Available'}
                               </span>
@@ -4518,7 +4528,9 @@ export default function Dashboard() {
                               <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-md ${
                                 isWbcs 
                                   ? 'bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-amber-200' 
-                                  : 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-indigo-200'
+                                  : isClerkship
+                                  ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-indigo-200'
+                                  : 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-emerald-200'
                               }`}>
                                 <FileText className="w-6 h-6" />
                               </div>
@@ -4526,18 +4538,24 @@ export default function Dashboard() {
                               <p className="text-xs text-slate-500 font-semibold mt-1.5 leading-relaxed">
                                 {isWbcs 
                                   ? 'West Bengal Civil Service Executive Examination Previous Year Papers with official key.' 
-                                  : 'West Bengal PSC Clerkship Examination Preliminary Previous Year Question Papers with key.'}
+                                  : isClerkship
+                                  ? 'West Bengal PSC Clerkship Examination Preliminary Previous Year Question Papers with key.'
+                                  : isWbp
+                                  ? 'West Bengal Police (WBP) Previous Year Question Papers (SI, Constable, Lady Constable) with official key.'
+                                  : 'Previous Year Question Papers with solution keys and CBT mock test options.'}
                               </p>
                             </div>
 
                             <div className={`mt-5 flex items-center justify-between text-xs font-black uppercase tracking-wider w-full ${
-                              isWbcs ? 'text-amber-600' : 'text-indigo-600'
+                              isWbcs ? 'text-amber-600' : isClerkship ? 'text-indigo-600' : 'text-emerald-600'
                             }`}>
                               <span>Explore {cat} Papers</span>
                               <div className={`w-7 h-7 rounded-full flex items-center justify-center border transition-colors duration-300 ${
                                 isWbcs 
                                   ? 'bg-amber-50 border-amber-200 group-hover:bg-amber-500 group-hover:text-white' 
-                                  : 'bg-indigo-50 border-indigo-200 group-hover:bg-indigo-500 group-hover:text-white'
+                                  : isClerkship
+                                  ? 'bg-indigo-50 border-indigo-200 group-hover:bg-indigo-500 group-hover:text-white'
+                                  : 'bg-emerald-50 border-emerald-200 group-hover:bg-emerald-500 group-hover:text-white'
                               }`}>
                                 <ChevronRight className="w-4 h-4" />
                               </div>
@@ -4555,6 +4573,7 @@ export default function Dashboard() {
                       let norm = 'General';
                       if (rawCat.toLowerCase().includes('wbcs')) norm = 'WBCS';
                       else if (rawCat.toLowerCase().includes('clerkship') || rawCat.toLowerCase().includes('psc')) norm = 'WBPSC Clerkship';
+                      else if (rawCat.toLowerCase().includes('wbp') || rawCat.toLowerCase().includes('police') || rawCat.toLowerCase().includes('constable')) norm = 'WBP';
                       else if (rawCat.trim()) norm = rawCat.trim();
                       
                       const matchesSearch = 
@@ -4579,7 +4598,7 @@ export default function Dashboard() {
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {catPyqs.map(pyq => {
                               const titleText = pyq.title || pyq.pyqTitle || 'Previous Year Paper';
-                              const targetTestId = pyq.test_id || (pyq.id.includes('wbcs_pre_2024') ? 'wbcs_pre_2024_official' : pyq.id.includes('wbcs_pre_2022') ? 'wbcs_pre_2022_official' : pyq.id.includes('s1') ? 'wbpsc_clerkship_2023_s1' : pyq.id.includes('s2') ? 'wbpsc_clerkship_2023_s2' : pyq.id.includes('s3') ? 'wbpsc_clerkship_2023_s3' : pyq.id.includes('s4') ? 'wbpsc_clerkship_2023_s4' : 'wbcs_pre_2022_official');
+                              const targetTestId = pyq.test_id || (pyq.id.includes('wbp_constable_pre_2021') ? 'wbp_constable_pre_2021' : pyq.id.includes('wbcs_pre_2024') ? 'wbcs_pre_2024_official' : pyq.id.includes('wbcs_pre_2022') ? 'wbcs_pre_2022_official' : pyq.id.includes('s1') ? 'wbpsc_clerkship_2023_s1' : pyq.id.includes('s2') ? 'wbpsc_clerkship_2023_s2' : pyq.id.includes('s3') ? 'wbpsc_clerkship_2023_s3' : pyq.id.includes('s4') ? 'wbpsc_clerkship_2023_s4' : pyq.id);
 
                               return (
                                 <div key={pyq.id} className="bg-white p-6 rounded-3xl border border-slate-200/90 shadow-sm hover:shadow-xl hover:border-amber-300 transition-all duration-300 flex flex-col justify-between space-y-4 group">

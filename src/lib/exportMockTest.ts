@@ -51,26 +51,27 @@ export interface QuestionPaperSettings {
   showSolutions?: boolean;
 }
 
-// Clean HTML tags while preserving line breaks, Bengali text, and converting caret exponents (113^2 -> 113²)
+// Clean text and handle image URLs & math formatting without breaking HTML markup/images
 function cleanText(input?: string): string {
   if (!input) return '';
-  let str = input
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .trim();
+  let str = input;
+
+  // Convert relative image URLs (e.g., src="/images/...") to absolute URLs so PDF print engine fetches them properly
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    const origin = window.location.origin;
+    str = str.replace(/src=["']\/(?!\/)([^"']+)["']/g, `src="${origin}/$1"`);
+  }
 
   // Convert caret exponents e.g. 113^2 -> 113², (113)^2 -> (113)²
   str = str
     .replace(/([\w\d]+|\([^)]+\))\^2\b/g, '$1²')
     .replace(/([\w\d]+|\([^)]+\))\^3\b/g, '$1³')
-    .replace(/([\w\d]+|\([^)]+\))\^([0-9a-zA-Z]+)/g, '$1<sup>$2</sup>')
     .replace(/\^2\b/g, '²')
     .replace(/\^3\b/g, '³')
     .replace(/\^1\b/g, '¹')
     .replace(/\^0\b/g, '⁰');
 
-  return str;
+  return str.trim();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -82,6 +83,8 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
   const marks = meta?.marksPerCorrect ? Number(meta.marksPerCorrect) : 1;
   const totalMarks = totalQuestions * marks;
 
+  const optionLetters = ['A', 'B', 'C', 'D', 'E', 'F'];
+
   const questionsHTML = questions.map((q, idx) => {
     const qNo = idx + 1;
     const rawText = q.questionText || '';
@@ -90,20 +93,30 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
     const correctAnswer = q.correctAnswer || '';
     const solution = cleanText(q.solution || q.explanation || '');
 
-    const optionLetters = ['A', 'B', 'C', 'D', 'E', 'F'];
-    const correctIdx = options.findIndex(opt => opt.trim() !== '' && opt.trim() === correctAnswer.trim());
-    const correctLetter = correctIdx >= 0 ? optionLetters[correctIdx] : '';
+    // Resolve exact answer option letter (A, B, C, D)
+    let finalLetter = '';
+    let finalAnsText = '';
 
-    // Check if question text has English and Bengali
-    const hasBengaliQ = /[\u0980-\u09FF]/.test(qTextClean);
-    let engQ = qTextClean;
-    let benQ = '';
-
-    if (hasBengaliQ) {
-      const matchBengali = qTextClean.match(/[\u0980-\u09FF].*/s);
-      if (matchBengali) {
-        benQ = matchBengali[0].trim();
-        engQ = qTextClean.replace(benQ, '').trim();
+    const rawAns = (correctAnswer || '').trim();
+    if (/^[A-F]$/i.test(rawAns)) {
+      finalLetter = rawAns.toUpperCase();
+      const matchIdx = optionLetters.indexOf(finalLetter);
+      if (matchIdx >= 0 && options[matchIdx]) {
+        finalAnsText = cleanText(options[matchIdx]);
+      }
+    } else if (/^\([A-F]\)/i.test(rawAns)) {
+      finalLetter = rawAns.substring(1, 2).toUpperCase();
+      finalAnsText = cleanText(rawAns);
+    } else {
+      const matchedIdx = options.findIndex(opt => {
+        const cleaned = cleanText(opt).trim();
+        return cleaned === rawAns || (rawAns.length > 2 && (cleaned.includes(rawAns) || rawAns.includes(cleaned)));
+      });
+      if (matchedIdx >= 0) {
+        finalLetter = optionLetters[matchedIdx];
+        finalAnsText = cleanText(options[matchedIdx]);
+      } else {
+        finalAnsText = cleanText(rawAns);
       }
     }
 
@@ -120,29 +133,47 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
       `;
     }).join('');
 
-    const isBengaliAns = /[\u0980-\u09FF]/.test(correctAnswer);
-    const ansFontClass = isBengaliAns ? 'ans-box-bn' : 'ans-box-en';
+    // Format bilingual question text: Bengali in Red font, English in Cambria Black font
+    let formattedQContent = qTextClean;
+
+    if (!/<[a-z][\s\S]*>/i.test(qTextClean)) {
+      if (qTextClean.includes('/')) {
+        const parts = qTextClean.split('/');
+        formattedQContent = parts.map(part => {
+          const trimmed = part.trim();
+          if (/[\u0980-\u09FF]/.test(trimmed)) {
+            return `<span class="q-text-bn">${trimmed}</span>`;
+          } else {
+            return `<span class="q-text-en">${trimmed}</span>`;
+          }
+        }).join(' / ');
+      } else if (/[\u0980-\u09FF]/.test(qTextClean)) {
+        formattedQContent = `<span class="q-text-bn">${qTextClean}</span>`;
+      } else {
+        formattedQContent = `<span class="q-text-en">${qTextClean}</span>`;
+      }
+    }
+
+    const ansLabel = finalLetter ? `Answer - Option ${finalLetter}` : `Answer - ${rawAns}`;
 
     return `
       <div class="question-block">
         <div class="question-header">
-          <span class="q-num">Q${qNo}.</span>
+          <span class="q-num">${qNo}.</span>
           <div class="q-text-container">
-            ${engQ ? `<div class="q-text-en">${engQ}</div>` : ''}
-            ${benQ ? `<div class="q-text-bn">${benQ}</div>` : ''}
-            ${!engQ && !benQ ? `<div class="q-text-en">${qTextClean}</div>` : ''}
+            <div class="q-html-content">${formattedQContent}</div>
           </div>
         </div>
 
         ${q.equationLatex ? `<div class="equation-box">LaTeX: ${q.equationLatex}</div>` : ''}
-        ${q.imageUrl ? `<div class="q-img"><img src="${q.imageUrl}" alt="Question Image" /></div>` : ''}
+        ${q.imageUrl ? `<div class="q-img"><img src="${cleanText(q.imageUrl)}" alt="Question Figure" /></div>` : ''}
 
         <div class="options-grid">
           ${optionsHTML}
         </div>
 
-        <div class="ans-box ${ansFontClass}">
-          Answer: Option ${correctLetter ? `(${correctLetter})` : ''} ${correctAnswer ? `— ${cleanText(correctAnswer)}` : ''}
+        <div class="ans-box">
+          ${ansLabel}
         </div>
 
         ${solution ? `
@@ -158,15 +189,29 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
 <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
 <head>
   <meta charset="utf-8">
-  <title>${testTitle} - Mock Test Paper</title>
-  <link href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&family=Noto+Serif+Bengali:wght@600;700&family=Hind+Siliguri:wght@600;700&display=swap" rel="stylesheet">
+  <title>${testTitle} - Official Question Paper</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Bengali:wght@600;700;800&family=Tiro+Bangla&family=Hind+Siliguri:wght@600;700&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after {
       box-sizing: border-box !important;
     }
     @page {
       size: A4 portrait;
-      margin: 10mm 10mm 12mm 10mm;
+      margin: 12mm 10mm 15mm 10mm;
+      @bottom-left {
+        content: "Page " counter(page, decimal-leading-zero) " of " counter(pages, decimal-leading-zero);
+        font-size: 8.5pt;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-weight: 800;
+        color: #0f172a;
+      }
+      @bottom-right {
+        content: "${testTitle} • Official Paper";
+        font-size: 8.5pt;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-weight: 800;
+        color: #0f172a;
+      }
     }
     @media print {
       html, body {
@@ -182,12 +227,34 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
       }
       .no-print { display: none !important; }
       .question-block { page-break-inside: avoid; break-inside: avoid; -webkit-column-break-inside: avoid; }
-      .pdf-watermark { display: block !important; opacity: 0.12 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      .pdf-watermark { display: block !important; opacity: 0.08 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      
+      /* Print Footer with Page Number on lower-left */
+      .page-footer {
+        position: fixed;
+        bottom: -5mm;
+        left: 0;
+        right: 0;
+        display: flex !important;
+        justify-content: space-between;
+        align-items: center;
+        padding: 3px 0;
+        border-top: 1.5px solid #000000;
+        font-size: 8.5pt;
+        font-family: system-ui, sans-serif;
+        font-weight: 800;
+        color: #000000;
+        background: #ffffff;
+      }
+      .page-footer .page-number::before {
+        content: "Page " counter(page, decimal-leading-zero) " of " counter(pages, decimal-leading-zero);
+      }
     }
+
     html, body {
-      font-family: 'Cambria', 'Georgia', 'Tiro Bangla', 'Noto Serif Bengali', serif;
-      font-size: 14pt;
-      line-height: 1.45;
+      font-family: 'Cambria', 'Georgia', 'Noto Serif Bengali', serif;
+      font-size: 11pt;
+      line-height: 1.4;
       color: #000000;
       background-color: #ffffff;
       margin: 0;
@@ -197,42 +264,55 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
       word-wrap: break-word;
       overflow-wrap: break-word;
     }
+
     .paper-header {
-      text-align: center;
-      border-bottom: 2px solid #000000;
-      padding-bottom: 6px;
-      margin-bottom: 10px;
       width: 100%;
-      max-width: 100%;
+      border-bottom: 2.5px solid #000000;
+      padding-bottom: 6px;
+      margin-bottom: 12px;
       column-span: all;
       -webkit-column-span: all;
     }
+    .paper-header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 4px;
+    }
+    .paper-title-left {
+      text-align: left;
+      flex: 1;
+    }
     .paper-title {
-      font-size: 16pt;
+      font-size: 15pt;
       font-weight: 900;
       font-family: 'Cambria', 'Georgia', serif;
-      margin: 0 0 3px 0;
+      margin: 0;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.3px;
       color: #000000;
-      word-break: break-word;
+      line-height: 1.25;
     }
     .paper-subtitle {
-      font-size: 12pt;
+      font-size: 10.5pt;
       font-weight: 700;
-      color: #334155;
-      margin: 0 0 4px 0;
+      color: #1e293b;
+      margin-top: 2px;
     }
-    .paper-meta-table {
-      width: 100%;
-      margin-top: 4px;
-      border-top: 1px solid #cbd5e1;
-      padding-top: 4px;
-      font-size: 11pt;
-      font-weight: bold;
+    .paper-meta-strip {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 6px;
+      padding: 4px 8px;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      font-size: 9.5pt;
+      font-weight: 800;
       color: #000000;
     }
-    .paper-meta-table td { padding: 1px 4px; }
     
     .questions-container {
       width: 100%;
@@ -240,18 +320,18 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
       column-count: 2;
       -webkit-column-count: 2;
       -moz-column-count: 2;
-      column-gap: 12px;
-      -webkit-column-gap: 12px;
-      -moz-column-gap: 12px;
-      column-rule: 2px solid #000000;
-      -webkit-column-rule: 2px solid #000000;
-      -moz-column-rule: 2px solid #000000;
+      column-gap: 14px;
+      -webkit-column-gap: 14px;
+      -moz-column-gap: 14px;
+      column-rule: 1.5px solid #000000;
+      -webkit-column-rule: 1.5px solid #000000;
+      -moz-column-rule: 1.5px solid #000000;
     }
 
     .question-block {
       margin-bottom: 10px;
       padding-bottom: 8px;
-      border-bottom: 1px solid #e2e8f0;
+      border-bottom: 1px dashed #cbd5e1;
       page-break-inside: avoid;
       break-inside: avoid;
       -webkit-column-break-inside: avoid;
@@ -271,60 +351,96 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
     .q-num {
       font-family: 'Cambria', 'Georgia', serif;
       font-weight: 900;
-      font-size: 14pt;
+      font-size: 11pt;
       color: #000000;
-      min-width: 26px;
+      min-width: 22px;
       shrink: 0;
     }
     .q-text-container {
       flex: 1;
       min-width: 0;
     }
+    
+    /* English Question Text - Black color, Cambria font */
     .q-text-en {
       font-family: 'Cambria', 'Georgia', serif !important;
-      font-weight: bold !important;
-      font-size: 14pt !important;
+      font-weight: 700 !important;
+      font-size: 11pt !important;
       color: #000000 !important;
-      margin-bottom: 3px;
-      white-space: pre-line;
+      line-height: 1.35;
       text-align: justify;
     }
+
+    /* Bengali Question Text - Red color, Noto Serif Bengali font */
     .q-text-bn {
-      font-family: 'Tiro Bangla', 'Noto Serif Bengali', 'SolaimanLipi', sans-serif !important;
-      font-weight: bold !important;
-      font-size: 14pt !important;
+      font-family: 'Noto Serif Bengali', serif !important;
+      font-weight: 700 !important;
+      font-size: 11pt !important;
       color: #dc2626 !important;
-      margin-bottom: 3px;
-      white-space: pre-line;
+      line-height: 1.35;
       text-align: justify;
     }
+
+    .q-html-content {
+      font-size: 11pt !important;
+      line-height: 1.35;
+      text-align: justify;
+    }
+
+    .q-html-content img, .q-img img {
+      max-width: 100% !important;
+      max-height: 160px;
+      height: auto;
+      object-fit: contain;
+      margin: 4px auto;
+      display: block;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      padding: 2px;
+      background: #ffffff;
+    }
+
+    /* Math fraction styling inside questions */
+    .vfrac {
+      display: inline-flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      vertical-align: middle !important;
+      margin: 0 3px !important;
+      font-size: 0.95em !important;
+      line-height: 1 !important;
+    }
+    .vfrac .top {
+      border-bottom: 1.5px solid #000000 !important;
+      padding: 0 3px 1px 3px !important;
+      text-align: center !important;
+      white-space: nowrap !important;
+    }
+    .vfrac .bot {
+      padding: 1px 3px 0 3px !important;
+      text-align: center !important;
+      white-space: nowrap !important;
+    }
+
     .equation-box {
-      margin: 3px 0 4px 24px;
+      margin: 3px 0 4px 22px;
       padding: 3px 6px;
       background: #f8fafc;
       border: 1px solid #e2e8f0;
       border-radius: 4px;
       font-family: monospace;
-      font-size: 11pt;
+      font-size: 10pt;
       word-break: break-word;
     }
-    .q-img { margin: 4px 0 4px 24px; max-width: 100%; }
-    .q-img img {
-      max-width: 100% !important;
-      max-height: 140px;
-      height: auto;
-      object-fit: contain;
-      border: 1px solid #cbd5e1;
-      border-radius: 4px;
-      display: block;
-    }
+
     .options-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 2px 6px;
-      margin-left: 24px;
+      margin-left: 20px;
+      margin-top: 4px;
       margin-bottom: 4px;
-      width: calc(100% - 24px);
+      width: calc(100% - 20px);
     }
     .option-item {
       display: flex;
@@ -332,103 +448,100 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
       padding: 1px 0;
       word-break: break-word;
     }
-    .opt-text-en {
-      font-family: 'Cambria', 'Georgia', serif !important;
-      font-weight: 600 !important;
-      font-size: 14pt !important;
-      color: #1b5e20 !important;
-    }
+    
+    /* Options - Deep Green color, Noto Serif Bengali for Bengali, Cambria for English */
     .opt-text-bn {
-      font-family: 'Baloo Da 2', 'Hind Siliguri', 'Tiro Bangla', 'Noto Serif Bengali', sans-serif !important;
-      font-weight: 600 !important;
-      font-size: 14pt !important;
-      color: #1b5e20 !important;
+      font-family: 'Noto Serif Bengali', serif !important;
+      font-weight: 700 !important;
+      font-size: 10.5pt !important;
+      color: #15803d !important;
     }
+    .opt-text-en, .option-item span {
+      font-family: 'Cambria', 'Georgia', serif !important;
+      font-weight: 700 !important;
+      font-size: 10.5pt !important;
+      color: #15803d !important;
+    }
+
+    /* Answer Box - Displaying Answer - Option A / Answer - Option B */
     .ans-box {
-      margin-left: 24px;
+      margin-left: 20px;
       margin-top: 4px;
-      padding: 3px 8px;
+      padding: 2px 7px;
       background-color: #fef08a !important;
-      border: 1px solid #fde047;
+      border: 1.5px solid #eab308;
       border-radius: 4px;
       display: inline-block;
-      font-size: 14pt !important;
-      font-weight: bold !important;
+      font-size: 10pt !important;
+      font-weight: 900 !important;
+      font-family: 'Cambria', 'Noto Serif Bengali', serif !important;
       color: #000000 !important;
       word-break: break-word;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
     }
-    .ans-box-en {
-      font-family: 'Cambria', 'Georgia', serif !important;
-    }
-    .ans-box-bn {
-      font-family: 'Tiro Bangla', 'Noto Serif Bengali', 'SolaimanLipi', sans-serif !important;
-    }
+
     .solution-box {
       margin-left: 0 !important;
-      margin-top: 6px;
-      padding: 4px 8px;
-      border-left: 3.5px solid #2563eb !important;
+      margin-top: 4px;
+      padding: 3px 6px;
+      border-left: 3px solid #2563eb !important;
       background-color: #f8fafc;
-      font-size: 12pt !important;
+      font-size: 9.5pt !important;
       color: #1e293b !important;
       white-space: pre-wrap;
       word-break: break-word;
       overflow-wrap: break-word;
     }
+
     .pdf-watermark {
       position: fixed;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: 400px;
+      width: 380px;
       max-width: 75%;
       height: auto;
-      opacity: 0.12 !important;
-      filter: grayscale(10%);
+      opacity: 0.08 !important;
+      filter: grayscale(100%);
       pointer-events: none;
       z-index: -100;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
     }
-    .footer-note {
-      text-align: center;
-      margin-top: 18px;
-      padding-top: 8px;
-      border-top: 2px solid #000000;
-      font-size: 11pt;
-      font-weight: bold;
-      color: #475569;
-      width: 100%;
+    
+    .page-footer {
+      display: none;
     }
   </style>
 </head>
 <body>
   <img src="${meta?.logoUrl || WATERMARK_BASE64}" class="pdf-watermark" alt="Watermark" />
+  
   <div class="paper-header">
-    <h1 class="paper-title">${testTitle}</h1>
-    ${meta?.topic ? `<div class="paper-subtitle">Topic: ${meta.topic}</div>` : ''}
-    <table class="paper-meta-table">
-      <tr>
-        <td style="text-align: left;">Category: ${meta?.category || 'General'}</td>
-        <td style="text-align: center;">Total Questions: ${totalQuestions}</td>
-        <td style="text-align: right;">Full Marks: ${totalMarks}</td>
-      </tr>
-      <tr>
-        <td style="text-align: left;">Duration: ${meta?.duration || 30} Minutes</td>
-        <td style="text-align: center;">Correct: +${meta?.marksPerCorrect || 1}</td>
-        <td style="text-align: right;">Negative: -${meta?.negativeMarks || 0.25}</td>
-      </tr>
-    </table>
+    <div class="paper-header-top">
+      <div class="paper-title-left">
+        <h1 class="paper-title">${testTitle}</h1>
+        <div class="paper-subtitle">${meta?.category || 'WBP'} • Official Question Paper with Solution Key</div>
+      </div>
+    </div>
+    <div class="paper-meta-strip">
+      <span>Category: ${meta?.category || 'WBP'}</span>
+      <span>Total Questions: ${totalQuestions}</span>
+      <span>Full Marks: ${totalMarks}</span>
+      <span>Duration: ${meta?.duration || 60} Mins</span>
+      <span>Marking: +${meta?.marksPerCorrect || 1} / -${meta?.negativeMarks || 0.25}</span>
+    </div>
   </div>
 
   <div class="questions-container">
     ${questionsHTML}
   </div>
 
-  <div class="footer-note">
-    MASTER APTITUDE BY SUMAN SIR • OFFICIAL QUESTION PAPER
+  <!-- Lower Portion Left Side Page Number Footer for Printable A4 -->
+  <div class="page-footer">
+    <span class="page-number"></span>
+    <span>MASTER APTITUDE BY SUMAN SIR • OFFICIAL QUESTION PAPER</span>
   </div>
 </body>
 </html>`;
@@ -458,7 +571,7 @@ export function exportMockTestToPDF(testTitle: string, questions: any[], meta?: 
     return;
   }
   const htmlContent = generateMockTestHTML(testTitle, questions, meta);
-  const printWindow = window.open('', '_blank', 'width=900,height=800');
+  const printWindow = window.open('', '_blank', 'width=950,height=850');
   if (!printWindow) {
     alert('Pop-up blocker prevented opening print window. Please allow pop-ups and try again.');
     return;
@@ -466,12 +579,46 @@ export function exportMockTestToPDF(testTitle: string, questions: any[], meta?: 
   printWindow.document.open();
   printWindow.document.write(htmlContent);
   printWindow.document.close();
-  printWindow.onload = () => {
+
+  const doPrint = () => {
     setTimeout(() => {
       printWindow.focus();
       printWindow.print();
     }, 400);
   };
+
+  // Wait for all images inside printWindow to fully load before calling print()
+  const imgs = printWindow.document.getElementsByTagName('img');
+  let loadedCount = 0;
+  const totalImgs = imgs.length;
+
+  if (totalImgs === 0) {
+    printWindow.onload = doPrint;
+  } else {
+    let fallbackTimer: any = null;
+    const checkDone = () => {
+      loadedCount++;
+      if (loadedCount >= totalImgs) {
+        if (fallbackTimer) clearTimeout(fallbackTimer);
+        doPrint();
+      }
+    };
+
+    for (let i = 0; i < totalImgs; i++) {
+      if (imgs[i].complete) {
+        loadedCount++;
+      } else {
+        imgs[i].onload = checkDone;
+        imgs[i].onerror = checkDone;
+      }
+    }
+
+    if (loadedCount >= totalImgs) {
+      doPrint();
+    } else {
+      fallbackTimer = setTimeout(doPrint, 2000);
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

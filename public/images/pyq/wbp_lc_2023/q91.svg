@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 350" width="100%" height="320" style="background:#ffffff; font-family: system-ui, sans-serif;">
+  <g transform="translate(200, 175)">
+    <!-- Outer Circle -->
+    <circle cx="0" cy="0" r="140" fill="#f8fafc" stroke="#334155" stroke-width="2.5"/>
+    
+    <!-- 8 Spokes -->
+    <line x1="-140" y1="0" x2="140" y2="0" stroke="#334155" stroke-width="2"/>
+    <line x1="0" y1="-140" x2="0" y2="140" stroke="#334155" stroke-width="2"/>
+    <line x1="-99" y1="-99" x2="99" y2="99" stroke="#334155" stroke-width="2"/>
+    <line x1="-99" y1="99" x2="99" y2="-99" stroke="#334155" stroke-width="2"/>
+
+    <!-- Numbers positioned in clockwise order starting top-right -->
+    <text x="60" y="-85" text-anchor="middle" font-size="20" font-weight="900" fill="#0f172a">4</text>
+    <text x="105" y="-15" text-anchor="middle" font-size="20" font-weight="900" fill="#0f172a">9</text>
+    <text x="85" y="65" text-anchor="middle" font-size="20" font-weight="900" fill="#0f172a">20</text>
+    <text x="25" y="105" text-anchor="middle" font-size="20" font-weight="900" fill="#0f172a">43</text>
+    <text x="-60" y="85" text-anchor="middle" font-size="20" font-weight="900" fill="#0f172a">90</text>
+    <text x="-100" y="15" text-anchor="middle" font-size="20" font-weight="900" fill="#0f172a">185</text>
+    <text x="-80" y="-65" text-anchor="middle" font-size="26" font-weight="900" fill="#dc2626">?</text>
+    <text x="0" y="-105" text-anchor="middle" font-size="20" font-weight="900" fill="#0f172a">759</text>
+  </g>
+</svg>
