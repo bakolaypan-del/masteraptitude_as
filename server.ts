@@ -221,7 +221,8 @@ const collectionTableMap: { [key: string]: string } = {
   one_liners: "one_liners",
   practice_sets: "practice_sets",
   patterns: "patterns",
-  pyqs: "pyqs"
+  pyqs: "pyqs",
+  notifications: "notifications"
 };
 
 // Column mapping for tables

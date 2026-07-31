@@ -18,6 +18,7 @@ import ReviewSlider from '../components/ReviewSlider';
 import ComingSoonBox from '../components/ComingSoonBox';
 import { RenderQuestionHTML } from '../components/RichTextEditor';
 import { exportMockTestToPDF } from '../lib/exportMockTest';
+import { NotificationBell } from '../components/NotificationBell';
 import { Trophy, Target, LogOut, FileText, CheckCircle, Clock, BookOpen, Play, ChevronRight, ChevronLeft, ArrowLeft, ExternalLink, Menu, X, Youtube, MessageCircle, Send, LayoutDashboard, History, ChevronDown, ArrowRight, User, Info, Phone, Download, Printer, AlertCircle, BarChart3, Keyboard, Globe, Layers, CheckSquare, Volume2, VolumeX, Maximize, NotebookPen, Award, Calendar, ClipboardList, Crown, Brain, Book, Newspaper, Megaphone, Bookmark, Eye, Sparkles, FileUp, Search, Filter, Image as ImgIcon, Check, Share2, Pencil, Mail, Lock, ShieldCheck } from 'lucide-react';
 
 type DashboardTab = 'home' | 'profile' | 'mock_topic' | 'mock_sectional' | 'mock_full' | 'notes' | 'video' | 'pyq' | 'pattern' | 'affairs' | 'practice' | 'about' | 'contact' | 'learn_landing' | 'mock_landing' | 'live_test' | 'mock_challenge' | 'one_liner';
@@ -1771,6 +1772,16 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
+            <NotificationBell
+              activeTests={activeTests}
+              onNavigateTab={(tab, cat) => {
+                setActiveTab(tab as any);
+                if (cat) setSelectedCategory(cat);
+              }}
+              onOpenTest={(tId) => {
+                navigate(`/test/${tId}`);
+              }}
+            />
             {profile?.role === 'admin' && (
               <Link to="/admin" className="hidden sm:flex items-center gap-1.5 text-[10px] font-black bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-4 py-2 rounded-xl hover:opacity-90 transition-all" style={{boxShadow: '0 2px 12px rgba(99,102,241,0.3)'}} >
                 <LayoutDashboard className="w-3 h-3" />
