@@ -547,6 +547,7 @@ export default function Dashboard() {
   
   const activeTab = (searchParams.get('tab') as DashboardTab) || 'home';
   const selectedCategory = searchParams.get('cat') || '';
+  const [selectedSubCat, setSelectedSubCat] = useState<string | null>(null);
 
   useEffect(() => {
     if (activeTab === 'one_liner' || oneLiners.length === 0) {
@@ -740,6 +741,16 @@ export default function Dashboard() {
   }, [profile]);
 
   const categories = (() => {
+    if (activeTab === 'mock_sectional') {
+      const requiredSectionalCats = ['RAILWAY', 'WBP', 'KP', 'WPSC', 'CO-OPERATIVE', 'WBSEDCL', 'PANCHAYET'];
+      const dbCategories = activeTests.filter(t => 
+        (t.testType || 'sectional') === 'sectional' && t.category
+      ).map(t => t.category);
+      
+      const combined = [...new Set([...requiredSectionalCats, ...dbCategories])];
+      return combined;
+    }
+
     const rawCategories = [...new Set(activeTests.filter(t => 
       (t.testType || 'topic') === activeTab.replace('mock_', '') &&
       t.category !== "150 Days Free Practice"
@@ -762,7 +773,7 @@ export default function Dashboard() {
   })();
 
   useEffect(() => {
-    if (categories.length > 0 && !selectedCategory && ['mock_topic', 'mock_sectional', 'mock_full'].includes(activeTab)) {
+    if (categories.length > 0 && !selectedCategory && ['mock_topic', 'mock_full'].includes(activeTab)) {
       setSelectedCategory(categories[0], true);
     }
   }, [activeTab, categories.length, selectedCategory]);
@@ -3334,38 +3345,279 @@ export default function Dashboard() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {categories.map((subject, subjectIdx) => {
-                      // All tests belonging to this subject
-                      const testsInSubject = activeTests.filter(t => 
-                        (t.testType || 'topic') === activeTab.replace('mock_', '') &&
-                        t.category === subject
-                      );
+                    {/* Sectional Mock Main Categories Square Cards Grid (Shown when NO category selected) */}
+                    {activeTab === 'mock_sectional' && !selectedCategory && (
+                      <div className="space-y-4 mb-6">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="w-1.5 h-8 bg-gradient-to-b from-indigo-500 to-violet-600 rounded-full" />
+                          <div>
+                            <h3 className="font-black text-slate-900 text-base md:text-lg tracking-tight">
+                              📋 Sectional Mock Exam Categories
+                            </h3>
+                            <p className="text-xs text-slate-500 font-medium">Select a category card below to view its sectional mock papers</p>
+                          </div>
+                        </div>
 
-                      // Group tests in this subject by topic
-                      const topicsMap: Record<string, typeof testsInSubject> = {};
-                      testsInSubject.forEach(t => {
-                        const key = t.topic || 'General';
-                        if (!topicsMap[key]) topicsMap[key] = [];
-                        topicsMap[key].push(t);
-                      });
-                      const topicEntries = Object.entries(topicsMap);
+                        {/* Compact, Sleek & Professional 7-col Responsive Category Grid */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
+                          {[
+                            { id: 'RAILWAY', name: 'RAILWAY', icon: '🚆', bgGradient: 'from-indigo-50/50 to-blue-50/50', border: 'border-indigo-100', iconGradient: 'from-indigo-500 to-blue-600', desc: 'RRB NTPC, ALP, Group D' },
+                            { id: 'WBP', name: 'WBP', icon: '👮‍♂️', bgGradient: 'from-blue-50/50 to-cyan-50/50', border: 'border-blue-100', iconGradient: 'from-blue-500 to-cyan-600', desc: 'WB Police Constable & SI' },
+                            { id: 'KP', name: 'KP', icon: '🚨', bgGradient: 'from-sky-50/50 to-teal-50/50', border: 'border-sky-100', iconGradient: 'from-sky-500 to-teal-600', desc: 'Kolkata Police Constable & SI' },
+                            { id: 'WPSC', name: 'WPSC', icon: '🏛️', bgGradient: 'from-emerald-50/50 to-teal-50/50', border: 'border-emerald-100', iconGradient: 'from-emerald-500 to-teal-600', desc: 'Clerkship, Misc & Food SI' },
+                            { id: 'CO-OPERATIVE', name: 'CO-OPERATIVE', icon: '🏦', bgGradient: 'from-amber-50/50 to-orange-50/50', border: 'border-amber-100', iconGradient: 'from-amber-500 to-orange-600', desc: 'Cooperative CSC Mocks' },
+                            { id: 'WBSEDCL', name: 'WBSEDCL', icon: '⚡', bgGradient: 'from-yellow-50/50 to-amber-50/50', border: 'border-yellow-100', iconGradient: 'from-yellow-500 to-amber-600', desc: 'Office Exec & Tech Assistant' },
+                            { id: 'PANCHAYET', name: 'PANCHAYET', icon: '🏡', bgGradient: 'from-rose-50/50 to-pink-50/50', border: 'border-rose-100', iconGradient: 'from-rose-500 to-pink-600', desc: 'Panchayat & Zilla Parishad' },
+                          ].map(cat => {
+                            const count = activeTests.filter(t => 
+                              (t.testType || 'sectional') === 'sectional' && 
+                              t.category?.toUpperCase() === cat.id.toUpperCase()
+                            ).length;
 
-                      const totalTests = testsInSubject.length;
-                      const takenCount = testsInSubject.filter(t => pastResults.some(r => r.testId === t.id)).length;
+                            return (
+                              <button
+                                key={cat.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedCategory(cat.id);
+                                  setExpandedCategory(cat.id);
+                                }}
+                                className={`group relative overflow-hidden rounded-2xl p-3 text-left bg-white border ${cat.border} hover:border-indigo-400 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between h-28`}
+                              >
+                                <div className={`absolute inset-0 bg-gradient-to-br ${cat.bgGradient} opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl`} />
+                                
+                                <div className="relative z-10 flex flex-col justify-between h-full w-full">
+                                  <div className="flex items-center justify-between">
+                                    <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${cat.iconGradient} flex items-center justify-center shadow-2xs text-base text-white group-hover:scale-105 transition-transform duration-200`}>
+                                      {cat.icon}
+                                    </div>
+                                    <span className={`text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                                      count > 0 ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' : 'bg-slate-100 text-slate-500'
+                                    }`}>
+                                      {count} {count === 1 ? 'Mock' : 'Mocks'}
+                                    </span>
+                                  </div>
 
-                      // Color variants for subjects to give premium feel
-                      const subjectColors = [
-                        { bg: 'border-l-indigo-500 text-indigo-600 bg-indigo-50/20 hover:bg-indigo-50/40', iconBg: 'bg-indigo-50 text-indigo-600', pill: 'bg-indigo-50 text-indigo-700' },
-                        { bg: 'border-l-emerald-500 text-emerald-600 bg-emerald-50/20 hover:bg-emerald-50/40', iconBg: 'bg-emerald-50 text-emerald-600', pill: 'bg-emerald-50 text-emerald-700' },
-                        { bg: 'border-l-rose-500 text-rose-600 bg-rose-50/20 hover:bg-rose-50/40', iconBg: 'bg-rose-50 text-rose-600', pill: 'bg-rose-50 text-rose-700' },
-                        { bg: 'border-l-amber-500 text-amber-600 bg-amber-50/20 hover:bg-amber-50/40', iconBg: 'bg-amber-50 text-amber-600', pill: 'bg-amber-50 text-amber-700' },
-                        { bg: 'border-l-sky-500 text-sky-600 bg-sky-50/20 hover:bg-sky-50/40', iconBg: 'bg-sky-50 text-sky-600', pill: 'bg-sky-50 text-sky-700' },
-                        { bg: 'border-l-violet-500 text-violet-600 bg-violet-50/20 hover:bg-violet-50/40', iconBg: 'bg-violet-50 text-violet-600', pill: 'bg-violet-50 text-violet-700' },
-                      ];
-                      const color = subjectColors[subjectIdx % subjectColors.length];
-                      const isSubjectExpanded = expandedCategory === subject;
+                                  <div>
+                                    <h3 className="font-black text-slate-800 text-xs leading-tight truncate mb-0.5">{cat.name}</h3>
+                                    <p className="text-[9px] text-slate-500 font-medium leading-tight truncate">{cat.desc}</p>
+                                  </div>
 
-                      if (totalTests === 0) return null;
+                                  <div className="pt-1 flex items-center justify-between border-t border-slate-100/80">
+                                    <span className="text-[8.5px] font-bold text-slate-400 group-hover:text-indigo-600 transition-colors">Explore</span>
+                                    <ChevronRight className="w-3 h-3 text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Sectional Category Back Header (Shown when category IS selected) */}
+                    {activeTab === 'mock_sectional' && selectedCategory && (
+                      <div className="mb-4 flex items-center justify-between bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCategory('');
+                            setSelectedSubCat(null);
+                          }}
+                          className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                        >
+                          <ArrowLeft className="w-3.5 h-3.5" /> Back to Categories
+                        </button>
+                        <span className="text-xs font-black text-slate-500">
+                          Category: <span className="text-indigo-600 font-black">{selectedCategory}</span>
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Railway Subcategory Cards Grid (Shown inside RAILWAY category) */}
+                    {activeTab === 'mock_sectional' && selectedCategory === 'RAILWAY' && (
+                      <div className="space-y-4 mb-6">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="font-black text-slate-800 text-xs md:text-sm tracking-tight flex items-center gap-2">
+                              🚆 RAILWAY Subcategories
+                            </h3>
+                            <p className="text-[10px] text-slate-500 font-medium mt-0.5">Select a subcategory card below to view its sectional mock test papers</p>
+                          </div>
+                          {selectedSubCat && (
+                            <button
+                              onClick={() => setSelectedSubCat(null)}
+                              className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-xl transition-all cursor-pointer shadow-2xs"
+                            >
+                              ← Clear Filter
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Subcategory Grid - Identical styling to Screenshot 1 main category cards */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                          {[
+                            { id: 'UG Level', name: 'UG Level', icon: '🎓', bgGradient: 'from-indigo-50/50 to-blue-50/50', border: 'border-indigo-100', color: 'from-indigo-500 to-violet-600', desc: 'RRB NTPC Under Graduate' },
+                            { id: 'Graduate Level', name: 'Graduate Level', icon: '📜', bgGradient: 'from-blue-50/50 to-cyan-50/50', border: 'border-blue-100', color: 'from-blue-500 to-cyan-600', desc: 'RRB NTPC Grad Sectionals' },
+                            { id: 'ALP', name: 'ALP', icon: '🚂', bgGradient: 'from-emerald-50/50 to-teal-50/50', border: 'border-emerald-100', color: 'from-emerald-500 to-teal-600', desc: 'Loco Pilot Sectionals' },
+                            { id: 'technician-III', name: 'technician-III', icon: '🔧', bgGradient: 'from-amber-50/50 to-orange-50/50', border: 'border-amber-100', color: 'from-amber-500 to-orange-600', desc: 'Technician Grade III' },
+                            { id: 'Group D', name: 'Group D', icon: '🛤️', bgGradient: 'from-rose-50/50 to-pink-50/50', border: 'border-rose-100', color: 'from-rose-500 to-pink-600', desc: 'RRC Group D Level 1' },
+                          ].map(sub => {
+                            const subCount = activeTests.filter(t => {
+                              if ((t.testType || 'sectional') !== 'sectional') return false;
+                              if (t.category && t.category.toUpperCase() !== 'RAILWAY') return false;
+                              const subLower = sub.id.toLowerCase();
+                              const tSub = (t.subCategory || t.metadata?.subCategory || '').toLowerCase();
+                              if (subLower.includes('ug') || subLower.includes('under graduate')) {
+                                return tSub.includes('ug') || tSub.includes('under graduate') || t.title?.includes('Mock -01') || t.title?.includes('Mock -02') || t.id?.includes('ug') || t.id?.includes('grad');
+                              }
+                              if (subLower.includes('graduate') && !subLower.includes('under') && !subLower.includes('ug')) {
+                                return (tSub.includes('graduate') && !tSub.includes('under') && !tSub.includes('ug')) || tSub === 'graduate level';
+                              }
+                              return tSub.includes(subLower);
+                            }).length;
+
+                            const isSelected = selectedSubCat === sub.id;
+
+                            return (
+                              <button
+                                key={sub.id}
+                                type="button"
+                                onClick={() => setSelectedSubCat(isSelected ? null : sub.id)}
+                                className={`group relative overflow-hidden rounded-2xl p-3 text-left border shadow-2xs hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between h-28 ${
+                                  isSelected
+                                    ? 'bg-slate-900 border-slate-800 text-white ring-2 ring-indigo-500 scale-[1.02] shadow-md'
+                                    : `bg-white ${sub.border} hover:border-indigo-400 hover:-translate-y-0.5`
+                                }`}
+                              >
+                                <div className={`absolute inset-0 bg-gradient-to-br ${sub.bgGradient} opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl`} />
+                                
+                                <div className="relative z-10 flex flex-col justify-between h-full w-full">
+                                  <div className="flex items-center justify-between">
+                                    <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${sub.color} flex items-center justify-center shadow-2xs text-base text-white group-hover:scale-105 transition-transform duration-200`}>
+                                      {sub.icon}
+                                    </div>
+                                    <span className={`text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                                      isSelected ? 'bg-indigo-600 text-white' : subCount > 0 ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' : 'bg-slate-100 text-slate-500'
+                                    }`}>
+                                      {subCount} {subCount === 1 ? 'Mock' : 'Mocks'}
+                                    </span>
+                                  </div>
+
+                                  <div>
+                                    <h3 className={`font-black text-xs leading-tight truncate mb-0.5 ${isSelected ? 'text-white' : 'text-slate-800'}`}>{sub.name}</h3>
+                                    <p className={`text-[9px] font-medium leading-tight truncate ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>{sub.desc}</p>
+                                  </div>
+
+                                  <div className="pt-1 flex items-center justify-between border-t border-slate-100/80">
+                                    <span className={`text-[8.5px] font-bold ${isSelected ? 'text-indigo-300' : 'text-slate-400 group-hover:text-indigo-600'} transition-colors`}>
+                                      {isSelected ? 'Selected' : 'Explore'}
+                                    </span>
+                                    <ChevronRight className={`w-3 h-3 ${isSelected ? 'text-indigo-300 rotate-90' : 'text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-0.5'} transition-all`} />
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {!selectedSubCat && (
+                          <div className="p-4 bg-indigo-50/40 border border-indigo-100/80 rounded-2xl text-center">
+                            <p className="text-xs text-slate-600 font-medium flex items-center justify-center gap-1.5">
+                              👆 <span className="font-extrabold text-slate-800">Click a subcategory card above</span> (e.g. <span className="text-indigo-600 font-black">Under Graduate level</span>) to view its sectional mock tests.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Empty non-RAILWAY category coming soon card */}
+                    {activeTab === 'mock_sectional' && selectedCategory && selectedCategory !== 'RAILWAY' && (
+                      <div className="p-8 bg-white border border-slate-200/80 rounded-3xl text-center shadow-2xs space-y-3">
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mx-auto text-2xl">
+                          {selectedCategory === 'WBP' ? '👮‍♂️' : selectedCategory === 'KP' ? '🚨' : selectedCategory === 'WPSC' ? '🏛️' : selectedCategory === 'CO-OPERATIVE' ? '🏦' : selectedCategory === 'WBSEDCL' ? '⚡' : '🏡'}
+                        </div>
+                        <h4 className="font-black text-slate-800 text-base">{selectedCategory} Sectional Mocks Coming Soon!</h4>
+                        <p className="text-xs text-slate-500 font-medium max-w-md mx-auto leading-relaxed">
+                          Fresh sectional practice test papers for <span className="font-bold text-indigo-600">{selectedCategory}</span> are currently being prepared & uploaded daily. Check back soon or explore RAILWAY sectional papers!
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Render Tests List ONLY when tab is NOT mock_sectional OR when a subcategory IS explicitly selected */}
+                    {(activeTab !== 'mock_sectional' || (selectedCategory === 'RAILWAY' && selectedSubCat)) && (
+                      <div className="space-y-4">
+                        {activeTab === 'mock_sectional' && selectedSubCat && (
+                          <div className="flex items-center justify-between mb-1 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs">
+                            <h4 className="font-black text-slate-800 text-sm flex items-center gap-2">
+                              📝 Sectional Mock Papers for <span className="text-indigo-600 font-extrabold">{selectedSubCat}</span>
+                            </h4>
+                            <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg">
+                              Available Test Papers
+                            </span>
+                          </div>
+                        )}
+
+                        {categories
+                          .filter(cat => !selectedCategory || cat.toUpperCase() === selectedCategory.toUpperCase())
+                          .map((subject, subjectIdx) => {
+                            // All tests belonging to this subject
+                            const testsInSubject = activeTests.filter(t => 
+                              (t.testType || 'topic') === activeTab.replace('mock_', '') &&
+                              ((t.category || '').toUpperCase() === subject.toUpperCase() || (subject.toUpperCase().includes('PSC') && (t.category || '').toUpperCase().includes('PSC'))) &&
+                              (activeTab !== 'mock_sectional' || subject !== 'RAILWAY' || (
+                                selectedSubCat && (() => {
+                                  const subLower = selectedSubCat.toLowerCase();
+                                  const tSub = (t.subCategory || t.metadata?.subCategory || '').toLowerCase();
+                                  if (subLower.includes('ug') || subLower.includes('under graduate')) {
+                                    return tSub.includes('ug') || tSub.includes('under graduate') || t.title?.includes('Mock -01') || t.title?.includes('Mock -02') || t.id?.includes('ug') || t.id?.includes('grad');
+                                  }
+                                  if (subLower.includes('graduate') && !subLower.includes('under') && !subLower.includes('ug')) {
+                                    return (tSub.includes('graduate') && !tSub.includes('under') && !tSub.includes('ug')) || tSub === 'graduate level';
+                                  }
+                                  return tSub.includes(subLower);
+                                })()
+                              ))
+                            );
+
+                            // Group tests in this subject by topic
+                            const topicsMap: Record<string, typeof testsInSubject> = {};
+                            testsInSubject.forEach(t => {
+                              const key = t.topic || 'General';
+                              if (!topicsMap[key]) topicsMap[key] = [];
+                              topicsMap[key].push(t);
+                            });
+                            const topicEntries = Object.entries(topicsMap);
+
+                            const totalTests = testsInSubject.length;
+                            const takenCount = testsInSubject.filter(t => pastResults.some(r => r.testId === t.id)).length;
+
+                            // Color variants for subjects to give premium feel
+                            const subjectColors = [
+                              { bg: 'border-l-indigo-500 text-indigo-600 bg-indigo-50/20 hover:bg-indigo-50/40', iconBg: 'bg-indigo-50 text-indigo-600', pill: 'bg-indigo-50 text-indigo-700' },
+                              { bg: 'border-l-emerald-500 text-emerald-600 bg-emerald-50/20 hover:bg-emerald-50/40', iconBg: 'bg-emerald-50 text-emerald-600', pill: 'bg-emerald-50 text-emerald-700' },
+                              { bg: 'border-l-rose-500 text-rose-600 bg-rose-50/20 hover:bg-rose-50/40', iconBg: 'bg-rose-50 text-rose-600', pill: 'bg-rose-50 text-rose-700' },
+                              { bg: 'border-l-amber-500 text-amber-600 bg-amber-50/20 hover:bg-amber-50/40', iconBg: 'bg-amber-50 text-amber-600', pill: 'bg-amber-50 text-amber-700' },
+                              { bg: 'border-l-sky-500 text-sky-600 bg-sky-50/20 hover:bg-sky-50/40', iconBg: 'bg-sky-50 text-sky-600', pill: 'bg-sky-50 text-sky-700' },
+                              { bg: 'border-l-violet-500 text-violet-600 bg-violet-50/20 hover:bg-violet-50/40', iconBg: 'bg-violet-50 text-violet-600', pill: 'bg-violet-50 text-violet-700' },
+                            ];
+                            const color = subjectColors[subjectIdx % subjectColors.length];
+                            const isSubjectExpanded = expandedCategory === subject;
+
+                            if (totalTests === 0) return null;
+
+                        const getCatIcon = (s: string) => {
+                          switch (s.toUpperCase()) {
+                            case 'RAILWAY': return '🚆';
+                            case 'WBP': return '👮‍♂️';
+                            case 'KP': return '🚨';
+                            case 'WPSC': return '🏛️';
+                            case 'CO-OPERATIVE': return '🏦';
+                            case 'WBSEDCL': return '⚡';
+                            case 'PANCHAYET': return '🏡';
+                            default: return '📝';
+                          }
+                        };
 
                       return (
                         <div key={subject} className="bg-white border border-slate-200/60 rounded-2xl shadow-xs overflow-hidden transition-all duration-300">
@@ -3379,17 +3631,19 @@ export default function Dashboard() {
                             className={`w-full flex items-center justify-between p-4 md:p-5 border-l-4 ${color.bg} text-left transition-colors duration-200`}
                           >
                             <div className="flex items-center gap-3.5">
-                              <div className={`w-10 h-10 rounded-xl ${color.iconBg} flex items-center justify-center shrink-0 shadow-xs`}>
-                                <Layers className="w-5 h-5" />
+                              <div className={`w-10 h-10 rounded-xl ${color.iconBg} flex items-center justify-center shrink-0 shadow-xs text-lg`}>
+                                {activeTab === 'mock_sectional' ? getCatIcon(subject) : <Layers className="w-5 h-5" />}
                               </div>
                               <div>
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Subject</span>
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">
+                                  {activeTab === 'mock_sectional' ? 'Sectional Category' : 'Subject'}
+                                </span>
                                 <h3 className="font-extrabold text-slate-800 text-sm md:text-base leading-tight">{subject}</h3>
                               </div>
                             </div>
                             <div className="flex items-center gap-3">
                               <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full ${color.pill}`}>
-                                {totalTests} {totalTests === 1 ? 'Mock' : 'Mocks'} ({takenCount} Done)
+                                {totalTests} {totalTests === 1 ? 'Mock' : 'Mocks'} {totalTests > 0 ? `(${takenCount} Done)` : '(Coming Soon)'}
                               </span>
                               <div className="text-slate-400">
                                 <ChevronDown className={`w-5 h-5 transition-transform duration-300 ${isSubjectExpanded ? 'rotate-180 text-indigo-500' : ''}`} />
@@ -3397,10 +3651,21 @@ export default function Dashboard() {
                             </div>
                           </button>
 
-                          {/* Subject Accordion Body (Render Topics list) */}
+                          {/* Subject Accordion Body (Render Topics list or Empty Coming Soon card) */}
                           {isSubjectExpanded && (
                             <div className="border-t border-slate-100 bg-slate-50/20 divide-y divide-slate-100 animate-in slide-in-from-top-3 duration-200">
-                              {topicEntries.map(([topicName, topicTests]) => {
+                              {totalTests === 0 ? (
+                                <div className="p-6 md:p-8 bg-slate-50/60 text-center">
+                                  <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mx-auto mb-3 text-2xl">
+                                    {getCatIcon(subject)}
+                                  </div>
+                                  <h4 className="font-black text-slate-800 text-sm mb-1">{subject} Sectional Mocks Coming Soon!</h4>
+                                  <p className="text-xs text-slate-500 font-medium max-w-md mx-auto leading-relaxed">
+                                    Fresh sectional practice papers for <span className="font-bold text-indigo-600">{subject}</span> are currently being prepared & uploaded. Check back daily or explore RAILWAY sectional papers!
+                                  </p>
+                                </div>
+                              ) : (
+                                topicEntries.map(([topicName, topicTests]) => {
                                 const totalTopicTests = topicTests.length;
                                 const takenTopicCount = topicTests.filter(t => pastResults.some(r => r.testId === t.id)).length;
                                 const isTopicExpanded = expandedTopic === topicName;
@@ -3568,17 +3833,19 @@ export default function Dashboard() {
                                     )}
                                   </div>
                                 );
-                              })}
-                            </div>
-                          )}
-
+                              })
+                            )}
+                          </div>
+                        )}
                         </div>
                       );
                     })}
                   </div>
                 )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
+        )}
 
           {activeTab === 'mock_challenge' && (
             <div className="space-y-4 animate-in fade-in duration-150">

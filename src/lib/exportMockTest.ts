@@ -2,11 +2,15 @@ import { WATERMARK_BASE64 } from './watermarkBase64';
 
 export interface ExportTestMeta {
   category?: string;
+  subCategory?: string;
   topic?: string;
   subjectName?: string;
   duration?: number | string;
   marksPerCorrect?: number | string;
   negativeMarks?: number | string;
+  testDate?: string;
+  testTime?: string;
+  examName?: string;
   logoUrl?: string;
 }
 
@@ -93,49 +97,57 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
     const correctAnswer = q.correctAnswer || '';
     const solution = cleanText(q.solution || q.explanation || '');
 
-    // Resolve exact answer option letter (A, B, C, D)
-    let finalLetter = '';
-    let finalAnsText = '';
-
+    // 1. Resolve exact answer option letter (A, B, C, D)
     const rawAns = (correctAnswer || '').trim();
-    if (/^[A-F]$/i.test(rawAns)) {
-      finalLetter = rawAns.toUpperCase();
-      const matchIdx = optionLetters.indexOf(finalLetter);
-      if (matchIdx >= 0 && options[matchIdx]) {
-        finalAnsText = cleanText(options[matchIdx]);
-      }
-    } else if (/^\([A-F]\)/i.test(rawAns)) {
-      finalLetter = rawAns.substring(1, 2).toUpperCase();
-      finalAnsText = cleanText(rawAns);
+    let finalLetter = '';
+
+    const letterMatch = rawAns.match(/^(?:\(?([A-F])[\.\):]?\b)/i);
+    if (letterMatch) {
+      finalLetter = letterMatch[1].toUpperCase();
     } else {
+      const cleanedAnsText = rawAns.replace(/^(?:\([A-F]\)\s*|[A-F][\.\):]\s*)+/i, '').trim().toLowerCase();
       const matchedIdx = options.findIndex(opt => {
-        const cleaned = cleanText(opt).trim();
-        return cleaned === rawAns || (rawAns.length > 2 && (cleaned.includes(rawAns) || rawAns.includes(cleaned)));
+        const cleanedOpt = cleanText(opt).replace(/^(?:\([A-F]\)\s*|[A-F][\.\):]\s*)+/i, '').trim().toLowerCase();
+        return cleanedOpt === cleanedAnsText || (cleanedAnsText.length > 2 && (cleanedOpt.includes(cleanedAnsText) || cleanedAnsText.includes(cleanedOpt)));
       });
       if (matchedIdx >= 0) {
         finalLetter = optionLetters[matchedIdx];
-        finalAnsText = cleanText(options[matchedIdx]);
-      } else {
-        finalAnsText = cleanText(rawAns);
       }
     }
 
+    // 2. Format options: clean double prefix and format English/Bengali separately
     const optionsHTML = options.map((opt, i) => {
       const letter = optionLetters[i] || String(i + 1);
-      const cleanOpt = cleanText(opt) || opt;
-      const isBengaliOpt = /[\u0980-\u09FF]/.test(cleanOpt);
-      const fontClass = isBengaliOpt ? 'opt-text-bn' : 'opt-text-en';
+      let cleanOpt = cleanText(opt) || '';
+      // Strip any existing duplicate prefix like "A. ", "(A) ", "A) ", "A : "
+      cleanOpt = cleanOpt.replace(/^(?:\([A-F]\)\s*|[A-F][\.\):]\s*)+/i, '').trim();
+
+      let formattedOptText = '';
+      if (cleanOpt.includes(' / ')) {
+        const parts = cleanOpt.split(' / ');
+        formattedOptText = parts.map(p => {
+          const trimmed = p.trim();
+          if (/[\u0980-\u09FF]/.test(trimmed)) {
+            return `<span class="opt-text-bn">${trimmed}</span>`;
+          }
+          return `<span class="opt-text-en">${trimmed}</span>`;
+        }).join(' <span class="opt-sep">/</span> ');
+      } else if (/[\u0980-\u09FF]/.test(cleanOpt)) {
+        formattedOptText = `<span class="opt-text-bn">${cleanOpt}</span>`;
+      } else {
+        formattedOptText = `<span class="opt-text-en">${cleanOpt}</span>`;
+      }
 
       return `
         <div class="option-item">
-          <span class="${fontClass}">(${letter}) ${cleanOpt}</span>
+          <span class="opt-letter">(${letter})</span>
+          <div class="opt-content">${formattedOptText}</div>
         </div>
       `;
     }).join('');
 
-    // Format bilingual question text: Bengali in Red font, English in Cambria Black font
+    // 3. Format bilingual question text
     let formattedQContent = qTextClean;
-
     if (!/<[a-z][\s\S]*>/i.test(qTextClean)) {
       if (qTextClean.includes('/')) {
         const parts = qTextClean.split('/');
@@ -154,7 +166,7 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
       }
     }
 
-    const ansLabel = finalLetter ? `Answer - Option ${finalLetter}` : `Answer - ${rawAns}`;
+    const ansLabel = finalLetter ? `Answer - Option (${finalLetter})` : `Answer - ${rawAns}`;
 
     return `
       <div class="question-block">
@@ -434,45 +446,66 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
     }
 
     .options-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 2px 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
       margin-left: 20px;
-      margin-top: 4px;
-      margin-bottom: 4px;
+      margin-top: 5px;
+      margin-bottom: 6px;
       width: calc(100% - 20px);
     }
     .option-item {
       display: flex;
       align-items: flex-start;
-      padding: 1px 0;
+      gap: 6px;
+      padding: 2px 4px;
       word-break: break-word;
+      line-height: 1.35;
+    }
+    .opt-letter {
+      font-family: 'Cambria', 'Georgia', serif !important;
+      font-weight: 800 !important;
+      font-size: 10.5pt !important;
+      color: #0f172a !important;
+      min-width: 24px;
+      shrink: 0;
+    }
+    .opt-content {
+      flex: 1;
+      min-width: 0;
     }
     
     /* Options - Deep Green color, Noto Serif Bengali for Bengali, Cambria for English */
     .opt-text-bn {
-      font-family: 'Noto Serif Bengali', serif !important;
+      font-family: 'Noto Serif Bengali', 'Tiro Bangla', serif !important;
       font-weight: 700 !important;
       font-size: 10.5pt !important;
       color: #15803d !important;
+      line-height: 1.35;
     }
-    .opt-text-en, .option-item span {
+    .opt-text-en {
       font-family: 'Cambria', 'Georgia', serif !important;
       font-weight: 700 !important;
       font-size: 10.5pt !important;
       color: #15803d !important;
+      line-height: 1.35;
+    }
+    .opt-sep {
+      color: #94a3b8;
+      font-weight: 400;
+      margin: 0 4px;
     }
 
-    /* Answer Box - Displaying Answer - Option A / Answer - Option B */
+    /* Answer Box - Displaying Answer - Option (A) / Answer - Option (B) */
     .ans-box {
       margin-left: 20px;
       margin-top: 4px;
-      padding: 2px 7px;
+      padding: 3px 9px;
       background-color: #fef08a !important;
       border: 1.5px solid #eab308;
-      border-radius: 4px;
+      border-radius: 6px;
       display: inline-block;
-      font-size: 10pt !important;
+      font-size: 10.5pt !important;
       font-weight: 900 !important;
       font-family: 'Cambria', 'Noto Serif Bengali', serif !important;
       color: #000000 !important;
@@ -484,7 +517,7 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
     .solution-box {
       margin-left: 0 !important;
       margin-top: 4px;
-      padding: 3px 6px;
+      padding: 4px 8px;
       border-left: 3px solid #2563eb !important;
       background-color: #f8fafc;
       font-size: 9.5pt !important;
@@ -522,15 +555,17 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
     <div class="paper-header-top">
       <div class="paper-title-left">
         <h1 class="paper-title">${testTitle}</h1>
-        <div class="paper-subtitle">${meta?.category || 'WBP'} • Official Question Paper with Solution Key</div>
+        <div class="paper-subtitle">${meta?.examName || 'RRB NTPC UnderGraduate CBT I'} • Category: ${meta?.category || 'RAILWAY'} (${meta?.subCategory || 'Under Graduate'})</div>
       </div>
     </div>
     <div class="paper-meta-strip">
-      <span>Category: ${meta?.category || 'WBP'}</span>
+      <span>Category: ${meta?.category || 'RAILWAY'}</span>
+      <span>Sub Category: ${meta?.subCategory || 'Under Graduate'}</span>
+      ${meta?.testDate ? `<span>Test Date: ${meta.testDate}</span>` : '<span>Test Date: 07/05/2026</span>'}
+      ${meta?.testTime ? `<span>Test Time: ${meta.testTime}</span>` : '<span>Test Time: 9:00 AM - 10:30 AM</span>'}
       <span>Total Questions: ${totalQuestions}</span>
       <span>Full Marks: ${totalMarks}</span>
-      <span>Duration: ${meta?.duration || 60} Mins</span>
-      <span>Marking: +${meta?.marksPerCorrect || 1} / -${meta?.negativeMarks || 0.25}</span>
+      <span>Duration: ${meta?.duration || 40} Mins</span>
     </div>
   </div>
 

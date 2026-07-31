@@ -4,7 +4,8 @@ import { useAuth } from '../components/AuthContext';
 import { RenderMathText } from '../components/MathRenderer';
 import { RenderQuestionHTML } from '../components/RichTextEditor';
 import { RenderMultilingualQuestion, RenderMultilingualOption, LanguageMode } from '../components/MultilingualQuestion';
-import { Clock, AlertTriangle, ChevronRight, ChevronLeft, CheckCircle, Flag, Info, Play, Menu, X, Target, Zap, BookOpen, Shield, Globe } from 'lucide-react';
+import { exportMockTestToPDF } from '../lib/exportMockTest';
+import { Clock, AlertTriangle, ChevronRight, ChevronLeft, CheckCircle, Flag, Info, Play, Menu, X, Target, Zap, BookOpen, Shield, Globe, Download } from 'lucide-react';
 
 export default function TestRunner() {
   const { testId } = useParams();
@@ -36,6 +37,25 @@ export default function TestRunner() {
   // useRef instead of useState so the timer always writes/reads the latest value
   // regardless of which render's closure is active
   const questionTimesRef = useRef<Record<string, number>>({});
+
+  const handleDownloadPDF = () => {
+    if (!questions || questions.length === 0) return;
+    exportMockTestToPDF(
+      test?.title || 'RRB NTPC UnderGraduate CBT I - General Awareness Sectional Mock Test',
+      questions,
+      {
+        category: test?.category || 'RAILWAY',
+        subCategory: test?.subCategory || test?.metadata?.subCategory || 'Under Graduate',
+        topic: test?.topic || 'General Awareness',
+        duration: test?.duration || 40,
+        marksPerCorrect: test?.marksPerCorrect || 1,
+        negativeMarks: test?.negativeMarks || 0.33,
+        testDate: test?.metadata?.testDate || '07/05/2026',
+        testTime: test?.metadata?.testTime || '9:00 AM - 10:30 AM',
+        examName: test?.metadata?.examName || 'RRB NTPC UnderGraduate CBT I'
+      }
+    );
+  };
 
   useEffect(() => { currentIdxRef.current = currentIdx; }, [currentIdx]);
 
@@ -420,13 +440,13 @@ export default function TestRunner() {
           {/* CTA */}
           <div className="px-6 pb-7 flex flex-col gap-3">
             <button onClick={handleStartTest}
-              className="w-full py-4 text-white font-black rounded-2xl transition-all shadow-xl flex items-center justify-center gap-3 uppercase tracking-widest text-sm active:scale-95"
+              className="w-full py-4 text-white font-black rounded-2xl transition-all shadow-xl flex items-center justify-center gap-3 uppercase tracking-widest text-sm active:scale-95 cursor-pointer"
               style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}>
               <Play className="w-5 h-5 fill-current" />
               Start Test Now
             </button>
             <button onClick={() => navigate('/dashboard')}
-              className="w-full py-3 border border-white/10 text-slate-400 font-bold rounded-2xl hover:bg-white/5 transition-colors text-xs uppercase tracking-widest"
+              className="w-full py-3 border border-white/10 text-slate-400 font-bold rounded-2xl hover:bg-white/5 transition-colors text-xs uppercase tracking-widest cursor-pointer"
               style={{ background: 'rgba(255,255,255,0.03)' }}>
               Back to Dashboard
             </button>
