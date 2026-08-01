@@ -1,88 +1,44 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 0. Global Safety Net
-    match /{document=**} {
-      allow read, write: if false;
-    }
 
-    // Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
 
     function isAdmin() {
       return isSignedIn() && (
-        (request.auth.token.email != null && request.auth.token.email.lower() == 'bakolaypan@gmail.com') || (
-          exists(/databases/$(database)/documents/profiles/$(request.auth.uid)) && 
-          get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'admin'
-        )
+        request.auth.token.email == 'bakolaypan@gmail.com' ||
+        (request.auth.token.role != null && request.auth.token.role == 'admin') ||
+        (exists(/databases/$(database)/documents/profiles/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'admin')
       );
     }
 
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
-    }
-
-    function incoming() {
-      return request.resource.data;
-    }
-
-    function existing() {
-      return resource.data;
-    }
-
+    // Profiles: users read/write their own profile; admins can read/write any
     match /profiles/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      
-      allow create: if isOwner(userId) && (
-        isAdmin() || (
-          incoming().role == 'user' &&
-          (!('totalTestsTaken' in incoming()) || incoming().totalTestsTaken == 0) &&
-          (!('cumulativeScore' in incoming()) || incoming().cumulativeScore == 0)
-        )
-      );
-
-      allow update: if (
-        isAdmin() && (
-          // Admin can update anything except perhaps keeping it a profile
-          true
-        )
-      ) || (
-        isOwner(userId) && 
-        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'email', 'phoneNumber']) &&
-        // Ensure standard users can't change their role
-        incoming().role == existing().role
-      );
+      allow read, write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
     }
 
-    match /tests/{testId} {
-      // Users can only read active tests. Admins can read all.
-      // List query must explicitly include `where('isActive', '==', true)`
-      allow read: if isSignedIn() && (resource.data.isActive == true || isAdmin());
-      allow write: if isAdmin();
+    // Test Results: user can read/write their own test results
+    match /users/{userId}/test_results/{resultId} {
+      allow read, write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
     }
 
-    match /questions/{questionId} {
-      // Backend API handles questions so we strip answers. No direct client access allowed!
-      allow read, write: if isAdmin(); 
+    // Leaderboards: signed-in users can read, user can write their own score
+    match /leaderboards/{entry} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
     }
 
-    match /results/{resultId} {
-      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow write: if isAdmin(); // Backend API writes the result. Client doesn't.
-    }
-
-    match /notes/{noteId} {
+    // System Settings & Notifications: only admins can write, signed-in users can read
+    match /settings/{docId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
-    match /videos/{videoId} {
+    // Questions / Tests / PYQs / Job Notifications: admins full control, signed-in users read
+    match /mock_tests/{testId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
@@ -92,37 +48,17 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    match /patterns/{patternId} {
+    match /one_liners/{id} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
-    match /settings/{settingId} {
+    match /job_notifications/{notifId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
-    match /carousel/{carouselId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    match /affairs/{affairId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    match /study_notes/{noteId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    match /affair_categories/{catId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    match /practice_sets/{setId} {
+    match /notifications/{id} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
@@ -133,7 +69,12 @@ service cloud.firestore {
     }
 
     match /typing_results/{resultId} {
-      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow read, create: if isSignedIn();
+      allow update, delete: if isAdmin();
+    }
+
+    match /paid_mocks/{mockId} {
+      allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
@@ -152,25 +93,21 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Village League Tournament Rules (Public Read & Create allowed)
+    // Village League Tournament Rules (Public Read, Create, Update & Delete allowed)
     match /village_league_teams/{teamId} {
-      allow read, create: if true;
-      allow update, delete: if isAdmin();
+      allow read, create, update, delete: if true;
     }
 
     match /village_league_players/{playerId} {
-      allow read, create: if true;
-      allow update, delete: if isAdmin();
+      allow read, create, update, delete: if true;
     }
 
     match /village_league_registrations/{regId} {
-      allow read, create: if true;
-      allow update, delete: if isAdmin();
+      allow read, create, update, delete: if true;
     }
 
     match /settings/village_league {
-      allow read: if true;
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
   }
 }

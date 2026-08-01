@@ -93,9 +93,16 @@ export default function VillageLeagueRegistrationPage() {
     } catch { return []; }
   };
 
+  const getDeletedIds = (): string[] => {
+    try {
+      const data = localStorage.getItem('jsl_deleted_ids');
+      return data ? JSON.parse(data) : [];
+    } catch { return []; }
+  };
+
   useEffect(() => {
-    setTeams(getLocalTeams());
-    setPlayers(getLocalPlayers());
+    setTeams(getLocalTeams().filter(t => !getDeletedIds().includes(t.id)));
+    setPlayers(getLocalPlayers().filter(p => !getDeletedIds().includes(p.id)));
 
     const unsubSettings = onSnapshot(doc(db, 'settings', 'village_league'), (docSnap) => {
       if (docSnap.exists()) {
@@ -105,8 +112,12 @@ export default function VillageLeagueRegistrationPage() {
 
     const qTeams = query(collection(db, 'village_league_teams'), orderBy('createdAt', 'asc'));
     const unsubTeams = onSnapshot(qTeams, (snap) => {
-      const remoteTeams = snap.docs.map(d => ({ id: d.id, ...d.data() } as PublicTeamRecord));
-      const localTeams = getLocalTeams();
+      const deleted = getDeletedIds();
+      const remoteTeams = snap.docs
+        .map(d => ({ id: d.id, ...d.data() } as PublicTeamRecord))
+        .filter(t => !deleted.includes(t.id));
+
+      const localTeams = getLocalTeams().filter(t => !deleted.includes(t.id));
       const combined = [...remoteTeams];
       localTeams.forEach(lt => {
         if (!combined.some(rt => rt.id === lt.id || (rt.teamName || '').toLowerCase() === (lt.teamName || '').toLowerCase())) {
@@ -118,8 +129,12 @@ export default function VillageLeagueRegistrationPage() {
 
     const qPlayers = query(collection(db, 'village_league_players'), orderBy('createdAt', 'asc'));
     const unsubPlayers = onSnapshot(qPlayers, (snap) => {
-      const remotePlayers = snap.docs.map(d => ({ id: d.id, ...d.data() } as PublicPlayerRecord));
-      const localPlayers = getLocalPlayers();
+      const deleted = getDeletedIds();
+      const remotePlayers = snap.docs
+        .map(d => ({ id: d.id, ...d.data() } as PublicPlayerRecord))
+        .filter(p => !deleted.includes(p.id));
+
+      const localPlayers = getLocalPlayers().filter(p => !deleted.includes(p.id));
       const combined = [...remotePlayers];
       localPlayers.forEach(lp => {
         if (!combined.some(rp => rp.id === lp.id || (rp.fullName || '').toLowerCase() === (lp.fullName || '').toLowerCase())) {

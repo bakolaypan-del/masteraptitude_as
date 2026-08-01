@@ -61,9 +61,26 @@ export default function AdminVillageLeague() {
     } catch { return []; }
   };
 
+  const getDeletedIds = (): string[] => {
+    try {
+      const data = localStorage.getItem('jsl_deleted_ids');
+      return data ? JSON.parse(data) : [];
+    } catch { return []; }
+  };
+
+  const addDeletedId = (id: string) => {
+    try {
+      const current = getDeletedIds();
+      if (!current.includes(id)) {
+        current.push(id);
+        localStorage.setItem('jsl_deleted_ids', JSON.stringify(current));
+      }
+    } catch {}
+  };
+
   useEffect(() => {
-    setTeams(getLocalTeams());
-    setPlayers(getLocalPlayers());
+    setTeams(getLocalTeams().filter(t => !getDeletedIds().includes(t.id)));
+    setPlayers(getLocalPlayers().filter(p => !getDeletedIds().includes(p.id)));
 
     const unsubSettings = onSnapshot(doc(db, 'settings', 'village_league'), (docSnap) => {
       if (docSnap.exists()) {
@@ -73,8 +90,12 @@ export default function AdminVillageLeague() {
 
     const qTeams = query(collection(db, 'village_league_teams'), orderBy('createdAt', 'asc'));
     const unsubTeams = onSnapshot(qTeams, (snap) => {
-      const remoteTeams = snap.docs.map(d => ({ id: d.id, ...d.data() } as TeamRecord));
-      const localTeams = getLocalTeams();
+      const deleted = getDeletedIds();
+      const remoteTeams = snap.docs
+        .map(d => ({ id: d.id, ...d.data() } as TeamRecord))
+        .filter(t => !deleted.includes(t.id));
+      
+      const localTeams = getLocalTeams().filter(t => !deleted.includes(t.id));
       const combined = [...remoteTeams];
       localTeams.forEach(lt => {
         if (!combined.some(rt => rt.id === lt.id || (rt.teamName || '').toLowerCase() === (lt.teamName || '').toLowerCase())) {
@@ -86,8 +107,12 @@ export default function AdminVillageLeague() {
 
     const qPlayers = query(collection(db, 'village_league_players'), orderBy('createdAt', 'asc'));
     const unsubPlayers = onSnapshot(qPlayers, (snap) => {
-      const remotePlayers = snap.docs.map(d => ({ id: d.id, ...d.data() } as PlayerRecord));
-      const localPlayers = getLocalPlayers();
+      const deleted = getDeletedIds();
+      const remotePlayers = snap.docs
+        .map(d => ({ id: d.id, ...d.data() } as PlayerRecord))
+        .filter(p => !deleted.includes(p.id));
+        
+      const localPlayers = getLocalPlayers().filter(p => !deleted.includes(p.id));
       const combined = [...remotePlayers];
       localPlayers.forEach(lp => {
         if (!combined.some(rp => rp.id === lp.id || (rp.fullName || '').toLowerCase() === (lp.fullName || '').toLowerCase())) {
@@ -130,30 +155,55 @@ export default function AdminVillageLeague() {
   };
 
   const handleDeleteTeam = async (id: string, name: string) => {
-    if (!confirm(`Delete Team "${name}"?`)) return;
+    if (!confirm(`Are you sure you want to PERMANENTLY delete Team "${name}"?`)) return;
     try {
-      await deleteDoc(doc(db, 'village_league_teams', id));
+      // 1. Mark ID as deleted in LocalStorage blacklist
+      addDeletedId(id);
+
+      // 2. Clean LocalStorage teams
+      const updatedLocalTeams = getLocalTeams().filter(t => t.id !== id);
+      localStorage.setItem('jsl_local_teams', JSON.stringify(updatedLocalTeams));
+
+      // 3. Update React State immediately
       setTeams(prev => prev.filter(t => t.id !== id));
-      alert('Team deleted successfully.');
+
+      // 4. Delete document from Firestore
+      if (!id.startsWith('local_')) {
+        await deleteDoc(doc(db, 'village_league_teams', id));
+      }
+
+      alert(`Team "${name}" deleted successfully.`);
     } catch (err) {
       console.error('Delete error:', err);
-      alert('Failed to delete team.');
+      alert('Failed to delete team from database.');
     }
   };
 
   const handleDeletePlayer = async (id: string, name: string) => {
-    if (!confirm(`Delete Player "${name}"?`)) return;
+    if (!confirm(`Are you sure you want to PERMANENTLY delete Player "${name}"?`)) return;
     try {
-      await deleteDoc(doc(db, 'village_league_players', id));
+      // 1. Mark ID as deleted in LocalStorage blacklist
+      addDeletedId(id);
+
+      // 2. Clean LocalStorage players
+      const updatedLocalPlayers = getLocalPlayers().filter(p => p.id !== id);
+      localStorage.setItem('jsl_local_players', JSON.stringify(updatedLocalPlayers));
+
+      // 3. Update React State immediately
       setPlayers(prev => prev.filter(p => p.id !== id));
-      alert('Player deleted successfully.');
+
+      // 4. Delete document from Firestore
+      if (!id.startsWith('local_')) {
+        await deleteDoc(doc(db, 'village_league_players', id));
+      }
+
+      alert(`Player "${name}" deleted successfully.`);
     } catch (err) {
       console.error('Delete error:', err);
-      alert('Failed to delete player.');
+      alert('Failed to delete player from database.');
     }
   };
 
-  // Admin Verification Toggle Function (Accept / Verify Player Payment)
   const handleTogglePlayerPaymentStatus = async (player: PlayerRecord) => {
     const newStatus: 'pending' | 'verified' = player.paymentStatus === 'verified' ? 'pending' : 'verified';
     const actionText = newStatus === 'verified' ? 'ACCEPT & VERIFY' : 'MARK PENDING';
@@ -167,10 +217,8 @@ export default function AdminVillageLeague() {
         });
       }
 
-      // Update state
       setPlayers(prev => prev.map(p => p.id === player.id ? { ...p, paymentStatus: newStatus } : p));
       
-      // Update LocalStorage
       const locals = getLocalPlayers().map(p => p.id === player.id ? { ...p, paymentStatus: newStatus } : p);
       localStorage.setItem('jsl_local_players', JSON.stringify(locals));
 
@@ -499,7 +547,7 @@ export default function AdminVillageLeague() {
           </div>
         </div>
 
-        {/* VIEW 1: PLAYERS TABLE WITH PAYMENT VERIFICATION */}
+        {/* VIEW 1: PLAYERS TABLE WITH PERMANENT DELETE & EDIT */}
         {activeTab === 'players' && (
           <div className="overflow-x-auto rounded-2xl border border-slate-100">
             <table className="w-full text-left border-collapse">
@@ -553,7 +601,6 @@ export default function AdminVillageLeague() {
                         </span>
                       </td>
 
-                      {/* Payment Status Column (🔴 Red Circle vs 🟢 Green Circle) */}
                       <td className="p-4">
                         {player.paymentStatus === 'verified' ? (
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-full text-xs font-black uppercase">
@@ -577,7 +624,6 @@ export default function AdminVillageLeague() {
 
                       <td className="p-4 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          {/* Admin Accept / Verify Button */}
                           <button
                             onClick={() => handleTogglePlayerPaymentStatus(player)}
                             className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1 cursor-pointer shadow-xs ${
@@ -608,7 +654,7 @@ export default function AdminVillageLeague() {
 
                           <button
                             onClick={() => handleDeletePlayer(player.id, player.fullName)}
-                            className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
+                            className="p-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 rounded-xl transition-all cursor-pointer"
                             title="Delete Player"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -623,7 +669,7 @@ export default function AdminVillageLeague() {
           </div>
         )}
 
-        {/* VIEW 2: TEAMS TABLE */}
+        {/* VIEW 2: TEAMS TABLE WITH PERMANENT DELETE & EDIT */}
         {activeTab === 'teams' && (
           <div className="overflow-x-auto rounded-2xl border border-slate-100">
             <table className="w-full text-left border-collapse">
@@ -684,7 +730,8 @@ export default function AdminVillageLeague() {
 
                           <button
                             onClick={() => handleDeleteTeam(team.id, team.teamName)}
-                            className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
+                            className="p-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 rounded-xl transition-all cursor-pointer"
+                            title="Delete Team"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
