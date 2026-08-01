@@ -151,5 +151,26 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
+
+    // Village League Tournament Rules (Public Read & Create allowed)
+    match /village_league_teams/{teamId} {
+      allow read, create: if true;
+      allow update, delete: if isAdmin();
+    }
+
+    match /village_league_players/{playerId} {
+      allow read, create: if true;
+      allow update, delete: if isAdmin();
+    }
+
+    match /village_league_registrations/{regId} {
+      allow read, create: if true;
+      allow update, delete: if isAdmin();
+    }
+
+    match /settings/village_league {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
   }
 }

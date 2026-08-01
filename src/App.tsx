@@ -16,6 +16,7 @@ import PaidMockPage from './pages/PaidMockPage';
 import ContentListPage from './pages/ContentListPage';
 import CurrentAffairsPage from './pages/CurrentAffairsPage';
 import KidsCornerPage from './pages/KidsCornerPage';
+import VillageLeagueRegistrationPage from './pages/VillageLeagueRegistrationPage';
 
 function SecurityWrapper({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -151,6 +152,7 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/install" element={<InstallApp />} />
             <Route path="/review/:code" element={<ReviewPage />} />
+            <Route path="/village-league" element={<VillageLeagueRegistrationPage />} />
             <Route path="/" element={<Navigate to="/login" replace />} />
             
             <Route path="/dashboard" element={

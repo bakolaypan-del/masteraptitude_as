@@ -28,8 +28,10 @@ import RichTextEditor, { RenderQuestionHTML } from '../components/RichTextEditor
 import { parseEnglishAndBengali, stripRawHTMLTags, RenderMultilingualQuestion, RenderMultilingualOption } from '../components/MultilingualQuestion';
 import { exportMockTestToPDF, exportMockTestToWord } from '../lib/exportMockTest';
 import AdminQuestionPaperMaker from '../components/AdminQuestionPaperMaker';
+import AdminVillageLeague from '../components/AdminVillageLeague';
+import { Trophy } from 'lucide-react';
 
-type AdminTab = 'students' | 'mock' | 'question_maker' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'blog' | 'reviews' | 'paid_mock' | 'dashboard_grid' | 'one_liner';
+type AdminTab = 'students' | 'mock' | 'question_maker' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'blog' | 'reviews' | 'paid_mock' | 'dashboard_grid' | 'one_liner' | 'village_league';
 
 // ─── Image Cropper Modal ─────────────────────────────────────────────────────
 function ImageCropper({
@@ -2214,7 +2216,21 @@ function AdminHome() {
           <FileText className="w-4 h-4" />
           Question Paper Maker
         </button>
+        <button
+          onClick={() => setActiveTab('village_league')}
+          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all
+            ${activeTab === 'village_league' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-100' : 'text-slate-500 hover:text-emerald-600 hover:bg-emerald-50'}`}
+        >
+          <Trophy className="w-4 h-4 text-amber-300" />
+          🏆 Village League
+        </button>
       </div>
+
+      {activeTab === 'village_league' && (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <AdminVillageLeague />
+        </div>
+      )}
 
       {activeTab === 'question_maker' && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
