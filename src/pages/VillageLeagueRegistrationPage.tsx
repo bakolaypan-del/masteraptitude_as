@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { Trophy, Download, Camera, CheckCircle2, Search, RefreshCw, AlertCircle, Phone, MapPin, User, ChevronRight, Calendar, FileCheck, Shield, Eye, X, CreditCard, QrCode, CheckCircle, Info, ExternalLink, Zap } from 'lucide-react';
+import { Trophy, Download, Camera, CheckCircle2, Search, RefreshCw, AlertCircle, Phone, MapPin, User, ChevronRight, Calendar, FileCheck, Shield, Eye, X, CreditCard, QrCode, CheckCircle, Info, Zap } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -33,8 +33,10 @@ export default function VillageLeagueRegistrationPage() {
   const [teams, setTeams] = useState<PublicTeamRecord[]>([]);
   const [players, setPlayers] = useState<PublicPlayerRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activePortion, setActivePortion] = useState<'teams' | 'players' | 'register'>('register');
-  const [registerMode, setRegisterMode] = useState<'team' | 'player'>('team');
+  
+  // Default null so no category opens automatically; opens ONLY when clicked
+  const [activePortion, setActivePortion] = useState<'teams' | 'players' | 'register' | null>(null);
+  const [registerMode, setRegisterMode] = useState<'team' | 'player'>('player');
   const [isRegistrationOpen, setIsRegistrationOpen] = useState(true);
 
   // Form 1: Team Registration State
@@ -71,11 +73,11 @@ export default function VillageLeagueRegistrationPage() {
   const [searchTeamsQuery, setSearchTeamsQuery] = useState('');
   const [searchPlayersQuery, setSearchPlayersQuery] = useState('');
 
-  // UPI Deep Link Details
+  // UPI Details
   const upiId = 'pintusantra4166@nyes';
   const payeeName = 'Pintu Santra';
   const paymentAmount = 200;
-  const upiDeepLink = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&am=${paymentAmount}&cu=INR&tn=${encodeURIComponent('Jhankra Super League Player Registration Fee')}`;
+  const upiDeepLink = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&am=${paymentAmount}&cu=INR&tn=${encodeURIComponent('Jhankra Super League Player Fee')}`;
 
   const getLocalTeams = (): PublicTeamRecord[] => {
     try {
@@ -251,7 +253,6 @@ export default function VillageLeagueRegistrationPage() {
       return;
     }
 
-    // MANDATORY ₹200 PAYMENT CHECK
     if (!utrNumber.trim() || utrNumber.length < 6) {
       alert('⚠️ Please enter a valid UPI Transaction / UTR ID for your ₹200 payment.');
       return;
@@ -273,7 +274,7 @@ export default function VillageLeagueRegistrationPage() {
       playerCategory: playerCategory,
       photoUrl: playerPhotoBase64,
       aadharBackUrl: aadharBackBase64,
-      paymentStatus: 'pending', // Starts RED 🔴 until Admin verifies & accepts
+      paymentStatus: 'pending',
       utrNumber: utrNumber.trim(),
       paymentScreenshotUrl: paymentScreenshotBase64,
       createdAt: new Date().toISOString()
@@ -410,194 +411,183 @@ export default function VillageLeagueRegistrationPage() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-12 selection:bg-red-600 selection:text-white">
-      {/* ── TOP HERO HEADER BANNER (PREMIUM DARK MODE) ───────────────────── */}
-      <header className="relative bg-gradient-to-b from-red-950 via-slate-950 to-slate-950 border-b border-red-900/40 pt-6 pb-8 px-4 overflow-hidden">
-        <div className="max-w-5xl mx-auto relative">
-          <div className="bg-gradient-to-r from-slate-900 via-red-950 to-slate-900 border-2 border-red-500/40 rounded-3xl p-5 sm:p-8 shadow-2xl relative overflow-hidden text-center space-y-4">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-red-500/20 border border-red-500/40 text-red-300 text-[11px] font-black uppercase tracking-widest">
-              <Trophy className="w-3.5 h-3.5 text-amber-400" />
-              OFFICIAL LEAGUE TOURNAMENT 2026
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-10 selection:bg-red-600 selection:text-white">
+      {/* ── ULTRA-COMPACT HERO BANNER FOR PERFECT MOBILE FIT ───────────────────── */}
+      <header className="relative bg-gradient-to-b from-red-950 via-slate-950 to-slate-950 border-b border-red-900/40 pt-4 pb-4 px-2 sm:px-4">
+        <div className="max-w-5xl mx-auto">
+          <div className="bg-gradient-to-r from-slate-900 via-red-950 to-slate-900 border border-red-500/40 rounded-2xl p-3 sm:p-6 shadow-2xl text-center space-y-2.5">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-500/20 border border-red-500/40 text-red-300 text-[10px] sm:text-xs font-black uppercase tracking-widest">
+              <Trophy className="w-3 h-3 text-amber-400" />
+              JHANKRA SUPER LEAGUE 2026
             </div>
 
-            {/* Title */}
             <div>
-              <h1 className="text-3xl sm:text-6xl font-black tracking-tight text-white uppercase italic drop-shadow-md">
+              <h1 className="text-xl sm:text-5xl font-black tracking-tight text-white uppercase italic drop-shadow-sm leading-tight">
                 <span className="text-red-500">JHANKRA</span> SUPER LEAGUE
               </h1>
-              <p className="text-xs sm:text-base font-black text-amber-400 tracking-wider uppercase mt-1">
-                ⚡ 8 TEAM LEAGUE CRICKET TOURNAMENT
+              <p className="text-[10px] sm:text-base font-black text-amber-400 tracking-wider uppercase mt-0.5">
+                8 TEAM LEAGUE CRICKET TOURNAMENT
               </p>
             </div>
 
-            {/* Compact Prize Badges */}
-            <div className="grid grid-cols-3 gap-2 sm:gap-4 max-w-2xl mx-auto">
-              <div className="bg-slate-950/90 border border-amber-500/40 rounded-2xl p-2.5 sm:p-3 text-center">
-                <p className="text-[9px] font-black text-amber-400 uppercase tracking-widest">🏆 WINNER</p>
-                <h3 className="text-lg sm:text-2xl font-black text-white">35K <span className="text-[10px] text-amber-400">Rs</span></h3>
+            {/* Compact 3 Prize Badges */}
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-4 max-w-xl mx-auto">
+              <div className="bg-slate-950/90 border border-amber-500/40 rounded-xl p-1.5 sm:p-3 text-center">
+                <p className="text-[8px] sm:text-[10px] font-black text-amber-400 uppercase tracking-tighter">🏆 WINNER</p>
+                <h3 className="text-xs sm:text-xl font-black text-white">35K <span className="text-[8px] text-amber-400">Rs</span></h3>
               </div>
 
-              <div className="bg-slate-950/90 border border-blue-500/40 rounded-2xl p-2.5 sm:p-3 text-center">
-                <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest">🥈 RUNNERS</p>
-                <h3 className="text-lg sm:text-2xl font-black text-white">25K <span className="text-[10px] text-blue-400">Rs</span></h3>
+              <div className="bg-slate-950/90 border border-blue-500/40 rounded-xl p-1.5 sm:p-3 text-center">
+                <p className="text-[8px] sm:text-[10px] font-black text-blue-400 uppercase tracking-tighter">🥈 RUNNERS</p>
+                <h3 className="text-xs sm:text-xl font-black text-white">25K <span className="text-[8px] text-blue-400">Rs</span></h3>
               </div>
 
-              <div className="bg-slate-950/90 border border-emerald-500/40 rounded-2xl p-2.5 sm:p-3 text-center">
-                <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">REGISTRATION FEE</p>
-                <h3 className="text-lg sm:text-2xl font-black text-white">200 <span className="text-[10px] text-emerald-400">Rs</span></h3>
+              <div className="bg-slate-950/90 border border-emerald-500/40 rounded-xl p-1.5 sm:p-3 text-center">
+                <p className="text-[8px] sm:text-[10px] font-black text-emerald-400 uppercase tracking-tighter">ENTRY FEE</p>
+                <h3 className="text-xs sm:text-xl font-black text-white">200 <span className="text-[8px] text-emerald-400">Rs</span></h3>
               </div>
             </div>
 
             {/* Rules Bar */}
-            <div className="bg-red-950/70 border border-red-500/30 rounded-2xl p-3 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs font-bold text-slate-200">
-              <p className="text-red-200 font-black text-center sm:text-left">
-                ⚠️ RULES: ONLY CHANDRAKONA TOWN PS PLAYERS ALLOWED.
+            <div className="bg-red-950/80 border border-red-500/30 rounded-xl p-2 flex flex-col sm:flex-row items-center justify-between gap-1 text-[10px] sm:text-xs font-bold text-slate-200">
+              <p className="text-red-200 font-black text-center">
+                ⚠️ ONLY CHANDRAKONA TOWN PS PLAYERS ALLOWED
               </p>
-              <div className="flex items-center gap-3 font-black text-[11px]">
-                <span className="text-amber-300 flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> 29-31 AUG 2026</span>
-                <span className="text-slate-200 flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-red-400" /> JHANKRA GROUND</span>
+              <div className="flex items-center gap-2 font-black text-[10px]">
+                <span className="text-amber-300"><Calendar className="w-3 h-3 inline mr-0.5" /> 29-31 AUG 2026</span>
+                <span className="text-slate-200"><MapPin className="w-3 h-3 text-red-400 inline mr-0.5" /> JHANKRA GROUND</span>
               </div>
             </div>
 
-            <div className="text-center text-xs font-black uppercase tracking-widest text-slate-300 pt-1">
-              ENTRY CONTACT &amp; UPI PAYMENT: <span className="text-emerald-400 text-sm font-black ml-1">📞 PINTU SANTRA - 89722144166</span>
-            </div>
+            <p className="text-[10px] sm:text-xs font-black uppercase text-slate-300 pt-0.5">
+              ENTRY CONTACT: <span className="text-emerald-400 font-black">📞 PINTU SANTRA - 89722144166</span>
+            </p>
           </div>
         </div>
       </header>
 
-      {/* ── 3 MAIN PORTION CARDS ────────────────────────────────────────── */}
-      <main className="max-w-5xl mx-auto px-4 mt-6 space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Portion 1: Total Team Registered */}
+      {/* ── 3 OPTION CARDS SHOWN TOGETHER SIDE-BY-SIDE IN 3 COLUMNS ON MOBILE ───── */}
+      <main className="max-w-5xl mx-auto px-2 sm:px-4 mt-4 space-y-4">
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-4">
+          {/* Col 1 (Left): Total Team Registered */}
           <button
             type="button"
-            onClick={() => setActivePortion('teams')}
-            className={`p-5 rounded-3xl border text-left transition-all relative overflow-hidden group cursor-pointer ${
+            onClick={() => setActivePortion(prev => prev === 'teams' ? null : 'teams')}
+            className={`p-2.5 sm:p-5 rounded-2xl sm:rounded-3xl border text-center transition-all relative overflow-hidden group cursor-pointer ${
               activePortion === 'teams'
-                ? 'bg-gradient-to-br from-indigo-900/90 to-slate-900 border-indigo-500 shadow-xl ring-2 ring-indigo-500/50'
-                : 'bg-slate-900/80 hover:bg-slate-900 border-slate-800 hover:border-slate-700'
+                ? 'bg-gradient-to-br from-indigo-900 to-slate-900 border-indigo-500 shadow-xl ring-2 ring-indigo-500/50 scale-[1.02]'
+                : 'bg-slate-900/90 hover:bg-slate-900 border-slate-800'
             }`}
           >
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-black text-lg">
-                🛡️
-              </div>
-              <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 bg-indigo-500/20 text-indigo-300 rounded-full">
-                Option 1
-              </span>
+            <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-black text-xs sm:text-lg mx-auto mb-1">
+              🛡️
             </div>
-
-            <p className="text-xs font-black uppercase tracking-wider text-slate-400">Total Teams Registered</p>
-            <h3 className="text-2xl font-black text-white mt-0.5">
-              {teams.length} <span className="text-xs font-bold text-slate-400">/ 8 Teams</span>
+            <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 bg-indigo-500/20 text-indigo-300 rounded-full inline-block">
+              Opt 1
+            </span>
+            <p className="text-[9px] sm:text-xs font-black uppercase tracking-tight text-slate-300 mt-1 truncate">Total Teams</p>
+            <h3 className="text-sm sm:text-2xl font-black text-white mt-0.5">
+              {teams.length} <span className="text-[9px] sm:text-xs font-bold text-slate-400">/ 8</span>
             </h3>
-            <p className="text-xs text-indigo-400 font-semibold mt-2 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-              View Teams &amp; Download PDF <ChevronRight className="w-3.5 h-3.5" />
+            <p className="text-[8px] sm:text-xs text-indigo-400 font-bold mt-1">
+              {activePortion === 'teams' ? '▲ Close' : '▼ View'}
             </p>
           </button>
 
-          {/* Portion 2: How Many Players Registered */}
+          {/* Col 2 (Middle): Total Player Registered */}
           <button
             type="button"
-            onClick={() => setActivePortion('players')}
-            className={`p-5 rounded-3xl border text-left transition-all relative overflow-hidden group cursor-pointer ${
+            onClick={() => setActivePortion(prev => prev === 'players' ? null : 'players')}
+            className={`p-2.5 sm:p-5 rounded-2xl sm:rounded-3xl border text-center transition-all relative overflow-hidden group cursor-pointer ${
               activePortion === 'players'
-                ? 'bg-gradient-to-br from-emerald-900/90 to-slate-900 border-emerald-500 shadow-xl ring-2 ring-emerald-500/50'
-                : 'bg-slate-900/80 hover:bg-slate-900 border-slate-800 hover:border-slate-700'
+                ? 'bg-gradient-to-br from-emerald-900 to-slate-900 border-emerald-500 shadow-xl ring-2 ring-emerald-500/50 scale-[1.02]'
+                : 'bg-slate-900/90 hover:bg-slate-900 border-slate-800'
             }`}
           >
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-black text-lg">
-                🏏
-              </div>
-              <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 bg-emerald-500/20 text-emerald-300 rounded-full">
-                Option 2
-              </span>
+            <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-black text-xs sm:text-lg mx-auto mb-1">
+              🏏
             </div>
-
-            <p className="text-xs font-black uppercase tracking-wider text-slate-400">Total Players Registered</p>
-            <h3 className="text-2xl font-black text-white mt-0.5">
-              {players.length} <span className="text-xs font-bold text-slate-400">Players</span>
+            <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 bg-emerald-500/20 text-emerald-300 rounded-full inline-block">
+              Opt 2
+            </span>
+            <p className="text-[9px] sm:text-xs font-black uppercase tracking-tight text-slate-300 mt-1 truncate">Total Players</p>
+            <h3 className="text-sm sm:text-2xl font-black text-white mt-0.5">
+              {players.length}
             </h3>
-            <p className="text-xs text-emerald-400 font-semibold mt-2 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-              View Players &amp; Download PDF <ChevronRight className="w-3.5 h-3.5" />
+            <p className="text-[8px] sm:text-xs text-emerald-400 font-bold mt-1">
+              {activePortion === 'players' ? '▲ Close' : '▼ View'}
             </p>
           </button>
 
-          {/* Portion 3: Registration Option */}
+          {/* Col 3 (Right): Register Team/Player */}
           <button
             type="button"
-            onClick={() => setActivePortion('register')}
-            className={`p-5 rounded-3xl border text-left transition-all relative overflow-hidden group cursor-pointer ${
+            onClick={() => setActivePortion(prev => prev === 'register' ? null : 'register')}
+            className={`p-2.5 sm:p-5 rounded-2xl sm:rounded-3xl border text-center transition-all relative overflow-hidden group cursor-pointer ${
               activePortion === 'register'
-                ? 'bg-gradient-to-br from-red-900/90 to-slate-900 border-red-500 shadow-xl ring-2 ring-red-500/50'
-                : 'bg-slate-900/80 hover:bg-slate-900 border-slate-800 hover:border-slate-700'
+                ? 'bg-gradient-to-br from-red-900 to-slate-900 border-red-500 shadow-xl ring-2 ring-red-500/50 scale-[1.02]'
+                : 'bg-slate-900/90 hover:bg-slate-900 border-slate-800'
             }`}
           >
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 flex items-center justify-center font-black text-lg">
-                📝
-              </div>
-              <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 bg-red-500/20 text-red-300 rounded-full">
-                Option 3
-              </span>
+            <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 flex items-center justify-center font-black text-xs sm:text-lg mx-auto mb-1">
+              📝
             </div>
-
-            <p className="text-xs font-black uppercase tracking-wider text-slate-400">Tournament Registration</p>
-            <h3 className="text-lg font-black text-white mt-0.5">
-              Register Team / Player
-            </h3>
-            <p className="text-xs text-red-400 font-semibold mt-2 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-              Fill Form &amp; Submit <ChevronRight className="w-3.5 h-3.5" />
+            <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 bg-red-500/20 text-red-300 rounded-full inline-block">
+              Opt 3
+            </span>
+            <p className="text-[9px] sm:text-xs font-black uppercase tracking-tight text-slate-300 mt-1 truncate">Register</p>
+            <h3 className="text-[10px] sm:text-xs font-black text-amber-400 mt-0.5 truncate">Click Here</h3>
+            <p className="text-[8px] sm:text-xs text-red-400 font-bold mt-1">
+              {activePortion === 'register' ? '▲ Close' : '▼ Open'}
             </p>
           </button>
         </div>
 
-        {/* ─── OPTION 1 CONTENT: REGISTERED TEAMS ──────────────────────────── */}
+        {/* ─── EXPANDABLE OPTION CONTENT (OPENS ONLY WHEN AN OPTION IS CLICKED) ──── */}
+        
+        {/* OPTION 1 CONTENT: REGISTERED TEAMS */}
         {activePortion === 'teams' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-5 shadow-xl animate-in fade-in duration-200">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-4 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
               <div>
-                <h2 className="text-lg font-black text-white flex items-center gap-2">
+                <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
                   <span>🛡️ Registered Teams List</span>
                   <span className="px-2.5 py-0.5 bg-indigo-500/20 text-indigo-300 text-xs rounded-full font-bold border border-indigo-500/30">
                     {teams.length} Teams
                   </span>
                 </h2>
-                <p className="text-xs text-slate-400 mt-0.5">Official directory of teams registered for Jhankra Super League.</p>
               </div>
 
               <button
                 type="button"
                 onClick={handleDownloadTeamsPDF}
-                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-indigo-950/50 flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <Download className="w-4 h-4" />
+                <Download className="w-3.5 h-3.5" />
                 Download Teams List (PDF)
               </button>
             </div>
 
             <div className="relative">
-              <Search className="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2" />
+              <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Search registered team name, owner..."
                 value={searchTeamsQuery}
                 onChange={(e) => setSearchTeamsQuery(e.target.value)}
-                className="w-full pl-11 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-slate-200 outline-none focus:border-indigo-500 transition-all"
+                className="w-full pl-10 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-slate-200 outline-none focus:border-indigo-500"
               />
             </div>
 
             {filteredTeams.length === 0 ? (
-              <div className="text-center py-10 bg-slate-950/50 rounded-2xl border border-slate-800">
+              <div className="text-center py-8 bg-slate-950/50 rounded-xl border border-slate-800">
                 <p className="text-slate-400 font-bold text-xs">No registered teams found.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {filteredTeams.map((team, idx) => (
-                  <div key={team.id} className="bg-slate-950 border border-slate-800/90 rounded-2xl p-3 space-y-2.5 relative flex flex-col items-center text-center hover:border-indigo-500/50 transition-all">
-                    <span className="absolute top-2 left-2 px-2 py-0.5 bg-slate-900 border border-slate-700 text-indigo-400 font-black text-[10px] rounded-md shadow-md z-10">
+                  <div key={team.id} className="bg-slate-950 border border-slate-800/90 rounded-2xl p-2.5 space-y-2 relative flex flex-col items-center text-center">
+                    <span className="absolute top-2 left-2 px-1.5 py-0.5 bg-slate-900 border border-slate-700 text-indigo-400 font-black text-[9px] rounded-md z-10">
                       Sl No: #{idx + 1}
                     </span>
 
@@ -609,16 +599,16 @@ export default function VillageLeagueRegistrationPage() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-indigo-400 font-black text-3xl bg-indigo-500/20">
+                        <div className="w-full h-full flex items-center justify-center text-indigo-400 font-black text-2xl bg-indigo-500/20">
                           🛡️
                         </div>
                       )}
                     </div>
 
                     <div className="w-full space-y-0.5">
-                      <h4 className="text-sm font-black text-white truncate">{team.teamName}</h4>
-                      <p className="text-xs text-amber-400 font-bold truncate">Owner: {team.ownerName}</p>
-                      {team.coOwnerName && <p className="text-[10px] text-slate-400 font-semibold truncate">Co-Owner: {team.coOwnerName}</p>}
+                      <h4 className="text-xs font-black text-white truncate">{team.teamName}</h4>
+                      <p className="text-[10px] text-amber-400 font-bold truncate">Owner: {team.ownerName}</p>
+                      {team.coOwnerName && <p className="text-[9px] text-slate-400 font-semibold truncate">Co-Owner: {team.coOwnerName}</p>}
                     </div>
                   </div>
                 ))}
@@ -627,70 +617,70 @@ export default function VillageLeagueRegistrationPage() {
           </div>
         )}
 
-        {/* ─── OPTION 2 CONTENT: REGISTERED PLAYERS (🔴 RED vs 🟢 GREEN STATUS INDICATOR) ─── */}
+        {/* OPTION 2 CONTENT: REGISTERED PLAYERS */}
         {activePortion === 'players' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-5 shadow-xl animate-in fade-in duration-200">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-4 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
               <div>
-                <h2 className="text-lg font-black text-white flex items-center gap-2">
+                <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
                   <span>🏏 Registered Players List</span>
                   <span className="px-2.5 py-0.5 bg-emerald-500/20 text-emerald-300 text-xs rounded-full font-bold border border-emerald-500/30">
                     {players.length} Players
                   </span>
                 </h2>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  🔴 Red Circle = Payment Pending Admin Verification | 🟢 Green Circle = Accepted &amp; Verified
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  🔴 Red = Pending Verification | 🟢 Green = Accepted &amp; Verified
                 </p>
               </div>
 
               <button
                 type="button"
                 onClick={handleDownloadPlayersPDF}
-                className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-emerald-950/50 flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <Download className="w-4 h-4" />
+                <Download className="w-3.5 h-3.5" />
                 Download Players List (PDF)
               </button>
             </div>
 
             <div className="relative">
-              <Search className="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2" />
+              <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Search registered player name, category, phone..."
                 value={searchPlayersQuery}
                 onChange={(e) => setSearchPlayersQuery(e.target.value)}
-                className="w-full pl-11 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-slate-200 outline-none focus:border-emerald-500"
+                className="w-full pl-10 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-slate-200 outline-none focus:border-emerald-500"
               />
             </div>
 
             {loading ? (
-              <div className="text-center py-12 text-slate-400 font-bold">
-                <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-emerald-500" />
-                Loading registered players...
+              <div className="text-center py-8 text-slate-400 font-bold text-xs">
+                <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-emerald-500" />
+                Loading players...
               </div>
             ) : filteredPlayers.length === 0 ? (
-              <div className="text-center py-10 bg-slate-950/50 rounded-2xl border border-slate-800">
+              <div className="text-center py-8 bg-slate-950/50 rounded-xl border border-slate-800">
                 <p className="text-slate-400 font-bold text-xs">No registered players found.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {filteredPlayers.map((player, idx) => {
                   const isVerified = player.paymentStatus === 'verified';
                   return (
-                    <div key={player.id} className={`bg-slate-950 border rounded-2xl p-3 space-y-3 relative flex flex-col items-center text-center transition-all ${isVerified ? 'border-emerald-500/60 shadow-lg shadow-emerald-950/20' : 'border-rose-900/60 shadow-lg shadow-rose-950/20'}`}>
+                    <div key={player.id} className={`bg-slate-950 border rounded-2xl p-2.5 space-y-2 relative flex flex-col items-center text-center transition-all ${isVerified ? 'border-emerald-500/60 shadow-lg shadow-emerald-950/20' : 'border-rose-900/60 shadow-lg shadow-rose-950/20'}`}>
                       
-                      <span className="absolute top-2 left-2 px-2 py-0.5 bg-slate-900/90 border border-slate-700 text-emerald-400 font-black text-[10px] rounded-md z-10 shadow-md">
+                      <span className="absolute top-2 left-2 px-1.5 py-0.5 bg-slate-900/90 border border-slate-700 text-emerald-400 font-black text-[9px] rounded-md z-10 shadow-md">
                         Sl No: #{idx + 1}
                       </span>
 
-                      <span className={`absolute top-2 right-2 px-2 py-0.5 rounded-full font-black text-[10px] flex items-center gap-1 z-10 border shadow-md ${
+                      <span className={`absolute top-2 right-2 px-1.5 py-0.5 rounded-full font-black text-[9px] flex items-center gap-1 z-10 border shadow-md ${
                         isVerified
                           ? 'bg-emerald-950 text-emerald-300 border-emerald-500/50'
                           : 'bg-rose-950 text-rose-300 border-rose-500/50'
                       }`}>
-                        <span className={`w-2 h-2 rounded-full ${isVerified ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'}`}></span>
-                        {isVerified ? '🟢 Verified' : '🔴 Pending'}
+                        <span className={`w-1.5 h-1.5 rounded-full ${isVerified ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'}`}></span>
+                        {isVerified ? '🟢' : '🔴'}
                       </span>
 
                       <div className="w-full aspect-square rounded-xl bg-slate-900 border border-slate-800 overflow-hidden relative shadow-md">
@@ -701,27 +691,27 @@ export default function VillageLeagueRegistrationPage() {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-emerald-400 font-black text-3xl bg-slate-900">
+                          <div className="w-full h-full flex items-center justify-center text-emerald-400 font-black text-2xl bg-slate-900">
                             {player.fullName.charAt(0).toUpperCase()}
                           </div>
                         )}
                       </div>
 
                       <div className="w-full">
-                        <h4 className="text-sm font-black text-white truncate">{player.fullName}</h4>
-                        <p className="text-[10px] text-amber-300 font-bold truncate">{player.playerCategory || 'Player'}</p>
+                        <h4 className="text-xs font-black text-white truncate">{player.fullName}</h4>
+                        <p className="text-[9px] text-amber-300 font-bold truncate">{player.playerCategory || 'Player'}</p>
                       </div>
 
                       <button
                         type="button"
                         onClick={() => setSelectedPlayerForModal(player)}
-                        className={`w-full py-2 border rounded-xl text-[11px] font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer mt-auto ${
+                        className={`w-full py-1.5 border rounded-xl text-[10px] font-extrabold transition-all flex items-center justify-center gap-1 cursor-pointer mt-auto ${
                           isVerified
                             ? 'bg-slate-900 hover:bg-emerald-600 text-slate-200 hover:text-white border-emerald-500/40'
                             : 'bg-slate-900 hover:bg-rose-600 text-slate-300 hover:text-white border-slate-800'
                         }`}
                       >
-                        <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                        <Eye className="w-3 h-3 text-emerald-400" />
                         See Profile
                       </button>
                     </div>
@@ -732,24 +722,24 @@ export default function VillageLeagueRegistrationPage() {
           </div>
         )}
 
-        {/* ─── OPTION 3 CONTENT: EXCLUSIVE REGISTRATION FORM ──────────────── */}
+        {/* OPTION 3 CONTENT: EXCLUSIVE REGISTRATION FORM */}
         {activePortion === 'register' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl animate-in fade-in duration-200">
-            <div className="border-b border-slate-800 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-8 space-y-5 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="border-b border-slate-800 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-xl font-black text-white flex items-center gap-2">
+                <h2 className="text-base sm:text-xl font-black text-white flex items-center gap-2">
                   <span>📝 Jhankra Super League Registration</span>
                 </h2>
-                <p className="text-xs text-slate-400 mt-0.5">Select option below to register Team or Player.</p>
+                <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5">Select option below to register Team or Player.</p>
               </div>
 
-              <div className="flex bg-slate-950 p-1.5 rounded-2xl border border-slate-800 shrink-0">
+              <div className="flex bg-slate-950 p-1 rounded-2xl border border-slate-800 shrink-0">
                 <button
                   type="button"
                   onClick={() => setRegisterMode('team')}
-                  className={`px-5 py-2 rounded-xl font-extrabold text-xs uppercase tracking-wider transition-all cursor-pointer ${
+                  className={`px-4 py-1.5 rounded-xl font-extrabold text-[11px] uppercase tracking-wider transition-all cursor-pointer ${
                     registerMode === 'team'
-                      ? 'bg-red-600 text-white shadow-lg'
+                      ? 'bg-red-600 text-white shadow-md'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
@@ -759,9 +749,9 @@ export default function VillageLeagueRegistrationPage() {
                 <button
                   type="button"
                   onClick={() => setRegisterMode('player')}
-                  className={`px-5 py-2 rounded-xl font-extrabold text-xs uppercase tracking-wider transition-all cursor-pointer ${
+                  className={`px-4 py-1.5 rounded-xl font-extrabold text-[11px] uppercase tracking-wider transition-all cursor-pointer ${
                     registerMode === 'player'
-                      ? 'bg-red-600 text-white shadow-lg'
+                      ? 'bg-red-600 text-white shadow-md'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
@@ -777,23 +767,23 @@ export default function VillageLeagueRegistrationPage() {
                 <p className="text-xs text-rose-300/80">Registration is closed by the admin.</p>
               </div>
             ) : submitSuccess ? (
-              <div className="p-8 bg-emerald-950/60 border border-emerald-500/50 rounded-3xl text-center space-y-4 animate-in zoom-in-95">
-                <CheckCircle2 className="w-16 h-16 text-emerald-400 mx-auto animate-bounce" />
-                <h3 className="text-2xl font-black text-white">{successMessage} 🎉</h3>
+              <div className="p-6 bg-emerald-950/60 border border-emerald-500/50 rounded-2xl text-center space-y-3 animate-in zoom-in-95">
+                <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto animate-bounce" />
+                <h3 className="text-xl font-black text-white">{successMessage} 🎉</h3>
                 <p className="text-xs text-emerald-200 font-medium">
                   Your registration has been submitted successfully! Status will turn Green 🟢 once Admin verifies your ₹200 payment.
                 </p>
               </div>
             ) : registerMode === 'team' ? (
-              /* FORM A: TEAM REGISTRATION (MANDATORY LOGO UPLOAD) */
-              <form onSubmit={handleSubmitTeam} className="space-y-5">
-                <div className="p-3 bg-red-950/30 border border-red-500/30 rounded-xl text-xs font-bold text-red-300">
+              /* FORM A: TEAM REGISTRATION */
+              <form onSubmit={handleSubmitTeam} className="space-y-4">
+                <div className="p-2.5 bg-red-950/30 border border-red-500/30 rounded-xl text-xs font-bold text-red-300">
                   🛡️ Team Registration (Name of Team, Owner, Co-Owner, Address &amp; Mandatory Team Logo)
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-1.5">
+                    <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-1">
                       Name of the Team *
                     </label>
                     <input
@@ -802,12 +792,12 @@ export default function VillageLeagueRegistrationPage() {
                       placeholder="e.g. Jhankra Strikers"
                       value={teamName}
                       onChange={(e) => setTeamName(e.target.value)}
-                      className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:border-red-500"
+                      className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:border-red-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-1.5">
+                    <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-1">
                       Owner Name *
                     </label>
                     <input
@@ -816,12 +806,12 @@ export default function VillageLeagueRegistrationPage() {
                       placeholder="Owner Full Name"
                       value={ownerName}
                       onChange={(e) => setOwnerName(e.target.value)}
-                      className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:border-red-500"
+                      className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:border-red-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-1.5">
+                    <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-1">
                       Co-Owner Name (If Any)
                     </label>
                     <input
@@ -829,12 +819,12 @@ export default function VillageLeagueRegistrationPage() {
                       placeholder="Co-Owner Full Name"
                       value={coOwnerName}
                       onChange={(e) => setCoOwnerName(e.target.value)}
-                      className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:border-red-500"
+                      className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:border-red-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-1.5">
+                    <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-1">
                       Address *
                     </label>
                     <input
@@ -843,20 +833,20 @@ export default function VillageLeagueRegistrationPage() {
                       placeholder="Address / Locality"
                       value={teamAddress}
                       onChange={(e) => setTeamAddress(e.target.value)}
-                      className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:border-red-500"
+                      className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:border-red-500"
                     />
                   </div>
 
-                  <div className="md:col-span-2 space-y-2">
+                  <div className="md:col-span-2 space-y-1.5">
                     <label className="block text-xs font-black uppercase tracking-wider text-amber-400">
                       Upload Team Logo * (Mandatory)
                     </label>
-                    <div className="flex items-center gap-4 p-4 bg-slate-950 border border-slate-800 rounded-xl">
+                    <div className="flex items-center gap-3 p-3 bg-slate-950 border border-slate-800 rounded-xl">
                       {teamLogoPreview ? (
-                        <img src={teamLogoPreview} alt="Logo" className="w-14 h-14 rounded-xl object-cover border-2 border-red-500 shrink-0 shadow-md" />
+                        <img src={teamLogoPreview} alt="Logo" className="w-12 h-12 rounded-xl object-cover border-2 border-red-500 shrink-0 shadow-md" />
                       ) : (
-                        <div className="w-14 h-14 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0">
-                          <Shield className="w-6 h-6 text-slate-600" />
+                        <div className="w-12 h-12 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0">
+                          <Shield className="w-5 h-5 text-slate-600" />
                         </div>
                       )}
                       <input
@@ -871,7 +861,7 @@ export default function VillageLeagueRegistrationPage() {
                       />
                       <label
                         htmlFor="team-logo-upload"
-                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl cursor-pointer transition-all border border-slate-700"
+                        className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl cursor-pointer transition-all border border-slate-700"
                       >
                         <Camera className="w-3.5 h-3.5 inline mr-1 text-red-400" />
                         {teamLogoPreview ? 'Change Logo' : 'Upload Team Logo *'}
@@ -883,22 +873,22 @@ export default function VillageLeagueRegistrationPage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full py-3.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="w-full py-3 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   {submitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                   Submit Team Registration
                 </button>
               </form>
             ) : (
-              /* FORM B: PLAYER REGISTRATION (WITH UPLOADED QR CODE & DIRECT PAY NOW BUTTON) */
-              <form onSubmit={handleSubmitPlayer} className="space-y-6">
-                <div className="p-3 bg-emerald-950/30 border border-emerald-500/30 rounded-xl text-xs font-bold text-emerald-300">
-                  🏏 Player Registration (Full Name, Phone, Address, Player Category, Photo, Aadhaar &amp; ₹200 Direct Payment)
+              /* FORM B: PLAYER REGISTRATION */
+              <form onSubmit={handleSubmitPlayer} className="space-y-5">
+                <div className="p-2.5 bg-emerald-950/30 border border-emerald-500/30 rounded-xl text-xs font-bold text-emerald-300">
+                  🏏 Player Registration (Full Name, Phone, Address, Player Category, Photo, Aadhaar &amp; ₹200 Payment)
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-1.5">
+                    <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-1">
                       Full Name *
                     </label>
                     <input
@@ -907,12 +897,12 @@ export default function VillageLeagueRegistrationPage() {
                       placeholder="Player Full Name"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:border-red-500"
+                      className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:border-red-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-1.5">
+                    <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-1">
                       Phone Number *
                     </label>
                     <input
@@ -922,19 +912,19 @@ export default function VillageLeagueRegistrationPage() {
                       placeholder="10-digit Phone Number"
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
-                      className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono font-bold text-white outline-none focus:border-red-500"
+                      className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono font-bold text-white outline-none focus:border-red-500"
                     />
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-1.5">
+                    <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-1">
                       Player Category *
                     </label>
                     <select
                       required
                       value={playerCategory}
                       onChange={(e) => setPlayerCategory(e.target.value)}
-                      className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs font-extrabold text-amber-400 outline-none focus:border-red-500 cursor-pointer"
+                      className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-extrabold text-amber-400 outline-none focus:border-red-500 cursor-pointer"
                     >
                       <option value="Right Hand Batsman">🏏 Right Hand Batsman</option>
                       <option value="Left Hand Batsman">🏏 Left Hand Batsman</option>
@@ -946,7 +936,7 @@ export default function VillageLeagueRegistrationPage() {
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-1.5">
+                    <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-1">
                       Address *
                     </label>
                     <input
@@ -955,21 +945,20 @@ export default function VillageLeagueRegistrationPage() {
                       placeholder="Address / Locality (Chandrakona Town PS)"
                       value={playerAddress}
                       onChange={(e) => setPlayerAddress(e.target.value)}
-                      className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:border-red-500"
+                      className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none focus:border-red-500"
                     />
                   </div>
 
-                  {/* Upload Photo */}
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <label className="block text-xs font-black uppercase tracking-wider text-amber-400">
                       Upload Photo * (Mandatory)
                     </label>
-                    <div className="flex items-center gap-3 p-3 bg-slate-950 border border-slate-800 rounded-xl">
+                    <div className="flex items-center gap-3 p-2.5 bg-slate-950 border border-slate-800 rounded-xl">
                       {playerPhotoPreview ? (
-                        <img src={playerPhotoPreview} alt="Photo" className="w-12 h-12 rounded-xl object-cover border-2 border-red-500 shrink-0 shadow-sm" />
+                        <img src={playerPhotoPreview} alt="Photo" className="w-10 h-10 rounded-xl object-cover border-2 border-red-500 shrink-0 shadow-sm" />
                       ) : (
-                        <div className="w-12 h-12 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0">
-                          <User className="w-5 h-5 text-slate-600" />
+                        <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0">
+                          <User className="w-4 h-4 text-slate-600" />
                         </div>
                       )}
                       <input
@@ -984,7 +973,7 @@ export default function VillageLeagueRegistrationPage() {
                       />
                       <label
                         htmlFor="player-photo-input-2"
-                        className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl cursor-pointer border border-slate-700 transition-all"
+                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-[11px] rounded-xl cursor-pointer border border-slate-700 transition-all"
                       >
                         <Camera className="w-3.5 h-3.5 inline mr-1 text-red-400" />
                         {playerPhotoPreview ? 'Change' : 'Upload Photo *'}
@@ -992,17 +981,16 @@ export default function VillageLeagueRegistrationPage() {
                     </div>
                   </div>
 
-                  {/* Upload Aadhaar Card (Back Side) */}
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <label className="block text-xs font-black uppercase tracking-wider text-amber-400">
                       Upload Aadhaar Card (Back Side Only) * (Mandatory)
                     </label>
-                    <div className="flex items-center gap-3 p-3 bg-slate-950 border border-slate-800 rounded-xl">
+                    <div className="flex items-center gap-3 p-2.5 bg-slate-950 border border-slate-800 rounded-xl">
                       {aadharBackPreview ? (
-                        <img src={aadharBackPreview} alt="Aadhaar" className="w-12 h-12 rounded-xl object-cover border-2 border-indigo-500 shrink-0 shadow-sm" />
+                        <img src={aadharBackPreview} alt="Aadhaar" className="w-10 h-10 rounded-xl object-cover border-2 border-indigo-500 shrink-0 shadow-sm" />
                       ) : (
-                        <div className="w-12 h-12 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0">
-                          <FileCheck className="w-5 h-5 text-indigo-400" />
+                        <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0">
+                          <FileCheck className="w-4 h-4 text-indigo-400" />
                         </div>
                       )}
                       <input
@@ -1017,7 +1005,7 @@ export default function VillageLeagueRegistrationPage() {
                       />
                       <label
                         htmlFor="aadhar-back-input-2"
-                        className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl cursor-pointer border border-slate-700 transition-all"
+                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-[11px] rounded-xl cursor-pointer border border-slate-700 transition-all"
                       >
                         <FileCheck className="w-3.5 h-3.5 inline mr-1 text-indigo-400" />
                         {aadharBackPreview ? 'Change' : 'Upload Back Side *'}
@@ -1026,59 +1014,50 @@ export default function VillageLeagueRegistrationPage() {
                   </div>
                 </div>
 
-                {/* ─── ₹200 OFFICIAL NAVI QR CODE & DIRECT PAY NOW BUTTON ────────── */}
-                <div className="bg-gradient-to-r from-slate-950 via-emerald-950/40 to-slate-950 border-2 border-emerald-500/50 rounded-3xl p-5 sm:p-6 space-y-5 shadow-2xl">
-                  <div className="flex items-center justify-between border-b border-emerald-500/20 pb-3 flex-wrap gap-2">
+                {/* ₹200 NAVI QR CODE & DIRECT PAY BUTTON */}
+                <div className="bg-gradient-to-r from-slate-950 via-emerald-950/40 to-slate-950 border-2 border-emerald-500/50 rounded-2xl p-4 space-y-4 shadow-xl">
+                  <div className="flex items-center justify-between border-b border-emerald-500/20 pb-2 flex-wrap gap-1">
                     <div className="flex items-center gap-2">
-                      <CreditCard className="w-5 h-5 text-emerald-400" />
-                      <h3 className="text-base font-black text-white uppercase tracking-wider">
+                      <CreditCard className="w-4 h-4 text-emerald-400" />
+                      <h3 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider">
                         Player Registration Fee Payment (₹200)
                       </h3>
                     </div>
-                    <span className="px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full text-xs font-black">
+                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full text-[10px] font-black">
                       ₹200 MANDATORY
                     </span>
                   </div>
 
-                  <div className="flex flex-col md:flex-row items-center gap-6">
-                    {/* Official Uploaded QR Code Image Display */}
-                    <div className="bg-white p-3 rounded-2xl border-4 border-emerald-400 text-center shrink-0 shadow-2xl text-slate-900 space-y-2 max-w-[220px]">
+                  <div className="flex flex-col md:flex-row items-center gap-4">
+                    <div className="bg-white p-2.5 rounded-xl border-2 border-emerald-400 text-center shrink-0 shadow-xl text-slate-900 space-y-1 max-w-[180px]">
                       <img
                         src="/jsl_payment_qr.jpg"
-                        alt="Jhankra Super League Navi Payment QR Code"
-                        className="w-full h-auto rounded-xl shadow-md border border-slate-200"
+                        alt="Navi Payment QR Code"
+                        className="w-full h-auto rounded-lg shadow-sm border border-slate-200"
                       />
-                      <div className="pt-1">
-                        <p className="text-xs font-black text-slate-900">{payeeName}</p>
-                        <p className="text-[11px] font-mono font-bold text-emerald-700">{upiId}</p>
-                      </div>
+                      <p className="text-[10px] font-black text-slate-900">{payeeName}</p>
+                      <p className="text-[9px] font-mono font-bold text-emerald-700">{upiId}</p>
                     </div>
 
-                    <div className="space-y-4 text-xs font-medium text-slate-200 flex-1 w-full">
-                      {/* Direct Click PAY NOW Button */}
-                      <div className="bg-slate-950/90 p-4 rounded-2xl border border-emerald-500/40 space-y-3">
-                        <p className="font-extrabold text-white text-xs flex items-center gap-1.5">
-                          <Zap className="w-4 h-4 text-amber-400 animate-bounce" />
+                    <div className="space-y-3 text-xs font-medium text-slate-200 flex-1 w-full">
+                      <div className="bg-slate-950/90 p-3 rounded-xl border border-emerald-500/40 space-y-2">
+                        <p className="font-extrabold text-white text-xs flex items-center gap-1">
+                          <Zap className="w-3.5 h-3.5 text-amber-400 animate-bounce" />
                           Tap below to open GPay / PhonePe / Paytm directly:
                         </p>
 
                         <a
                           href={upiDeepLink}
-                          className="w-full py-3.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-xl flex items-center justify-center gap-2 cursor-pointer border border-emerald-300 hover:scale-[1.01] transition-transform"
+                          className="w-full py-3 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg flex items-center justify-center gap-1.5 cursor-pointer border border-emerald-300 hover:scale-[1.01] transition-transform"
                         >
                           <Zap className="w-4 h-4 text-slate-950 fill-slate-950" />
-                          PAY ₹200 NOW (Open PhonePe / GPay / Paytm)
+                          PAY ₹200 NOW (Open PhonePe / GPay)
                         </a>
-
-                        <p className="text-[10px] text-slate-400 text-center font-bold">
-                          Supported UPI Apps: Google Pay, PhonePe, Paytm, Navi, BHIM
-                        </p>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {/* 12-Digit UTR ID Input */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-xs font-black uppercase tracking-wider text-amber-300 mb-1">
+                          <label className="block text-[11px] font-black uppercase tracking-wider text-amber-300 mb-1">
                             UPI Transaction / UTR ID *
                           </label>
                           <input
@@ -1087,21 +1066,20 @@ export default function VillageLeagueRegistrationPage() {
                             placeholder="12-digit UTR No (e.g. 4219XXXXXXXX)"
                             value={utrNumber}
                             onChange={(e) => setUtrNumber(e.target.value)}
-                            className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono font-bold text-amber-300 outline-none focus:border-amber-400"
+                            className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono font-bold text-amber-300 outline-none focus:border-amber-400"
                           />
                         </div>
 
-                        {/* Upload Payment Screenshot */}
                         <div>
-                          <label className="block text-xs font-black uppercase tracking-wider text-amber-300 mb-1">
+                          <label className="block text-[11px] font-black uppercase tracking-wider text-amber-300 mb-1">
                             Upload Payment Screenshot *
                           </label>
-                          <div className="flex items-center gap-2 p-2 bg-slate-950 border border-slate-800 rounded-xl">
+                          <div className="flex items-center gap-2 p-1.5 bg-slate-950 border border-slate-800 rounded-xl">
                             {paymentScreenshotPreview ? (
-                              <img src={paymentScreenshotPreview} alt="Screenshot" className="w-8 h-8 rounded-lg object-cover border border-emerald-500 shrink-0" />
+                              <img src={paymentScreenshotPreview} alt="Screenshot" className="w-7 h-7 rounded-lg object-cover border border-emerald-500 shrink-0" />
                             ) : (
-                              <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0">
-                                <CreditCard className="w-4 h-4 text-slate-500" />
+                              <div className="w-7 h-7 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0">
+                                <CreditCard className="w-3.5 h-3.5 text-slate-500" />
                               </div>
                             )}
                             <input
@@ -1116,7 +1094,7 @@ export default function VillageLeagueRegistrationPage() {
                             />
                             <label
                               htmlFor="payment-ss-input"
-                              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-[11px] rounded-lg cursor-pointer transition-all shrink-0"
+                              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white font-bold text-[10px] rounded-lg cursor-pointer transition-all shrink-0"
                             >
                               {paymentScreenshotPreview ? 'Change' : 'Upload SS *'}
                             </label>
@@ -1130,7 +1108,7 @@ export default function VillageLeagueRegistrationPage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full py-3.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="w-full py-3 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   {submitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                   Submit Player Registration (₹200 Fee)
@@ -1144,17 +1122,16 @@ export default function VillageLeagueRegistrationPage() {
       {/* PUBLIC PLAYER PROFILE MODAL */}
       {selectedPlayerForModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-center relative overflow-hidden">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 max-w-sm w-full shadow-2xl space-y-4 text-center relative overflow-hidden">
             <button
               type="button"
               onClick={() => setSelectedPlayerForModal(null)}
-              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-all cursor-pointer"
+              className="absolute top-4 right-4 w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-all cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
 
-            {/* Medium Square Face Photo */}
-            <div className="w-36 h-36 rounded-2xl mx-auto overflow-hidden border-4 border-red-500 shadow-xl bg-slate-950">
+            <div className="w-32 h-32 rounded-2xl mx-auto overflow-hidden border-4 border-red-500 shadow-xl bg-slate-950">
               {selectedPlayerForModal.photoUrl ? (
                 <img
                   src={selectedPlayerForModal.photoUrl}
@@ -1162,41 +1139,40 @@ export default function VillageLeagueRegistrationPage() {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-red-500 font-black text-4xl">
+                <div className="w-full h-full flex items-center justify-center text-red-500 font-black text-3xl">
                   {selectedPlayerForModal.fullName.charAt(0).toUpperCase()}
                 </div>
               )}
             </div>
 
             <div>
-              <h3 className="text-xl font-black text-white">{selectedPlayerForModal.fullName}</h3>
-              <span className="inline-block mt-1 px-3 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-full text-xs font-black uppercase tracking-wider">
+              <h3 className="text-lg font-black text-white">{selectedPlayerForModal.fullName}</h3>
+              <span className="inline-block mt-1 px-3 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-full text-[11px] font-black uppercase">
                 {selectedPlayerForModal.playerCategory || 'General Player'}
               </span>
             </div>
 
-            {/* Payment Verification Badge inside Modal */}
-            <div className="pt-1">
+            <div className="pt-0.5">
               {selectedPlayerForModal.paymentStatus === 'verified' ? (
-                <span className="inline-flex items-center gap-1.5 px-3.5 py-1 bg-emerald-950 text-emerald-300 border border-emerald-500/40 rounded-full text-xs font-black uppercase">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span className="inline-flex items-center gap-1 px-3 py-0.5 bg-emerald-950 text-emerald-300 border border-emerald-500/40 rounded-full text-[10px] font-black uppercase">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                   🟢 Payment Verified &amp; Accepted
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1.5 px-3.5 py-1 bg-rose-950 text-rose-300 border border-rose-500/40 rounded-full text-xs font-black uppercase">
-                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                <span className="inline-flex items-center gap-1 px-3 py-0.5 bg-rose-950 text-rose-300 border border-rose-500/40 rounded-full text-[10px] font-black uppercase">
+                  <span className="w-2 h-2 rounded-full bg-rose-500"></span>
                   🔴 Payment Pending Verification
                 </span>
               )}
             </div>
 
-            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 text-left space-y-2 text-xs font-medium text-slate-300">
+            <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 text-left space-y-1.5 text-xs font-medium text-slate-300">
               <p className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-slate-500 shrink-0" />
+                <Phone className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                 <span className="font-bold text-white">Phone:</span> {selectedPlayerForModal.phoneNumber || '-'}
               </p>
               <p className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-slate-500 shrink-0" />
+                <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                 <span className="font-bold text-white">Address:</span> {selectedPlayerForModal.address || '-'}
               </p>
             </div>
@@ -1204,7 +1180,7 @@ export default function VillageLeagueRegistrationPage() {
             <button
               type="button"
               onClick={() => setSelectedPlayerForModal(null)}
-              className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl transition-all uppercase tracking-wider cursor-pointer"
+              className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl transition-all uppercase tracking-wider cursor-pointer"
             >
               Close Profile
             </button>
