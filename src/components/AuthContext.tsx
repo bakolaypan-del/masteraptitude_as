@@ -69,7 +69,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log("DEBUG [AuthContext] onAuthStateChanged fired. currentUser ID:", currentUser?.uid);
       setUser(currentUser);
       if (currentUser) {
-        setLoading(true);
+        const isOwner = currentUser.email?.toLowerCase() === 'bakolaypan@gmail.com';
+        
         // Try reading from cache first
         const cachedProfile = localStorage.getItem('ma_profile');
         const cachedTs = localStorage.getItem('ma_profile_ts');
@@ -79,6 +80,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (cachedProfile && cachedTs && (Date.now() - Number(cachedTs) < cacheAgeLimit)) {
           try {
             const parsed = JSON.parse(cachedProfile);
+            if (isOwner && parsed.role !== 'admin') {
+              parsed.role = 'admin';
+            }
             setProfile(parsed);
             loadedFromCache = true;
             setLoading(false);
@@ -90,16 +94,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
         
-        // If not loaded from cache (or cache was empty/expired), fetch from Firestore via getDoc
+        // Fast fallback for Admin owner
+        if (!loadedFromCache && isOwner) {
+          const ownerProfile: UserProfile = {
+            name: currentUser.displayName || 'Admin Owner',
+            email: currentUser.email || '',
+            phoneNumber: currentUser.phoneNumber || '',
+            role: 'admin',
+            totalTestsTaken: 0,
+            cumulativeScore: 0,
+            globalRank: 0
+          };
+          setProfile(ownerProfile);
+          localStorage.setItem('ma_profile', JSON.stringify(ownerProfile));
+          localStorage.setItem('ma_profile_ts', String(Date.now()));
+          setLoading(false);
+          loadedFromCache = true;
+          // Silent background sync
+          refreshProfile(currentUser).catch(() => {});
+        }
+        
+        // If not loaded from cache, fetch from Firestore via getDoc
         if (!loadedFromCache) {
+          setLoading(true);
           const profileRef = doc(db, 'profiles', currentUser.uid);
           const profilePath = `profiles/${currentUser.uid}`;
           try {
             const snap = await getDoc(profileRef);
             if (snap.exists()) {
               const data = snap.data() as UserProfile;
-              const isOwner = currentUser.email?.toLowerCase() === 'bakolaypan@gmail.com';
-              
               if (isOwner && data.role !== 'admin') {
                 const updatedProfile = { ...data, role: 'admin' as const };
                 await setDoc(profileRef, updatedProfile, { merge: true });

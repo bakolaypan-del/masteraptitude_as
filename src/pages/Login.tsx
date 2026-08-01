@@ -123,7 +123,6 @@ export default function Login() {
     const digitsOnly = phoneNumber.replace(/\D/g, '');
     const cleanPhone = digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
     
-    // Support login via either mobile number or email for complete flexibility
     const targetEmail = isAdminLogin ? email : (phoneNumber.includes('@') ? phoneNumber : getSyntheticEmail(cleanPhone));
     
     if ((isAdminLogin && !email) || (!isAdminLogin && !phoneNumber) || !password) {
@@ -133,9 +132,33 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await signInWithEmailAndPassword(auth, targetEmail, password);
+      const userCredential = await signInWithEmailAndPassword(auth, targetEmail, password);
+      const signedInUser = userCredential.user;
+
+      // Pre-set profile cache if owner/admin to eliminate latency
+      const isOwner = signedInUser.email?.toLowerCase() === 'bakolaypan@gmail.com';
+      if (isOwner) {
+        const adminProfile = {
+          name: signedInUser.displayName || 'Admin Owner',
+          email: signedInUser.email || '',
+          phoneNumber: signedInUser.phoneNumber || '',
+          role: 'admin' as const,
+          totalTestsTaken: 0,
+          cumulativeScore: 0,
+          globalRank: 0
+        };
+        localStorage.setItem('ma_profile', JSON.stringify(adminProfile));
+        localStorage.setItem('ma_profile_ts', String(Date.now()));
+      }
+
       setSuccess('Welcome back! Logging you in...');
-      setTimeout(() => navigate('/dashboard'), 1000);
+      
+      // Direct instant navigation (Admin -> /admin, Student -> /dashboard)
+      if (isAdminLogin || isOwner) {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     } catch (err: any) {
       console.error('Login error:', err);
       setError(err.message || 'Invalid login details or Password. If you are new here, please click Register at the top.');
