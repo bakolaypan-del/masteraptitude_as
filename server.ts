@@ -99,9 +99,12 @@ function initPostgres(): Pool {
   pgPool = new Pool({
     connectionString: connStr || undefined,
     ssl: (connStr && !connStr.includes("localhost")) ? { rejectUnauthorized: false } : false,
-    max: 20,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
+    max: 8,
+    idleTimeoutMillis: 5000,
+    connectionTimeoutMillis: 5000,
+  });
+  pgPool.on("error", (err) => {
+    console.error("[PostgreSQL Pool Error]", err.message);
   });
   return pgPool;
 }
