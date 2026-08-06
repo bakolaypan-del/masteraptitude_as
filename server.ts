@@ -85,6 +85,26 @@ import fs from "fs";
 import crypto from "crypto";
 import { GoogleGenAI } from "@google/genai";
 let sqliteDb: any = null;
+let pgPool: Pool | null = null;
+
+function initPostgres(): Pool {
+  if (pgPool) return pgPool;
+  let connStr = process.env.SUPABASE_DB_URI || process.env.DATABASE_URL || "";
+  if (connStr.includes(".pooler.supabase.com:5432")) {
+    connStr = connStr.replace(".pooler.supabase.com:5432", ".pooler.supabase.com:6543");
+  }
+  if (!connStr) {
+    console.warn("[PostgreSQL] Warning: Neither SUPABASE_DB_URI nor DATABASE_URL found in environment!");
+  }
+  pgPool = new Pool({
+    connectionString: connStr || undefined,
+    ssl: (connStr && !connStr.includes("localhost")) ? { rejectUnauthorized: false } : false,
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
+  });
+  return pgPool;
+}
 
 // Initialize SQLite Database ONLY when running locally, never on Vercel (Item 6)
 async function initLocalSQLite() {
@@ -177,24 +197,6 @@ function getGeminiClient() {
 }
 
 // Global State
-
-let pgPool: Pool | null = null;
-
-function initPostgres() {
-  if (pgPool) return;
-  console.log("[Postgres] Initializing connection pool to Supabase...");
-  let connStr = process.env.SUPABASE_DB_URI || "";
-  if (connStr.includes(".pooler.supabase.com:5432")) {
-    connStr = connStr.replace(".pooler.supabase.com:5432", ".pooler.supabase.com:6543");
-  }
-  pgPool = new Pool({
-    connectionString: connStr,
-    ssl: { rejectUnauthorized: false },
-    max: 8,
-    idleTimeoutMillis: 2000,
-    connectionTimeoutMillis: 5000
-  });
-}
 
 // Collection-to-Table name mapping
 const collectionTableMap: { [key: string]: string } = {

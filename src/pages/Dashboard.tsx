@@ -437,6 +437,7 @@ export default function Dashboard() {
   // One Liner student state
   const [oneLiners, setOneLiners] = useState<any[]>([]);
   const [oneLinersLoading, setOneLinersLoading] = useState(false);
+  const [typingTestCount, setTypingTestCount] = useState<number>(40);
   const [oneLinerSubjectFilter, setOneLinerSubjectFilter] = useState('ALL');
   const [oneLinerSearch, setOneLinerSearch] = useState('');
   const [practiceSearch, setPracticeSearch] = useState('');
@@ -628,6 +629,9 @@ export default function Dashboard() {
   const setActiveTab = (tab: DashboardTab) => {
     setSearchParams({ tab, cat: '' });
     setSelectedTopic(null);
+    setSelectedSubCat(null);
+    setExpandedCategory(null);
+    setExpandedTopic(null);
     if (!tab.startsWith('mock')) {
       setMockOpen(false);
     }
@@ -646,6 +650,11 @@ export default function Dashboard() {
 
   const setSelectedCategory = (cat: string, replace = false) => {
     setSelectedTopic(null);
+    setSelectedSubCat(null);
+    if (!cat) {
+      setExpandedCategory(null);
+      setExpandedTopic(null);
+    }
     setSearchParams({ tab: activeTab, cat }, { replace });
   };
 
@@ -800,21 +809,230 @@ export default function Dashboard() {
     }
   }, [profile]);
 
+  const getSubjectMeta = (subj: string) => {
+    const s = String(subj || '').toUpperCase();
+    if (s.includes('MATH')) return { 
+      icon: '🧮', 
+      iconBg: 'bg-amber-50 text-amber-600 border border-amber-100/60', 
+      badgeBg: 'bg-amber-500 text-white shadow-md shadow-amber-500/30 ring-4 ring-amber-50/80',
+      watermark: '🧮',
+      desc: 'Quantitative Aptitude, Numerical Ability & Mathematics' 
+    };
+    if (s.includes('REASON') || s.includes('GI')) return { 
+      icon: '🧩', 
+      iconBg: 'bg-blue-50 text-blue-600 border border-blue-100/60', 
+      badgeBg: 'bg-blue-600 text-white shadow-md shadow-blue-500/30 ring-4 ring-blue-50/80',
+      watermark: '🧩',
+      desc: 'Logical Reasoning, Puzzles & Verbal Ability' 
+    };
+    if (s.includes('COMPUT')) return { 
+      icon: '💻', 
+      iconBg: 'bg-purple-50 text-purple-600 border border-purple-100/60', 
+      badgeBg: 'bg-purple-600 text-white shadow-md shadow-purple-500/30 ring-4 ring-purple-50/80',
+      watermark: '💻',
+      desc: 'Computer Fundamentals, Hardware, OS & IT Basics' 
+    };
+    if (s.includes('PHYSIC')) return { 
+      icon: '🔬', 
+      iconBg: 'bg-sky-50 text-sky-600 border border-sky-100/60', 
+      badgeBg: 'bg-sky-600 text-white shadow-md shadow-sky-500/30 ring-4 ring-sky-50/80',
+      watermark: '🔬',
+      desc: 'General Physics Laws, Optics & Mechanics' 
+    };
+    if (s.includes('CHEMIS')) return { 
+      icon: '🧪', 
+      iconBg: 'bg-emerald-50 text-emerald-600 border border-emerald-100/60', 
+      badgeBg: 'bg-emerald-600 text-white shadow-md shadow-emerald-500/30 ring-4 ring-emerald-50/80',
+      watermark: '🧪',
+      desc: 'Chemical Reactions, Periodic Table & Equations' 
+    };
+    if (s.includes('BIOLOG')) return { 
+      icon: '🧬', 
+      iconBg: 'bg-teal-50 text-teal-600 border border-teal-100/60', 
+      badgeBg: 'bg-teal-600 text-white shadow-md shadow-teal-500/30 ring-4 ring-teal-50/80',
+      watermark: '🧬',
+      desc: 'Human Physiology, Botany & Biological Sciences' 
+    };
+    if (s.includes('ENGLISH')) return { 
+      icon: '📖', 
+      iconBg: 'bg-rose-50 text-rose-500 border border-rose-100/60', 
+      badgeBg: 'bg-red-500 text-white shadow-md shadow-red-500/30 ring-4 ring-red-50/80',
+      watermark: '📖',
+      desc: 'Grammar Rules, Error Correction & Vocabulary' 
+    };
+    if (s.includes('HISTOR')) return { 
+      icon: '📜', 
+      iconBg: 'bg-orange-50 text-orange-600 border border-orange-100/60', 
+      badgeBg: 'bg-orange-500 text-white shadow-md shadow-orange-500/30 ring-4 ring-orange-50/80',
+      watermark: '📜',
+      desc: 'Ancient, Medieval & Modern Indian Freedom Movement' 
+    };
+    if (s.includes('GEOGRAPH')) return { 
+      icon: '🌍', 
+      iconBg: 'bg-cyan-50 text-cyan-600 border border-cyan-100/60', 
+      badgeBg: 'bg-cyan-600 text-white shadow-md shadow-cyan-500/30 ring-4 ring-cyan-50/80',
+      watermark: '🌍',
+      desc: 'Physical Geography, River Systems & Indian Maps' 
+    };
+    if (s.includes('STATIC') || s.includes('GK')) return { 
+      icon: '🏆', 
+      iconBg: 'bg-indigo-50 text-indigo-600 border border-indigo-100/60', 
+      badgeBg: 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30 ring-4 ring-indigo-50/80',
+      watermark: '🏆',
+      desc: 'Awards, Important Days, Boundaries & General Knowledge' 
+    };
+    return { 
+      icon: '🎯', 
+      iconBg: 'bg-indigo-50 text-indigo-600 border border-indigo-100/60', 
+      badgeBg: 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30 ring-4 ring-indigo-50/80',
+      watermark: '🎯',
+      desc: 'High-Yield Chapter-Wise Practice Tests & Worksheets' 
+    };
+  };
+
+  const getFullMockMeta = (catName: string) => {
+    const s = String(catName || '').toUpperCase();
+    if (s.includes('RAILWAY') || s.includes('NTPC') || s.includes('ALP')) return {
+      icon: '🚆',
+      bg: 'bg-indigo-50 text-indigo-600 border border-indigo-100/60',
+      badgeBg: 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30 ring-4 ring-indigo-50/80',
+      watermark: '🚆',
+      desc: 'RRB NTPC, ALP & Group D Full Length Mock Papers'
+    };
+    if (s.includes('WBP') || s.includes('POLICE')) return {
+      icon: '👮‍♂️',
+      bg: 'bg-blue-50 text-blue-600 border border-blue-100/60',
+      badgeBg: 'bg-blue-600 text-white shadow-md shadow-blue-500/30 ring-4 ring-blue-50/80',
+      watermark: '👮‍♂️',
+      desc: 'WB Police Constable & SI Full Model Test Papers'
+    };
+    if (s.includes('KP')) return {
+      icon: '🚨',
+      bg: 'bg-sky-50 text-sky-600 border border-sky-100/60',
+      badgeBg: 'bg-sky-600 text-white shadow-md shadow-sky-500/30 ring-4 ring-sky-50/80',
+      watermark: '🚨',
+      desc: 'Kolkata Police Constable & SI Full Length Mocks'
+    };
+    if (s.includes('WPSC') || s.includes('CLERK') || s.includes('MISC') || s.includes('FOOD')) return {
+      icon: '🏛️',
+      bg: 'bg-emerald-50 text-emerald-600 border border-emerald-100/60',
+      badgeBg: 'bg-emerald-600 text-white shadow-md shadow-emerald-500/30 ring-4 ring-emerald-50/80',
+      watermark: '🏛️',
+      desc: 'WBPSC Clerkship, Miscellaneous & Food SI Full Mocks'
+    };
+    if (s.includes('WBCS')) return {
+      icon: '📜',
+      bg: 'bg-amber-50 text-amber-600 border border-amber-100/60',
+      badgeBg: 'bg-amber-500 text-white shadow-md shadow-amber-500/30 ring-4 ring-amber-50/80',
+      watermark: '📜',
+      desc: 'WBCS Executive Prelims Full Length Practice Papers'
+    };
+    if (s.includes('SSC') || s.includes('CGL') || s.includes('CHSL') || s.includes('MTS')) return {
+      icon: '🎯',
+      bg: 'bg-purple-50 text-purple-600 border border-purple-100/60',
+      badgeBg: 'bg-purple-600 text-white shadow-md shadow-purple-500/30 ring-4 ring-purple-50/80',
+      watermark: '🎯',
+      desc: 'SSC CGL, CHSL, MTS & GD Full Model Practice Sets'
+    };
+    return {
+      icon: '📝',
+      bg: 'bg-rose-50 text-rose-500 border border-rose-100/60',
+      badgeBg: 'bg-rose-600 text-white shadow-md shadow-rose-500/30 ring-4 ring-rose-50/80',
+      watermark: '📝',
+      desc: 'Full Length Exam Pattern Mock Test Papers'
+    };
+  };
+
+  const getSubjectDisplayName = (cat?: string, sub?: string): string => {
+    let name = (cat && cat !== "150 Days Free Practice") ? cat : (sub || cat || 'General');
+    name = String(name || 'General').trim();
+    const upper = name.toUpperCase();
+    if (upper === 'MATH' || upper === 'MATHEMATICS') return 'Mathematics';
+    if (upper === 'REASONING' || upper === 'GI' || upper === 'GENERAL INTELLIGENCE') return 'Reasoning';
+    if (upper === 'COMPUTER' || upper === 'COMPUTER SCIENCE') return 'Computer';
+    if (upper === 'PHYSICS' || upper === 'PHY') return 'Physics';
+    if (upper === 'CHEMISTRY' || upper === 'CHEM') return 'Chemistry';
+    if (upper === 'BIOLOGY' || upper === 'BIO') return 'Biology';
+    if (upper === 'ENGLISH') return 'English';
+    if (upper === 'HISTORY') return 'History';
+    if (upper === 'GEOGRAPHY') return 'Geography';
+    if (upper === 'STATICK GK' || upper === 'STATIC GK' || upper === 'GK' || upper === 'GENERAL KNOWLEDGE') return 'Static GK';
+    return name;
+  };
+
+  const getCategoryLiveCount = (cat: any): number => {
+    const t = (cat.title || '').toLowerCase();
+    const act = (cat.actionValue || '').toLowerCase();
+
+    if (t.includes('live') || act.includes('live')) {
+      return liveTests.filter(l => l.isActive !== false).length;
+    }
+    if (t.includes('free mock') || act === 'mock_landing') {
+      return activeTests.length;
+    }
+    if (t.includes('150 days') || act === 'mock_challenge') {
+      return challengeTests.length > 0 ? challengeTests.length : 150;
+    }
+    if (t.includes('typing') || act.includes('typing')) {
+      return typingTestCount > 0 ? typingTestCount : 40;
+    }
+    if (t.includes('syllabus') || t.includes('pattern') || act === 'pattern') {
+      return patterns.length;
+    }
+    if (t.includes('previous year') || t.includes('pyq') || act === 'pyq') {
+      const dbPyqCount = pyqs.length;
+      const testPyqCount = activeTests.filter(test => 
+        (test.testType || test.test_type || '').toLowerCase().includes('pyq') || 
+        (test.category || '').toLowerCase().includes('pyq')
+      ).length;
+      return dbPyqCount > 0 ? dbPyqCount : (testPyqCount > 0 ? testPyqCount : 9);
+    }
+    if (t.includes('paid') || act.includes('paid')) {
+      return activeTests.filter(l => l.isPaid).length;
+    }
+    if (t.includes('ebook') || t.includes('notes') || act === 'notes') {
+      return notes.length;
+    }
+    if (t.includes('current affairs') || act.includes('affairs')) {
+      return affairs.length;
+    }
+    if (t.includes('practice set') || act === 'practice') {
+      return practiceSets.filter(p => p.status !== 'draft').length;
+    }
+    if (t.includes('one liner') || act === 'one_liner') {
+      return oneLiners.length;
+    }
+    if (t.includes('job') || t.includes('news') || act.includes('news')) {
+      return carousels.length > 0 ? carousels.length : 5;
+    }
+    return 0;
+  };
+
   const categories = (() => {
     if (activeTab === 'mock_sectional') {
       const requiredSectionalCats = ['RAILWAY', 'WBP', 'KP', 'WPSC', 'CO-OPERATIVE', 'WBSEDCL', 'PANCHAYET'];
       const dbCategories = activeTests.filter(t => 
-        (t.testType || 'sectional') === 'sectional' && t.category
+        (t.testType || t.test_type || 'sectional') === 'sectional' && t.category
       ).map(t => t.category);
       
       const combined = [...new Set([...requiredSectionalCats, ...dbCategories])];
       return combined;
     }
 
-    const rawCategories = [...new Set(activeTests.filter(t => 
-      (t.testType || 'topic') === activeTab.replace('mock_', '') &&
-      t.category !== "150 Days Free Practice"
-    ).map(t => t.category).filter(Boolean)) as Set<string>];
+    const rawCategoriesSet = new Set<string>();
+    const targetType = activeTab.replace('mock_', '');
+    activeTests.forEach(t => {
+      const tType = t.testType || t.test_type || 'topic';
+      if (tType === targetType) {
+        if (activeTab === 'mock_topic' && (t.category === "150 Days Free Practice" || t.title?.includes("150 Days"))) {
+          return; // Exclude 150 Days Free Practice tests from Topic Wise Mock
+        }
+        const dispName = getSubjectDisplayName(t.category, t.subject_name);
+        if (dispName) rawCategoriesSet.add(dispName);
+      }
+    });
+
+    const rawCategories = Array.from(rawCategoriesSet);
     
     let sorted = [];
     if (categoryOrder.length > 0) {
@@ -832,11 +1050,6 @@ export default function Dashboard() {
     return sorted;
   })();
 
-  useEffect(() => {
-    if (categories.length > 0 && !selectedCategory && ['mock_topic', 'mock_full'].includes(activeTab)) {
-      setSelectedCategory(categories[0], true);
-    }
-  }, [activeTab, categories.length, selectedCategory]);
 
   // Track if we are in "Full Analysis" mode
   const [selectedVideo, setSelectedVideo] = useState<any | null>(null);
@@ -957,6 +1170,20 @@ export default function Dashboard() {
         setPatterns(allPatterns);
         setAffairs(allAffairs);
         setPracticeSets(allPractice);
+
+        // Fetch dynamic typing tests count
+        try {
+          const token = await user.getIdToken();
+          const typingRes = await fetch('/api/typing-tests', { headers: { 'Authorization': `Bearer ${token}` } });
+          if (typingRes.ok) {
+            const typingData = await typingRes.json();
+            if (Array.isArray(typingData) && typingData.length > 0) {
+              setTypingTestCount(typingData.length);
+            }
+          }
+        } catch (e) {
+          console.warn("[Dashboard] Typing test count fetch notice:", e);
+        }
 
         // Get global cacheState for version checking
         const cacheState = await getCacheState();
@@ -2045,6 +2272,24 @@ export default function Dashboard() {
                                 isLastSingle ? "max-w-[calc(25%-4px)] sm:max-w-none" : ""
                               }`}
                             >
+                              {/* Top-Right Glowing Live Count Badge */}
+                              {(() => {
+                                const count = getCategoryLiveCount(cat);
+                                const titleLower = cat.title.toLowerCase();
+                                const badgeColor = 
+                                  titleLower.includes('live') || titleLower.includes('150') ? 'bg-gradient-to-r from-rose-600 to-red-600 shadow-rose-500/30 ring-rose-100' :
+                                  titleLower.includes('free') ? 'bg-gradient-to-r from-emerald-600 to-teal-600 shadow-emerald-500/30 ring-emerald-100' :
+                                  titleLower.includes('typing') ? 'bg-gradient-to-r from-slate-800 to-slate-950 shadow-slate-500/30 ring-slate-100' :
+                                  titleLower.includes('one liner') ? 'bg-gradient-to-r from-purple-600 to-indigo-600 shadow-purple-500/30 ring-purple-100' :
+                                  'bg-gradient-to-r from-indigo-600 to-violet-600 shadow-indigo-500/30 ring-indigo-100';
+
+                                return (
+                                  <div className={`absolute top-1.5 right-1.5 xs:top-2 xs:right-2 px-1.5 xs:px-2 py-0.5 rounded-full ${badgeColor} text-white font-black text-[8.5px] xs:text-[9.5px] sm:text-[10px] min-w-[20px] xs:min-w-[24px] text-center tracking-tight shadow-md ring-2 group-hover:scale-110 transition-transform duration-300 z-10`}>
+                                    {count}
+                                  </div>
+                                );
+                              })()}
+
                               {/* Exact 3D Logo Icon from User Photo (Larger Sizing) */}
                               <Render3DIconPod title={cat.title} />
 
@@ -2749,123 +2994,176 @@ export default function Dashboard() {
           )}
 
           {/* ── Mock Test Landing (category chooser) ───────────────────── */}
-          {activeTab === 'mock_landing' && (
-            <div className="animate-in fade-in duration-150">
-              {/* Header */}
-              <div className="flex items-center gap-3 mb-6">
-                <button onClick={() => setActiveTab('home')} className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors shadow-sm">
-                  <ArrowLeft className="w-4 h-4 text-slate-600" />
-                </button>
-                <div>
-                  <h2 className="text-xl font-black text-slate-900 tracking-tight">🎯 Free Mock Tests</h2>
-                  <p className="text-xs text-slate-500 font-medium mt-0.5">Choose your test format and start practising</p>
+          {activeTab === 'mock_landing' && (() => {
+            const topicCount = activeTests.filter(t => 
+              (t.testType || t.test_type || 'topic') === 'topic' || 
+              (t.testType || t.test_type || '').toLowerCase().includes('topic')
+            ).length;
+
+            const sectionalCount = activeTests.filter(t => 
+              (t.testType || t.test_type || 'sectional') === 'sectional' || 
+              (t.testType || t.test_type || '').toLowerCase().includes('sectional')
+            ).length;
+
+            const fullCount = activeTests.filter(t => 
+              (t.testType || t.test_type || 'full') === 'full' || 
+              (t.testType || t.test_type || '').toLowerCase().includes('full') || 
+              (t.testType || t.test_type || '').toLowerCase().includes('pyq') || 
+              t.category === 'WBCS'
+            ).length;
+
+            return (
+              <div className="space-y-6 animate-in fade-in duration-150">
+                {/* Header */}
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={() => setActiveTab('home')} 
+                    className="w-10 h-10 rounded-2xl bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+                  >
+                    <ArrowLeft className="w-4 h-4 text-slate-600" />
+                  </button>
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">🏆 Free Mock Test Series</h2>
+                    <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">Select a mock test series category below to start practicing</p>
+                  </div>
+                </div>
+
+                {/* 3 Square / Compact Category Cards Responsive Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+
+                  {/* 1. Topic Wise Mock */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('mock_topic')}
+                    className="group relative overflow-hidden rounded-[26px] p-6 text-left bg-white border border-slate-200/80 hover:border-cyan-400 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col justify-between min-h-[185px] w-full"
+                  >
+                    {/* Faint watermark graphic */}
+                    <span className="absolute -top-3 -right-3 text-8xl opacity-5 select-none pointer-events-none transform rotate-12 group-hover:scale-110 group-hover:opacity-10 transition-all duration-300">
+                      🎯
+                    </span>
+
+                    {/* Top Row: Left Icon Box + Right Top Live Count Badge */}
+                    <div className="flex items-start justify-between w-full relative z-10 mb-3">
+                      <div className="w-12 h-12 rounded-2xl bg-cyan-50 text-cyan-600 border border-cyan-100/60 flex items-center justify-center text-2xl shadow-2xs group-hover:scale-105 transition-transform duration-300">
+                        🎯
+                      </div>
+
+                      {/* Top-right glowing shape header live count badge */}
+                      <div className="px-3 py-1 rounded-full bg-cyan-600 text-white font-black text-xs min-w-[36px] text-center tracking-tight shadow-md shadow-cyan-500/30 ring-4 ring-cyan-50/80 group-hover:scale-110 transition-transform duration-300">
+                        {topicCount}
+                      </div>
+                    </div>
+
+                    {/* Middle: Title & Description */}
+                    <div className="relative z-10 my-auto">
+                      <h3 className="font-extrabold text-slate-900 text-lg sm:text-xl tracking-tight leading-snug mb-1 group-hover:text-cyan-600 transition-colors">
+                        Topic Wise Mock
+                      </h3>
+                      <p className="text-xs sm:text-sm text-slate-500 font-medium leading-relaxed">
+                        Chapter-wise & topic-focused mock tests designed to strengthen individual subject concepts.
+                      </p>
+                    </div>
+
+                    {/* Bottom Link */}
+                    <div className="relative z-10 pt-3 mt-4 border-t border-slate-100/90 flex items-center justify-between text-xs font-bold text-slate-400 group-hover:text-cyan-600 transition-colors">
+                      <span>Explore Topic Mocks</span>
+                      <ChevronRight className="w-4.5 h-4.5 text-slate-400 group-hover:text-cyan-600 group-hover:translate-x-1 transition-all" />
+                    </div>
+                  </button>
+
+                  {/* 2. Sectional Mock */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('mock_sectional')}
+                    className="group relative overflow-hidden rounded-[26px] p-6 text-left bg-white border border-slate-200/80 hover:border-rose-400 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col justify-between min-h-[185px] w-full"
+                  >
+                    {/* Faint watermark graphic */}
+                    <span className="absolute -top-3 -right-3 text-8xl opacity-5 select-none pointer-events-none transform rotate-12 group-hover:scale-110 group-hover:opacity-10 transition-all duration-300">
+                      📊
+                    </span>
+
+                    {/* Top Row: Left Icon Box + Right Top Live Count Badge */}
+                    <div className="flex items-start justify-between w-full relative z-10 mb-3">
+                      <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 border border-rose-100/60 flex items-center justify-center text-2xl shadow-2xs group-hover:scale-105 transition-transform duration-300">
+                        📊
+                      </div>
+
+                      {/* Top-right glowing shape header live count badge */}
+                      <div className="px-3 py-1 rounded-full bg-rose-600 text-white font-black text-xs min-w-[36px] text-center tracking-tight shadow-md shadow-rose-500/30 ring-4 ring-rose-50/80 group-hover:scale-110 transition-transform duration-300">
+                        {sectionalCount}
+                      </div>
+                    </div>
+
+                    {/* Middle: Title & Description */}
+                    <div className="relative z-10 my-auto">
+                      <h3 className="font-extrabold text-slate-900 text-lg sm:text-xl tracking-tight leading-snug mb-1 group-hover:text-rose-600 transition-colors">
+                        Sectional Mock
+                      </h3>
+                      <p className="text-xs sm:text-sm text-slate-500 font-medium leading-relaxed">
+                        Subject-wise timed sectional tests to boost speed, accuracy & section performance.
+                      </p>
+                    </div>
+
+                    {/* Bottom Link */}
+                    <div className="relative z-10 pt-3 mt-4 border-t border-slate-100/90 flex items-center justify-between text-xs font-bold text-slate-400 group-hover:text-rose-600 transition-colors">
+                      <span>Explore Sectional Mocks</span>
+                      <ChevronRight className="w-4.5 h-4.5 text-slate-400 group-hover:text-rose-600 group-hover:translate-x-1 transition-all" />
+                    </div>
+                  </button>
+
+                  {/* 3. Full Mock */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('mock_full')}
+                    className="group relative overflow-hidden rounded-[26px] p-6 text-left bg-white border border-slate-200/80 hover:border-amber-400 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col justify-between min-h-[185px] w-full"
+                  >
+                    {/* Faint watermark graphic */}
+                    <span className="absolute -top-3 -right-3 text-8xl opacity-5 select-none pointer-events-none transform rotate-12 group-hover:scale-110 group-hover:opacity-10 transition-all duration-300">
+                      🏆
+                    </span>
+
+                    {/* Top Row: Left Icon Box + Right Top Live Count Badge */}
+                    <div className="flex items-start justify-between w-full relative z-10 mb-3">
+                      <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 border border-amber-100/60 flex items-center justify-center text-2xl shadow-2xs group-hover:scale-105 transition-transform duration-300">
+                        🏆
+                      </div>
+
+                      {/* Top-right glowing shape header live count badge */}
+                      <div className="px-3 py-1 rounded-full bg-amber-500 text-white font-black text-xs min-w-[36px] text-center tracking-tight shadow-md shadow-amber-500/30 ring-4 ring-amber-50/80 group-hover:scale-110 transition-transform duration-300">
+                        {fullCount}
+                      </div>
+                    </div>
+
+                    {/* Middle: Title & Description */}
+                    <div className="relative z-10 my-auto">
+                      <h3 className="font-extrabold text-slate-900 text-lg sm:text-xl tracking-tight leading-snug mb-1 group-hover:text-amber-600 transition-colors">
+                        Full Mock Test
+                      </h3>
+                      <p className="text-xs sm:text-sm text-slate-500 font-medium leading-relaxed">
+                        Complete full-length mock exams designed to simulate real exam paper environment.
+                      </p>
+                    </div>
+
+                    {/* Bottom Link */}
+                    <div className="relative z-10 pt-3 mt-4 border-t border-slate-100/90 flex items-center justify-between text-xs font-bold text-slate-400 group-hover:text-amber-600 transition-colors">
+                      <span>Explore Full Mocks</span>
+                      <ChevronRight className="w-4.5 h-4.5 text-slate-400 group-hover:text-amber-600 group-hover:translate-x-1 transition-all" />
+                    </div>
+                  </button>
+
+                </div>
+
+                {/* Pro tip banner */}
+                <div className="mt-5 flex items-center gap-3 rounded-2xl px-4 py-3 bg-slate-900 border border-indigo-500/25">
+                  <span className="text-lg shrink-0">💡</span>
+                  <p className="text-xs font-semibold leading-relaxed text-indigo-200">
+                    <span className="font-black text-white">Pro Tip: </span>
+                    Start with Topic Wise → Sectional → Full Mock for complete exam readiness.
+                  </p>
                 </div>
               </div>
-
-              {/* Glassmorphic Mock Test Sub-category Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                
-                {/* Card 1: Topic Wise Mock */}
-                <button
-                  onClick={() => setActiveTab('mock_topic')}
-                  className="group relative overflow-hidden rounded-3xl p-5 text-left backdrop-blur-md bg-white/60 border border-slate-200/50 hover:border-cyan-300 hover:bg-white/80 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between min-h-[170px]"
-                >
-                  <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-cyan-400 to-sky-400" />
-                  
-                  <div className="absolute top-4 right-4">
-                    <span className="bg-cyan-50 text-cyan-600 font-black uppercase text-[8px] px-2.5 py-1 rounded-full tracking-widest border border-cyan-100">
-                      Focused
-                    </span>
-                  </div>
-
-                  <div>
-                    <div className="w-11 h-11 rounded-2xl bg-cyan-50 flex items-center justify-center text-cyan-500 mb-4 group-hover:scale-110 transition-transform duration-300">
-                      <Target className="w-5.5 h-5.5" />
-                    </div>
-                    <h3 className="font-black text-slate-800 text-sm leading-tight">Topic Wise Mock</h3>
-                    <p className="text-[10px] text-slate-500 font-semibold mt-1.5 leading-relaxed">Practice mock tests curated specifically for each chapter & topic.</p>
-                  </div>
-
-                  <div className="mt-4 flex items-center justify-between text-cyan-600 text-[10px] font-black uppercase tracking-wider w-full">
-                    <span>120+ Tests Available</span>
-                    <div className="w-6 h-6 rounded-full bg-cyan-50 flex items-center justify-center border border-cyan-100 group-hover:bg-cyan-500 group-hover:text-white transition-colors duration-300">
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </div>
-                  </div>
-                </button>
-
-                {/* Card 2: Sectional Mock */}
-                <button
-                  onClick={() => setActiveTab('mock_sectional')}
-                  className="group relative overflow-hidden rounded-3xl p-5 text-left backdrop-blur-md bg-white/60 border border-slate-200/50 hover:border-rose-300 hover:bg-white/80 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between min-h-[170px]"
-                >
-                  <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-rose-400 to-pink-400" />
-                  
-                  <div className="absolute top-4 right-4">
-                    <span className="bg-rose-50 text-rose-600 font-black uppercase text-[8px] px-2.5 py-1 rounded-full tracking-widest border border-rose-100">
-                      Timed
-                    </span>
-                  </div>
-
-                  <div>
-                    <div className="w-11 h-11 rounded-2xl bg-rose-50 flex items-center justify-center text-rose-500 mb-4 group-hover:scale-110 transition-transform duration-300">
-                      <BarChart3 className="w-5.5 h-5.5" />
-                    </div>
-                    <h3 className="font-black text-slate-800 text-sm leading-tight">Sectional Mock</h3>
-                    <p className="text-[10px] text-slate-500 font-semibold mt-1.5 leading-relaxed">Test your speed and accuracy in subject-wise timed mock sections.</p>
-                  </div>
-
-                  <div className="mt-4 flex items-center justify-between text-rose-600 text-[10px] font-black uppercase tracking-wider w-full">
-                    <span>45+ Sectional Papers</span>
-                    <div className="w-6 h-6 rounded-full bg-rose-50 flex items-center justify-center border border-rose-100 group-hover:bg-rose-500 group-hover:text-white transition-colors duration-300">
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </div>
-                  </div>
-                </button>
-
-                {/* Card 3: Full Mock */}
-                <button
-                  onClick={() => setActiveTab('mock_full')}
-                  className="group relative overflow-hidden rounded-3xl p-5 text-left backdrop-blur-md bg-white/60 border border-slate-200/50 hover:border-amber-300 hover:bg-white/80 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between min-h-[170px]"
-                >
-                  <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-amber-400 to-orange-400" />
-                  
-                  <div className="absolute top-4 right-4">
-                    <span className="bg-amber-50 text-amber-600 font-black uppercase text-[8px] px-2.5 py-1 rounded-full tracking-widest border border-amber-100">
-                      Real Exam
-                    </span>
-                  </div>
-
-                  <div>
-                    <div className="w-11 h-11 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-500 mb-4 group-hover:scale-110 transition-transform duration-300">
-                      <Trophy className="w-5.5 h-5.5" />
-                    </div>
-                    <h3 className="font-black text-slate-800 text-sm leading-tight">Full Mock</h3>
-                    <p className="text-[10px] text-slate-500 font-semibold mt-1.5 leading-relaxed">Complete full-length mock exams designed to simulate real exam environments.</p>
-                  </div>
-
-                  <div className="mt-4 flex items-center justify-between text-amber-600 text-[10px] font-black uppercase tracking-wider w-full">
-                    <span>15+ Full Length</span>
-                    <div className="w-6 h-6 rounded-full bg-amber-50 flex items-center justify-center border border-amber-100 group-hover:bg-amber-500 group-hover:text-white transition-colors duration-300">
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </div>
-                  </div>
-                </button>
-
-
-
-              </div>
-
-              {/* Pro tip */}
-              <div className="mt-5 flex items-center gap-3 rounded-2xl px-4 py-3" style={{ background:'#0f172a', border:'1px solid rgba(99,102,241,0.25)' }}>
-                <span className="text-lg shrink-0">💡</span>
-                <p className="text-xs font-semibold leading-relaxed" style={{ color:'rgba(165,180,252,0.8)' }}>
-                  <span className="font-black text-white">Pro Tip: </span>
-                  Start with Topic Wise → Sectional → Full Mock for complete exam readiness.
-                </p>
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* ── Learn Landing (category chooser) ────────────────────────── */}
           {activeTab === 'learn_landing' && (
@@ -3269,131 +3567,284 @@ export default function Dashboard() {
                   );
                 }
 
-                // Group full tests by examCategory
-                const examGroupMap: Record<string, typeof fullTests> = {};
-                fullTests.forEach(t => {
-                  const ex = t.examCategory || t.category || 'General Full Mock';
-                  if (!examGroupMap[ex]) examGroupMap[ex] = [];
-                  examGroupMap[ex].push(t);
-                });
+                const normalizeExamCat = (rawCat?: string, title?: string): string => {
+                  const c = String(rawCat || '').trim();
+                  const t = String(title || '').toLowerCase();
+                  if (c.toUpperCase() === 'WPSC' || c.toUpperCase() === 'WBPSC') {
+                    if (t.includes('clerkship')) return 'WBPSC Clerkship';
+                    return 'WBPSC';
+                  }
+                  return c || 'General Full Mock';
+                };
+
+                // Extract all unique exam categories present in fullTests
+                const fullCategories = Array.from(
+                  new Set(fullTests.map(t => normalizeExamCat(t.examCategory || t.category, t.title)))
+                ).sort();
 
                 return (
-                  <div className="space-y-4">
-                    {Object.entries(examGroupMap).map(([examName, examTests]) => {
-                      const totalExamTests = examTests.length;
-                      const takenExamCount = examTests.filter(t => pastResults.some(r => r.testId === t.id)).length;
-                      const isExamExpanded = expandedCategory === examName || expandedCategory === null;
+                  <div className="space-y-6">
+                    {/* Full Mock Categories Square / Compact Cards Grid (Shown when NO category selected) */}
+                    {!selectedCategory && (
+                      <div className="space-y-4 mb-6">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="w-1.5 h-8 bg-gradient-to-b from-indigo-500 to-violet-600 rounded-full" />
+                          <div>
+                            <h3 className="font-black text-slate-900 text-base md:text-lg tracking-tight">
+                              🏆 Full Mock Exam Categories
+                            </h3>
+                            <p className="text-xs text-slate-500 font-medium">Select an exam category card below to view its full length mock test papers</p>
+                          </div>
+                        </div>
 
-                      return (
-                        <div key={examName} className="bg-white border border-slate-200/60 rounded-2xl shadow-xs overflow-hidden transition-all duration-300">
-                          <button
-                            onClick={() => setExpandedCategory(expandedCategory === examName ? 'none' : examName)}
-                            className="w-full flex items-center justify-between p-4 md:p-5 border-l-4 border-l-indigo-600 bg-indigo-50/30 text-left transition-colors duration-200"
-                          >
-                            <div className="flex items-center gap-3.5">
-                              <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 shadow-xs font-black text-sm">
-                                🎯
-                              </div>
-                              <div>
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Target Exam</span>
-                                <h3 className="font-extrabold text-slate-900 text-sm md:text-base leading-tight">{examName}</h3>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700">
-                                {totalExamTests} Full {totalExamTests === 1 ? 'Mock' : 'Mocks'} ({takenExamCount} Done)
-                              </span>
-                              <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${isExamExpanded ? 'rotate-180 text-indigo-500' : ''}`} />
-                            </div>
-                          </button>
+                        {/* Square / Compact Category Cards Responsive Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5">
+                          {fullCategories.map(catName => {
+                            const meta = getFullMockMeta(catName);
+                            const count = fullTests.filter(t => normalizeExamCat(t.examCategory || t.category, t.title).toUpperCase() === catName.toUpperCase()).length;
 
-                          {isExamExpanded && (
-                            <div className="p-4 md:p-5 bg-white space-y-3 border-t border-slate-100">
-                              {examTests.map((test, testIdx) => {
-                                const attemptsForTest = pastResults
-                                  .filter((r: any) => r.testId === test.id)
-                                  .sort((a: any, b: any) => a.timestamp - b.timestamp);
-                                const isTaken = attemptsForTest.length > 0;
-                                const attemptCount = attemptsForTest.length;
-                                const latestAttempt = attemptsForTest[attemptCount - 1];
+                            return (
+                              <button
+                                key={catName}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedCategory(catName);
+                                  setExpandedCategory(catName);
+                                }}
+                                className="group relative overflow-hidden rounded-[26px] p-5 md:p-6 text-left bg-white border border-slate-200/80 hover:border-indigo-300 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col justify-between min-h-[175px] w-full"
+                              >
+                                {/* Faint watermark graphic */}
+                                <span className="absolute -top-3 -right-3 text-7xl opacity-5 select-none pointer-events-none transform rotate-12 group-hover:scale-110 group-hover:opacity-10 transition-all duration-300">
+                                  {meta.watermark}
+                                </span>
 
-                                return (
-                                  <div key={test.id} className="bg-slate-50/50 rounded-2xl border border-slate-200/60 hover:border-indigo-100 hover:bg-white hover:shadow-xs transition-all duration-200 p-4">
-                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                                        <div className="w-8 h-8 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-lg flex items-center justify-center shrink-0 font-black text-xs">
-                                          {testIdx + 1}
-                                        </div>
-                                        <div className="min-w-0">
-                                          <div className="flex items-center gap-2 flex-wrap">
-                                            <h4 className="font-extrabold text-slate-800 text-xs md:text-sm leading-snug">{test.title}</h4>
-                                            {test.examCategory && (
-                                              <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 text-[8px] font-black uppercase tracking-wider rounded-md shrink-0">
-                                                🎯 {test.examCategory}
-                                              </span>
-                                            )}
-                                            {test.isPaid && myPurchases.length === 0
-                                              ? <span className="px-1.5 py-0.5 bg-rose-100 text-rose-600 text-[8px] font-black uppercase tracking-widest rounded-full border border-rose-200 shrink-0">👑 Premium</span>
-                                              : test.isPaid
-                                                ? <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[8px] font-black uppercase tracking-widest rounded-full border border-emerald-200 shrink-0">✔ Unlocked</span>
-                                                : <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded-full border border-emerald-100 shrink-0">Free</span>
-                                            }
-                                            {isTaken && (
-                                              <span className="px-1.5 py-0.5 bg-emerald-500 text-white text-[8px] font-black uppercase tracking-widest rounded-full shrink-0">
-                                                ✓ Attempted {attemptCount > 1 ? `×${attemptCount}` : ''}
-                                              </span>
-                                            )}
-                                          </div>
-                                          
-                                          <div className="flex items-center gap-3 mt-1 flex-wrap">
-                                            <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1">
-                                              ⏱️ {test.duration || 30} mins
-                                            </span>
-                                            <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1">
-                                              🎯 {test.marksPerCorrect || 1} Marks/Question
-                                            </span>
-                                            {isTaken && latestAttempt && (
-                                              <span className="text-[9px] font-bold text-indigo-500 flex items-center gap-1">
-                                                📈 Latest Score: {latestAttempt.score} marks
-                                              </span>
-                                            )}
-                                          </div>
-                                        </div>
-                                      </div>
+                                {/* Top header row: Icon Box left, Live count badge right */}
+                                <div className="flex items-start justify-between w-full relative z-10 mb-3">
+                                  <div className={`w-12 h-12 rounded-2xl ${meta.bg} flex items-center justify-center text-2xl shadow-2xs group-hover:scale-105 transition-transform duration-300`}>
+                                    {meta.icon}
+                                  </div>
 
-                                      <div className="flex items-center gap-2 shrink-0 self-end md:self-auto flex-wrap justify-end">
-                                        {test.isPaid && myPurchases.length === 0 ? (
-                                          <button
-                                            onClick={() => {
-                                              const b = paidBatches[0];
-                                              if (b) {
-                                                window.open(`${razorpayMeUrl}?amount=${b.price * 100}&description=${encodeURIComponent(b.examName)}`, '_blank');
-                                                setBuyingBatch(b); setBuyError(''); setTxnId('');
-                                              } else navigate('/paid-mock');
-                                            }}
-                                            className="px-3.5 py-2 font-black text-[9px] uppercase tracking-widest rounded-xl flex items-center gap-1.5 transition-all hover:brightness-110 active:scale-95 text-white shadow-xs"
-                                            style={{background:'linear-gradient(135deg,#10b981,#059669)'}}>
-                                            🛒 Buy Now
-                                          </button>
-                                        ) : (
-                                          <Link
-                                            to={`/test/${test.id}`}
-                                            className="px-3.5 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-black text-[9px] uppercase tracking-widest rounded-xl hover:from-slate-900 hover:to-slate-900 transition-all shadow-xs flex items-center gap-1 active:scale-95"
-                                          >
-                                            {isTaken ? 'Reattempt' : 'Attempt'}
-                                            <ChevronRight className="w-3 h-3" />
-                                          </Link>
-                                        )}
-                                      </div>
+                                  {/* Right side top glowing live count badge */}
+                                  <div className={`px-2.5 py-1 rounded-full ${meta.badgeBg} font-black text-xs min-w-[32px] text-center tracking-tight group-hover:scale-110 transition-transform duration-300`}>
+                                    {count}
+                                  </div>
+                                </div>
+
+                                {/* Middle: Title & Description */}
+                                <div className="relative z-10 my-auto">
+                                  <h3 className="font-extrabold text-slate-900 text-base md:text-lg tracking-tight leading-snug mb-1 group-hover:text-indigo-600 transition-colors">
+                                    {catName}
+                                  </h3>
+                                  <p className="text-xs md:text-sm text-slate-500 font-medium leading-relaxed line-clamp-2">
+                                    {meta.desc}
+                                  </p>
+                                </div>
+
+                                {/* Bottom Link */}
+                                <div className="relative z-10 pt-3 mt-3 border-t border-slate-100/90 flex items-center justify-between text-xs font-bold text-slate-400 group-hover:text-indigo-600 transition-colors">
+                                  <span>Explore Full Mocks</span>
+                                  <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all" />
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Back Header when category IS selected */}
+                    {selectedCategory && (
+                      <div className="mb-4 flex items-center justify-between bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCategory('')}
+                          className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                        >
+                          <ArrowLeft className="w-3.5 h-3.5 text-indigo-600" /> Back to Full Mock Categories
+                        </button>
+                        <span className="text-xs font-black text-slate-500">
+                          Target Exam: <span className="text-indigo-600 font-black">{selectedCategory}</span>
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Render Full Mock Tests for selectedCategory */}
+                    {selectedCategory && (
+                      <div className="space-y-4">
+                        {fullCategories
+                          .filter(catName => catName.toUpperCase() === selectedCategory.toUpperCase())
+                          .map(examName => {
+                            const examTests = fullTests.filter(t => normalizeExamCat(t.examCategory || t.category, t.title).toUpperCase() === examName.toUpperCase());
+                            const totalExamTests = examTests.length;
+                            const takenExamCount = examTests.filter(t => pastResults.some(r => r.testId === t.id)).length;
+
+                            return (
+                              <div key={examName} className="bg-white border border-slate-200/60 rounded-2xl shadow-xs overflow-hidden transition-all duration-300">
+                                <div className="w-full flex items-center justify-between p-4 md:p-5 border-l-4 border-l-indigo-600 bg-indigo-50/30 text-left">
+                                  <div className="flex items-center gap-3.5">
+                                    <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 shadow-xs font-black text-sm">
+                                      🏆
+                                    </div>
+                                    <div>
+                                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Full Mock Series</span>
+                                      <h3 className="font-extrabold text-slate-900 text-sm md:text-base leading-tight">{examName}</h3>
                                     </div>
                                   </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                                  <div className="flex items-center gap-3">
+                                    <span className="px-3 py-1 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-black text-xs shadow-md shadow-indigo-500/30 ring-4 ring-indigo-50/80 tracking-tight">
+                                      🎯 {totalExamTests} Full {totalExamTests === 1 ? 'Mock' : 'Mocks'} Available ({takenExamCount} Done)
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="p-4 md:p-5 bg-white space-y-3.5 border-t border-slate-100">
+                                  {examTests.map((test, testIdx) => {
+                                    const attemptsForTest = pastResults
+                                      .filter((r: any) => r.testId === test.id)
+                                      .sort((a: any, b: any) => a.timestamp - b.timestamp);
+                                    const isTaken = attemptsForTest.length > 0;
+                                    const attemptCount = attemptsForTest.length;
+                                    const latestAttempt = attemptsForTest[attemptCount - 1];
+
+                                    const testCardColors = [
+                                      { bg: 'bg-gradient-to-r from-indigo-50/40 via-white to-white border-2 border-indigo-100 hover:border-indigo-400 border-l-4 border-l-indigo-600', numBg: 'bg-indigo-600 text-white', btn: 'from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700' },
+                                      { bg: 'bg-gradient-to-r from-emerald-50/40 via-white to-white border-2 border-emerald-100 hover:border-emerald-400 border-l-4 border-l-emerald-600', numBg: 'bg-emerald-600 text-white', btn: 'from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700' },
+                                      { bg: 'bg-gradient-to-r from-rose-50/40 via-white to-white border-2 border-rose-100 hover:border-rose-400 border-l-4 border-l-rose-600', numBg: 'bg-rose-600 text-white', btn: 'from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700' },
+                                      { bg: 'bg-gradient-to-r from-amber-50/40 via-white to-white border-2 border-amber-100 hover:border-amber-400 border-l-4 border-l-amber-600', numBg: 'bg-amber-600 text-white', btn: 'from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700' },
+                                    ];
+                                    const tStyle = testCardColors[testIdx % testCardColors.length];
+
+                                    return (
+                                      <div key={test.id} className={`rounded-2xl p-4 shadow-2xs hover:shadow-md transition-all duration-200 ${tStyle.bg}`}>
+                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                                          <div className="flex items-start gap-3 flex-1 min-w-0">
+                                            <div className={`w-8 h-8 rounded-xl ${tStyle.numBg} flex items-center justify-center shrink-0 font-black text-xs shadow-xs mt-0.5`}>
+                                              {testIdx + 1}
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                              <div className="flex items-center gap-2 flex-wrap mb-1">
+                                                <h4 className="font-extrabold text-slate-900 text-xs md:text-sm leading-snug">{test.title}</h4>
+                                                {test.examCategory && (
+                                                  <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 text-[8px] font-black uppercase tracking-wider rounded-md shrink-0">
+                                                    🎯 {test.examCategory}
+                                                  </span>
+                                                )}
+                                                {test.isPaid && myPurchases.length === 0
+                                                  ? <span className="px-2 py-0.5 bg-rose-100 text-rose-700 text-[8px] font-black uppercase tracking-widest rounded-full border border-rose-200 shrink-0">👑 Premium</span>
+                                                  : test.isPaid
+                                                    ? <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[8px] font-black uppercase tracking-widest rounded-full border border-emerald-200 shrink-0">✔ Unlocked</span>
+                                                    : <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[8px] font-black uppercase tracking-widest rounded-full border border-emerald-200 shrink-0">Free Test</span>
+                                                }
+                                                {isTaken && (
+                                                  <span className="px-2 py-0.5 bg-emerald-600 text-white text-[8px] font-black uppercase tracking-widest rounded-full shadow-2xs shrink-0">
+                                                    ✓ Attempted {attemptCount > 1 ? `×${attemptCount}` : ''}
+                                                  </span>
+                                                )}
+                                              </div>
+                                              
+                                              <div className="flex items-center gap-3 mt-1.5 flex-wrap text-[10px] font-bold text-slate-500">
+                                                <span className="flex items-center gap-1 bg-slate-100/80 px-2 py-0.5 rounded-md border border-slate-200/60">
+                                                  ⏱️ {test.duration || 90} Mins
+                                                </span>
+                                                <span className="flex items-center gap-1 bg-slate-100/80 px-2 py-0.5 rounded-md border border-slate-200/60">
+                                                  ❓ {test.questions?.length || test.totalQuestions || 100} Questions
+                                                </span>
+                                                <span className="flex items-center gap-1 bg-slate-100/80 px-2 py-0.5 rounded-md border border-slate-200/60">
+                                                  🎯 {test.marksPerCorrect || 1} Marks/Q
+                                                </span>
+                                                {isTaken && latestAttempt && (
+                                                  <span className="flex items-center gap-1 bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-md font-black">
+                                                    📈 Score: {latestAttempt.score}
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          <div className="flex items-center gap-2 shrink-0 self-end md:self-auto flex-wrap justify-end">
+                                            {/* Download PDF Button */}
+                                            <button
+                                              onClick={() => handleDownloadQuestionsPDF(test.id, test.title)}
+                                              disabled={downloadingPdfId === test.id}
+                                              className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-extrabold text-[9px] uppercase tracking-wider rounded-xl transition-all flex items-center gap-1 cursor-pointer border border-emerald-200 shadow-2xs"
+                                              title="Download Question Paper & Answer Key PDF"
+                                            >
+                                              <Download className="w-3 h-3 text-emerald-600" />
+                                              {downloadingPdfId === test.id ? 'PDF...' : '📄 PDF'}
+                                            </button>
+
+                                            {/* Previous attempts dropdown */}
+                                            {!test.isPaid && isTaken && (
+                                              <div className="relative">
+                                                <button
+                                                  onClick={() => setOpenAttemptDropdown(openAttemptDropdown === test.id ? null : test.id)}
+                                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl font-black text-[9px] uppercase tracking-widest border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-all active:scale-95 cursor-pointer shadow-2xs"
+                                                >
+                                                  <BarChart3 className="w-3 h-3" />
+                                                  Attempts
+                                                  <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${openAttemptDropdown === test.id ? 'rotate-180' : ''}`} />
+                                                </button>
+
+                                                {openAttemptDropdown === test.id && (
+                                                  <>
+                                                    <div className="fixed inset-0 z-40" onClick={() => setOpenAttemptDropdown(null)} />
+                                                    <div className="absolute right-0 top-full mt-1.5 z-50 bg-white border border-slate-200 rounded-xl shadow-xl min-w-[260px] overflow-hidden animate-in fade-in">
+                                                      <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center gap-1.5">
+                                                        <BarChart3 className="w-3 h-3 text-indigo-500" />
+                                                        <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Select attempt for analysis</p>
+                                                      </div>
+                                                      <div className="py-0.5 max-h-[180px] overflow-y-auto">
+                                                        {attemptsForTest.map((r: any, i: number) => (
+                                                          <button
+                                                            key={r.id}
+                                                            onClick={() => { openAnalysis(r); setOpenAttemptDropdown(null); }}
+                                                            className="w-full flex items-center justify-between px-3 py-2 hover:bg-slate-50 active:bg-slate-100 transition-colors text-left text-[10px]"
+                                                          >
+                                                            <span className="font-extrabold text-slate-700">Attempt {i + 1}</span>
+                                                            <span className="font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">{r.score} Marks</span>
+                                                          </button>
+                                                        ))}
+                                                      </div>
+                                                    </div>
+                                                  </>
+                                                )}
+                                              </div>
+                                            )}
+
+                                            {/* Attempt Button */}
+                                            {test.isPaid && myPurchases.length === 0 ? (
+                                              <button
+                                                onClick={() => {
+                                                  const b = paidBatches[0];
+                                                  if (b) {
+                                                    window.open(`${razorpayMeUrl}?amount=${b.price * 100}&description=${encodeURIComponent(b.examName)}`, '_blank');
+                                                    setBuyingBatch(b); setBuyError(''); setTxnId('');
+                                                  } else navigate('/paid-mock');
+                                                }}
+                                                className="px-3.5 py-2 font-black text-[9px] uppercase tracking-widest rounded-xl flex items-center gap-1.5 transition-all hover:brightness-110 active:scale-95 text-white shadow-xs"
+                                                style={{background:'linear-gradient(135deg,#10b981,#059669)'}}>
+                                                🛒 Unlock Now
+                                              </button>
+                                            ) : (
+                                              <Link
+                                                to={`/test/${test.id}`}
+                                                className={`px-3.5 py-2 bg-gradient-to-r ${tStyle.btn} text-white font-black text-[9.5px] uppercase tracking-widest rounded-xl transition-all shadow-xs flex items-center gap-1.5 active:scale-95`}
+                                              >
+                                                {isTaken ? 'Reattempt Test' : 'Attempt Test'}
+                                                <ChevronRight className="w-3.5 h-3.5" />
+                                              </Link>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    )}
                   </div>
                 );
               })() : categories.length === 0 ? (
@@ -3406,6 +3857,219 @@ export default function Dashboard() {
                   </div>
                 ) : (
                   <div className="space-y-4">
+                    {/* Topic Wise Mock Subject Categories Square Cards Grid (Shown when NO category selected) */}
+                    {activeTab === 'mock_topic' && !selectedCategory && (
+                      <div className="space-y-4 mb-6">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="w-1.5 h-8 bg-gradient-to-b from-indigo-500 to-violet-600 rounded-full" />
+                          <div>
+                            <h3 className="font-black text-slate-900 text-base md:text-lg tracking-tight">
+                              🎯 Topic Wise Subject Categories
+                            </h3>
+                            <p className="text-xs text-slate-500 font-medium">Select a subject card below to view its chapter & topic-wise practice tests</p>
+                          </div>
+                        </div>
+
+                        {/* Compact & Professional Category Cards Grid - Matching Reference Design */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5">
+                          {categories.map(subj => {
+                            const meta = getSubjectMeta(subj);
+                            const count = activeTests.filter(t => {
+                              const tType = t.testType || t.test_type || 'topic';
+                              if (tType !== 'topic') return false;
+                              if (t.category === "150 Days Free Practice" || t.title?.includes("150 Days")) return false;
+                              const dispName = getSubjectDisplayName(t.category, t.subject_name);
+                              return dispName.toUpperCase() === subj.toUpperCase() || (t.category || '').toUpperCase() === subj.toUpperCase();
+                            }).length;
+
+                            return (
+                              <button
+                                key={subj}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedCategory(subj);
+                                  setExpandedCategory(subj);
+                                }}
+                                className="group relative overflow-hidden rounded-[26px] p-5 md:p-6 text-left bg-white border border-slate-200/80 hover:border-indigo-300 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col justify-between min-h-[175px] w-full"
+                              >
+                                {/* Faint background watermark graphic from reference image */}
+                                <span className="absolute -top-3 -right-3 text-7xl opacity-5 select-none pointer-events-none transform rotate-12 group-hover:scale-110 group-hover:opacity-10 transition-all duration-300">
+                                  {meta.watermark}
+                                </span>
+
+                                {/* Top header row: Icon box left, Top-right Count Badge right */}
+                                <div className="flex items-start justify-between w-full relative z-10 mb-3">
+                                  <div className={`w-12 h-12 rounded-2xl ${meta.iconBg} flex items-center justify-center text-2xl shadow-2xs group-hover:scale-105 transition-transform duration-300`}>
+                                    {meta.icon}
+                                  </div>
+
+                                  {/* Right side Top Badge with exact live count & glowing drop-shadow + ring */}
+                                  <div className={`px-2.5 py-1 rounded-full ${meta.badgeBg} font-black text-xs min-w-[32px] text-center tracking-tight group-hover:scale-110 transition-transform duration-300`}>
+                                    {count}
+                                  </div>
+                                </div>
+
+                                {/* Middle: Card Title & Description */}
+                                <div className="relative z-10 my-auto">
+                                  <h3 className="font-extrabold text-slate-900 text-base md:text-lg tracking-tight leading-snug mb-1 group-hover:text-indigo-600 transition-colors">
+                                    {subj}
+                                  </h3>
+                                  <p className="text-xs md:text-sm text-slate-500 font-medium leading-relaxed line-clamp-2">
+                                    {meta.desc}
+                                  </p>
+                                </div>
+
+                                {/* Bottom: Action link */}
+                                <div className="relative z-10 pt-3 mt-3 border-t border-slate-100/90 flex items-center justify-between text-xs font-bold text-slate-400 group-hover:text-indigo-600 transition-colors">
+                                  <span>Explore Mock Tests</span>
+                                  <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all" />
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* PYQ Categories Square / Compact Cards Grid (Shown when NO category selected) */}
+                    {activeTab === 'pyq' && !selectedCategory && (() => {
+                      const normalizePyqCat = (rawCat?: string, title?: string): string => {
+                        const c = String(rawCat || '').trim();
+                        const t = String(title || '').toLowerCase();
+                        if (c.toUpperCase() === 'WPSC' || c.toUpperCase() === 'WBPSC') {
+                          if (t.includes('clerkship')) return 'WBPSC Clerkship';
+                          return 'WBPSC';
+                        }
+                        return c || 'General PYQ';
+                      };
+
+                      const pyqTests = activeTests.filter(t => {
+                        const type = String(t.testType || t.test_type || '').toLowerCase();
+                        if (type.includes('pyq') || type.includes('full')) return true;
+                        const cat = String(t.category || t.examCategory || '').toLowerCase();
+                        if (cat.includes('pyq') || cat.includes('wbcs') || cat.includes('clerk') || cat.includes('wbp') || cat.includes('kp') || cat.includes('railway') || cat.includes('ssc')) return true;
+                        const title = String(t.title || '').toLowerCase();
+                        if (title.includes('pyq') || title.includes('official') || title.includes('prelims') || title.includes('2019') || title.includes('2021') || title.includes('2022') || title.includes('2023') || title.includes('2024')) return true;
+                        return false;
+                      });
+
+                      const pyqCategoriesList = Array.from(
+                        new Set([
+                          'WBCS', 'WBPSC Clerkship', 'WBP', 'KP', 'RAILWAY', 'SSC',
+                          ...pyqTests.map(t => normalizePyqCat(t.examCategory || t.category, t.title))
+                        ])
+                      ).sort();
+
+                      return (
+                        <div className="space-y-4 mb-6">
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className="w-1.5 h-8 bg-gradient-to-b from-amber-500 to-orange-600 rounded-full" />
+                            <div>
+                              <h3 className="font-black text-slate-900 text-base md:text-lg tracking-tight">
+                                📁 Previous Year Question Paper Categories
+                              </h3>
+                              <p className="text-xs text-slate-500 font-medium">Select an exam category card below to view its official previous year question paper mocks</p>
+                            </div>
+                          </div>
+
+                          {/* Square / Compact Category Cards Responsive Grid */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5">
+                            {pyqCategoriesList.map(catName => {
+                              const meta = getFullMockMeta(catName);
+                              const count = pyqTests.filter(t => normalizePyqCat(t.examCategory || t.category, t.title).toUpperCase() === catName.toUpperCase()).length;
+
+                              return (
+                                <button
+                                  key={catName}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedCategory(catName);
+                                    setExpandedCategory(catName);
+                                  }}
+                                  className="group relative overflow-hidden rounded-[26px] p-5 md:p-6 text-left bg-white border border-slate-200/80 hover:border-amber-400 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col justify-between min-h-[175px] w-full"
+                                >
+                                  {/* Faint watermark graphic */}
+                                  <span className="absolute -top-3 -right-3 text-7xl opacity-5 select-none pointer-events-none transform rotate-12 group-hover:scale-110 group-hover:opacity-10 transition-all duration-300">
+                                    {meta.watermark}
+                                  </span>
+
+                                  {/* Top header row: Icon Box left, Live count badge right */}
+                                  <div className="flex items-start justify-between w-full relative z-10 mb-3">
+                                    <div className={`w-12 h-12 rounded-2xl ${meta.bg} flex items-center justify-center text-2xl shadow-2xs group-hover:scale-105 transition-transform duration-300`}>
+                                      {meta.icon}
+                                    </div>
+
+                                    {/* Top-Right Header Glowing Live Count Badge */}
+                                    <div className="px-3 py-1 rounded-full bg-amber-500 text-white font-black text-xs min-w-[36px] text-center tracking-tight shadow-md shadow-amber-500/30 ring-4 ring-amber-50/80 group-hover:scale-110 transition-transform duration-300">
+                                      {count}
+                                    </div>
+                                  </div>
+
+                                  {/* Middle: Title & Description */}
+                                  <div className="relative z-10 my-auto">
+                                    <h3 className="font-extrabold text-slate-900 text-base md:text-lg tracking-tight leading-snug mb-1 group-hover:text-amber-600 transition-colors">
+                                      {catName}
+                                    </h3>
+                                    <p className="text-xs md:text-sm text-slate-500 font-medium leading-relaxed line-clamp-2">
+                                      {meta.desc}
+                                    </p>
+                                  </div>
+
+                                  {/* Bottom Link */}
+                                  <div className="relative z-10 pt-3 mt-3 border-t border-slate-100/90 flex items-center justify-between text-xs font-bold text-slate-400 group-hover:text-amber-600 transition-colors">
+                                    <span>Explore PYQ Papers</span>
+                                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-amber-600 group-hover:translate-x-1 transition-all" />
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* PYQ Category Back Header (Shown when category IS selected) */}
+                    {activeTab === 'pyq' && selectedCategory && (
+                      <div className="mb-4 flex items-center justify-between bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCategory('')}
+                          className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                        >
+                          <ArrowLeft className="w-3.5 h-3.5 text-indigo-600" /> Back to PYQ Categories
+                        </button>
+                        <span className="text-xs font-black text-slate-500">
+                          PYQ Exam Category: <span className="text-indigo-600 font-black">{selectedCategory}</span>
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Topic Wise Category Back Header (Shown when subject IS selected) */}
+                    {activeTab === 'mock_topic' && selectedCategory && (
+                      <div className="mb-4 flex items-center justify-between bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCategory('')}
+                          className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                        >
+                          <ArrowLeft className="w-3.5 h-3.5 text-indigo-600" /> Back to Subject Categories
+                        </button>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-500">Subject:</span>
+                          <span className="text-sm font-black text-indigo-600">{selectedCategory}</span>
+                          <div className={`w-6 h-6 rounded-full ${getSubjectMeta(selectedCategory).circleBg} flex items-center justify-center font-black text-xs shadow-2xs`}>
+                            {activeTests.filter(t => {
+                              const tType = t.testType || t.test_type || 'topic';
+                              if (tType !== 'topic') return false;
+                              if (t.category === "150 Days Free Practice" || t.title?.includes("150 Days")) return false;
+                              const dispName = getSubjectDisplayName(t.category, t.subject_name);
+                              return dispName.toUpperCase() === selectedCategory.toUpperCase() || (t.category || '').toUpperCase() === selectedCategory.toUpperCase();
+                            }).length}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Sectional Mock Main Categories Square Cards Grid (Shown when NO category selected) */}
                     {activeTab === 'mock_sectional' && !selectedCategory && (
                       <div className="space-y-4 mb-6">
@@ -3419,16 +4083,16 @@ export default function Dashboard() {
                           </div>
                         </div>
 
-                        {/* Compact, Sleek & Professional 7-col Responsive Category Grid */}
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
+                        {/* Compact & Professional Category Grid - Matching Reference Design */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5">
                           {[
-                            { id: 'RAILWAY', name: 'RAILWAY', icon: '🚆', bgGradient: 'from-indigo-50/50 to-blue-50/50', border: 'border-indigo-100', iconGradient: 'from-indigo-500 to-blue-600', desc: 'RRB NTPC, ALP, Group D' },
-                            { id: 'WBP', name: 'WBP', icon: '👮‍♂️', bgGradient: 'from-blue-50/50 to-cyan-50/50', border: 'border-blue-100', iconGradient: 'from-blue-500 to-cyan-600', desc: 'WB Police Constable & SI' },
-                            { id: 'KP', name: 'KP', icon: '🚨', bgGradient: 'from-sky-50/50 to-teal-50/50', border: 'border-sky-100', iconGradient: 'from-sky-500 to-teal-600', desc: 'Kolkata Police Constable & SI' },
-                            { id: 'WPSC', name: 'WPSC', icon: '🏛️', bgGradient: 'from-emerald-50/50 to-teal-50/50', border: 'border-emerald-100', iconGradient: 'from-emerald-500 to-teal-600', desc: 'Clerkship, Misc & Food SI' },
-                            { id: 'CO-OPERATIVE', name: 'CO-OPERATIVE', icon: '🏦', bgGradient: 'from-amber-50/50 to-orange-50/50', border: 'border-amber-100', iconGradient: 'from-amber-500 to-orange-600', desc: 'Cooperative CSC Mocks' },
-                            { id: 'WBSEDCL', name: 'WBSEDCL', icon: '⚡', bgGradient: 'from-yellow-50/50 to-amber-50/50', border: 'border-yellow-100', iconGradient: 'from-yellow-500 to-amber-600', desc: 'Office Exec & Tech Assistant' },
-                            { id: 'PANCHAYET', name: 'PANCHAYET', icon: '🏡', bgGradient: 'from-rose-50/50 to-pink-50/50', border: 'border-rose-100', iconGradient: 'from-rose-500 to-pink-600', desc: 'Panchayat & Zilla Parishad' },
+                            { id: 'RAILWAY', name: 'RAILWAY', icon: '🚆', bg: 'bg-indigo-50 text-indigo-600 border-indigo-100/60', badgeBg: 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30 ring-4 ring-indigo-50/80', desc: 'RRB NTPC, ALP & Group D Sectional Mocks' },
+                            { id: 'WBP', name: 'WBP', icon: '👮‍♂️', bg: 'bg-blue-50 text-blue-600 border-blue-100/60', badgeBg: 'bg-blue-600 text-white shadow-md shadow-blue-500/30 ring-4 ring-blue-50/80', desc: 'WB Police Constable & SI Practice Papers' },
+                            { id: 'KP', name: 'KP', icon: '🚨', bg: 'bg-sky-50 text-sky-600 border-sky-100/60', badgeBg: 'bg-sky-600 text-white shadow-md shadow-sky-500/30 ring-4 ring-sky-50/80', desc: 'Kolkata Police Constable & SI Sectionals' },
+                            { id: 'WPSC', name: 'WPSC', icon: '🏛️', bg: 'bg-emerald-50 text-emerald-600 border-emerald-100/60', badgeBg: 'bg-emerald-600 text-white shadow-md shadow-emerald-500/30 ring-4 ring-emerald-50/80', desc: 'Clerkship, Misc & Food SI Papers' },
+                            { id: 'CO-OPERATIVE', name: 'CO-OPERATIVE', icon: '🏦', bg: 'bg-amber-50 text-amber-600 border-amber-100/60', badgeBg: 'bg-amber-500 text-white shadow-md shadow-amber-500/30 ring-4 ring-amber-50/80', desc: 'Cooperative CSC Sectional Practice Mocks' },
+                            { id: 'WBSEDCL', name: 'WBSEDCL', icon: '⚡', bg: 'bg-purple-50 text-purple-600 border-purple-100/60', badgeBg: 'bg-purple-600 text-white shadow-md shadow-purple-500/30 ring-4 ring-purple-50/80', desc: 'Office Executive & Tech Assistant Papers' },
+                            { id: 'PANCHAYET', name: 'PANCHAYET', icon: '🏡', bg: 'bg-rose-50 text-rose-500 border-rose-100/60', badgeBg: 'bg-rose-600 text-white shadow-md shadow-rose-500/30 ring-4 ring-rose-50/80', desc: 'Panchayat & Zilla Parishad Mock Papers' },
                           ].map(cat => {
                             const count = activeTests.filter(t => 
                               (t.testType || 'sectional') === 'sectional' && 
@@ -3443,31 +4107,39 @@ export default function Dashboard() {
                                   setSelectedCategory(cat.id);
                                   setExpandedCategory(cat.id);
                                 }}
-                                className={`group relative overflow-hidden rounded-2xl p-3 text-left bg-white border ${cat.border} hover:border-indigo-400 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between h-28`}
+                                className="group relative overflow-hidden rounded-[26px] p-5 text-left bg-white border border-slate-200/80 hover:border-indigo-300 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col justify-between min-h-[165px] w-full"
                               >
-                                <div className={`absolute inset-0 bg-gradient-to-br ${cat.bgGradient} opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl`} />
-                                
-                                <div className="relative z-10 flex flex-col justify-between h-full w-full">
-                                  <div className="flex items-center justify-between">
-                                    <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${cat.iconGradient} flex items-center justify-center shadow-2xs text-base text-white group-hover:scale-105 transition-transform duration-200`}>
-                                      {cat.icon}
-                                    </div>
-                                    <span className={`text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                                      count > 0 ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' : 'bg-slate-100 text-slate-500'
-                                    }`}>
-                                      {count} {count === 1 ? 'Mock' : 'Mocks'}
-                                    </span>
+                                {/* Faint watermark graphic */}
+                                <span className="absolute -top-3 -right-3 text-7xl opacity-5 select-none pointer-events-none transform rotate-12 group-hover:scale-110 group-hover:opacity-10 transition-all duration-300">
+                                  {cat.icon}
+                                </span>
+
+                                {/* Top Header Row: Left Icon Box + Right Top Live Count Badge */}
+                                <div className="flex items-start justify-between w-full relative z-10 mb-3">
+                                  <div className={`w-12 h-12 rounded-2xl ${cat.bg} border flex items-center justify-center text-2xl shadow-2xs group-hover:scale-105 transition-transform duration-300`}>
+                                    {cat.icon}
                                   </div>
 
-                                  <div>
-                                    <h3 className="font-black text-slate-800 text-xs leading-tight truncate mb-0.5">{cat.name}</h3>
-                                    <p className="text-[9px] text-slate-500 font-medium leading-tight truncate">{cat.desc}</p>
+                                  {/* Right side Top Badge with exact live count */}
+                                  <div className={`px-2.5 py-1 rounded-full ${cat.badgeBg} font-black text-xs min-w-[32px] text-center tracking-tight group-hover:scale-110 transition-transform duration-300`}>
+                                    {count}
                                   </div>
+                                </div>
 
-                                  <div className="pt-1 flex items-center justify-between border-t border-slate-100/80">
-                                    <span className="text-[8.5px] font-bold text-slate-400 group-hover:text-indigo-600 transition-colors">Explore</span>
-                                    <ChevronRight className="w-3 h-3 text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
-                                  </div>
+                                {/* Middle: Title & Desc */}
+                                <div className="relative z-10 my-auto">
+                                  <h3 className="font-extrabold text-slate-900 text-base md:text-lg tracking-tight leading-snug mb-1 group-hover:text-indigo-600 transition-colors">
+                                    {cat.name}
+                                  </h3>
+                                  <p className="text-xs text-slate-500 font-medium leading-relaxed line-clamp-2">
+                                    {cat.desc}
+                                  </p>
+                                </div>
+
+                                {/* Bottom Link */}
+                                <div className="relative z-10 pt-3 mt-3 border-t border-slate-100/90 flex items-center justify-between text-xs font-bold text-slate-400 group-hover:text-indigo-600 transition-colors">
+                                  <span>Explore Sectional Mocks</span>
+                                  <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all" />
                                 </div>
                               </button>
                             );
@@ -3515,14 +4187,14 @@ export default function Dashboard() {
                           )}
                         </div>
 
-                        {/* Subcategory Grid - Identical styling to Screenshot 1 main category cards */}
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                        {/* Subcategory Grid - Matching Reference Design Card Style */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5">
                           {[
-                            { id: 'UG Level', name: 'UG Level', icon: '🎓', bgGradient: 'from-indigo-50/50 to-blue-50/50', border: 'border-indigo-100', color: 'from-indigo-500 to-violet-600', desc: 'RRB NTPC Under Graduate' },
-                            { id: 'Graduate Level', name: 'Graduate Level', icon: '📜', bgGradient: 'from-blue-50/50 to-cyan-50/50', border: 'border-blue-100', color: 'from-blue-500 to-cyan-600', desc: 'RRB NTPC Grad Sectionals' },
-                            { id: 'ALP', name: 'ALP', icon: '🚂', bgGradient: 'from-emerald-50/50 to-teal-50/50', border: 'border-emerald-100', color: 'from-emerald-500 to-teal-600', desc: 'Loco Pilot Sectionals' },
-                            { id: 'technician-III', name: 'technician-III', icon: '🔧', bgGradient: 'from-amber-50/50 to-orange-50/50', border: 'border-amber-100', color: 'from-amber-500 to-orange-600', desc: 'Technician Grade III' },
-                            { id: 'Group D', name: 'Group D', icon: '🛤️', bgGradient: 'from-rose-50/50 to-pink-50/50', border: 'border-rose-100', color: 'from-rose-500 to-pink-600', desc: 'RRC Group D Level 1' },
+                            { id: 'UG Level', name: 'UG Level', icon: '🎓', bg: 'bg-indigo-50 text-indigo-600 border-indigo-100/60', badgeBg: 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30 ring-4 ring-indigo-50/80', desc: 'RRB NTPC Under Graduate' },
+                            { id: 'Graduate Level', name: 'Graduate Level', icon: '📜', bg: 'bg-blue-50 text-blue-600 border-blue-100/60', badgeBg: 'bg-blue-600 text-white shadow-md shadow-blue-500/30 ring-4 ring-blue-50/80', desc: 'RRB NTPC Grad Sectionals' },
+                            { id: 'ALP', name: 'ALP', icon: '🚂', bg: 'bg-emerald-50 text-emerald-600 border-emerald-100/60', badgeBg: 'bg-emerald-600 text-white shadow-md shadow-emerald-500/30 ring-4 ring-emerald-50/80', desc: 'Loco Pilot Sectionals' },
+                            { id: 'technician-III', name: 'technician-III', icon: '🔧', bg: 'bg-amber-50 text-amber-600 border-amber-100/60', badgeBg: 'bg-amber-500 text-white shadow-md shadow-amber-500/30 ring-4 ring-amber-50/80', desc: 'Technician Grade III' },
+                            { id: 'Group D', name: 'Group D', icon: '🛤️', bg: 'bg-rose-50 text-rose-500 border-rose-100/60', badgeBg: 'bg-rose-600 text-white shadow-md shadow-rose-500/30 ring-4 ring-rose-50/80', desc: 'RRC Group D Level 1' },
                           ].map(sub => {
                             const subCount = activeTests.filter(t => {
                               if ((t.testType || 'sectional') !== 'sectional') return false;
@@ -3545,37 +4217,39 @@ export default function Dashboard() {
                                 key={sub.id}
                                 type="button"
                                 onClick={() => setSelectedSubCat(isSelected ? null : sub.id)}
-                                className={`group relative overflow-hidden rounded-2xl p-3 text-left border shadow-2xs hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between h-28 ${
+                                className={`group relative overflow-hidden rounded-[24px] p-4 text-left transition-all duration-300 cursor-pointer flex flex-col justify-between min-h-[155px] w-full ${
                                   isSelected
-                                    ? 'bg-slate-900 border-slate-800 text-white ring-2 ring-indigo-500 scale-[1.02] shadow-md'
-                                    : `bg-white ${sub.border} hover:border-indigo-400 hover:-translate-y-0.5`
+                                    ? 'bg-slate-900 border-2 border-indigo-500 text-white shadow-xl scale-[1.02]'
+                                    : 'bg-white border border-slate-200/80 hover:border-indigo-300 shadow-sm hover:shadow-lg hover:-translate-y-1'
                                 }`}
                               >
-                                <div className={`absolute inset-0 bg-gradient-to-br ${sub.bgGradient} opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl`} />
-                                
-                                <div className="relative z-10 flex flex-col justify-between h-full w-full">
-                                  <div className="flex items-center justify-between">
-                                    <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${sub.color} flex items-center justify-center shadow-2xs text-base text-white group-hover:scale-105 transition-transform duration-200`}>
-                                      {sub.icon}
-                                    </div>
-                                    <span className={`text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                                      isSelected ? 'bg-indigo-600 text-white' : subCount > 0 ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' : 'bg-slate-100 text-slate-500'
-                                    }`}>
-                                      {subCount} {subCount === 1 ? 'Mock' : 'Mocks'}
-                                    </span>
+                                <span className="absolute -top-2 -right-2 text-6xl opacity-5 select-none pointer-events-none transform rotate-12 group-hover:scale-110 group-hover:opacity-10 transition-all duration-300">
+                                  {sub.icon}
+                                </span>
+
+                                <div className="flex items-start justify-between w-full relative z-10 mb-2">
+                                  <div className={`w-10 h-10 rounded-xl ${sub.bg} border flex items-center justify-center text-xl shadow-2xs group-hover:scale-105 transition-transform duration-300`}>
+                                    {sub.icon}
                                   </div>
 
-                                  <div>
-                                    <h3 className={`font-black text-xs leading-tight truncate mb-0.5 ${isSelected ? 'text-white' : 'text-slate-800'}`}>{sub.name}</h3>
-                                    <p className={`text-[9px] font-medium leading-tight truncate ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>{sub.desc}</p>
+                                  {/* Right side Top Badge with live count */}
+                                  <div className={`px-2.5 py-1 rounded-full ${isSelected ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/40 ring-4 ring-indigo-900/50' : sub.badgeBg} font-black text-xs min-w-[30px] text-center tracking-tight group-hover:scale-110 transition-transform duration-300`}>
+                                    {subCount}
                                   </div>
+                                </div>
 
-                                  <div className="pt-1 flex items-center justify-between border-t border-slate-100/80">
-                                    <span className={`text-[8.5px] font-bold ${isSelected ? 'text-indigo-300' : 'text-slate-400 group-hover:text-indigo-600'} transition-colors`}>
-                                      {isSelected ? 'Selected' : 'Explore'}
-                                    </span>
-                                    <ChevronRight className={`w-3 h-3 ${isSelected ? 'text-indigo-300 rotate-90' : 'text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-0.5'} transition-all`} />
-                                  </div>
+                                <div className="relative z-10 my-auto">
+                                  <h3 className={`font-extrabold text-sm md:text-base tracking-tight leading-snug mb-0.5 ${isSelected ? 'text-white' : 'text-slate-900 group-hover:text-indigo-600'} transition-colors`}>
+                                    {sub.name}
+                                  </h3>
+                                  <p className={`text-[10px] md:text-xs font-medium leading-relaxed truncate ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
+                                    {sub.desc}
+                                  </p>
+                                </div>
+
+                                <div className={`relative z-10 pt-2.5 mt-2 border-t flex items-center justify-between text-[11px] font-bold transition-colors ${isSelected ? 'border-slate-800 text-indigo-300' : 'border-slate-100 text-slate-400 group-hover:text-indigo-600'}`}>
+                                  <span>{isSelected ? 'Selected' : 'Explore'}</span>
+                                  <ChevronRight className={`w-3.5 h-3.5 ${isSelected ? 'rotate-90 text-indigo-400' : 'text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-0.5'} transition-all`} />
                                 </div>
                               </button>
                             );
@@ -3605,8 +4279,8 @@ export default function Dashboard() {
                       </div>
                     )}
 
-                    {/* Render Tests List ONLY when tab is NOT mock_sectional OR when a subcategory IS explicitly selected */}
-                    {(activeTab !== 'mock_sectional' || (selectedCategory === 'RAILWAY' && selectedSubCat)) && (
+                    {/* Render Tests List ONLY when a category IS explicitly selected for mock_topic / mock_sectional */}
+                    {((activeTab === 'mock_topic' && selectedCategory) || (activeTab === 'mock_sectional' && selectedCategory === 'RAILWAY' && selectedSubCat) || (activeTab !== 'mock_topic' && activeTab !== 'mock_sectional')) && (
                       <div className="space-y-4">
                         {activeTab === 'mock_sectional' && selectedSubCat && (
                           <div className="flex items-center justify-between mb-1 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs">
@@ -3623,23 +4297,33 @@ export default function Dashboard() {
                           .filter(cat => !selectedCategory || cat.toUpperCase() === selectedCategory.toUpperCase())
                           .map((subject, subjectIdx) => {
                             // All tests belonging to this subject
-                            const testsInSubject = activeTests.filter(t => 
-                              (t.testType || 'topic') === activeTab.replace('mock_', '') &&
-                              ((t.category || '').toUpperCase() === subject.toUpperCase() || (subject.toUpperCase().includes('PSC') && (t.category || '').toUpperCase().includes('PSC'))) &&
-                              (activeTab !== 'mock_sectional' || subject !== 'RAILWAY' || (
-                                selectedSubCat && (() => {
-                                  const subLower = selectedSubCat.toLowerCase();
-                                  const tSub = (t.subCategory || t.metadata?.subCategory || '').toLowerCase();
-                                  if (subLower.includes('ug') || subLower.includes('under graduate')) {
-                                    return tSub.includes('ug') || tSub.includes('under graduate') || t.title?.includes('Mock -01') || t.title?.includes('Mock -02') || t.id?.includes('ug') || t.id?.includes('grad');
-                                  }
-                                  if (subLower.includes('graduate') && !subLower.includes('under') && !subLower.includes('ug')) {
-                                    return (tSub.includes('graduate') && !tSub.includes('under') && !tSub.includes('ug')) || tSub === 'graduate level';
-                                  }
-                                  return tSub.includes(subLower);
-                                })()
-                              ))
-                            );
+                            const testsInSubject = activeTests.filter(t => {
+                              const tType = t.testType || t.test_type || 'topic';
+                              const targetType = activeTab.replace('mock_', '');
+                              if (tType !== targetType) return false;
+
+                              const tSubject = getSubjectDisplayName(t.category, t.subject_name);
+                              const matchesSubject = tSubject.toUpperCase() === subject.toUpperCase() || 
+                                (t.category || '').toUpperCase() === subject.toUpperCase() ||
+                                (subject.toUpperCase().includes('PSC') && (t.category || '').toUpperCase().includes('PSC'));
+
+                              if (!matchesSubject) return false;
+
+                              if (activeTab === 'mock_sectional' && subject === 'RAILWAY') {
+                                if (!selectedSubCat) return false;
+                                const subLower = selectedSubCat.toLowerCase();
+                                const tSub = (t.subCategory || t.metadata?.subCategory || '').toLowerCase();
+                                if (subLower.includes('ug') || subLower.includes('under graduate')) {
+                                  return tSub.includes('ug') || tSub.includes('under graduate') || t.title?.includes('Mock -01') || t.title?.includes('Mock -02') || t.id?.includes('ug') || t.id?.includes('grad');
+                                }
+                                if (subLower.includes('graduate') && !subLower.includes('under') && !subLower.includes('ug')) {
+                                  return (tSub.includes('graduate') && !tSub.includes('under') && !tSub.includes('ug')) || tSub === 'graduate level';
+                                }
+                                return tSub.includes(subLower);
+                              }
+
+                              return true;
+                            });
 
                             // Group tests in this subject by topic
                             const topicsMap: Record<string, typeof testsInSubject> = {};
@@ -3716,186 +4400,217 @@ export default function Dashboard() {
                           {isSubjectExpanded && (
                             <div className="border-t border-slate-100 bg-slate-50/20 divide-y divide-slate-100 animate-in slide-in-from-top-3 duration-200">
                               {totalTests === 0 ? (
-                                <div className="p-6 md:p-8 bg-slate-50/60 text-center">
+                                <div className="p-6 md:p-8 bg-slate-50/60 text-center rounded-2xl border border-slate-200">
                                   <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mx-auto mb-3 text-2xl">
                                     {getCatIcon(subject)}
                                   </div>
-                                  <h4 className="font-black text-slate-800 text-sm mb-1">{subject} Sectional Mocks Coming Soon!</h4>
+                                  <h4 className="font-black text-slate-800 text-sm mb-1">{subject} Practice Papers Coming Soon!</h4>
                                   <p className="text-xs text-slate-500 font-medium max-w-md mx-auto leading-relaxed">
-                                    Fresh sectional practice papers for <span className="font-bold text-indigo-600">{subject}</span> are currently being prepared & uploaded. Check back daily or explore RAILWAY sectional papers!
+                                    Fresh practice test papers for <span className="font-bold text-indigo-600">{subject}</span> are currently being prepared & uploaded daily. Check back soon!
                                   </p>
                                 </div>
                               ) : (
-                                topicEntries.map(([topicName, topicTests]) => {
-                                const totalTopicTests = topicTests.length;
-                                const takenTopicCount = topicTests.filter(t => pastResults.some(r => r.testId === t.id)).length;
-                                const isTopicExpanded = expandedTopic === topicName;
+                                <div className="p-3 md:p-4 space-y-3.5 bg-slate-50/40 rounded-2xl">
+                                  {topicEntries.map(([topicName, topicTests], topicIdx) => {
+                                    const totalTopicTests = topicTests.length;
+                                    const takenTopicCount = topicTests.filter(t => pastResults.some(r => r.testId === t.id)).length;
+                                    const isTopicExpanded = expandedTopic === topicName || (topicEntries.length === 1 && expandedTopic === null);
 
-                                return (
-                                  <div key={topicName} className="overflow-hidden">
-                                    {/* Topic Accordion Header */}
-                                    <button
-                                      onClick={() => setExpandedTopic(isTopicExpanded ? null : topicName)}
-                                      className="w-full pl-12 md:pl-16 pr-5 py-3.5 flex items-center justify-between hover:bg-slate-50 text-left transition-colors duration-200"
-                                    >
-                                      <div className="flex items-center gap-3">
-                                        <div className={`w-7 h-7 rounded-lg ${isTopicExpanded ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-500'} flex items-center justify-center shrink-0`}>
-                                          <Target className="w-4 h-4" />
-                                        </div>
-                                        <h4 className="font-bold text-slate-700 text-xs md:text-sm">{topicName}</h4>
-                                      </div>
-                                      <div className="flex items-center gap-3">
-                                        <span className="text-[9px] font-bold text-slate-400 bg-slate-100 border border-slate-200/50 px-2 py-0.5 rounded-md">
-                                          {totalTopicTests} {totalTopicTests === 1 ? 'Test' : 'Tests'}
-                                          {takenTopicCount > 0 && ` (${takenTopicCount}/${totalTopicTests} Attempted)`}
-                                        </span>
-                                        <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isTopicExpanded ? 'rotate-90 text-indigo-500' : ''}`} />
-                                      </div>
-                                    </button>
+                                    // Colorful theme variants for topic headers with distinct shaped borders
+                                    const topicThemes = [
+                                      { cardBg: 'bg-gradient-to-r from-indigo-50/80 via-purple-50/40 to-white border-2 border-indigo-200/90 border-l-8 border-l-indigo-600', iconBg: 'bg-indigo-600 text-white shadow-xs', badgeBg: 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30 ring-4 ring-indigo-50/80', text: 'text-indigo-950' },
+                                      { cardBg: 'bg-gradient-to-r from-emerald-50/80 via-teal-50/40 to-white border-2 border-emerald-200/90 border-l-8 border-l-emerald-600', iconBg: 'bg-emerald-600 text-white shadow-xs', badgeBg: 'bg-emerald-600 text-white shadow-md shadow-emerald-500/30 ring-4 ring-emerald-50/80', text: 'text-emerald-950' },
+                                      { cardBg: 'bg-gradient-to-r from-rose-50/80 via-pink-50/40 to-white border-2 border-rose-200/90 border-l-8 border-l-rose-600', iconBg: 'bg-rose-600 text-white shadow-xs', badgeBg: 'bg-rose-600 text-white shadow-md shadow-rose-500/30 ring-4 ring-rose-50/80', text: 'text-rose-950' },
+                                      { cardBg: 'bg-gradient-to-r from-amber-50/80 via-orange-50/40 to-white border-2 border-amber-200/90 border-l-8 border-l-amber-600', iconBg: 'bg-amber-600 text-white shadow-xs', badgeBg: 'bg-amber-500 text-white shadow-md shadow-amber-500/30 ring-4 ring-amber-50/80', text: 'text-amber-950' },
+                                      { cardBg: 'bg-gradient-to-r from-violet-50/80 via-purple-50/40 to-white border-2 border-violet-200/90 border-l-8 border-l-violet-600', iconBg: 'bg-violet-600 text-white shadow-xs', badgeBg: 'bg-violet-600 text-white shadow-md shadow-violet-500/30 ring-4 ring-violet-50/80', text: 'text-violet-950' },
+                                      { cardBg: 'bg-gradient-to-r from-sky-50/80 via-blue-50/40 to-white border-2 border-sky-200/90 border-l-8 border-l-sky-600', iconBg: 'bg-sky-600 text-white shadow-xs', badgeBg: 'bg-sky-600 text-white shadow-md shadow-sky-500/30 ring-4 ring-sky-50/80', text: 'text-sky-950' },
+                                    ];
+                                    const theme = topicThemes[topicIdx % topicThemes.length];
 
-                                    {/* Topic Accordion Body (Render Mock Tests List) */}
-                                    {isTopicExpanded && (
-                                      <div className="pl-12 md:pl-16 pr-5 pb-5 pt-2 bg-white flex flex-col gap-3 border-t border-slate-100 animate-in slide-in-from-top-2 duration-150">
-                                        {topicTests.map((test, testIdx) => {
-                                          const attemptsForTest = pastResults
-                                            .filter((r: any) => r.testId === test.id)
-                                            .sort((a: any, b: any) => a.timestamp - b.timestamp);
-                                          const isTaken = attemptsForTest.length > 0;
-                                          const attemptCount = attemptsForTest.length;
-                                          const latestAttempt = attemptsForTest[attemptCount - 1];
+                                    return (
+                                      <div key={topicName} className={`rounded-2xl shadow-2xs transition-all duration-300 overflow-hidden ${theme.cardBg}`}>
+                                        {/* Topic Accordion Header */}
+                                        <button
+                                          onClick={() => setExpandedTopic(isTopicExpanded ? 'none' : topicName)}
+                                          className="w-full p-3.5 md:p-4 flex items-center justify-between text-left transition-colors duration-200 cursor-pointer"
+                                        >
+                                          <div className="flex items-center gap-3 min-w-0">
+                                            <div className={`w-9 h-9 rounded-xl ${theme.iconBg} flex items-center justify-center shrink-0 shadow-2xs font-extrabold text-sm`}>
+                                              🎯
+                                            </div>
+                                            <div className="min-w-0">
+                                              <span className="text-[8.5px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">Topic Chapter</span>
+                                              <h4 className={`font-extrabold text-xs md:text-sm leading-snug truncate ${theme.text}`}>{topicName}</h4>
+                                            </div>
+                                          </div>
+                                          <div className="flex items-center gap-2.5 shrink-0">
+                                            {/* Header Live Count Badge showing exact available mocks in this topic */}
+                                            <span className={`px-2.5 py-1 rounded-full text-[10px] md:text-xs font-black tracking-tight flex items-center gap-1 ${theme.badgeBg}`}>
+                                              <span>🎯 {totalTopicTests} {totalTopicTests === 1 ? 'Mock' : 'Mocks'} Available</span>
+                                            </span>
+                                            {takenTopicCount > 0 && (
+                                              <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                                {takenTopicCount}/{totalTopicTests} Done
+                                              </span>
+                                            )}
+                                            <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${isTopicExpanded ? 'rotate-90 text-indigo-600' : ''}`} />
+                                          </div>
+                                        </button>
 
-                                          return (
-                                            <div key={test.id} className="bg-slate-50/50 rounded-2xl border border-slate-200/60 hover:border-indigo-100 hover:bg-white hover:shadow-xs transition-all duration-200 p-4">
-                                              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                                                
-                                                {/* LEFT: Test details */}
-                                                <div className="flex items-center gap-3 flex-1 min-w-0">
-                                                  <div className="w-8 h-8 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-lg flex items-center justify-center shrink-0 font-black text-xs">
-                                                    {testIdx + 1}
-                                                  </div>
-                                                  <div className="min-w-0">
-                                                    <div className="flex items-center gap-2 flex-wrap">
-                                                      <h4 className="font-extrabold text-slate-800 text-xs md:text-sm leading-snug">{test.title}</h4>
-                                                      {test.examCategory && (
-                                                        <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 text-[8px] font-black uppercase tracking-wider rounded-md shrink-0">
-                                                          🎯 {test.examCategory}
-                                                        </span>
-                                                      )}
-                                                      {test.isPaid && myPurchases.length === 0
-                                                        ? <span className="px-1.5 py-0.5 bg-rose-100 text-rose-600 text-[8px] font-black uppercase tracking-widest rounded-full border border-rose-200 shrink-0">👑 Premium</span>
-                                                        : test.isPaid
-                                                          ? <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[8px] font-black uppercase tracking-widest rounded-full border border-emerald-200 shrink-0">✔ Unlocked</span>
-                                                          : <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded-full border border-emerald-100 shrink-0">Free</span>
-                                                      }
-                                                      {isTaken && (
-                                                        <span className="px-1.5 py-0.5 bg-emerald-500 text-white text-[8px] font-black uppercase tracking-widest rounded-full shrink-0">
-                                                          ✓ Attempted {attemptCount > 1 ? `×${attemptCount}` : ''}
-                                                        </span>
-                                                      )}
-                                                    </div>
+                                        {/* Topic Accordion Body (Render Colorful Test Cards List) */}
+                                        {isTopicExpanded && (
+                                          <div className="p-3 md:p-4 bg-white/90 border-t border-slate-100/90 flex flex-col gap-3 animate-in slide-in-from-top-2 duration-150">
+                                            {topicTests.map((test, testIdx) => {
+                                              const attemptsForTest = pastResults
+                                                .filter((r: any) => r.testId === test.id)
+                                                .sort((a: any, b: any) => a.timestamp - b.timestamp);
+                                              const isTaken = attemptsForTest.length > 0;
+                                              const attemptCount = attemptsForTest.length;
+                                              const latestAttempt = attemptsForTest[attemptCount - 1];
+
+                                              const testCardColors = [
+                                                { bg: 'bg-gradient-to-r from-indigo-50/40 via-white to-white border-2 border-indigo-100 hover:border-indigo-400 border-l-4 border-l-indigo-600', numBg: 'bg-indigo-600 text-white', btn: 'from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700' },
+                                                { bg: 'bg-gradient-to-r from-emerald-50/40 via-white to-white border-2 border-emerald-100 hover:border-emerald-400 border-l-4 border-l-emerald-600', numBg: 'bg-emerald-600 text-white', btn: 'from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700' },
+                                                { bg: 'bg-gradient-to-r from-rose-50/40 via-white to-white border-2 border-rose-100 hover:border-rose-400 border-l-4 border-l-rose-600', numBg: 'bg-rose-600 text-white', btn: 'from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700' },
+                                                { bg: 'bg-gradient-to-r from-amber-50/40 via-white to-white border-2 border-amber-100 hover:border-amber-400 border-l-4 border-l-amber-600', numBg: 'bg-amber-600 text-white', btn: 'from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700' },
+                                              ];
+                                              const tStyle = testCardColors[testIdx % testCardColors.length];
+
+                                              return (
+                                                <div key={test.id} className={`rounded-2xl p-3.5 md:p-4 shadow-2xs hover:shadow-md transition-all duration-200 ${tStyle.bg}`}>
+                                                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                                                     
-                                                    <div className="flex items-center gap-3 mt-1 flex-wrap">
-                                                      <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1">
-                                                        ⏱️ {test.duration || 30} mins
-                                                      </span>
-                                                      <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1">
-                                                        🎯 {test.marksPerCorrect || 1} Marks/Question
-                                                      </span>
-                                                      {isTaken && latestAttempt && (
-                                                        <span className="text-[9px] font-bold text-indigo-500 flex items-center gap-1">
-                                                          📈 Latest Score: {latestAttempt.score} marks
-                                                        </span>
-                                                      )}
+                                                    {/* LEFT: Test details */}
+                                                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                                                      <div className={`w-8 h-8 rounded-xl ${tStyle.numBg} flex items-center justify-center shrink-0 font-black text-xs shadow-xs mt-0.5`}>
+                                                        {testIdx + 1}
+                                                      </div>
+                                                      <div className="min-w-0 flex-1">
+                                                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                                                          <h4 className="font-extrabold text-slate-900 text-xs md:text-sm leading-snug">{test.title}</h4>
+                                                          {test.examCategory && (
+                                                            <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 text-[8px] font-black uppercase tracking-wider rounded-md shrink-0">
+                                                              🎯 {test.examCategory}
+                                                            </span>
+                                                          )}
+                                                          {test.isPaid && myPurchases.length === 0
+                                                            ? <span className="px-2 py-0.5 bg-rose-100 text-rose-700 text-[8px] font-black uppercase tracking-widest rounded-full border border-rose-200 shrink-0">👑 Premium</span>
+                                                            : test.isPaid
+                                                              ? <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[8px] font-black uppercase tracking-widest rounded-full border border-emerald-200 shrink-0">✔ Unlocked</span>
+                                                              : <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[8px] font-black uppercase tracking-widest rounded-full border border-emerald-200 shrink-0">Free Test</span>
+                                                          }
+                                                          {isTaken && (
+                                                            <span className="px-2 py-0.5 bg-emerald-600 text-white text-[8px] font-black uppercase tracking-widest rounded-full shadow-2xs shrink-0">
+                                                              ✓ Attempted {attemptCount > 1 ? `×${attemptCount}` : ''}
+                                                            </span>
+                                                          )}
+                                                        </div>
+                                                        
+                                                        <div className="flex items-center gap-3 mt-1.5 flex-wrap text-[10px] font-bold text-slate-500">
+                                                          <span className="flex items-center gap-1 bg-slate-100/80 px-2 py-0.5 rounded-md border border-slate-200/60">
+                                                            ⏱️ {test.duration || 30} Mins
+                                                          </span>
+                                                          <span className="flex items-center gap-1 bg-slate-100/80 px-2 py-0.5 rounded-md border border-slate-200/60">
+                                                            ❓ {test.questions?.length || test.totalQuestions || 25} Questions
+                                                          </span>
+                                                          <span className="flex items-center gap-1 bg-slate-100/80 px-2 py-0.5 rounded-md border border-slate-200/60">
+                                                            🎯 {test.marksPerCorrect || 1} Marks/Q
+                                                          </span>
+                                                          {isTaken && latestAttempt && (
+                                                            <span className="flex items-center gap-1 bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-md font-black">
+                                                              📈 Score: {latestAttempt.score}
+                                                            </span>
+                                                          )}
+                                                        </div>
+                                                      </div>
                                                     </div>
-                                                  </div>
-                                                </div>
 
-                                                {/* RIGHT: Actions */}
-                                                <div className="flex items-center gap-2 shrink-0 self-end md:self-auto flex-wrap justify-end">
-                                                  {/* Previous attempts */}
-                                                  {!test.isPaid && isTaken && (
-                                                    <div className="relative">
-                                                      <button
-                                                        onClick={() => setOpenAttemptDropdown(openAttemptDropdown === test.id ? null : test.id)}
-                                                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg font-black text-[8px] uppercase tracking-widest border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-all active:scale-95"
-                                                      >
-                                                        <BarChart3 className="w-3 h-3" />
-                                                        Attempts
-                                                        <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${openAttemptDropdown === test.id ? 'rotate-180' : ''}`} />
-                                                      </button>
-
-                                                      {openAttemptDropdown === test.id && (
-                                                        <>
-                                                          <div className="fixed inset-0 z-40" onClick={() => setOpenAttemptDropdown(null)} />
-                                                          <div className="absolute right-0 top-full mt-1.5 z-50 bg-white border border-slate-200 rounded-xl shadow-xl min-w-[260px] overflow-hidden">
-                                                            <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center gap-1.5">
-                                                              <BarChart3 className="w-3 h-3 text-indigo-500" />
-                                                              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Select to view analysis</p>
-                                                            </div>
-                                                            <div className="py-0.5 max-h-[180px] overflow-y-auto">
-                                                              {attemptsForTest.map((r: any, i: number) => (
-                                                                <button
-                                                                  key={r.id}
-                                                                  onClick={() => { openAnalysis(r); setOpenAttemptDropdown(null); }}
-                                                                  className="w-full flex items-center justify-between px-3 py-2 hover:bg-slate-50 active:bg-slate-100 transition-colors text-left text-[10px]"
-                                                                >
-                                                                  <span className="font-extrabold text-slate-700">Attempt {i + 1}</span>
-                                                                  <span className="font-black text-indigo-600">{r.score} marks</span>
-                                                                </button>
-                                                              ))}
-                                                            </div>
-                                                          </div>
-                                                        </>
-                                                      )}
-                                                    </div>
-                                                  )}
-
-                                                  {test.isPaid && myPurchases.length === 0 ? (
-                                                    <button
-                                                      onClick={() => {
-                                                        const b = paidBatches[0];
-                                                        if (b) {
-                                                          window.open(`${razorpayMeUrl}?amount=${b.price * 100}&description=${encodeURIComponent(b.examName)}`, '_blank');
-                                                          setBuyingBatch(b); setBuyError(''); setTxnId('');
-                                                        } else navigate('/paid-mock');
-                                                      }}
-                                                      className="px-3.5 py-2 font-black text-[9px] uppercase tracking-widest rounded-xl flex items-center gap-1.5 transition-all hover:brightness-110 active:scale-95 text-white shadow-xs"
-                                                      style={{background:'linear-gradient(135deg,#10b981,#059669)'}}>
-                                                      🛒 Buy Now
-                                                    </button>
-                                                  ) : (
-                                                    <div className="flex items-center gap-2">
+                                                    {/* RIGHT: Action Buttons */}
+                                                    <div className="flex items-center gap-2 shrink-0 self-end md:self-auto flex-wrap justify-end">
+                                                      {/* Download PDF Button */}
                                                       <button
                                                         onClick={() => handleDownloadQuestionsPDF(test.id, test.title)}
                                                         disabled={downloadingPdfId === test.id}
-                                                        className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-extrabold text-[9px] uppercase tracking-wider rounded-xl transition-all flex items-center gap-1 cursor-pointer border border-emerald-200 shadow-xs"
+                                                        className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-extrabold text-[9px] uppercase tracking-wider rounded-xl transition-all flex items-center gap-1 cursor-pointer border border-emerald-200 shadow-2xs"
                                                         title="Download Question Paper & Answer Key PDF"
                                                       >
                                                         <Download className="w-3 h-3 text-emerald-600" />
                                                         {downloadingPdfId === test.id ? 'PDF...' : '📄 PDF'}
                                                       </button>
 
-                                                      <Link
-                                                        to={`/test/${test.id}`}
-                                                        className="px-3.5 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-black text-[9px] uppercase tracking-widest rounded-xl hover:from-slate-900 hover:to-slate-900 transition-all shadow-xs flex items-center gap-1 active:scale-95"
-                                                      >
-                                                        {isTaken ? 'Reattempt' : 'Attempt'}
-                                                        <ChevronRight className="w-3 h-3" />
-                                                      </Link>
-                                                    </div>
-                                                  )}
-                                                </div>
+                                                      {/* Previous attempts button */}
+                                                      {!test.isPaid && isTaken && (
+                                                        <div className="relative">
+                                                          <button
+                                                            onClick={() => setOpenAttemptDropdown(openAttemptDropdown === test.id ? null : test.id)}
+                                                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl font-black text-[9px] uppercase tracking-widest border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-all active:scale-95 cursor-pointer shadow-2xs"
+                                                          >
+                                                            <BarChart3 className="w-3 h-3" />
+                                                            Attempts
+                                                            <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${openAttemptDropdown === test.id ? 'rotate-180' : ''}`} />
+                                                          </button>
 
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
+                                                          {openAttemptDropdown === test.id && (
+                                                            <>
+                                                              <div className="fixed inset-0 z-40" onClick={() => setOpenAttemptDropdown(null)} />
+                                                              <div className="absolute right-0 top-full mt-1.5 z-50 bg-white border border-slate-200 rounded-xl shadow-xl min-w-[260px] overflow-hidden animate-in fade-in">
+                                                                <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center gap-1.5">
+                                                                  <BarChart3 className="w-3 h-3 text-indigo-500" />
+                                                                  <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Select attempt for analysis</p>
+                                                                </div>
+                                                                <div className="py-0.5 max-h-[180px] overflow-y-auto">
+                                                                  {attemptsForTest.map((r: any, i: number) => (
+                                                                    <button
+                                                                      key={r.id}
+                                                                      onClick={() => { openAnalysis(r); setOpenAttemptDropdown(null); }}
+                                                                      className="w-full flex items-center justify-between px-3 py-2 hover:bg-slate-50 active:bg-slate-100 transition-colors text-left text-[10px]"
+                                                                    >
+                                                                      <span className="font-extrabold text-slate-700">Attempt {i + 1}</span>
+                                                                      <span className="font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">{r.score} Marks</span>
+                                                                    </button>
+                                                                  ))}
+                                                                </div>
+                                                              </div>
+                                                            </>
+                                                          )}
+                                                        </div>
+                                                      )}
+
+                                                      {/* Attempt / Unlock Button */}
+                                                      {test.isPaid && myPurchases.length === 0 ? (
+                                                        <button
+                                                          onClick={() => {
+                                                            const b = paidBatches[0];
+                                                            if (b) {
+                                                              window.open(`${razorpayMeUrl}?amount=${b.price * 100}&description=${encodeURIComponent(b.examName)}`, '_blank');
+                                                              setBuyingBatch(b); setBuyError(''); setTxnId('');
+                                                            } else navigate('/paid-mock');
+                                                          }}
+                                                          className="px-3.5 py-2 font-black text-[9px] uppercase tracking-widest rounded-xl flex items-center gap-1.5 transition-all hover:brightness-110 active:scale-95 text-white shadow-xs"
+                                                          style={{background:'linear-gradient(135deg,#10b981,#059669)'}}>
+                                                          🛒 Unlock Now
+                                                        </button>
+                                                      ) : (
+                                                        <Link
+                                                          to={`/test/${test.id}`}
+                                                          className={`px-3.5 py-2 bg-gradient-to-r ${tStyle.btn} text-white font-black text-[9.5px] uppercase tracking-widest rounded-xl transition-all shadow-xs flex items-center gap-1.5 active:scale-95`}
+                                                        >
+                                                          {isTaken ? 'Reattempt Test' : 'Attempt Test'}
+                                                          <ChevronRight className="w-3.5 h-3.5" />
+                                                        </Link>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        )}
                                       </div>
-                                    )}
-                                  </div>
-                                );
-                              })
-                            )}
+                                    );
+                                  })}
+                                </div>
+                              )}
                           </div>
                         )}
                         </div>
@@ -4686,7 +5401,18 @@ export default function Dashboard() {
                         </div>
 
                         <div className="space-y-2 pt-3 border-t border-slate-100">
-                          {pdfLink ? (
+                          {titleText.toLowerCase().includes('one liner') ? (
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab('one_liner')}
+                              className="flex items-center justify-between w-full text-white font-extrabold text-xs uppercase tracking-wider bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2.5 rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all cursor-pointer shadow-xs"
+                            >
+                              <span className="truncate flex items-center gap-2">
+                                📌 Explore One Liner Notes
+                              </span>
+                              <ChevronRight className="w-4 h-4 shrink-0" />
+                            </button>
+                          ) : pdfLink ? (
                             <a 
                               href={pdfLink} target="_blank" rel="noopener noreferrer"
                               className="flex items-center justify-between w-full text-rose-700 font-bold text-xs uppercase tracking-wider bg-rose-50 border border-rose-200 px-4 py-2.5 rounded-xl hover:bg-rose-100 transition-all"
