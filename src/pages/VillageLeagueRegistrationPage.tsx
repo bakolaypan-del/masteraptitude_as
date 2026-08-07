@@ -447,6 +447,27 @@ export default function VillageLeagueRegistrationPage() {
            (p.address || '').toLowerCase().includes(q);
   });
 
+  if (!isRegistrationOpen) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center font-sans">
+        <div className="max-w-md w-full bg-slate-900/90 border border-slate-800 rounded-3xl p-8 shadow-2xl space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center mx-auto">
+            <AlertCircle className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <span className="px-3 py-1 bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-full text-[10px] font-black uppercase tracking-widest inline-block">
+              404 - LINK DELETED / EXPIRED
+            </span>
+            <h1 className="text-2xl font-black text-white tracking-tight">Link Unavailable</h1>
+            <p className="text-xs text-slate-400 font-medium leading-relaxed">
+              This registration link has been deleted and deactivated by the admin. Nothing is available on this link.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-10 selection:bg-red-600 selection:text-white">
       {/* ── ULTRA-COMPACT HERO BANNER FOR PERFECT MOBILE FIT ───────────────────── */}
