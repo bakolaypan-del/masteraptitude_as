@@ -36,7 +36,15 @@ export default function AdminVillageLeague() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'players' | 'teams'>('players');
   const [copiedLink, setCopiedLink] = useState(false);
-  const [isRegistrationOpen, setIsRegistrationOpen] = useState(true);
+  const getInitialRegistrationOpen = (): boolean => {
+    try {
+      const local = localStorage.getItem('jsl_registration_is_open');
+      if (local !== null) return JSON.parse(local) === true;
+    } catch {}
+    return false;
+  };
+
+  const [isRegistrationOpen, setIsRegistrationOpen] = useState<boolean>(getInitialRegistrationOpen);
   const [updatingSettings, setUpdatingSettings] = useState(false);
 
   // Admin View / Edit Modal State
@@ -83,8 +91,14 @@ export default function AdminVillageLeague() {
     setPlayers(getLocalPlayers().filter(p => !getDeletedIds().includes(p.id)));
 
     const unsubSettings = onSnapshot(doc(db, 'settings', 'village_league'), (docSnap) => {
-      if (docSnap.exists()) {
-        setIsRegistrationOpen(docSnap.data().isOpen !== false);
+      if (docSnap.exists() && typeof docSnap.data().isOpen === 'boolean') {
+        const openStatus = docSnap.data().isOpen === true;
+        setIsRegistrationOpen(openStatus);
+        try { localStorage.setItem('jsl_registration_is_open', JSON.stringify(openStatus)); } catch {}
+      } else {
+        // Settings doc deleted or missing -> DEFAULT TO CLOSED!
+        setIsRegistrationOpen(false);
+        try { localStorage.setItem('jsl_registration_is_open', JSON.stringify(false)); } catch {}
       }
     });
 
@@ -141,11 +155,15 @@ export default function AdminVillageLeague() {
 
   const handleToggleRegistrationStatus = async () => {
     setUpdatingSettings(true);
+    const newStatus = !isRegistrationOpen;
     try {
       await setDoc(doc(db, 'settings', 'village_league'), {
-        isOpen: !isRegistrationOpen,
+        isOpen: newStatus,
         updatedAt: serverTimestamp()
       }, { merge: true });
+      setIsRegistrationOpen(newStatus);
+      try { localStorage.setItem('jsl_registration_is_open', JSON.stringify(newStatus)); } catch {}
+      alert(`Registration link status updated to: ${newStatus ? 'OPEN' : 'CLOSED & DEACTIVATED'}`);
     } catch (err) {
       console.error('Error updating status:', err);
       alert('Failed to update registration status.');

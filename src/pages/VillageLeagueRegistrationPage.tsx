@@ -37,7 +37,15 @@ export default function VillageLeagueRegistrationPage() {
   // Default null so no category opens automatically; opens ONLY when clicked
   const [activePortion, setActivePortion] = useState<'teams' | 'players' | 'register' | null>(null);
   const [registerMode, setRegisterMode] = useState<'team' | 'player'>('player');
-  const [isRegistrationOpen, setIsRegistrationOpen] = useState(true);
+  const getInitialRegistrationOpen = (): boolean => {
+    try {
+      const local = localStorage.getItem('jsl_registration_is_open');
+      if (local !== null) return JSON.parse(local) === true;
+    } catch {}
+    return false; // Default to CLOSED if deleted or no setting saved
+  };
+
+  const [isRegistrationOpen, setIsRegistrationOpen] = useState<boolean>(getInitialRegistrationOpen);
 
   // Form 1: Team Registration State
   const [teamName, setTeamName] = useState('');
@@ -105,8 +113,14 @@ export default function VillageLeagueRegistrationPage() {
     setPlayers(getLocalPlayers().filter(p => !getDeletedIds().includes(p.id)));
 
     const unsubSettings = onSnapshot(doc(db, 'settings', 'village_league'), (docSnap) => {
-      if (docSnap.exists()) {
-        setIsRegistrationOpen(docSnap.data().isOpen !== false);
+      if (docSnap.exists() && typeof docSnap.data().isOpen === 'boolean') {
+        const openStatus = docSnap.data().isOpen === true;
+        setIsRegistrationOpen(openStatus);
+        try { localStorage.setItem('jsl_registration_is_open', JSON.stringify(openStatus)); } catch {}
+      } else {
+        // Document deleted or missing -> DEFAULT TO CLOSED!
+        setIsRegistrationOpen(false);
+        try { localStorage.setItem('jsl_registration_is_open', JSON.stringify(false)); } catch {}
       }
     });
 
@@ -194,6 +208,10 @@ export default function VillageLeagueRegistrationPage() {
 
   const handleSubmitTeam = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isRegistrationOpen) {
+      alert('⚠️ Registration is closed by the Admin. Submissions are disabled.');
+      return;
+    }
     if (!teamName.trim()) { alert('Please enter Team Name.'); return; }
     if (!ownerName.trim()) { alert('Please enter Owner Name.'); return; }
     if (!teamAddress.trim()) { alert('Please enter Address.'); return; }
@@ -254,6 +272,10 @@ export default function VillageLeagueRegistrationPage() {
 
   const handleSubmitPlayer = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isRegistrationOpen) {
+      alert('⚠️ Registration is closed by the Admin. Submissions are disabled.');
+      return;
+    }
     if (!fullName.trim()) { alert('Please enter Full Name.'); return; }
     if (!phoneNumber.trim() || phoneNumber.length < 10) { alert('Please enter a valid 10-digit Phone Number.'); return; }
     if (!playerAddress.trim()) { alert('Please enter Address.'); return; }
@@ -483,6 +505,20 @@ export default function VillageLeagueRegistrationPage() {
 
       {/* ── 3 OPTION CARDS SHOWN TOGETHER SIDE-BY-SIDE IN 3 COLUMNS ON MOBILE ───── */}
       <main className="max-w-5xl mx-auto px-2 sm:px-4 mt-4 space-y-4">
+        {!isRegistrationOpen && (
+          <div className="bg-gradient-to-r from-rose-950 via-red-950 to-rose-950 border-2 border-rose-500/60 rounded-2xl p-4 sm:p-6 text-center shadow-2xl animate-in zoom-in-95">
+            <div className="w-12 h-12 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto mb-2 border border-rose-500/40">
+              <AlertCircle className="w-6 h-6 text-rose-400 animate-pulse" />
+            </div>
+            <h3 className="text-lg sm:text-2xl font-black text-white uppercase tracking-wide">
+              ⛔ REGISTRATION LINK DEACTIVATED / CLOSED
+            </h3>
+            <p className="text-xs sm:text-sm text-rose-200 mt-1 max-w-xl mx-auto font-medium">
+              Player and Team registrations for Jhankra Super League are currently closed by the Admin. No new registration submissions are being accepted.
+            </p>
+          </div>
+        )}
+
         <div className="grid grid-cols-3 gap-1.5 sm:gap-4">
           {/* Col 1 (Left): Total Team Registered */}
           <button
@@ -544,16 +580,22 @@ export default function VillageLeagueRegistrationPage() {
                 : 'bg-slate-900/90 hover:bg-slate-900 border-slate-800'
             }`}
           >
-            <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 flex items-center justify-center font-black text-xs sm:text-lg mx-auto mb-1">
-              📝
+            <div className={`w-7 h-7 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center font-black text-xs sm:text-lg mx-auto mb-1 ${
+              isRegistrationOpen ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+            }`}>
+              {isRegistrationOpen ? '📝' : '⛔'}
             </div>
-            <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 bg-red-500/20 text-red-300 rounded-full inline-block">
-              Opt 3
+            <span className={`text-[8px] sm:text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full inline-block ${
+              isRegistrationOpen ? 'bg-red-500/20 text-red-300' : 'bg-rose-500/20 text-rose-300'
+            }`}>
+              {isRegistrationOpen ? 'Opt 3' : 'Closed'}
             </span>
             <p className="text-[9px] sm:text-xs font-black uppercase tracking-tight text-slate-300 mt-1 truncate">Register</p>
-            <h3 className="text-[10px] sm:text-xs font-black text-amber-400 mt-0.5 truncate">Click Here</h3>
-            <p className="text-[8px] sm:text-xs text-red-400 font-bold mt-1">
-              {activePortion === 'register' ? '▲ Close' : '▼ Open'}
+            <h3 className={`text-[10px] sm:text-xs font-black mt-0.5 truncate ${isRegistrationOpen ? 'text-amber-400' : 'text-rose-400'}`}>
+              {isRegistrationOpen ? 'Click Here' : '⛔ CLOSED'}
+            </h3>
+            <p className={`text-[8px] sm:text-xs font-bold mt-1 ${isRegistrationOpen ? 'text-red-400' : 'text-rose-400'}`}>
+              {activePortion === 'register' ? '▲ Close' : isRegistrationOpen ? '▼ Open' : '▼ Info'}
             </p>
           </button>
         </div>
