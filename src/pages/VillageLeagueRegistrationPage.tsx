@@ -37,15 +37,8 @@ export default function VillageLeagueRegistrationPage() {
   // Default null so no category opens automatically; opens ONLY when clicked
   const [activePortion, setActivePortion] = useState<'teams' | 'players' | 'register' | null>(null);
   const [registerMode, setRegisterMode] = useState<'team' | 'player'>('player');
-  const getInitialRegistrationOpen = (): boolean => {
-    try {
-      const local = localStorage.getItem('jsl_registration_is_open');
-      if (local !== null) return JSON.parse(local) === true;
-    } catch {}
-    return false; // Default to CLOSED if deleted or no setting saved
-  };
-
-  const [isRegistrationOpen, setIsRegistrationOpen] = useState<boolean>(getInitialRegistrationOpen);
+  const [checkingStatus, setCheckingStatus] = useState(true);
+  const [isRegistrationOpen, setIsRegistrationOpen] = useState<boolean>(false);
 
   // Form 1: Team Registration State
   const [teamName, setTeamName] = useState('');
@@ -113,6 +106,7 @@ export default function VillageLeagueRegistrationPage() {
     setPlayers(getLocalPlayers().filter(p => !getDeletedIds().includes(p.id)));
 
     const unsubSettings = onSnapshot(doc(db, 'settings', 'village_league'), (docSnap) => {
+      setCheckingStatus(false);
       if (docSnap.exists() && typeof docSnap.data().isOpen === 'boolean') {
         const openStatus = docSnap.data().isOpen === true;
         setIsRegistrationOpen(openStatus);
@@ -122,6 +116,10 @@ export default function VillageLeagueRegistrationPage() {
         setIsRegistrationOpen(false);
         try { localStorage.setItem('jsl_registration_is_open', JSON.stringify(false)); } catch {}
       }
+    }, (err) => {
+      console.error('Settings listener error:', err);
+      setCheckingStatus(false);
+      setIsRegistrationOpen(false);
     });
 
     const qTeams = query(collection(db, 'village_league_teams'), orderBy('createdAt', 'asc'));
@@ -447,7 +445,15 @@ export default function VillageLeagueRegistrationPage() {
            (p.address || '').toLowerCase().includes(q);
   });
 
-  if (!isRegistrationOpen) {
+  if (checkingStatus || !isRegistrationOpen) {
+    if (checkingStatus) {
+      return (
+        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center font-sans">
+          <div className="w-8 h-8 border-2 border-slate-700 border-t-slate-400 rounded-full animate-spin mx-auto" />
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center font-sans">
         <div className="max-w-md w-full bg-slate-900/90 border border-slate-800 rounded-3xl p-8 shadow-2xl space-y-4">
