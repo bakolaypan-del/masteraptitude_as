@@ -35,22 +35,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshProfile = async (currentUser: User) => {
     try {
-      const profileRef = doc(db, 'profiles', currentUser.uid);
-      const snap = await getDoc(profileRef);
-      if (snap.exists()) {
-        const data = snap.data() as UserProfile;
+      const pSnap = await getDoc(doc(db, 'profiles', currentUser.uid));
+      const uSnap = await getDoc(doc(db, 'users', currentUser.uid));
+      const pData = pSnap.exists() ? pSnap.data() : {};
+      const uData = uSnap.exists() ? uSnap.data() : {};
+      const combined = { ...uData, ...pData } as UserProfile;
+
+      if (Object.keys(combined).length > 0) {
         const isOwner = currentUser.email?.toLowerCase() === 'bakolaypan@gmail.com';
-        if (isOwner && data.role !== 'admin') {
-          const updatedProfile = { ...data, role: 'admin' as const };
-          await setDoc(profileRef, updatedProfile, { merge: true });
-          setProfile(updatedProfile);
-          localStorage.setItem('ma_profile', JSON.stringify(updatedProfile));
-          localStorage.setItem('ma_profile_ts', String(Date.now()));
-        } else {
-          setProfile(data);
-          localStorage.setItem('ma_profile', JSON.stringify(data));
-          localStorage.setItem('ma_profile_ts', String(Date.now()));
+        if (isOwner && combined.role !== 'admin') {
+          combined.role = 'admin';
         }
+        setProfile(combined);
+        localStorage.setItem('ma_profile', JSON.stringify(combined));
+        localStorage.setItem('ma_profile_ts', String(Date.now()));
       }
     } catch (e) {
       console.error("Error refreshing profile:", e);

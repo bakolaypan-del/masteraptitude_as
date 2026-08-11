@@ -1933,6 +1933,33 @@ function AdminHome() {
     if (!user || !editingStudent) return;
     setSavingStudent(true);
     try {
+      const selectedBatch = editingStudent.batch || '';
+      let enrolled: string[] = [];
+      if (selectedBatch === 'MANZIL 1.0' || selectedBatch === 'manzil_batch_1.0') {
+        enrolled = ['manzil_batch_1.0'];
+      } else if (selectedBatch === 'MANZIL 2.0') {
+        enrolled = ['manzil_batch_2.0'];
+      } else if (selectedBatch === 'MANZIL 3.0') {
+        enrolled = ['manzil_batch_3.0'];
+      }
+
+      const patchData = {
+        name: editingStudent.name,
+        phoneNumber: editingStudent.phoneNumber,
+        status: editingStudent.status,
+        batch: selectedBatch,
+        enrolledBatches: enrolled,
+        manzilBatchEnrolled: enrolled.includes('manzil_batch_1.0')
+      };
+
+      // Direct Firestore sync to both profiles and users collections for immediate UI updates
+      try {
+        await setDoc(doc(db, 'profiles', editingStudent.id), patchData, { merge: true });
+        await setDoc(doc(db, 'users', editingStudent.id), patchData, { merge: true });
+      } catch (fsErr) {
+        console.warn('Firestore direct write warning:', fsErr);
+      }
+
       const token = await user.getIdToken();
       const res = await fetch(`/api/admin/students/${editingStudent.id}`, {
         method: 'PUT',
@@ -1941,21 +1968,20 @@ function AdminHome() {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          name: editingStudent.name,
-          phoneNumber: editingStudent.phoneNumber,
-          status: editingStudent.status,
-          batch: editingStudent.batch || '',
+          ...patchData,
           password: editingStudent.newPassword
         })
       });
+
       if (res.ok) {
         setEditingStudent(null);
-        alert('Student updated successfully!');
+        alert('Student profile updated successfully!');
       } else {
         alert(await res.text());
       }
-    } catch (err) {
-      alert('Failed to update student');
+    } catch (err: any) {
+      console.error(err);
+      alert('Failed to update student: ' + (err.message || err));
     } finally {
       setSavingStudent(false);
     }
