@@ -92,22 +92,5 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
-
-    // Village League Tournament Rules (Public Read, Create, Update & Delete allowed)
-    match /village_league_teams/{teamId} {
-      allow read, create, update, delete: if true;
-    }
-
-    match /village_league_players/{playerId} {
-      allow read, create, update, delete: if true;
-    }
-
-    match /village_league_registrations/{regId} {
-      allow read, create, update, delete: if true;
-    }
-
-    match /settings/village_league {
-      allow read, write: if true;
-    }
   }
 }

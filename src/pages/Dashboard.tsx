@@ -372,6 +372,7 @@ const Render3DIconPod = ({ title }: { title: string }) => {
 };
 
 const DEFAULT_DASHBOARD_CATEGORIES = [
+  { id: 'def_manzil_batch', title: 'Manzil Batch 1.0', textColor: 'green', iconType: '🧮', actionType: 'route', actionValue: '/batch/manzil_batch_1.0', priority: 0.5, isActive: true },
   { id: 'def_live_test', title: 'Live Mock', textColor: 'red', iconType: '🔴', actionType: 'tab', actionValue: 'live_test', priority: 1, isActive: true },
   { id: 'def_mock_landing', title: 'Free Mock', textColor: 'green', iconType: '🏆', actionType: 'tab', actionValue: 'mock_landing', priority: 2, isActive: true },
   { id: 'def_mock_challenge', title: '150 Days Free Practice', textColor: 'red', iconType: '📅', actionType: 'tab', actionValue: 'mock_challenge', priority: 3, isActive: true },
@@ -1874,6 +1875,20 @@ export default function Dashboard() {
             )}
           </div>
 
+          {/* EXCLUSIVE PAID BATCH LINK */}
+          <button
+            onClick={() => { navigate('/batch/manzil_batch_1.0'); setIsSidebarOpen(false); }}
+            className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-emerald-600/30 via-teal-600/30 to-emerald-600/30 text-emerald-300 border border-emerald-500/40 hover:border-emerald-400 rounded-2xl shadow-sm font-black text-xs transition-all cursor-pointer group mb-2"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-base">🧮</span>
+              <span className="truncate">Manzil Batch 1.0</span>
+            </div>
+            <span className="px-2 py-0.5 bg-amber-400/20 text-amber-300 text-[9px] font-black uppercase tracking-wider rounded-md border border-amber-400/30">
+              Paid
+            </span>
+          </button>
+
           {/* MOCK TEST SECTION */}
           <div className="space-y-1">
             <button
@@ -2778,19 +2793,40 @@ export default function Dashboard() {
                       <div className="w-1 h-4 bg-rose-500 rounded-full"/>
                       Purchased Batch / Mock Details
                     </h3>
-                    {profile?.batch ? (
-                      <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-5 rounded-2xl border border-amber-100 flex items-center gap-4">
-                        <div className="w-10 h-10 bg-amber-400 rounded-xl flex items-center justify-center shadow-lg shadow-amber-200 shrink-0">
-                          <Trophy className="w-5 h-5 text-white" />
+                    {(() => {
+                      const batchName = profile?.batch || (profile?.enrolledBatches?.includes('manzil_batch_1.0') ? 'MANZIL 1.0' : '');
+                      const isEnrolled = !!batchName && batchName !== 'None (General)';
+                      
+                      if (!isEnrolled) {
+                        return (
+                          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-center">
+                            <p className="text-xs font-bold text-slate-500">No active paid batch assigned yet.</p>
+                            <p className="text-[10px] text-slate-400 font-medium mt-1">Contact Suman Sir to enroll in MANZIL Batch.</p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-4 md:p-5 rounded-2xl border border-emerald-200 flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-xl flex items-center justify-center shadow-md text-white font-black text-xl shrink-0">
+                              🧮
+                            </div>
+                            <div>
+                              <span className="block text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-0.5">Enrolled Paid Batch</span>
+                              <span className="text-sm font-extrabold text-slate-900">{batchName}</span>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => navigate('/batch/manzil_batch_1.0')}
+                            className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 cursor-pointer shrink-0"
+                          >
+                            Open Portal
+                          </button>
                         </div>
-                        <div className="flex-1">
-                          <span className="block text-[9px] font-black text-amber-500 uppercase tracking-widest mb-0.5">Active Batch</span>
-                          <span className="text-sm font-black text-amber-900">{profile.batch}</span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-center py-4 text-slate-400 text-xs font-bold">No active batch purchased yet.</div>
-                    )}
+                      );
+                    })()}
                     <button
                       onClick={() => navigate('/paid-mock')}
                       className="mt-4 w-full flex items-center justify-center gap-2 bg-rose-600 text-white rounded-2xl py-4 font-black text-xs uppercase tracking-widest hover:bg-slate-900 transition-all shadow-lg shadow-rose-200"

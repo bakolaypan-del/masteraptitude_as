@@ -28,10 +28,10 @@ import RichTextEditor, { RenderQuestionHTML } from '../components/RichTextEditor
 import { parseEnglishAndBengali, stripRawHTMLTags, RenderMultilingualQuestion, RenderMultilingualOption } from '../components/MultilingualQuestion';
 import { exportMockTestToPDF, exportMockTestToWord } from '../lib/exportMockTest';
 import AdminQuestionPaperMaker from '../components/AdminQuestionPaperMaker';
-import AdminVillageLeague from '../components/AdminVillageLeague';
+import AdminBatchManager from '../components/AdminBatchManager';
 import { Trophy } from 'lucide-react';
 
-type AdminTab = 'students' | 'mock' | 'question_maker' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'blog' | 'reviews' | 'paid_mock' | 'dashboard_grid' | 'one_liner' | 'village_league';
+type AdminTab = 'students' | 'mock' | 'question_maker' | 'typing' | 'notes' | 'video' | 'pyq' | 'pattern' | 'carousel' | 'social' | 'affairs' | 'practice' | 'site_info' | 'blog' | 'reviews' | 'paid_mock' | 'dashboard_grid' | 'one_liner' | 'batch_manager';
 
 // ─── Image Cropper Modal ─────────────────────────────────────────────────────
 function ImageCropper({
@@ -246,6 +246,214 @@ function ImageCropper({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+function AdminStudentsManager() {
+  const [students, setStudents] = useState<any[]>([]);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
+  const [savingBatch, setSavingBatch] = useState(false);
+  const [selectedBatches, setSelectedBatches] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+  const fetchStudents = async () => {
+    setLoading(true);
+    try {
+      const snap = await getDocs(collection(db, 'users'));
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setStudents(list);
+    } catch (err) {
+      console.error('Error fetching students:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpenBatchModal = (student: any) => {
+    setSelectedStudent(student);
+    const existing = Array.isArray(student.enrolledBatches) ? [...student.enrolledBatches] : [];
+    if (student.manzilBatchEnrolled && !existing.includes('manzil_batch_1.0')) {
+      existing.push('manzil_batch_1.0');
+    }
+    setSelectedBatches(existing);
+  };
+
+  const toggleBatchSelect = (batchId: string) => {
+    setSelectedBatches(prev =>
+      prev.includes(batchId) ? prev.filter(b => b !== batchId) : [...prev, batchId]
+    );
+  };
+
+  const handleSaveStudentBatches = async () => {
+    if (!selectedStudent) return;
+    setSavingBatch(true);
+    try {
+      await updateDoc(doc(db, 'users', selectedStudent.id), {
+        enrolledBatches: selectedBatches,
+        manzilBatchEnrolled: selectedBatches.includes('manzil_batch_1.0')
+      });
+
+      setStudents(prev => prev.map(s => s.id === selectedStudent.id ? {
+        ...s,
+        enrolledBatches: selectedBatches,
+        manzilBatchEnrolled: selectedBatches.includes('manzil_batch_1.0')
+      } : s));
+
+      alert('Successfully updated batch access for ' + (selectedStudent.displayName || selectedStudent.email || 'Student') + '!');
+      setSelectedStudent(null);
+    } catch (err: any) {
+      console.error(err);
+      alert('Failed to save batch access: ' + (err.message || err));
+    } finally {
+      setSavingBatch(false);
+    }
+  };
+
+  const filtered = students.filter(s => {
+    const q = search.toLowerCase().trim();
+    if (!q) return true;
+    const name = String(s.displayName || s.name || '').toLowerCase();
+    const email = String(s.email || '').toLowerCase();
+    const phone = String(s.phoneNumber || s.phone || '').toLowerCase();
+    return name.includes(q) || email.includes(q) || phone.includes(q);
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+            <span className="w-2 h-8 bg-indigo-600 rounded-full" />
+            Registered Students Management
+          </h2>
+          <p className="text-xs text-slate-500 font-bold mt-1">Manage student accounts, phone numbers, and assign Paid Batch access.</p>
+        </div>
+
+        <input
+          type="text"
+          placeholder="Search by student name, email, phone..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="bg-white border-2 border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-72"
+        />
+      </div>
+
+      {loading ? (
+        <p className="text-slate-400 font-bold text-sm">Loading student profiles...</p>
+      ) : filtered.length === 0 ? (
+        <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-xs max-w-md mx-auto">
+          <p className="font-extrabold text-slate-500 text-sm">No students found matching your search query.</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  <th className="p-4">Student Name / Email</th>
+                  <th className="p-4">Phone Number</th>
+                  <th className="p-4">Enrolled Batches</th>
+                  <th className="p-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-xs font-bold text-slate-800">
+                {filtered.map(s => {
+                  const batches: string[] = Array.isArray(s.enrolledBatches) ? s.enrolledBatches : (s.manzilBatchEnrolled ? ['manzil_batch_1.0'] : []);
+                  return (
+                    <tr key={s.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="p-4">
+                        <div className="font-extrabold text-slate-900">{s.displayName || s.name || 'Unnamed Student'}</div>
+                        <div className="text-[11px] font-bold text-slate-400">{s.email || 'No email provided'}</div>
+                      </td>
+
+                      <td className="p-4 text-slate-600 font-bold">
+                        {s.phoneNumber || s.phone || 'N/A'}
+                      </td>
+
+                      <td className="p-4">
+                        {batches.length === 0 ? (
+                          <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                            No Paid Batch
+                          </span>
+                        ) : (
+                          <div className="flex gap-1 flex-wrap">
+                            {batches.map(b => (
+                              <span key={b} className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-200 font-black text-[10px] uppercase rounded-full">
+                                🎓 Manzil Batch 1.0
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+
+                      <td className="p-4 text-right">
+                        <button
+                          onClick={() => handleOpenBatchModal(s)}
+                          className="px-3.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-black text-xs rounded-xl transition-all border border-indigo-200 cursor-pointer shadow-2xs"
+                        >
+                          🎓 Manage Batches
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* MANAGE BATCH MODAL */}
+      {selectedStudent && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in zoom-in-95">
+            <h3 className="font-black text-slate-900 text-lg">Assign Paid Batches</h3>
+            <p className="text-xs text-slate-500 font-bold">
+              Student: <span className="text-indigo-600 font-black">{selectedStudent.displayName || selectedStudent.email}</span>
+            </p>
+
+            <div className="space-y-3 pt-2">
+              <label className="flex items-center gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl cursor-pointer hover:bg-indigo-50/40 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={selectedBatches.includes('manzil_batch_1.0')}
+                  onChange={() => toggleBatchSelect('manzil_batch_1.0')}
+                  className="w-5 h-5 text-indigo-600 rounded cursor-pointer"
+                />
+                <div>
+                  <div className="font-black text-slate-900 text-xs">🚀 Manzil Batch 1.0</div>
+                  <div className="text-[10px] text-slate-400 font-bold">Unlocks recorded videos, lecture PDF notes, & practice sets</div>
+                </div>
+              </label>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setSelectedStudent(null)}
+                className="px-4 py-2 bg-slate-100 text-slate-700 font-black text-xs uppercase tracking-wider rounded-xl hover:bg-slate-200 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={savingBatch}
+                onClick={handleSaveStudentBatches}
+                className="px-5 py-2 bg-indigo-600 text-white font-black text-xs uppercase tracking-wider rounded-xl hover:bg-indigo-700 transition-all cursor-pointer shadow-md disabled:opacity-50"
+              >
+                {savingBatch ? 'Saving...' : 'Save Access'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2313,18 +2521,24 @@ function AdminHome() {
           Question Paper Maker
         </button>
         <button
-          onClick={() => setActiveTab('village_league')}
+          onClick={() => setActiveTab('batch_manager')}
           className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all
-            ${activeTab === 'village_league' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-100' : 'text-slate-500 hover:text-emerald-600 hover:bg-emerald-50'}`}
+            ${activeTab === 'batch_manager' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-100' : 'text-slate-500 hover:text-emerald-600 hover:bg-emerald-50'}`}
         >
           <Trophy className="w-4 h-4 text-amber-300" />
-          🏆 Village League
+          🎓 Paid Batch Manager
         </button>
       </div>
 
-      {activeTab === 'village_league' && (
+      {activeTab === 'students' && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <AdminVillageLeague />
+          <AdminStudentsManager />
+        </div>
+      )}
+
+      {activeTab === 'batch_manager' && (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <AdminBatchManager />
         </div>
       )}
 
@@ -6003,7 +6217,7 @@ function QuestionManager() {
   const [isSavingParsed, setIsSavingParsed] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
 
-  // File Upload Handler (PDF, Word .docx, HTML, TXT)
+  // File Upload Handler (JSON, HTML, PDF, Word .docx, TXT)
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -6012,6 +6226,193 @@ function QuestionManager() {
     setParseError(null);
     setParsedQuestions([]);
 
+    const fileName = file.name.toLowerCase();
+
+    // 1. DIRECT JSON FILE PARSING
+    if (fileName.endsWith('.json') || file.type === 'application/json') {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const content = reader.result as string;
+          const parsedData = JSON.parse(content);
+          let rawQs: any[] = [];
+
+          if (Array.isArray(parsedData)) {
+            rawQs = parsedData;
+          } else if (parsedData && Array.isArray(parsedData.questions)) {
+            rawQs = parsedData.questions;
+          } else if (parsedData && Array.isArray(parsedData.data)) {
+            rawQs = parsedData.data;
+          } else if (typeof parsedData === 'object' && parsedData !== null) {
+            const arrayKey = Object.keys(parsedData).find(k => Array.isArray(parsedData[k]));
+            if (arrayKey) rawQs = parsedData[arrayKey];
+          }
+
+          if (rawQs.length === 0) {
+            alert('No question objects found in this JSON file.');
+            setParsingHtml(false);
+            return;
+          }
+
+          const formatted = rawQs.map((q: any, idx: number) => {
+            let opts: string[] = [];
+            if (Array.isArray(q.options)) {
+              opts = q.options.map((o: any) => String(o || '').trim());
+            } else if (typeof q.options === 'string') {
+              try { opts = JSON.parse(q.options); } catch { opts = []; }
+            }
+            if (!opts || opts.length === 0) {
+              opts = [
+                q.optionA || q.option_a || q.a || '',
+                q.optionB || q.option_b || q.b || '',
+                q.optionC || q.option_c || q.c || '',
+                q.optionD || q.option_d || q.d || ''
+              ].filter(Boolean);
+            }
+
+            return {
+              qNo: questions.length + idx + 1,
+              questionText: q.questionText || q.question_text || q.questionEn || q.question || q.title || '',
+              questionEn: q.questionEn || q.question_en || '',
+              questionBn: q.questionBn || q.question_bn || '',
+              options: opts.length > 0 ? opts : ['', '', '', ''],
+              correctAnswer: q.correctAnswer || q.correct_answer || q.answer || '',
+              solution: q.solution || q.explanation || q.explanationEn || ''
+            };
+          });
+
+          setParsedQuestions(formatted);
+          setShowParseModal(true);
+        } catch (err: any) {
+          console.error('[JSON Parse Error]', err);
+          alert('Failed to parse JSON file: ' + (err.message || err));
+        } finally {
+          setParsingHtml(false);
+          if (e.target) e.target.value = '';
+        }
+      };
+      reader.readAsText(file);
+      return;
+    }
+
+    // 2. DIRECT HTML / HTM FILE PARSING
+    if (fileName.endsWith('.html') || fileName.endsWith('.htm') || file.type.includes('html')) {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const htmlText = reader.result as string;
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(htmlText, 'text/html');
+          const extracted: any[] = [];
+
+          // Strategy A: Query DOM elements for MCQ containers
+          const qNodes = doc.querySelectorAll('.que, .question, .question-block, .q-card, .mcq-card, .qitem, .question-box, div[id^="question"]');
+
+          if (qNodes.length > 0) {
+            qNodes.forEach((node, idx) => {
+              const qTextNode = node.querySelector('.q-text, .question-text, .question_text, .que-text, .qText, legend, h3, h4, p');
+              const qText = qTextNode ? qTextNode.textContent?.trim() || '' : '';
+
+              // Filter out pure section headers like "Comprehension", "Instructions", "Directions"
+              if (!qText || /^(comprehension|instructions|directions|section\s*\d+|part\s*[a-d])$/i.test(qText.trim())) {
+                return;
+              }
+
+              const optNodes = node.querySelectorAll('.option, .opt, .option-text, .op-text, li, input[type="radio"] + label, label');
+              const options: string[] = [];
+              optNodes.forEach(o => {
+                const txt = o.textContent?.trim() || '';
+                if (txt && !options.includes(txt) && !/^(comprehension|instructions)$/i.test(txt)) {
+                  options.push(txt);
+                }
+              });
+
+              const ansNode = node.querySelector('.answer, .correct-answer, .ans, .solution');
+              const ansText = ansNode ? ansNode.textContent?.trim() || '' : '';
+
+              if (qText && options.length >= 2) {
+                // Fill up to 4 options with unique labels if fewer options are found
+                while (options.length < 4) {
+                  options.push(`Option ${String.fromCharCode(65 + options.length)}`);
+                }
+
+                extracted.push({
+                  qNo: questions.length + extracted.length + 1,
+                  questionText: qText,
+                  options: options.slice(0, 4),
+                  correctAnswer: ansText || options[0],
+                  solution: ansNode ? ansNode.textContent?.trim() || '' : ''
+                });
+              }
+            });
+          }
+
+          // Strategy B: Regex split HTML text by question numbers
+          if (extracted.length === 0) {
+            const bodyText = doc.body ? doc.body.innerHTML : htmlText;
+            const blocks = bodyText.split(/(?=(?:<p>|<div|>)\s*(?:Q\d+[\.\):]|\d+[\.\):]))/i);
+
+            blocks.forEach((block) => {
+              const tempDiv = document.createElement('div');
+              tempDiv.innerHTML = block;
+              const text = tempDiv.textContent?.trim() || '';
+
+              if (text.length > 15 && !/^(comprehension|instructions|directions)/i.test(text.trim())) {
+                const optMatches = Array.from(text.matchAll(/(?:\(([A-D])\)|([A-D])[\.\):])\s*([^\n\r(]+)/gi));
+                const options = optMatches.map(m => m[3].trim()).filter(Boolean);
+
+                if (options.length >= 2 || (text.includes('?') && text.length > 20)) {
+                  const firstOptIdx = text.search(/(?:\([A-D]\)|[A-D][\.\):])/i);
+                  const qText = firstOptIdx > 0 ? text.substring(0, firstOptIdx).trim() : text;
+
+                  const cleanOpts = options.length >= 2 ? options.slice(0, 4) : [];
+                  while (cleanOpts.length < 4) {
+                    cleanOpts.push(`Option ${String.fromCharCode(65 + cleanOpts.length)}`);
+                  }
+
+                  extracted.push({
+                    qNo: questions.length + extracted.length + 1,
+                    questionText: qText.replace(/^\d+[\.\):]\s*/, ''),
+                    options: cleanOpts,
+                    correctAnswer: cleanOpts[0],
+                    solution: ''
+                  });
+                }
+              }
+            });
+          }
+
+          // If local DOM parsing extracted complete questions with options, use them!
+          if (extracted.length > 0 && extracted.some(q => q.options && q.options.length === 4)) {
+            setParsedQuestions(extracted);
+            setShowParseModal(true);
+          } else {
+            // High-precision AI Server Fallback for complex HTML structures
+            const token = await user.getIdToken();
+            const base64Data = btoa(unescape(encodeURIComponent(htmlText)));
+            await sendFileToServerParser(file, base64Data, token);
+          }
+        } catch (err: any) {
+          console.error('[HTML Parse Error]', err);
+          // High-precision AI Server Fallback on error
+          try {
+            const token = await user.getIdToken();
+            const readerData = reader.result as string;
+            const base64Data = btoa(unescape(encodeURIComponent(readerData)));
+            await sendFileToServerParser(file, base64Data, token);
+          } catch (serverErr: any) {
+            alert('HTML parsing error: ' + (serverErr.message || serverErr));
+          }
+        } finally {
+          setParsingHtml(false);
+          if (e.target) e.target.value = '';
+        }
+      };
+      reader.readAsText(file);
+      return;
+    }
+
+    // 3. BINARY FILE PARSING (PDF, DOCX, TXT Fallback)
     try {
       const token = await user.getIdToken();
       const reader = new FileReader();
@@ -6020,36 +6421,7 @@ function QuestionManager() {
         try {
           const result = reader.result as string;
           const base64Data = result.includes(',') ? result.split(',')[1] : result;
-
-          const res = await fetch('/api/admin/parse-questions-file', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              fileBase64: base64Data,
-              mimeType: file.type,
-              fileName: file.name
-            })
-          });
-
-          if (!res.ok) {
-            const errJson = await res.json().catch(() => ({}));
-            throw new Error(errJson.message || errJson.error || 'Failed to parse file');
-          }
-
-          const data = await res.json();
-          if (data.success && Array.isArray(data.questions)) {
-            if (data.questions.length === 0) {
-              alert('No multiple choice questions could be parsed from this file. Please check file formatting.');
-            } else {
-              setParsedQuestions(data.questions);
-              setShowParseModal(true);
-            }
-          } else {
-            throw new Error('Invalid response structure from question parser');
-          }
+          await sendFileToServerParser(file, base64Data, token);
         } catch (err: any) {
           console.error('[FileUpload Error]', err);
           setParseError(err.message || 'Error processing file');
@@ -6072,6 +6444,39 @@ function QuestionManager() {
       setParseError(err.message || 'Failed to process file upload');
       setParsingHtml(false);
       if (e.target) e.target.value = '';
+    }
+  };
+
+  const sendFileToServerParser = async (file: File, base64Data: string, token?: string) => {
+    const userToken = token || (await user?.getIdToken());
+    const res = await fetch('/api/admin/parse-questions-file', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${userToken}`
+      },
+      body: JSON.stringify({
+        fileBase64: base64Data,
+        mimeType: file.type,
+        fileName: file.name
+      })
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.message || errJson.error || 'Failed to parse file');
+    }
+
+    const data = await res.json();
+    if (data.success && Array.isArray(data.questions)) {
+      if (data.questions.length === 0) {
+        alert('No multiple choice questions could be parsed from this file. Please check file formatting.');
+      } else {
+        setParsedQuestions(data.questions);
+        setShowParseModal(true);
+      }
+    } else {
+      throw new Error('Invalid response structure from question parser');
     }
   };
 
@@ -6503,13 +6908,13 @@ function QuestionManager() {
           ⚡ Edit All Questions Together
         </button>
 
-        {/* AI File Import Button (PDF, Word .docx, HTML, TXT) */}
+        {/* Direct File Import Button (JSON, HTML, PDF, Word .docx, TXT) */}
         <label className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all border-2 cursor-pointer shadow-xs ${parsingHtml ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-50 to-violet-50 text-indigo-700 border-indigo-200 hover:border-indigo-400 hover:shadow-sm'}`}>
           <Download className="w-3.5 h-3.5 rotate-180 text-indigo-600" />
-          {parsingHtml ? 'Extracting File...' : '📁 Upload Document (PDF/Word/HTML)'}
+          {parsingHtml ? 'Extracting Questions...' : '📁 Upload File (JSON/HTML/PDF/Word)'}
           <input
             type="file"
-            accept=".pdf,.docx,.doc,.html,.htm,.txt"
+            accept=".json,.html,.htm,.pdf,.docx,.doc,.txt"
             onChange={handleFileUpload}
             disabled={parsingHtml || parsingUrl}
             className="hidden"

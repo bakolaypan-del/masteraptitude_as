@@ -4600,6 +4600,65 @@ Rules:
     }
   });
 
+  // Admin: Update Student Profile (Batch assignment, Name, Phone, Password, Status)
+  app.put("/api/admin/students/:id", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    const { id } = req.params;
+    const { name, phoneNumber, status, batch, password } = req.body;
+    try {
+      const updateData: any = { updatedAt: new Date().toISOString() };
+      if (name !== undefined) updateData.name = name;
+      if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
+      if (status !== undefined) updateData.status = status;
+      if (batch !== undefined) {
+        updateData.batch = batch;
+        let enrolled: string[] = [];
+        if (batch === 'MANZIL 1.0' || batch === 'manzil_batch_1.0') {
+          enrolled = ['manzil_batch_1.0'];
+        } else if (batch === 'MANZIL 2.0') {
+          enrolled = ['manzil_batch_2.0'];
+        } else if (batch === 'MANZIL 3.0') {
+          enrolled = ['manzil_batch_3.0'];
+        }
+        updateData.enrolledBatches = enrolled;
+        updateData.manzilBatchEnrolled = enrolled.includes('manzil_batch_1.0');
+      }
+
+      await currentDb.collection("profiles").doc(id).set(updateData, { merge: true });
+      await currentDb.collection("users").doc(id).set(updateData, { merge: true });
+
+      if (password && password.trim().length >= 6) {
+        await admin.auth().updateUser(id, { password: password.trim() });
+      }
+
+      res.json({ success: true, message: "Student updated successfully" });
+    } catch (err: any) {
+      console.error("[API] Failed to update student:", err);
+      res.status(500).json({ error: err.message || "Failed to update student" });
+    }
+  });
+
+  // Admin: Delete Student Account
+  app.delete("/api/admin/students/:id", verifyToken, verifyAdmin, async (req, res) => {
+    const currentDb = getDb();
+    if (!currentDb) return res.status(500).json({ error: "Database offline" });
+    const { id } = req.params;
+    try {
+      await currentDb.collection("profiles").doc(id).delete();
+      await currentDb.collection("users").doc(id).delete();
+      try {
+        await admin.auth().deleteUser(id);
+      } catch (authErr) {
+        console.warn("Firebase Auth deleteUser warning:", authErr);
+      }
+      res.json({ success: true, message: "Student deleted successfully" });
+    } catch (err: any) {
+      console.error("[API] Failed to delete student:", err);
+      res.status(500).json({ error: err.message || "Failed to delete student" });
+    }
+  });
+
   // ── Live Tests — reads from tests collection where isLive==true ───────────
   app.get("/api/live-tests", async (req, res) => {
     setCDNCache(res);
