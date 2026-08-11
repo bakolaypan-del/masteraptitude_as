@@ -9,7 +9,9 @@ import { getCachedCollection } from '../lib/cache';
 import {
   ArrowLeft, Search, X, Calendar, Tag as TagIcon,
   BookmarkPlus, Bookmark, Share2, ExternalLink, Download,
+  Play, FileText, Clock, BookOpen, Sparkles, Layers, CheckCircle
 } from 'lucide-react';
+import { exportMockTestToPDF } from '../lib/exportMockTest';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -62,12 +64,149 @@ export default function CurrentAffairsPage() {
   const [openPost, setOpenPost] = useState<AffairPost | null>(null);
   const [bookmarks, setBookmarks] = useState<string[]>(getBookmarks);
   const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
+  const [mainTab, setMainTab] = useState<'mocks' | 'notes'>('mocks');
+  const [caTests, setCaTests] = useState<any[]>([]);
+  const [loadingTests, setLoadingTests] = useState(false);
+  const [downloadingPdfId, setDownloadingPdfId] = useState<string | null>(null);
 
   useEffect(() => {
     document.title = 'Current Affairs | Master Aptitude';
     fetchPosts();
+    fetchCATests();
     return () => { document.title = 'Master Aptitude'; };
   }, []);
+
+  const fetchCATests = async () => {
+    setLoadingTests(true);
+    try {
+      const snap = await getDocs(query(collection(db, 'tests'), orderBy('createdAt', 'desc'))).catch(async () =>
+        getDocs(collection(db, 'tests'))
+      );
+      const allTests = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      // Filter Current Affairs tests
+      const filteredTests = allTests.filter((t: any) => {
+        const cat = String(t.category || t.examCategory || '').toLowerCase();
+        const sub = String(t.subCategory || '').toLowerCase();
+        const title = String(t.title || '').toLowerCase();
+        const topic = String(t.topic || '').toLowerCase();
+        return (
+          cat.includes('current affairs') ||
+          cat.includes('ca') ||
+          sub.includes('current affairs') ||
+          sub.includes('ca') ||
+          title.includes('current affairs') ||
+          title.includes('ca') ||
+          topic.includes('current affairs')
+        );
+      });
+
+      // Count actual questions per test from questions collection
+      const qCounts: Record<string, number> = {};
+      try {
+        const qSnap = await getDocs(collection(db, 'questions'));
+        qSnap.docs.forEach(d => {
+          const qData = d.data();
+          const tId = qData.testId || qData.test_id;
+          if (tId) {
+            const key = String(tId);
+            qCounts[key] = (qCounts[key] || 0) + 1;
+          }
+        });
+      } catch (e) {
+        console.warn('Question counting warning:', e);
+      }
+
+      const processedTests = filteredTests.map((t: any) => {
+        const actualCount = qCounts[String(t.id)] || t.totalQuestions || t.total_questions || (Array.isArray(t.questions) ? t.questions.length : 0);
+        return {
+          ...t,
+          resolvedQCount: actualCount
+        };
+      });
+
+      setCaTests(processedTests);
+    } catch (err) {
+      console.error('Fetch CA tests error:', err);
+    } finally {
+      setLoadingTests(false);
+    }
+  };
+
+  const handleDownloadTestPDF = async (t: any) => {
+    if (t.allowPdfDownload === false || t.allow_pdf_download === false) {
+      alert('PDF download is disabled by admin for this test.');
+      return;
+    }
+
+    setDownloadingPdfId(t.id);
+    try {
+      let qs: any[] = Array.isArray(t.questions) ? t.questions : [];
+
+      if (qs.length === 0 && t.id) {
+        const qSnap1 = await getDocs(query(collection(db, 'questions'), where('testId', '==', t.id)));
+        qs = qSnap1.docs.map(d => ({ id: d.id, ...d.data() as any }));
+
+        if (qs.length === 0) {
+          const qSnap2 = await getDocs(query(collection(db, 'questions'), where('test_id', '==', t.id)));
+          qs = qSnap2.docs.map(d => ({ id: d.id, ...d.data() as any }));
+        }
+
+        if (qs.length === 0 && typeof t.id === 'string') {
+          const qSnap3 = await getDocs(query(collection(db, 'questions'), where('testId', '==', String(t.id))));
+          qs = qSnap3.docs.map(d => ({ id: d.id, ...d.data() as any }));
+        }
+
+        if (qs.length === 0) {
+          try {
+            const res = await fetch(`/api/test/${t.id}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.questions && Array.isArray(data.questions)) qs = data.questions;
+            }
+          } catch {}
+        }
+      }
+
+      if (qs.length === 0) {
+        alert('This mock test has no questions added yet.');
+        return;
+      }
+
+      const formattedQuestions = qs.map((q, idx) => {
+        let opts: string[] = [];
+        if (Array.isArray(q.options)) {
+          opts = q.options;
+        } else if (typeof q.options === 'string') {
+          try { opts = JSON.parse(q.options); } catch { opts = []; }
+        }
+        if (!opts || opts.length === 0) {
+          opts = [
+            q.optionA || q.option_a || '',
+            q.optionB || q.option_b || '',
+            q.optionC || q.option_c || '',
+            q.optionD || q.option_d || ''
+          ].filter(Boolean);
+        }
+
+        return {
+          ...q,
+          qNo: q.qNo || q.q_no || idx + 1,
+          questionText: q.questionText || q.question_text || q.questionEn || q.title || q.question || '',
+          options: opts.length > 0 ? opts : ['', '', '', ''],
+          correctAnswer: q.correctAnswer || q.correct_answer || q.answer || '',
+          solution: q.solution || q.explanation || ''
+        };
+      }).sort((a, b) => (a.qNo || 0) - (b.qNo || 0));
+
+      exportMockTestToPDF(t.title || 'Current Affairs Mock Test', formattedQuestions, t);
+    } catch (err: any) {
+      console.error('PDF download error:', err);
+      alert('Failed to generate test PDF: ' + (err.message || err));
+    } finally {
+      setDownloadingPdfId(null);
+    }
+  };
 
   // Auto-open article from ?post=<id> deep link
   useEffect(() => {
@@ -315,29 +454,169 @@ export default function CurrentAffairsPage() {
             </div>
           </div>
 
-          {/* ── Category Filter Tabs ────────────────────────────────────────── */}
-          {allCategories.length > 0 && (
-            <div className="flex gap-2 overflow-x-auto pb-2 mb-5 scrollbar-none">
-              <button onClick={() => setActiveFilter('all')}
-                className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all shrink-0 ${
-                  activeFilter === 'all'
-                    ? 'bg-blue-600 text-white shadow-sm shadow-blue-200'
-                    : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300'
-                }`}>
-                All Topics
-              </button>
-              {allCategories.map(cat => (
-                <button key={cat} onClick={() => setActiveFilter(cat === activeFilter ? 'all' : cat)}
-                  className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all shrink-0 ${
-                    activeFilter === cat
-                      ? 'bg-blue-600 text-white shadow-sm shadow-blue-200'
-                      : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300'
-                  }`}>
-                  {cat}
-                </button>
-              ))}
+          {/* ── Main Category Sub-Tabs: Mock Tests vs Study Notes ────────────── */}
+          <div className="flex items-center gap-3 p-1.5 bg-slate-200/80 rounded-2xl mb-6 max-w-md mx-auto sm:mx-0">
+            <button
+              type="button"
+              onClick={() => setMainTab('mocks')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer ${
+                mainTab === 'mocks'
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Sparkles className="w-4 h-4 text-amber-300" />
+              <span>Mock Tests ({caTests.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setMainTab('notes')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer ${
+                mainTab === 'notes'
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <BookOpen className="w-4 h-4 text-blue-200" />
+              <span>Study Notes ({posts.length})</span>
+            </button>
+          </div>
+
+          {/* ── MOCK TESTS TAB CONTENT ────────────────────────────────────────── */}
+          {mainTab === 'mocks' && (
+            <div className="space-y-6 pb-12 animate-in fade-in duration-200">
+              {loadingTests ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="bg-white rounded-3xl p-6 border border-slate-100 animate-pulse space-y-4">
+                      <div className="h-4 bg-slate-100 rounded w-1/3" />
+                      <div className="h-6 bg-slate-100 rounded w-3/4" />
+                      <div className="h-4 bg-slate-100 rounded w-1/2" />
+                      <div className="h-10 bg-slate-100 rounded-xl w-full" />
+                    </div>
+                  ))}
+                </div>
+              ) : caTests.length === 0 ? (
+                <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-sm max-w-lg mx-auto">
+                  <div className="text-5xl mb-3">🧪</div>
+                  <h3 className="font-black text-slate-800 text-base uppercase tracking-wider mb-1">No Current Affairs Mock Tests Yet</h3>
+                  <p className="text-slate-400 text-xs font-medium">Current affairs mock tests will appear here as soon as published by admin.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {caTests.map((t: any) => {
+                    const qCount = t.resolvedQCount ?? t.totalQuestions ?? (Array.isArray(t.questions) ? t.questions.length : 0);
+                    const durationMins = t.duration || 20;
+                    const marksPerQ = t.marksPerCorrect || 1;
+                    const fullMarks = qCount * marksPerQ;
+                    const pdfAllowed = t.allowPdfDownload !== false && t.allow_pdf_download !== false;
+
+                    return (
+                      <div
+                        key={t.id}
+                        className="bg-white rounded-3xl p-6 border border-slate-200/80 hover:border-blue-300 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between group relative overflow-hidden"
+                      >
+                        {/* Top Tag & Info */}
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-3">
+                            <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-100">
+                              {t.category || t.subCategory || 'Current Affairs'}
+                            </span>
+                            {t.topic && (
+                              <span className="text-xs font-bold text-slate-400 truncate max-w-[120px]">
+                                {t.topic}
+                              </span>
+                            )}
+                          </div>
+
+                          <h3 className="font-extrabold text-slate-900 text-base md:text-lg tracking-tight leading-snug mb-2 group-hover:text-blue-600 transition-colors">
+                            {t.title}
+                          </h3>
+
+                          {/* Test Specs Bar */}
+                          <div className="flex items-center gap-3 text-xs font-bold text-slate-500 mb-4 bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex-wrap">
+                            <span className="flex items-center gap-1">
+                              <FileText className="w-3.5 h-3.5 text-blue-600" />
+                              {qCount} Qs
+                            </span>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5 text-amber-500" />
+                              {durationMins} Mins
+                            </span>
+                            <span>•</span>
+                            <span>Full Marks: {fullMarks}</span>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2 pt-2 border-t border-slate-100 mt-2">
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/test/${t.id}`)}
+                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-xs rounded-xl shadow-md shadow-blue-500/20 active:scale-95 transition-all cursor-pointer"
+                          >
+                            <Play className="w-3.5 h-3.5 fill-current" />
+                            <span>Start Test</span>
+                          </button>
+
+                          {pdfAllowed ? (
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadTestPDF(t)}
+                              disabled={downloadingPdfId === t.id}
+                              title="Download clean A4 PDF paper"
+                              className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs rounded-xl transition-all active:scale-95 cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+                            >
+                              <Download className="w-3.5 h-3.5 text-slate-600" />
+                              <span>{downloadingPdfId === t.id ? 'Exporting...' : 'PDF'}</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled
+                              title="PDF Download has been disabled by Admin for this test"
+                              className="px-3 py-2.5 bg-rose-50 border border-rose-100 text-rose-500 font-bold text-xs rounded-xl cursor-not-allowed opacity-80 flex items-center gap-1 shrink-0"
+                            >
+                              <span>🔒 PDF Off</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
+
+          {/* ── STUDY NOTES & ARTICLES TAB CONTENT ───────────────────────────── */}
+          {mainTab === 'notes' && (
+            <div>
+              {/* ── Category Filter Tabs ────────────────────────────────────────── */}
+              {allCategories.length > 0 && (
+                <div className="flex gap-2 overflow-x-auto pb-2 mb-5 scrollbar-none">
+                  <button onClick={() => setActiveFilter('all')}
+                    className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all shrink-0 ${
+                      activeFilter === 'all'
+                        ? 'bg-blue-600 text-white shadow-sm shadow-blue-200'
+                        : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300'
+                    }`}>
+                    All Topics
+                  </button>
+                  {allCategories.map(cat => (
+                    <button key={cat} onClick={() => setActiveFilter(cat === activeFilter ? 'all' : cat)}
+                      className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all shrink-0 ${
+                        activeFilter === cat
+                          ? 'bg-blue-600 text-white shadow-sm shadow-blue-200'
+                          : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300'
+                      }`}>
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              )}
 
           {/* ── Article Grid ────────────────────────────────────────────────── */}
           {loading ? (
@@ -378,6 +657,8 @@ export default function CurrentAffairsPage() {
               ))}
             </div>
           )}
+          </div>
+        )}
         </div>
       )}
     </div>

@@ -265,21 +265,90 @@ function AdminHome() {
   const handleExportTest = async (testItem: any, format: 'pdf' | 'word') => {
     setExportingTestId(testItem.id);
     try {
-      const qSnap = await getDocs(query(collection(db, 'questions'), where('testId', '==', testItem.id)));
-      let qs = qSnap.docs.map(d => ({ id: d.id, ...d.data() as any }));
-      qs.sort((a, b) => (a.qNo || 0) - (b.qNo || 0));
+      let qs: any[] = [];
+
+      // 1. Check embedded questions array
+      if (Array.isArray(testItem.questions) && testItem.questions.length > 0) {
+        qs = testItem.questions;
+      } else if (testItem.id) {
+        // 2. Query Firestore questions collection across all ID formats
+        const qSnap1 = await getDocs(query(collection(db, 'questions'), where('testId', '==', testItem.id)));
+        qs = qSnap1.docs.map(d => ({ id: d.id, ...d.data() as any }));
+
+        if (qs.length === 0) {
+          const qSnap2 = await getDocs(query(collection(db, 'questions'), where('test_id', '==', testItem.id)));
+          qs = qSnap2.docs.map(d => ({ id: d.id, ...d.data() as any }));
+        }
+
+        if (qs.length === 0 && typeof testItem.id === 'string') {
+          const qSnap3 = await getDocs(query(collection(db, 'questions'), where('testId', '==', String(testItem.id))));
+          qs = qSnap3.docs.map(d => ({ id: d.id, ...d.data() as any }));
+        }
+
+        if (qs.length === 0) {
+          const numId = Number(testItem.id);
+          if (!isNaN(numId) && numId > 0) {
+            const qSnap4 = await getDocs(query(collection(db, 'questions'), where('testId', '==', numId)));
+            qs = qSnap4.docs.map(d => ({ id: d.id, ...d.data() as any }));
+          }
+        }
+
+        // 3. Fallback to API if backend test questions endpoint exists
+        if (qs.length === 0) {
+          try {
+            const res = await fetch(`/api/test/${testItem.id}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.questions && Array.isArray(data.questions)) {
+                qs = data.questions;
+              }
+            }
+          } catch (e) {
+            console.warn('API question fetch fallback failed:', e);
+          }
+        }
+      }
+
       if (qs.length === 0) {
         alert('This mock test has no questions added yet.');
         return;
       }
+
+      // Normalize and sort questions
+      const formattedQuestions = qs.map((q, idx) => {
+        let opts: string[] = [];
+        if (Array.isArray(q.options)) {
+          opts = q.options;
+        } else if (typeof q.options === 'string') {
+          try { opts = JSON.parse(q.options); } catch { opts = []; }
+        }
+        if (!opts || opts.length === 0) {
+          opts = [
+            q.optionA || q.option_a || '',
+            q.optionB || q.option_b || '',
+            q.optionC || q.option_c || '',
+            q.optionD || q.option_d || ''
+          ].filter(Boolean);
+        }
+
+        return {
+          ...q,
+          qNo: q.qNo || q.q_no || idx + 1,
+          questionText: q.questionText || q.question_text || q.questionEn || q.title || q.question || '',
+          options: opts.length > 0 ? opts : ['', '', '', ''],
+          correctAnswer: q.correctAnswer || q.correct_answer || q.answer || '',
+          solution: q.solution || q.explanation || ''
+        };
+      }).sort((a, b) => (a.qNo || 0) - (b.qNo || 0));
+
       if (format === 'pdf') {
-        exportMockTestToPDF(testItem.title || 'Mock Test', qs, testItem);
+        exportMockTestToPDF(testItem.title || 'Mock Test', formattedQuestions, testItem);
       } else {
-        exportMockTestToWord(testItem.title || 'Mock Test', qs, testItem);
+        exportMockTestToWord(testItem.title || 'Mock Test', formattedQuestions, testItem);
       }
     } catch (err: any) {
       console.error('Export error:', err);
-      alert('Failed to fetch test questions for export.');
+      alert('Failed to fetch test questions for export: ' + (err.message || err));
     } finally {
       setExportingTestId(null);
     }
@@ -1624,6 +1693,33 @@ function AdminHome() {
     }
   };
 
+  const togglePdfDownload = async (test: any) => {
+    try {
+      if (!user) return;
+      const nextVal = test.allowPdfDownload === false ? true : false;
+      setTests(prev => prev.map(t => t.id === test.id ? { ...t, allowPdfDownload: nextVal } : t));
+
+      await updateDoc(doc(db, 'tests', test.id), {
+        allowPdfDownload: nextVal,
+        updatedAt: serverTimestamp()
+      }).catch(e => console.warn('Firestore pdf perm update fallback:', e));
+
+      const token = await user.getIdToken();
+      await fetch(`/api/admin/tests/${test.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          allowPdfDownload: nextVal
+        })
+      }).catch(() => {});
+    } catch (err) {
+      console.error('Failed to toggle PDF download:', err);
+    }
+  };
+
   const handleUpdateStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !editingStudent) return;
@@ -2658,9 +2754,18 @@ function AdminHome() {
                                 </button>
                                 <button
                                   onClick={() => toggleActive(test)}
-                                  className={`px-3 py-1 inline-flex text-[10px] font-black uppercase tracking-widest rounded-full transition-all shrink-0 ${test.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}
+                                  className={`px-3 py-1 inline-flex text-[10px] font-black uppercase tracking-widest rounded-full transition-all shrink-0 cursor-pointer ${test.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}
                                 >
                                   {test.isActive ? 'Active' : 'Draft'}
+                                </button>
+                                <button
+                                  onClick={() => togglePdfDownload(test)}
+                                  className={`px-3 py-1 inline-flex text-[10px] font-black uppercase tracking-widest rounded-full transition-all shrink-0 cursor-pointer ${
+                                    test.allowPdfDownload !== false ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-rose-100 text-rose-700 border border-rose-200'
+                                  }`}
+                                  title="Click to toggle Student PDF Download ON or OFF for this test"
+                                >
+                                  {test.allowPdfDownload !== false ? '📄 PDF: Allowed' : '🔒 PDF: Off'}
                                 </button>
                                 <div className="flex gap-2 items-center shrink-0 flex-wrap">
                                   <button

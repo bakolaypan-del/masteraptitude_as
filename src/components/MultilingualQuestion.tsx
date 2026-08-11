@@ -108,10 +108,9 @@ export function normalizeMathInHTML(htmlOrText: string): string {
     result = cleaned;
   }
 
-  // Strip unnecessary newlines around inline math so equations flow smoothly on a single line
+  // Collapse redundant horizontal spaces while preserving newlines so multiline questions keep line breaks
   result = result
-    .replace(/\s*[\r\n]+\s*/g, ' ')
-    .replace(/\s+/g, ' ');
+    .replace(/[ \t]+/g, ' ');
 
   return result;
 }
@@ -196,8 +195,11 @@ export function parseEnglishAndBengali(htmlOrText: string): { english: string; b
 
   const formatParts = (arr: string[]) => {
     if (arr.length === 0) return '';
-    const joined = arr.join(' ').replace(/\s+/g, ' ').trim();
-    return joined.startsWith('<p') ? joined : `<p>${joined}</p>`;
+    const cleanedArr = arr.map(s => s.trim()).filter(Boolean);
+    if (cleanedArr.length === 0) return '';
+    const joined = cleanedArr.join(' ').replace(/\s+/g, ' ').trim();
+    if (joined.startsWith('<p') || joined.startsWith('<div')) return joined;
+    return cleanedArr.length > 1 ? `<p>${cleanedArr.join('</p><p>')}</p>` : joined;
   };
 
   return {
@@ -251,16 +253,16 @@ export function RenderMultilingualQuestion({
 
   // Mode: Both (Bilingual)
   return (
-    <div className={`space-y-3.5 ${className}`}>
+    <div className={`space-y-1.5 ${className}`}>
       {/* English Question - Cambria Bold Black */}
       {english && (
-        <div style={enStyle} className="text-base md:text-xl leading-relaxed">
+        <div style={enStyle} className="text-base md:text-xl leading-snug">
           <RenderQuestionHTML html={english} />
         </div>
       )}
       {/* Bengali Question - Stylish Red */}
       {bengali && (
-        <div style={bnStyle} className={`text-base md:text-xl leading-relaxed ${english ? 'pt-2.5 border-t border-slate-100' : ''}`}>
+        <div style={bnStyle} className={`text-base md:text-xl leading-snug ${english ? 'pt-1.5 border-t border-slate-100' : ''}`}>
           <RenderQuestionHTML html={bengali} />
         </div>
       )}

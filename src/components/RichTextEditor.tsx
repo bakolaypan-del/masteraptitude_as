@@ -661,17 +661,33 @@ export function processLatexInHTML(content: string): string {
 export function RenderQuestionHTML({ html, className = '' }: { html: string; className?: string }) {
   if (!html) return null;
 
-  const processed = processLatexInHTML(html);
+  // Clean empty paragraphs and unnecessary trailing break tags that cause extra spacing
+  const cleanedHtml = html
+    .replace(/<p>\s*(?:&nbsp;|<br\s*\/?>)?\s*<\/p>/gi, '')
+    .replace(/^(?:\s*<br\s*\/?>\s*)+/gi, '')
+    .replace(/(?:\s*<br\s*\/?>\s*)+$/gi, '');
+
+  const processed = processLatexInHTML(cleanedHtml);
+  const isBlock = /<(?:p|div|table|ol|ul|li|blockquote|h[1-6])\b/i.test(processed);
 
   return (
     <>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&family=Baloo+Da+2:wght@400;600;700&family=Noto+Sans+Bengali:wght@400;600;700&family=Tiro+Bengali&family=Caveat:wght@600;700&display=swap');`}</style>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&family=Baloo+Da+2:wght@400;600;700&family=Noto+Sans+Bengali:wght@400;600;700&family=Tiro+Bengali&family=Caveat:wght@600;700&display=swap');
+        .q-html-rendered p { margin: 0 0 0.25em 0; line-height: 1.4; }
+        .q-html-rendered p:last-child { margin-bottom: 0; }
+        .q-html-rendered div { margin: 0; }
+      `}</style>
       <span
-        className={className}
-        style={{ whiteSpace: html.includes('<p') || html.includes('<br') ? 'pre-wrap' : 'normal' }}
+        className={`q-html-rendered ${className}`}
+        style={{
+          display: isBlock ? 'block' : 'inline',
+          whiteSpace: 'pre-line'
+        }}
         dangerouslySetInnerHTML={{ __html: processed }}
       />
     </>
   );
 }
+
 

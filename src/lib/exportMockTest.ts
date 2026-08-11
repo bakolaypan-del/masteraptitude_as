@@ -1,4 +1,5 @@
 import { WATERMARK_BASE64 } from './watermarkBase64';
+import { parseEnglishAndBengali } from '../components/MultilingualQuestion';
 
 export interface ExportTestMeta {
   category?: string;
@@ -146,24 +147,32 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
       `;
     }).join('');
 
+function cleanTextHTML(input?: string): string {
+  if (!input) return '';
+  return input
+    .replace(/<p>\s*(?:&nbsp;|<br\s*\/?>)?\s*<\/p>/gi, '')
+    .replace(/<div[^>]*>\s*(?:&nbsp;|<br\s*\/?>)?\s*<\/div>/gi, '')
+    .replace(/^(?:\s*<br\s*\/?>\s*)+/gi, '')
+    .replace(/(?:\s*<br\s*\/?>\s*)+$/gi, '')
+    .replace(/(?:<br\s*\/?>\s*){2,}/gi, '<br/>')
+    .trim();
+}
+
     // 3. Format bilingual question text
-    let formattedQContent = qTextClean;
-    if (!/<[a-z][\s\S]*>/i.test(qTextClean)) {
-      if (qTextClean.includes('/')) {
-        const parts = qTextClean.split('/');
-        formattedQContent = parts.map(part => {
-          const trimmed = part.trim();
-          if (/[\u0980-\u09FF]/.test(trimmed)) {
-            return `<span class="q-text-bn">${trimmed}</span>`;
-          } else {
-            return `<span class="q-text-en">${trimmed}</span>`;
-          }
-        }).join(' / ');
-      } else if (/[\u0980-\u09FF]/.test(qTextClean)) {
-        formattedQContent = `<span class="q-text-bn">${qTextClean}</span>`;
-      } else {
-        formattedQContent = `<span class="q-text-en">${qTextClean}</span>`;
-      }
+    let formattedQContent = '';
+    const { english, bengali } = parseEnglishAndBengali(qTextClean);
+
+    const cleanEn = cleanTextHTML(english);
+    const cleanBn = cleanTextHTML(bengali);
+
+    if (cleanEn && cleanBn) {
+      formattedQContent = `<div class="q-text-en">${cleanEn}</div><div class="q-text-bn">${cleanBn}</div>`;
+    } else if (cleanBn) {
+      formattedQContent = `<div class="q-text-bn">${cleanBn}</div>`;
+    } else if (cleanEn) {
+      formattedQContent = `<div class="q-text-en">${cleanEn}</div>`;
+    } else {
+      formattedQContent = `<div class="q-text-en">${cleanTextHTML(qTextClean)}</div>`;
     }
 
     const ansLabel = finalLetter ? `Answer - Option (${finalLetter})` : `Answer - ${rawAns}`;
@@ -197,6 +206,8 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
     `;
   }).join('');
 
+  const subtitleStr = [meta?.examName, meta?.category, meta?.subCategory].filter(Boolean).join(' • ');
+
   return `<!DOCTYPE html>
 <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
 <head>
@@ -218,7 +229,7 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
         color: #0f172a;
       }
       @bottom-right {
-        content: "${testTitle} • Official Paper";
+        content: "MASTER APTITUDE BY SUMAN SIR";
         font-size: 8.5pt;
         font-family: system-ui, -apple-system, sans-serif;
         font-weight: 800;
@@ -279,51 +290,58 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
 
     .paper-header {
       width: 100%;
+      text-align: center;
       border-bottom: 2.5px solid #000000;
       padding-bottom: 6px;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
       column-span: all;
       -webkit-column-span: all;
     }
     .paper-header-top {
       display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
+      justify-content: center;
+      align-items: center;
       gap: 12px;
       margin-bottom: 4px;
+      text-align: center;
     }
     .paper-title-left {
-      text-align: left;
+      text-align: center;
       flex: 1;
     }
     .paper-title {
-      font-size: 15pt;
+      font-size: 16pt;
       font-weight: 900;
       font-family: 'Cambria', 'Georgia', serif;
-      margin: 0;
+      margin: 0 auto;
       text-transform: uppercase;
-      letter-spacing: 0.3px;
+      letter-spacing: 0.5px;
       color: #000000;
       line-height: 1.25;
+      text-align: center;
     }
     .paper-subtitle {
       font-size: 10.5pt;
       font-weight: 700;
       color: #1e293b;
       margin-top: 2px;
+      text-align: center;
     }
     .paper-meta-strip {
       display: flex;
-      justify-content: space-between;
+      justify-content: center;
       align-items: center;
+      flex-wrap: wrap;
+      gap: 14px;
       margin-top: 6px;
-      padding: 4px 8px;
+      padding: 4px 10px;
       background: #f8fafc;
       border: 1px solid #cbd5e1;
       border-radius: 4px;
       font-size: 9.5pt;
       font-weight: 800;
       color: #000000;
+      text-align: center;
     }
     
     .questions-container {
@@ -341,8 +359,8 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
     }
 
     .question-block {
-      margin-bottom: 10px;
-      padding-bottom: 8px;
+      margin-bottom: 8px;
+      padding-bottom: 6px;
       border-bottom: 1px dashed #cbd5e1;
       page-break-inside: avoid;
       break-inside: avoid;
@@ -357,13 +375,13 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
       display: flex;
       align-items: flex-start;
       gap: 4px;
-      margin-bottom: 4px;
+      margin-bottom: 2px;
       width: 100%;
     }
     .q-num {
       font-family: 'Cambria', 'Georgia', serif;
       font-weight: 900;
-      font-size: 11pt;
+      font-size: 10.5pt;
       color: #000000;
       min-width: 22px;
       shrink: 0;
@@ -377,26 +395,39 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
     .q-text-en {
       font-family: 'Cambria', 'Georgia', serif !important;
       font-weight: 700 !important;
-      font-size: 11pt !important;
+      font-size: 10.5pt !important;
       color: #000000 !important;
       line-height: 1.35;
-      text-align: justify;
+      margin-bottom: 2px;
     }
 
     /* Bengali Question Text - Red color, Noto Serif Bengali font */
     .q-text-bn {
       font-family: 'Noto Serif Bengali', serif !important;
       font-weight: 700 !important;
-      font-size: 11pt !important;
+      font-size: 10.5pt !important;
       color: #dc2626 !important;
       line-height: 1.35;
-      text-align: justify;
+      margin-bottom: 2px;
     }
 
     .q-html-content {
-      font-size: 11pt !important;
+      font-size: 10.5pt !important;
       line-height: 1.35;
-      text-align: justify;
+    }
+
+    /* Eliminate huge blank paragraph margins inside questions */
+    .q-html-content p, .q-text-en p, .q-text-bn p {
+      margin: 0 0 2px 0 !important;
+      padding: 0 !important;
+      line-height: 1.35 !important;
+    }
+    .q-html-content p:last-child, .q-text-en p:last-child, .q-text-bn p:last-child {
+      margin-bottom: 0 !important;
+    }
+    .q-html-content div, .q-text-en div, .q-text-bn div {
+      margin: 0 !important;
+      padding: 0 !important;
     }
 
     .q-html-content img, .q-img img {
@@ -441,33 +472,33 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
       border: 1px solid #e2e8f0;
       border-radius: 4px;
       font-family: monospace;
-      font-size: 10pt;
+      font-size: 9.5pt;
       word-break: break-word;
     }
 
     .options-grid {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 3px;
       margin-left: 20px;
-      margin-top: 5px;
-      margin-bottom: 6px;
+      margin-top: 3px;
+      margin-bottom: 4px;
       width: calc(100% - 20px);
     }
     .option-item {
       display: flex;
       align-items: flex-start;
-      gap: 6px;
-      padding: 2px 4px;
+      gap: 5px;
+      padding: 1px 3px;
       word-break: break-word;
-      line-height: 1.35;
+      line-height: 1.3;
     }
     .opt-letter {
       font-family: 'Cambria', 'Georgia', serif !important;
       font-weight: 800 !important;
-      font-size: 10.5pt !important;
+      font-size: 10pt !important;
       color: #0f172a !important;
-      min-width: 24px;
+      min-width: 22px;
       shrink: 0;
     }
     .opt-content {
@@ -479,16 +510,16 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
     .opt-text-bn {
       font-family: 'Noto Serif Bengali', 'Tiro Bangla', serif !important;
       font-weight: 700 !important;
-      font-size: 10.5pt !important;
+      font-size: 10pt !important;
       color: #15803d !important;
-      line-height: 1.35;
+      line-height: 1.3;
     }
     .opt-text-en {
       font-family: 'Cambria', 'Georgia', serif !important;
       font-weight: 700 !important;
-      font-size: 10.5pt !important;
+      font-size: 10pt !important;
       color: #15803d !important;
-      line-height: 1.35;
+      line-height: 1.3;
     }
     .opt-sep {
       color: #94a3b8;
@@ -499,13 +530,13 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
     /* Answer Box - Displaying Answer - Option (A) / Answer - Option (B) */
     .ans-box {
       margin-left: 20px;
-      margin-top: 4px;
-      padding: 3px 9px;
+      margin-top: 3px;
+      padding: 2px 7px;
       background-color: #fef08a !important;
       border: 1.5px solid #eab308;
-      border-radius: 6px;
+      border-radius: 5px;
       display: inline-block;
-      font-size: 10.5pt !important;
+      font-size: 9.5pt !important;
       font-weight: 900 !important;
       font-family: 'Cambria', 'Noto Serif Bengali', serif !important;
       color: #000000 !important;
@@ -520,7 +551,7 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
       padding: 4px 8px;
       border-left: 3px solid #2563eb !important;
       background-color: #f8fafc;
-      font-size: 9.5pt !important;
+      font-size: 9pt !important;
       color: #1e293b !important;
       white-space: pre-wrap;
       word-break: break-word;
@@ -555,17 +586,17 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
     <div class="paper-header-top">
       <div class="paper-title-left">
         <h1 class="paper-title">${testTitle}</h1>
-        <div class="paper-subtitle">${meta?.examName || 'RRB NTPC UnderGraduate CBT I'} • Category: ${meta?.category || 'RAILWAY'} (${meta?.subCategory || 'Under Graduate'})</div>
+        ${subtitleStr ? `<div class="paper-subtitle">${subtitleStr}</div>` : ''}
       </div>
     </div>
     <div class="paper-meta-strip">
-      <span>Category: ${meta?.category || 'RAILWAY'}</span>
-      <span>Sub Category: ${meta?.subCategory || 'Under Graduate'}</span>
-      ${meta?.testDate ? `<span>Test Date: ${meta.testDate}</span>` : '<span>Test Date: 07/05/2026</span>'}
-      ${meta?.testTime ? `<span>Test Time: ${meta.testTime}</span>` : '<span>Test Time: 9:00 AM - 10:30 AM</span>'}
+      ${meta?.category ? `<span>Category: ${meta.category}</span>` : ''}
+      ${meta?.subCategory ? `<span>Sub Category: ${meta.subCategory}</span>` : ''}
       <span>Total Questions: ${totalQuestions}</span>
       <span>Full Marks: ${totalMarks}</span>
-      <span>Duration: ${meta?.duration || 40} Mins</span>
+      ${meta?.duration ? `<span>Duration: ${meta.duration} Mins</span>` : ''}
+      ${meta?.testDate ? `<span>Date: ${meta.testDate}</span>` : ''}
+      ${meta?.testTime ? `<span>Time: ${meta.testTime}</span>` : ''}
     </div>
   </div>
 
@@ -576,7 +607,7 @@ export function generateMockTestHTML(testTitle: string, questions: any[], meta?:
   <!-- Lower Portion Left Side Page Number Footer for Printable A4 -->
   <div class="page-footer">
     <span class="page-number"></span>
-    <span>MASTER APTITUDE BY SUMAN SIR • OFFICIAL QUESTION PAPER</span>
+    <span style="text-transform: uppercase;">MASTER APTITUDE BY SUMAN SIR</span>
   </div>
 </body>
 </html>`;
@@ -616,10 +647,24 @@ export function exportMockTestToPDF(testTitle: string, questions: any[], meta?: 
   printWindow.document.close();
 
   const doPrint = () => {
-    setTimeout(() => {
-      printWindow.focus();
-      printWindow.print();
-    }, 400);
+    const triggerPrint = () => {
+      try {
+        printWindow.focus();
+        printWindow.print();
+      } catch (e) {
+        console.error('PDF Print Error:', e);
+      }
+    };
+
+    if (printWindow.document.fonts && printWindow.document.fonts.ready) {
+      printWindow.document.fonts.ready.then(() => {
+        setTimeout(triggerPrint, 300);
+      }).catch(() => {
+        setTimeout(triggerPrint, 500);
+      });
+    } else {
+      setTimeout(triggerPrint, 500);
+    }
   };
 
   // Wait for all images inside printWindow to fully load before calling print()
@@ -651,7 +696,7 @@ export function exportMockTestToPDF(testTitle: string, questions: any[], meta?: 
     if (loadedCount >= totalImgs) {
       doPrint();
     } else {
-      fallbackTimer = setTimeout(doPrint, 2000);
+      fallbackTimer = setTimeout(doPrint, 2500);
     }
   }
 }
@@ -1168,10 +1213,22 @@ export function generateCustomQuestionPaperHTML(settings: QuestionPaperSettings,
       min-width: 0;
       word-break: break-word;
     }
+    .paper-q-body p, .q-lang-en p, .q-lang-bn p {
+      margin: 0 0 2px 0 !important;
+      padding: 0 !important;
+      line-height: 1.35 !important;
+    }
+    .paper-q-body p:last-child, .q-lang-en p:last-child, .q-lang-bn p:last-child {
+      margin-bottom: 0 !important;
+    }
+    .paper-q-body div, .q-lang-en div, .q-lang-bn div {
+      margin: 0 !important;
+      padding: 0 !important;
+    }
     .q-lang-en {
       font-family: 'Cambria', 'Georgia', serif;
       font-weight: 800;
-      font-size: 14pt;
+      font-size: 10.5pt;
       color: #000000;
       margin-bottom: 2px;
       text-align: justify;
@@ -1180,7 +1237,7 @@ export function generateCustomQuestionPaperHTML(settings: QuestionPaperSettings,
     }
     .q-lang-bn {
       font-weight: 800;
-      font-size: 14pt;
+      font-size: 10.5pt;
       color: #dc2626;
       margin-bottom: 2px;
       text-align: justify;
@@ -1395,10 +1452,25 @@ export function exportCustomQuestionPaperToPDF(settings: QuestionPaperSettings, 
   printWindow.document.open();
   printWindow.document.write(htmlContent);
   printWindow.document.close();
-  printWindow.onload = () => {
-    setTimeout(() => {
+  
+  const triggerPrint = () => {
+    try {
       printWindow.focus();
       printWindow.print();
-    }, 400);
+    } catch (e) {
+      console.error('Custom Paper Print Error:', e);
+    }
+  };
+
+  printWindow.onload = () => {
+    if (printWindow.document.fonts && printWindow.document.fonts.ready) {
+      printWindow.document.fonts.ready.then(() => {
+        setTimeout(triggerPrint, 300);
+      }).catch(() => {
+        setTimeout(triggerPrint, 500);
+      });
+    } else {
+      setTimeout(triggerPrint, 500);
+    }
   };
 }

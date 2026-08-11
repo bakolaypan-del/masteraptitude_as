@@ -3599,13 +3599,13 @@ export default function Dashboard() {
 
                         {/* Square / Compact Category Cards Responsive Grid */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5">
-                          {fullCategories.map(catName => {
+                          {fullCategories.map((catName: any) => {
                             const meta = getFullMockMeta(catName);
-                            const count = fullTests.filter(t => normalizeExamCat(t.examCategory || t.category, t.title).toUpperCase() === catName.toUpperCase()).length;
+                            const count = fullTests.filter(t => normalizeExamCat(t.examCategory || t.category, t.title).toUpperCase() === String(catName).toUpperCase()).length;
 
                             return (
                               <button
-                                key={catName}
+                                key={String(catName)}
                                 type="button"
                                 onClick={() => {
                                   setSelectedCategory(catName);
@@ -3672,9 +3672,9 @@ export default function Dashboard() {
                     {selectedCategory && (
                       <div className="space-y-4">
                         {fullCategories
-                          .filter(catName => catName.toUpperCase() === selectedCategory.toUpperCase())
-                          .map(examName => {
-                            const examTests = fullTests.filter(t => normalizeExamCat(t.examCategory || t.category, t.title).toUpperCase() === examName.toUpperCase());
+                          .filter((catName: any) => String(catName).toUpperCase() === selectedCategory.toUpperCase())
+                          .map((examName: any) => {
+                            const examTests = fullTests.filter(t => normalizeExamCat(t.examCategory || t.category, t.title).toUpperCase() === String(examName).toUpperCase());
                             const totalExamTests = examTests.length;
                             const takenExamCount = examTests.filter(t => pastResults.some(r => r.testId === t.id)).length;
 
@@ -4057,7 +4057,7 @@ export default function Dashboard() {
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold text-slate-500">Subject:</span>
                           <span className="text-sm font-black text-indigo-600">{selectedCategory}</span>
-                          <div className={`w-6 h-6 rounded-full ${getSubjectMeta(selectedCategory).circleBg} flex items-center justify-center font-black text-xs shadow-2xs`}>
+                          <div className={`w-6 h-6 rounded-full ${(getSubjectMeta(selectedCategory) as any).circleBg || 'bg-indigo-100 text-indigo-700'} flex items-center justify-center font-black text-xs shadow-2xs`}>
                             {activeTests.filter(t => {
                               const tType = t.testType || t.test_type || 'topic';
                               if (tType !== 'topic') return false;

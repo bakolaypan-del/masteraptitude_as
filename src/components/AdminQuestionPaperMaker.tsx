@@ -132,8 +132,8 @@ function parseBulkRawQuestions(rawText: string, startingQNo: number): PaperQuest
       continue;
     }
 
-    // 3. Detect Inline Options (e.g. (A) 10 (B) 20 (C) 30 (D) 40)
-    const inlineOptMatches = Array.from(line.matchAll(/(?:\(([A-D])\)|([A-D])[\.\)])\s*([^(\n]+)/gi));
+    // 3. Detect Inline Options (e.g. (A) 10 (B) 20 (C) 30 (D) 40 or (a) 10 (b) 20...)
+    const inlineOptMatches = Array.from(line.matchAll(/(?:\(([A-F1-6])\)|([A-F1-6])[\.\):])\s*([^(\n]+)/gi));
     if (inlineOptMatches.length >= 2) {
       const extractedOpts: string[] = [];
       inlineOptMatches.forEach(m => {
@@ -143,8 +143,8 @@ function parseBulkRawQuestions(rawText: string, startingQNo: number): PaperQuest
       continue;
     }
 
-    // 4. Detect Single Option Line (e.g. (A) 100 or A. 100)
-    const singleOptMatch = line.match(/^(?:\(([A-D])\)|([A-D])[\.\)])\s*(.+)/i);
+    // 4. Detect Single Option Line (e.g. (A) 100 or A. 100 or (a) 100 or 1. 100)
+    const singleOptMatch = line.match(/^(?:\(([A-F1-6])\)|([A-F1-6])[\.\):])\s*(.+)/i);
     if (singleOptMatch) {
       currentOptions.push(singleOptMatch[3].trim());
       continue;
