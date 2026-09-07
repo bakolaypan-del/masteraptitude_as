@@ -17,7 +17,6 @@ import ContentListPage from './pages/ContentListPage';
 import CurrentAffairsPage from './pages/CurrentAffairsPage';
 import KidsCornerPage from './pages/KidsCornerPage';
 import ManzilBatchPortal from './pages/ManzilBatchPortal';
-import CricketLeaguePage from './pages/CricketLeaguePage';
 
 function SecurityWrapper({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -205,7 +204,6 @@ export default function App() {
             
             <Route path="/current-affairs" element={<ProtectedRoute><CurrentAffairsPage /></ProtectedRoute>} />
             <Route path="/kids-corner" element={<ProtectedRoute><KidsCornerPage /></ProtectedRoute>} />
-            <Route path="/cricket-league" element={<ProtectedRoute><CricketLeaguePage /></ProtectedRoute>} />
             <Route path="/practice-set" element={<ProtectedRoute><ContentListPage category="practice" /></ProtectedRoute>} />
             <Route path="/study-notes" element={<ProtectedRoute><ContentListPage category="notes" /></ProtectedRoute>} />
             <Route path="/vlog" element={<ProtectedRoute><ContentListPage category="video" /></ProtectedRoute>} />

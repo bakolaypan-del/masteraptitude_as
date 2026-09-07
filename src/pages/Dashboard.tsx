@@ -384,8 +384,7 @@ const DEFAULT_DASHBOARD_CATEGORIES = [
   { id: 'def_current_affairs', title: 'Current Affairs', textColor: 'default', iconType: '📰', actionType: 'route', actionValue: '/current-affairs', priority: 9, isActive: true },
   { id: 'def_practice', title: 'Practice Set', textColor: 'default', iconType: '✅', actionType: 'tab', actionValue: 'practice', priority: 10, isActive: true },
   { id: 'def_one_liner', title: 'One Liner Notes', textColor: 'purple', iconType: '📌', actionType: 'tab', actionValue: 'one_liner', priority: 11, isActive: true },
-  { id: 'def_news', title: 'Latest Job Notification', textColor: 'default', iconType: '📢', actionType: 'route', actionValue: '/news', priority: 12, isActive: true },
-  { id: 'def_cricket_league', title: 'Cricket Premier League', textColor: 'green', iconType: '🏏', actionType: 'route', actionValue: '/cricket-league', priority: 13, isActive: true }
+  { id: 'def_news', title: 'Latest Job Notification', textColor: 'default', iconType: '📢', actionType: 'route', actionValue: '/news', priority: 12, isActive: true }
 ];
 
 export default function Dashboard() {
@@ -1890,17 +1889,6 @@ export default function Dashboard() {
             </span>
           </button>
 
-          {/* CRICKET PREMIER LEAGUE LINK */}
-          <button
-            onClick={() => { navigate('/cricket-league'); setIsSidebarOpen(false); }}
-            className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-emerald-950/80 via-teal-900/60 to-slate-900 text-emerald-300 border border-emerald-500/40 hover:border-emerald-400 rounded-2xl shadow-sm font-black text-xs transition-all cursor-pointer group mb-2"
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-base">🏏</span>
-              <span className="truncate">Cricket Premier League</span>
-            </div>
-            <ChevronRight className="w-4 h-4 text-emerald-400 group-hover:translate-x-0.5 transition-transform" />
-          </button>
 
           {/* MOCK TEST SECTION */}
           <div className="space-y-1">

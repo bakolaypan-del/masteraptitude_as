@@ -1302,65 +1302,6 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cookieParser());
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
-// Serve Cricket Premier League project directly from C:\scratch\cricket-premier-league
-const cplDirectory = path.join("C:", "scratch", "cricket-premier-league");
-if (fs.existsSync(cplDirectory)) {
-  console.log(`[CPL Integration] Serving Cricket Premier League directly from: ${cplDirectory}`);
-  app.use("/cricket-league-app", express.static(cplDirectory));
-}
-
-// CPL signed image upload proxy — keeps Cloudinary credentials off the client
-app.post("/api/cricket-league/upload-image", express.json({ limit: "5mb" }), async (req: any, res: any) => {
-  try {
-    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-    const apiKey = process.env.CLOUDINARY_API_KEY;
-    const apiSecret = process.env.CLOUDINARY_API_SECRET;
-    if (!cloudName || !apiKey || !apiSecret) {
-      return res.status(500).json({ error: "Cloudinary credentials not configured on server" });
-    }
-
-    const { file, folder = "cpl_uploads/photos" } = req.body;
-    if (!file) return res.status(400).json({ error: "No file data provided" });
-
-    const timestamp = Math.round(Date.now() / 1000).toString();
-    const signatureStr = `folder=${folder}&timestamp=${timestamp}${apiSecret}`;
-    const signature = crypto.createHash("sha1").update(signatureStr).digest("hex");
-
-    const formData = new URLSearchParams();
-    formData.append("file", file);
-    formData.append("folder", folder);
-    formData.append("timestamp", timestamp);
-    formData.append("api_key", apiKey);
-    formData.append("signature", signature);
-
-    const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-      method: "POST",
-      body: formData,
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
-
-    if (!uploadRes.ok) {
-      const errData = await uploadRes.json().catch(() => ({}));
-      return res.status(uploadRes.status).json({ error: (errData as any)?.error?.message || "Cloudinary upload failed" });
-    }
-
-    const data: any = await uploadRes.json();
-    res.json({ secure_url: data.secure_url || data.url });
-  } catch (err: any) {
-    console.error("[CPL upload-image] Error:", err.message);
-    res.status(500).json({ error: "Upload failed" });
-  }
-});
-
-app.get("/api/cricket-league/status", (req, res) => {
-  const exists = fs.existsSync(cplDirectory);
-  res.json({
-    connected: exists,
-    path: cplDirectory,
-    appUrl: "/cricket-league-app/",
-    message: exists ? "Cricket Premier League connected successfully" : "Project folder not found at C:\\scratch\\cricket-premier-league"
-  });
-});
 
 // Request logger for debugging Vercel/Production issues
 app.use((req, res, next) => {
