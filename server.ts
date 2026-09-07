@@ -583,6 +583,32 @@ class PostgresQueryDocumentSnapshot {
   data() { return this._data; }
 }
 
+const HEAVY_COLUMNS: Record<string, string[]> = {
+  questions: ["solution", "explanation", "equation_latex"],
+  results: ["user_answers", "question_times"],
+  typing_tests: ["paragraph"],
+  study_notes: ["sections"],
+};
+
+const queryCache = new Map<string, { data: any; expiry: number }>();
+const CACHE_TTL_MS = 60_000; // 1 minute
+
+function getCached(key: string) {
+  const entry = queryCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiry) { queryCache.delete(key); return null; }
+  return entry.data;
+}
+
+function setCache(key: string, data: any, ttl = CACHE_TTL_MS) {
+  queryCache.set(key, { data, expiry: Date.now() + ttl });
+  // Evict old entries periodically
+  if (queryCache.size > 200) {
+    const now = Date.now();
+    for (const [k, v] of queryCache) { if (now > v.expiry) queryCache.delete(k); }
+  }
+}
+
 class PostgresQuerySnapshot {
   public docs: PostgresQueryDocumentSnapshot[] = [];
   constructor(docsData: { id: string; data: any }[]) {
@@ -600,8 +626,19 @@ class PostgresQuery {
   private orderField?: string;
   private orderDir?: "asc" | "desc";
   private limitCount?: number;
+  private selectedColumns?: string[];
 
   constructor(public collectionName: string) {}
+
+  select(...fields: string[]) {
+    const table = collectionTableMap[this.collectionName];
+    if (table && fields.length > 0) {
+      const cols = fields.map(f => mapFieldName(table, f)).filter(Boolean) as string[];
+      if (!cols.includes("id")) cols.unshift("id");
+      this.selectedColumns = cols;
+    }
+    return this;
+  }
 
   where(field: string, op: string, val: any) {
     this.clauses.push({ field, op, val });
@@ -626,7 +663,18 @@ class PostgresQuery {
       return new PostgresQuerySnapshot([]);
     }
 
-    let sql = `SELECT * FROM ${table}`;
+    let colExpr: string;
+    if (this.selectedColumns) {
+      colExpr = this.selectedColumns.join(", ");
+    } else if (HEAVY_COLUMNS[table]) {
+      const colMap = tableColumnMap[table] || {};
+      const allCols = ["id", ...Object.values(colMap)] as string[];
+      const exclude = new Set(HEAVY_COLUMNS[table]);
+      colExpr = allCols.filter(c => !exclude.has(c)).join(", ") || "*";
+    } else {
+      colExpr = "*";
+    }
+    let sql = `SELECT ${colExpr} FROM ${table}`;
     const params: any[] = [];
     const whereClauses: string[] = [];
 
@@ -664,9 +712,12 @@ class PostgresQuery {
       }
     }
 
-    if (this.limitCount !== undefined) {
-      sql += ` LIMIT ${this.limitCount}`;
-    }
+    const DEFAULT_QUERY_LIMIT = 500;
+    sql += ` LIMIT ${this.limitCount ?? DEFAULT_QUERY_LIMIT}`;
+
+    const cacheKey = sql + JSON.stringify(params);
+    const cached = getCached(cacheKey);
+    if (cached) return cached;
 
     if (!pgPool) initPostgres();
     const res = await pgPool!.query(sql, params);
@@ -674,7 +725,9 @@ class PostgresQuery {
       id: row.id,
       data: mapRowToJs(table, row)
     }));
-    return new PostgresQuerySnapshot(docs);
+    const snapshot = new PostgresQuerySnapshot(docs);
+    setCache(cacheKey, snapshot);
+    return snapshot;
   }
 }
 
